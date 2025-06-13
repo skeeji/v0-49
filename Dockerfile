@@ -9,7 +9,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json ./
 # Utiliser npm install au lieu de npm ci car package-lock.json n'existe pas
-RUN npm install --frozen-lockfile || npm install
+RUN npm install --frozen-lockfile --legacy-peer-deps || npm install --legacy-peer-deps
 
 # Builder l'application
 FROM base AS builder
