@@ -26,3 +26,24 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }
+
+export async function PUT(request: NextRequest, { params }: { params: { name: string } }) {
+  try {
+    const db = await getDatabase()
+    const decodedName = decodeURIComponent(params.name)
+    const data = await request.json()
+
+    const result = await db
+      .collection("designers")
+      .findOneAndUpdate(
+        { nom: decodedName },
+        { $set: { ...data, updatedAt: new Date() } },
+        { upsert: true, returnDocument: "after" },
+      )
+
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du designer:", error)
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+  }
+}

@@ -8,7 +8,6 @@ function getEnvVar(key: string, fallback?: string): string {
   }
 
   if (fallback !== undefined) {
-    console.warn(`⚠️ Using fallback for ${key}: ${fallback}`)
     return fallback
   }
 
@@ -18,7 +17,6 @@ function getEnvVar(key: string, fallback?: string): string {
     return ""
   }
 
-  console.warn(`⚠️ Environment variable ${key} not found`)
   return ""
 }
 
@@ -56,11 +54,17 @@ export const env = {
   ME_CONFIG_BASICAUTH_PASSWORD: getEnvVar("ME_CONFIG_BASICAUTH_PASSWORD", "admin123"),
 } as const
 
-// Validation au démarrage
+// Validation simple au démarrage (côté serveur uniquement)
 if (typeof window === "undefined") {
   console.log("🔧 Environment configuration:")
   console.log("- NODE_ENV:", env.NODE_ENV)
   console.log("- MongoDB URI:", env.MONGODB_URI ? "✅ Configured" : "❌ Missing")
   console.log("- Firebase API Key:", env.NEXT_PUBLIC_FIREBASE_API_KEY ? "✅ Configured" : "❌ Missing")
   console.log("- Firebase Project:", env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "❌ Missing")
+}
+
+// Export simple pour compatibilité
+export const isConfigured = {
+  mongodb: !!env.MONGODB_URI,
+  firebase: !!env.NEXT_PUBLIC_FIREBASE_API_KEY && !!env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
 }
