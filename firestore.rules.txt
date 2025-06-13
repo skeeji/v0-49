@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Fonction pour vérifier si l'utilisateur est connecté
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Fonction pour vérifier si l'utilisateur est admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Fonction pour vérifier si l'utilisateur est premium
+    function isPremium() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'premium' || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Fonction pour vérifier si l'utilisateur est le propriétaire du document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Règles pour la collection users
+    match /users/{userId} {
+      // Les utilisateurs peuvent lire leur propre document
+      // Les admins peuvent lire tous les documents
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Les utilisateurs peuvent créer leur propre document lors de l'inscription
+      allow create: if isOwner(userId) && 
+                     request.resource.data.role == 'free' && 
+                     request.resource.data.keys().hasOnly(['email', 'role', 'searchCount', 'lastSearchDate']);
+      
+      // Les utilisateurs peuvent mettre à jour leur propre document, mais pas changer leur rôle
+      // Les admins peuvent tout modifier
+      allow update: if (isOwner(userId) && 
+                      request.resource.data.role == resource.data.role) || 
+                     isAdmin();
+      
+      // Seuls les admins peuvent supprimer des utilisateurs
+      allow delete: if isAdmin();
+    }
+    
+    // Règles pour la collection luminaires (si vous décidez de stocker les luminaires dans Firestore)
+    match /luminaires/{luminaireId} {
+      // Tout le monde peut lire les luminaires
+      allow read: if true;
+      
+      // Seuls les admins peuvent créer, modifier ou supprimer des luminaires
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Règles pour la collection designers (si vous décidez de stocker les designers dans Firestore)
+    match /designers/{designerId} {
+      // Tout le monde peut lire les designers
+      allow read: if true;
+      
+      // Seuls les admins peuvent créer, modifier ou supprimer des designers
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Règles pour d'autres collections potentielles
+    match /{document=**} {
+      // Par défaut, refuser l'accès à toutes les autres collections
+      allow read, write: if false;
+    }
+  }
+}
