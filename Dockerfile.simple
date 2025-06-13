@@ -1,29 +1,31 @@
-# Version simplifiée pour tests rapides
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copier package.json
+# Copy package files
 COPY package.json ./
 
-# Installer les dépendances
+# Install dependencies
 RUN npm install
 
-# Copier le code source
+# Copy source code
 COPY . .
 
-# Créer les dossiers nécessaires
-RUN mkdir -p uploads/images uploads/videos uploads/csv
+# Create uploads directory
+RUN mkdir -p uploads
 
-# Build de l'application
+# Build the application
 RUN npm run build
 
-# Exposer le port
+# Expose port
 EXPOSE 3000
 
-# Variables d'environnement
+# Set environment variables
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV MONGODB_URI="mongodb://admin:admin123@mongodb:27017/luminaires?authSource=admin"
+ENV NEXTAUTH_URL="http://localhost:3000"
+ENV NEXTAUTH_SECRET="dev-secret-change-in-production"
 
-# Démarrer l'application
+# Start the application
 CMD ["npm", "start"]

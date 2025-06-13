@@ -1,11 +1,5 @@
 import { MongoClient, type Db } from "mongodb"
-import { env, validateEnv, logEnvStatus } from "./env"
-
-// Validation et log au démarrage
-validateEnv()
-if (env.NODE_ENV === "development") {
-  logEnvStatus()
-}
+import { env } from "./env"
 
 let client: MongoClient
 let db: Db

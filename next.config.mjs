@@ -2,7 +2,11 @@
 const nextConfig = {
   output: 'standalone',
   experimental: {
-    outputFileTracingRoot: undefined,
+    outputFileTracingRoot: process.cwd(),
+  },
+  images: {
+    domains: ['localhost'],
+    unoptimized: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -10,17 +14,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    domains: ['localhost'],
-    unoptimized: true
-  },
-  // Configuration pour les uploads
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-    };
-    return config;
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
 }
 
