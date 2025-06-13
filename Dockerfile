@@ -7,8 +7,9 @@ WORKDIR /app
 
 # Installer les dépendances
 FROM base AS deps
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY package.json ./
+# Utiliser npm install au lieu de npm ci car package-lock.json n'existe pas
+RUN npm install --frozen-lockfile || npm install
 
 # Builder l'application
 FROM base AS builder
@@ -33,12 +34,6 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copier les fichiers nécessaires
 COPY --from=builder /app/public ./public
-
-# Copier les fichiers standalone si ils existent, sinon copier .next
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Si standalone n'existe pas, copier tous les fichiers nécessaires
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
