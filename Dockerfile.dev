@@ -1,0 +1,22 @@
+# Dockerfile pour le développement
+FROM node:18-alpine
+
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Copier les fichiers de dépendances
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copier le code source
+COPY . .
+
+# Créer le dossier uploads
+RUN mkdir -p ./uploads
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+CMD ["npm", "run", "dev"]

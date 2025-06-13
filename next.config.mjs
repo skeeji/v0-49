@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
+  experimental: {
+    outputFileTracingRoot: undefined,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -7,7 +11,16 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    domains: ['localhost'],
+    unoptimized: true
+  },
+  // Configuration pour les uploads
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+    };
+    return config;
   },
 }
 

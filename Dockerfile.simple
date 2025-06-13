@@ -1,0 +1,27 @@
+# Version simplifiée du Dockerfile pour développement rapide
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copier les fichiers de dépendances
+COPY package*.json ./
+
+# Installer les dépendances
+RUN npm install
+
+# Copier le code source
+COPY . .
+
+# Créer les dossiers d'upload
+RUN mkdir -p uploads/images uploads/videos uploads/csv
+
+# Exposer le port
+EXPOSE 3000
+
+# Variables d'environnement
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Builder et démarrer l'application
+RUN npm run build
+CMD ["npm", "start"]
