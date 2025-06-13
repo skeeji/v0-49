@@ -19,13 +19,14 @@ import { Lightbox } from "@/components/Lightbox"
 import { Grid, List } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
+import { showToast } from "@/utils/toast" // Import showToast function
 
 export default function LuminairesPage() {
-  const [allLuminaires, setAllLuminaires] = useState([]) // Tous les luminaires
-  const [filteredLuminaires, setFilteredLuminaires] = useState([]) // Après filtrage
-  const [displayedLuminaires, setDisplayedLuminaires] = useState([]) // Affichés avec pagination
+  const [allLuminaires, setAllLuminaires] = useState([])
+  const [filteredLuminaires, setFilteredLuminaires] = useState([])
+  const [displayedLuminaires, setDisplayedLuminaires] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [sortBy, setSortBy] = useState("name-asc")
+  const [sortBy, setSortBy] = useState("nom-asc")
   const [yearRange, setYearRange] = useState([1900, 2025])
   const [minYear, setMinYear] = useState(1900)
   const [maxYear, setMaxYear] = useState(2025)
@@ -41,53 +42,128 @@ export default function LuminairesPage() {
   const [filtersActive, setFiltersActive] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const searchParams = useSearchParams()
-  const itemsPerPage = 50 // Augmenté pour charger plus d'éléments
+  const itemsPerPage = 50
   const [favorites, setFavorites] = useState<string[]>([])
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const { user, userData } = useAuth()
 
-  // Charger TOUS les luminaires depuis localStorage
+  // Charger les luminaires depuis l'API MongoDB
+  const loadLuminaires = useCallback(
+    async (resetPage = false) => {
+      setIsLoading(true)
+      try {
+        const params = new URLSearchParams()
+
+        if (searchTerm) params.append("search", searchTerm)
+        if (selectedDesigner && selectedDesigner !== "all") params.append("designer", selectedDesigner)
+        if (yearRange[0] !== minYear) params.append("anneeMin", yearRange[0].toString())
+        if (yearRange[1] !== maxYear) params.append("anneeMax", yearRange[1].toString())
+        if (showFavorites) params.append("isFavorite", "true")
+
+        // Tri
+        const [field, direction] = sortBy.split("-")
+        params.append("sortField", field === "name" ? "nom" : field === "year" ? "annee" : field)
+        params.append("sortDirection", direction)
+
+        // Pagination
+        const currentPage = resetPage ? 1 : page
+        params.append("page", currentPage.toString())
+        params.append("limit", itemsPerPage.toString())
+
+        const response = await fetch(`/api/luminaires?${params.toString()}`)
+
+        if (response.ok) {
+          const data = await response.json()
+
+          // Adapter les données pour l'interface existante
+          const adaptedLuminaires = data.luminaires.map((l: any) => ({
+            id: l._id,
+            name: l.nom,
+            artist: l.designer,
+            year: l.annee?.toString() || "",
+            specialty: l.specialite || "",
+            collaboration: l.collaboration || "",
+            signed: l.signe || "",
+            image: l.images?.[0] || "",
+            filename: l.filename || "",
+            dimensions: l.dimensions || "",
+            estimation: l.estimation || "",
+            materials: Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux || "",
+            description: l.description || "",
+          }))
+
+          if (resetPage || currentPage === 1) {
+            setAllLuminaires(adaptedLuminaires)
+            setFilteredLuminaires(adaptedLuminaires)
+            setDisplayedLuminaires(adaptedLuminaires)
+          } else {
+            setDisplayedLuminaires((prev) => [...prev, ...adaptedLuminaires])
+          }
+
+          setHasMore(data.pagination.page < data.pagination.pages)
+
+          // Extraire les designers uniques
+          const uniqueDesigners = [...new Set(adaptedLuminaires.map((item: any) => item.artist))].filter(Boolean)
+          setDesigners(uniqueDesigners)
+
+          // Déterminer la plage d'années
+          const years = adaptedLuminaires
+            .map((item: any) => Number.parseInt(item.year))
+            .filter((year) => !isNaN(year) && year > 0)
+          if (years.length > 0) {
+            const min = Math.max(1000, Math.min(...years))
+            const max = Math.min(2025, Math.max(...years))
+            setMinYear(min)
+            setMaxYear(max)
+            if (resetPage) {
+              setYearRange([min, max])
+            }
+          }
+
+          console.log(`📊 ${adaptedLuminaires.length} luminaires chargés depuis MongoDB`)
+        } else {
+          console.error("Erreur lors du chargement des luminaires:", await response.text())
+          // Fallback vers localStorage si l'API échoue
+          const storedLuminaires = localStorage.getItem("luminaires")
+          if (storedLuminaires) {
+            const data = JSON.parse(storedLuminaires)
+            setAllLuminaires(data)
+            setFilteredLuminaires(data)
+            setDisplayedLuminaires(data.slice(0, itemsPerPage))
+            console.log("📊 Fallback vers localStorage")
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des luminaires:", error)
+        // Fallback vers localStorage en cas d'erreur
+        const storedLuminaires = localStorage.getItem("luminaires")
+        if (storedLuminaires) {
+          const data = JSON.parse(storedLuminaires)
+          setAllLuminaires(data)
+          setFilteredLuminaires(data)
+          setDisplayedLuminaires(data.slice(0, itemsPerPage))
+          console.log("📊 Fallback vers localStorage après erreur")
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy, page, itemsPerPage, minYear, maxYear],
+  )
+
+  // Charger les données au montage et quand les filtres changent
   useEffect(() => {
-    const storedLuminaires = localStorage.getItem("luminaires")
-    if (storedLuminaires) {
-      const data = JSON.parse(storedLuminaires)
-      console.log(`📊 ${data.length} luminaires chargés depuis localStorage`)
-      setAllLuminaires(data)
+    loadLuminaires(true)
+    setPage(1)
+  }, [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy])
 
-      // Par défaut, afficher tous les luminaires sans filtres
-      setFilteredLuminaires(data)
-
-      // Pour les utilisateurs "free", limiter à 10% des résultats
-      if (userData?.role === "free") {
-        const limitedData = data.slice(0, Math.max(Math.floor(data.length * 0.1), 10))
-        setDisplayedLuminaires(limitedData)
-        setHasMore(false)
-      } else {
-        setDisplayedLuminaires(data.slice(0, itemsPerPage))
-        setHasMore(data.length > itemsPerPage)
-      }
-
-      // Extraire les designers
-      const uniqueDesigners = [...new Set(data.map((item: any) => item.artist))].filter(Boolean)
-      setDesigners(uniqueDesigners)
-
-      // Déterminer la plage d'années disponible
-      const years = data.map((item: any) => Number.parseInt(item.year)).filter((year) => !isNaN(year) && year > 0)
-      if (years.length > 0) {
-        const min = Math.max(1000, Math.min(...years))
-        const max = Math.min(2025, Math.max(...years))
-        setMinYear(min)
-        setMaxYear(max)
-        setYearRange([min, max])
-      }
-    }
-
-    // Charger les favoris depuis localStorage
+  // Charger les favoris depuis localStorage
+  useEffect(() => {
     const storedFavorites = localStorage.getItem("favorites")
     if (storedFavorites) {
       setFavorites(JSON.parse(storedFavorites))
     }
-  }, [userData])
+  }, [])
 
   // Gérer le highlight depuis les paramètres d'URL
   useEffect(() => {
@@ -96,13 +172,11 @@ export default function LuminairesPage() {
 
     if (highlight) {
       setHighlightedId(highlight)
-
       setTimeout(() => {
         const element = document.getElementById(`luminaire-${highlight}`)
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" })
           element.classList.add("ring-4", "ring-orange", "ring-opacity-50")
-
           setTimeout(() => {
             element.classList.remove("ring-4", "ring-orange", "ring-opacity-50")
             setHighlightedId(null)
@@ -117,11 +191,8 @@ export default function LuminairesPage() {
     }
   }, [searchParams])
 
-  // Filtrer les luminaires quand les critères changent
+  // Vérifier si des filtres sont actifs
   useEffect(() => {
-    if (allLuminaires.length === 0) return
-
-    // Vérifier si des filtres sont actifs
     const isFilterActive =
       searchTerm !== "" ||
       selectedDesigner !== "" ||
@@ -130,115 +201,19 @@ export default function LuminairesPage() {
       yearRange[1] !== maxYear
 
     setFiltersActive(isFilterActive)
-
-    // Si aucun filtre n'est actif, afficher tous les luminaires
-    if (!isFilterActive) {
-      console.log("🔍 Aucun filtre actif, affichage de tous les luminaires")
-      setFilteredLuminaires(allLuminaires)
-      setPage(1)
-
-      // Pour les utilisateurs "free", limiter à 10% des résultats
-      if (userData?.role === "free") {
-        const limitedData = allLuminaires.slice(0, Math.max(Math.floor(allLuminaires.length * 0.1), 10))
-        setDisplayedLuminaires(limitedData)
-        setHasMore(false)
-      } else {
-        setHasMore(allLuminaires.length > itemsPerPage)
-        setDisplayedLuminaires(allLuminaires.slice(0, itemsPerPage))
-      }
-      return
-    }
-
-    console.log(`🔍 Filtrage de ${allLuminaires.length} luminaires...`)
-    let filtered = [...allLuminaires]
-
-    // Recherche textuelle
-    if (searchTerm) {
-      filtered = filtered.filter((item) =>
-        Object.values(item).some((value) => String(value).toLowerCase().includes(searchTerm.toLowerCase())),
-      )
-    }
-
-    // Filtre par année
-    filtered = filtered.filter((item) => {
-      const year = Number.parseInt(item.year) || 0
-      return year >= yearRange[0] && year <= yearRange[1]
-    })
-
-    // Filtre par designer
-    if (selectedDesigner && selectedDesigner !== "all") {
-      filtered = filtered.filter((item) => item.artist === selectedDesigner)
-    }
-
-    // Filtre favoris
-    if (showFavorites) {
-      const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
-      filtered = filtered.filter((item) => favorites.includes(item.id))
-    }
-
-    // Tri
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "name-asc":
-          return a.name.localeCompare(b.name)
-        case "name-desc":
-          return b.name.localeCompare(a.name)
-        case "year-desc":
-          return (Number.parseInt(b.year) || 0) - (Number.parseInt(a.year) || 0)
-        case "year-asc":
-          return (Number.parseInt(a.year) || 0) - (Number.parseInt(b.year) || 0)
-        default:
-          return 0
-      }
-    })
-
-    console.log(`✅ ${filtered.length} luminaires après filtrage`)
-    setFilteredLuminaires(filtered)
-    setPage(1)
-
-    // Pour les utilisateurs "free", limiter à 10% des résultats
-    if (userData?.role === "free") {
-      const limitedData = filtered.slice(0, Math.max(Math.floor(filtered.length * 0.1), 10))
-      setDisplayedLuminaires(limitedData)
-      setHasMore(false)
-    } else {
-      setHasMore(filtered.length > itemsPerPage)
-      const firstPage = filtered.slice(0, itemsPerPage)
-      setDisplayedLuminaires(firstPage)
-      console.log(`📄 ${firstPage.length} luminaires affichés (page 1)`)
-    }
-  }, [allLuminaires, searchTerm, sortBy, yearRange, selectedDesigner, showFavorites, minYear, maxYear, userData])
+  }, [searchTerm, selectedDesigner, showFavorites, yearRange, minYear, maxYear])
 
   // Fonction de chargement de plus d'éléments
   const loadMore = useCallback(() => {
-    // Les utilisateurs "free" ne peuvent pas charger plus d'éléments
     if (userData?.role === "free") return
-
     if (isLoading || !hasMore) return
 
-    setIsLoading(true)
-    const nextPage = page + 1
-    const startIndex = page * itemsPerPage
-    const endIndex = nextPage * itemsPerPage
-    const newItems = filteredLuminaires.slice(startIndex, endIndex)
-
-    console.log(`📄 Chargement page ${nextPage}: ${newItems.length} nouveaux éléments`)
-
-    setTimeout(() => {
-      setDisplayedLuminaires((prev) => {
-        const updated = [...prev, ...newItems]
-        console.log(`📊 Total affiché: ${updated.length}/${filteredLuminaires.length}`)
-        return updated
-      })
-      setPage(nextPage)
-      setHasMore(endIndex < filteredLuminaires.length)
-      setIsLoading(false)
-    }, 300)
-  }, [page, filteredLuminaires, isLoading, hasMore, itemsPerPage, userData])
+    setPage((prev) => prev + 1)
+    loadLuminaires(false)
+  }, [isLoading, hasMore, userData, loadLuminaires])
 
   // Scroll infini
   useEffect(() => {
-    // Les utilisateurs "free" ne peuvent pas utiliser le scroll infini
     if (userData?.role === "free") return
 
     const handleScroll = () => {
@@ -251,31 +226,77 @@ export default function LuminairesPage() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [loadMore, userData])
 
-  const addLuminaire = (newLuminaire: any) => {
-    // Seuls les admins peuvent ajouter des luminaires
+  const addLuminaire = async (newLuminaire: any) => {
     if (userData?.role !== "admin") {
       setShowLoginModal(true)
       return
     }
 
-    const luminaireWithId = {
-      ...newLuminaire,
-      id: `manual_${Date.now()}`,
-    }
+    try {
+      const response = await fetch("/api/luminaires", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: newLuminaire.name,
+          designer: newLuminaire.artist,
+          annee: Number.parseInt(newLuminaire.year) || new Date().getFullYear(),
+          specialite: newLuminaire.specialty,
+          collaboration: newLuminaire.collaboration,
+          signe: newLuminaire.signed,
+          dimensions: newLuminaire.dimensions,
+          estimation: newLuminaire.estimation,
+          materiaux: newLuminaire.materials ? newLuminaire.materials.split(",").map((m: string) => m.trim()) : [],
+          description: newLuminaire.description || "",
+          periode: newLuminaire.specialty || "",
+          couleurs: [],
+          images: [],
+        }),
+      })
 
-    const updated = [...allLuminaires, luminaireWithId]
-    setAllLuminaires(updated)
-    localStorage.setItem("luminaires", JSON.stringify(updated))
-    setShowAddModal(false)
+      if (response.ok) {
+        loadLuminaires(true) // Recharger les données
+        setShowAddModal(false)
+        showToast("Luminaire ajouté avec succès", "success")
+      } else {
+        throw new Error("Erreur lors de l'ajout du luminaire")
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'ajout du luminaire:", error)
+      showToast("Erreur lors de l'ajout du luminaire", "error")
+    }
   }
 
-  const handleItemUpdate = (id: string, updates: any) => {
-    // Seuls les admins peuvent modifier des luminaires
+  const handleItemUpdate = async (id: string, updates: any) => {
     if (userData?.role !== "admin") return
 
-    const updated = allLuminaires.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    setAllLuminaires(updated)
-    localStorage.setItem("luminaires", JSON.stringify(updated))
+    try {
+      const response = await fetch(`/api/luminaires/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: updates.name,
+          designer: updates.artist,
+          annee: Number.parseInt(updates.year) || new Date().getFullYear(),
+          specialite: updates.specialty,
+          collaboration: updates.collaboration,
+          signe: updates.signed,
+          dimensions: updates.dimensions,
+          estimation: updates.estimation,
+          materiaux: updates.materials ? updates.materials.split(",").map((m: string) => m.trim()) : [],
+          description: updates.description || "",
+        }),
+      })
+
+      if (response.ok) {
+        loadLuminaires(true) // Recharger les données
+        showToast("Luminaire mis à jour avec succès", "success")
+      } else {
+        throw new Error("Erreur lors de la mise à jour du luminaire")
+      }
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du luminaire:", error)
+      showToast("Erreur lors de la mise à jour du luminaire", "error")
+    }
   }
 
   const resetFilters = () => {
@@ -283,7 +304,7 @@ export default function LuminairesPage() {
     setYearRange([minYear, maxYear])
     setSelectedDesigner("")
     setShowFavorites(false)
-    setSortBy("name-asc")
+    setSortBy("nom-asc")
   }
 
   const toggleFavorite = (id: string) => {
@@ -306,7 +327,6 @@ export default function LuminairesPage() {
           <h1 className="text-4xl font-playfair text-dark mb-4 lg:mb-0">Luminaires ({filteredLuminaires.length})</h1>
 
           <div className="flex items-center gap-4">
-            {/* Seuls les admins peuvent ajouter des luminaires */}
             {userData?.role === "admin" && (
               <Button onClick={() => setShowAddModal(true)} className="bg-orange hover:bg-orange/90">
                 <Plus className="w-4 h-4 mr-2" />
@@ -314,7 +334,6 @@ export default function LuminairesPage() {
               </Button>
             )}
 
-            {/* Seuls les admins peuvent exporter des données */}
             {userData?.role === "admin" && <CSVExportButton data={allLuminaires} />}
 
             <FavoriteToggleButton isActive={showFavorites} onClick={() => setShowFavorites(!showFavorites)} />
@@ -355,10 +374,10 @@ export default function LuminairesPage() {
               value={sortBy}
               onChange={setSortBy}
               options={[
-                { value: "name-asc", label: "A → Z" },
-                { value: "name-desc", label: "Z → A" },
-                { value: "year-desc", label: "Année ↓" },
-                { value: "year-asc", label: "Année ↑" },
+                { value: "nom-asc", label: "A → Z" },
+                { value: "nom-desc", label: "Z → A" },
+                { value: "annee-desc", label: "Année ↓" },
+                { value: "annee-asc", label: "Année ↑" },
               ]}
             />
 
@@ -391,14 +410,8 @@ export default function LuminairesPage() {
 
           {filtersActive && (
             <div className="mt-4 p-2 bg-orange/10 rounded-lg text-sm text-orange">
-              ⚠️ Filtres actifs - {filteredLuminaires.length} luminaires sur {allLuminaires.length} affichés
-              {userData?.role === "free" && (
-                <span className="ml-2">
-                  (limité à{" "}
-                  {Math.min(displayedLuminaires.length, Math.max(Math.floor(filteredLuminaires.length * 0.1), 10))}{" "}
-                  résultats)
-                </span>
-              )}
+              ⚠️ Filtres actifs - {filteredLuminaires.length} luminaires affichés
+              {userData?.role === "free" && <span className="ml-2">(limité à 10% des résultats)</span>}
             </div>
           )}
         </div>
@@ -485,7 +498,7 @@ export default function LuminairesPage() {
         )}
 
         {/* Message aucun résultat */}
-        {filteredLuminaires.length === 0 && allLuminaires.length > 0 && (
+        {filteredLuminaires.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">Aucun luminaire trouvé</p>
             <p className="text-gray-400 text-sm mt-2">Essayez de modifier vos critères de recherche</p>
