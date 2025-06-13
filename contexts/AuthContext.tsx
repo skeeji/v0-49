@@ -9,12 +9,9 @@ import {
   browserLocalPersistence,
   setPersistence,
 } from "firebase/auth"
-import { doc, getDoc, setDoc } from "firebase/firestore"
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
 import { auth, db, googleProvider, type UserData } from "@/lib/firebase"
 import { useToast } from "@/hooks/useToast"
-
-// Mode développement désactivé
-const DEV_MODE = false
 
 interface AuthContextType {
   user: User | null
@@ -36,10 +33,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast()
 
   useEffect(() => {
-    // Configurer la persistance locale pour éviter les déconnexions fréquentes
-    setPersistence(auth, browserLocalPersistence).catch(console.error)
+    // Vérifier que Firebase est initialisé
+    if (!auth || !db) {
+      console.error("❌ Firebase not initialized")
+      setIsLoading(false)
+      return
+    }
+
+    // Configurer la persistance locale
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.warn("⚠️ Could not set auth persistence:", error)
+    })
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log("🔄 Auth state changed:", currentUser?.email || "No user")
       setUser(currentUser)
 
       if (currentUser) {
@@ -50,8 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userDoc.exists()) {
             const userData = userDoc.data() as UserData
             setUserData(userData)
+            console.log("👤 User data loaded:", userData.email, userData.role)
 
-            // Check search limits for free users
+            // Vérifier les limites de recherche pour les utilisateurs gratuits
             if (userData.role === "free") {
               const today = new Date().toISOString().split("T")[0]
               if (userData.lastSearchDate === today && (userData.searchCount || 0) >= 3) {
@@ -59,23 +67,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               } else {
                 setCanSearch(true)
               }
+            } else {
+              setCanSearch(true)
             }
           } else {
-            // Create new user document if it doesn't exist
+            // Créer un nouveau document utilisateur
             const newUserData: UserData = {
               email: currentUser.email || "",
               role: "free",
+              searchCount: 0,
+              createdAt: new Date(),
+              updatedAt: new Date(),
             }
-            await setDoc(userDocRef, newUserData)
+
+            await setDoc(userDocRef, {
+              ...newUserData,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            })
+
             setUserData(newUserData)
             setCanSearch(true)
+            console.log("✅ New user created:", newUserData.email)
           }
         } catch (error) {
-          console.error("Error fetching user data:", error)
-          showToast("Erreur lors de la récupération des données utilisateur", "error")
+          console.error("❌ Error fetching user data:", error)
+
+          // Gestion spécifique des erreurs Firebase
+          if (error.code === "unavailable") {
+            showToast("Service temporairement indisponible. Veuillez réessayer.", "error")
+          } else if (error.code === "permission-denied") {
+            showToast("Permissions insuffisantes. Contactez l'administrateur.", "error")
+          } else {
+            showToast("Erreur lors de la récupération des données utilisateur", "error")
+          }
+
+          // Permettre l'utilisation basique même en cas d'erreur
+          setUserData({
+            email: currentUser.email || "",
+            role: "free",
+            searchCount: 0,
+          })
+          setCanSearch(true)
         }
       } else {
         setUserData(null)
+        setCanSearch(true)
       }
 
       setIsLoading(false)
@@ -85,21 +122,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [showToast])
 
   const signInWithGoogle = async () => {
+    if (!auth || !googleProvider) {
+      showToast("Service d'authentification non disponible", "error")
+      return
+    }
+
     try {
       setIsLoading(true)
-      await signInWithPopup(auth, googleProvider)
+      console.log("🔄 Starting Google sign in...")
+
+      const result = await signInWithPopup(auth, googleProvider)
+      console.log("✅ Google sign in successful:", result.user.email)
+
       showToast("Connexion réussie", "success")
     } catch (error) {
-      console.error("Error signing in with Google:", error)
+      console.error("❌ Error signing in with Google:", error)
 
-      // Message d'erreur plus explicite
+      // Gestion détaillée des erreurs
       if (error.code === "auth/unauthorized-domain") {
-        showToast(
-          "Erreur: Ce domaine n'est pas autorisé dans Firebase. Veuillez configurer votre projet Firebase.",
-          "error",
-        )
+        showToast("Domaine non autorisé. Veuillez configurer Firebase Console.", "error")
+      } else if (error.code === "auth/popup-blocked") {
+        showToast("Popup bloquée. Autorisez les popups pour ce site.", "error")
+      } else if (error.code === "auth/popup-closed-by-user") {
+        showToast("Connexion annulée", "info")
+      } else if (error.code === "auth/network-request-failed") {
+        showToast("Erreur réseau. Vérifiez votre connexion.", "error")
       } else {
-        showToast("Erreur lors de la connexion", "error")
+        showToast("Erreur lors de la connexion. Veuillez réessayer.", "error")
       }
     } finally {
       setIsLoading(false)
@@ -107,44 +156,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
+    if (!auth) {
+      showToast("Service d'authentification non disponible", "error")
+      return
+    }
+
     try {
       await signOut(auth)
       showToast("Déconnexion réussie", "success")
+      console.log("✅ User signed out")
     } catch (error) {
-      console.error("Error signing out:", error)
+      console.error("❌ Error signing out:", error)
       showToast("Erreur lors de la déconnexion", "error")
     }
   }
 
   const incrementSearchCount = async (): Promise<boolean> => {
-    if (!user || !userData) return false
+    if (!user || !userData || !db) return false
 
-    // Admin and premium users don't have search limits
+    // Les utilisateurs admin et premium n'ont pas de limites
     if (userData.role !== "free") return true
 
     try {
       const today = new Date().toISOString().split("T")[0]
       const userDocRef = doc(db, "users", user.uid)
 
-      // Check if user has reached daily limit
+      // Vérifier si l'utilisateur a atteint la limite quotidienne
       if (userData.lastSearchDate === today && (userData.searchCount || 0) >= 3) {
         showToast("Limite de recherches quotidiennes atteinte (3/3)", "error")
         setCanSearch(false)
         return false
       }
 
-      // Update search count
+      // Mettre à jour le compteur de recherches
       const newCount = userData.lastSearchDate === today ? (userData.searchCount || 0) + 1 : 1
       const updatedUserData = {
         ...userData,
         searchCount: newCount,
         lastSearchDate: today,
+        updatedAt: new Date(),
       }
 
-      await setDoc(userDocRef, updatedUserData, { merge: true })
+      await setDoc(
+        userDocRef,
+        {
+          ...updatedUserData,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      )
+
       setUserData(updatedUserData)
 
-      // Check if this was the last allowed search
+      // Vérifier si c'était la dernière recherche autorisée
       if (newCount >= 3) {
         setCanSearch(false)
         showToast(`Dernière recherche utilisée (3/3)`, "info")
@@ -154,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return true
     } catch (error) {
-      console.error("Error updating search count:", error)
+      console.error("❌ Error updating search count:", error)
       showToast("Erreur lors de la mise à jour du compteur de recherches", "error")
       return false
     }
