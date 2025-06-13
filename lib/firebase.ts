@@ -1,28 +1,33 @@
-import { initializeApp } from "firebase/app"
-import { getAuth, GoogleAuthProvider } from "firebase/auth"
+import { initializeApp, getApps } from "firebase/app"
+import { getAuth } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
+import { getStorage } from "firebase/storage"
+import { env } from "./env"
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAEWW_7emydImzVV6FstgzBAS50jMnHiMo",
-  authDomain: "gersaint-paris-livre.firebaseapp.com",
-  projectId: "gersaint-paris-livre",
-  storageBucket: "gersaint-paris-livre.appspot.com",
-  messagingSenderId: "244281919483",
-  appId: "1:244281919483:web:fa0d2d8af4e5a958e5ad5e",
-  measurementId: "G-PEBELFT8NY",
+  apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
-export const auth = getAuth(app)
-export const googleProvider = new GoogleAuthProvider()
-export const db = getFirestore(app)
+// Initialiser Firebase seulement si les clés sont présentes
+let app
+let auth
+let db
+let storage
 
-export type UserRole = "admin" | "premium" | "free"
-
-export interface UserData {
-  email: string
-  role: UserRole
-  searchCount?: number
-  lastSearchDate?: string
+if (env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+  auth = getAuth(app)
+  db = getFirestore(app)
+  storage = getStorage(app)
+  console.log("🔥 Firebase initialized")
+} else {
+  console.warn("⚠️ Firebase not configured - using fallback auth")
 }
+
+export { auth, db, storage }
+export default app

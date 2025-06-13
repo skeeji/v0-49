@@ -4,36 +4,45 @@ services:
   app:
     build: 
       context: .
-      dockerfile: Dockerfile.simple
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
+      # MongoDB
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/luminaires?authSource=admin
+      # Application
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongo:27017/luminaires
-      - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}
-      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
-      - NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+      - PORT=3000
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-change-in-production}
+      # Firebase (optionnel - peut être défini via variables d'environnement système)
+      - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY:-}
+      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
+      - NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
+      - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}
+      - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}
+      - NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID:-}
     volumes:
-      - uploads:/app/uploads
+      - ./uploads:/app/uploads
     depends_on:
-      - mongo
+      - mongodb
     networks:
-      - app-network
+      - luminaires-network
 
-  mongo:
+  mongodb:
     image: mongo:7.0
     restart: always
-    ports:
-      - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: admin123
       MONGO_INITDB_DATABASE: luminaires
+    ports:
+      - "27017:27017"
     volumes:
-      - mongo_data:/data/db
+      - mongodb_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
-      - app-network
+      - luminaires-network
 
   mongo-express:
     image: mongo-express:latest
@@ -43,18 +52,17 @@ services:
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
       ME_CONFIG_MONGODB_ADMINPASSWORD: admin123
-      ME_CONFIG_MONGODB_URL: mongodb://admin:admin123@mongo:27017/
+      ME_CONFIG_MONGODB_URL: mongodb://admin:admin123@mongodb:27017/
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: admin123
     depends_on:
-      - mongo
+      - mongodb
     networks:
-      - app-network
+      - luminaires-network
 
 volumes:
-  mongo_data:
-  uploads:
+  mongodb_data:
 
 networks:
-  app-network:
+  luminaires-network:
     driver: bridge

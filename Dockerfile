@@ -1,52 +1,67 @@
-# Dockerfile pour la production
 FROM node:18-alpine AS base
 
-# Installer les dépendances nécessaires
+# Install dependencies only when needed
+FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Installer les dépendances
-FROM base AS deps
-COPY package.json ./
-# Utiliser npm install au lieu de npm ci car package-lock.json n'existe pas
-RUN npm install --frozen-lockfile --legacy-peer-deps || npm install --legacy-peer-deps
+# Install dependencies based on the preferred package manager
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+RUN \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+  else echo "Lockfile not found." && npm install; \
+  fi
 
-# Builder l'application
+# Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Désactiver la télémétrie Next.js
-ENV NEXT_TELEMETRY_DISABLED 1
+# Create uploads directory
+RUN mkdir -p uploads
 
-RUN npm run build
+# Build the application
+RUN \
+  if [ -f yarn.lock ]; then yarn run build; \
+  elif [ -f package-lock.json ]; then npm run build; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run build; \
+  else npm run build; \
+  fi
 
-# Image de production
+# Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copier les fichiers nécessaires
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
 
-# Créer le dossier uploads
-RUN mkdir -p ./uploads/images ./uploads/videos ./uploads/csv
-RUN chown -R nextjs:nodejs ./uploads
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/uploads ./uploads
 
 USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-CMD ["npm", "start"]
+# Set default environment variables (can be overridden)
+ENV MONGODB_URI="mongodb://admin:admin123@mongodb:27017/luminaires?authSource=admin"
+ENV NEXTAUTH_URL="http://localhost:3000"
+ENV NEXTAUTH_SECRET="dev-secret-change-in-production"
+ENV NODE_ENV="production"
+
+CMD ["node", "server.js"]
