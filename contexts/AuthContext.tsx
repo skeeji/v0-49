@@ -10,7 +10,7 @@ import {
   setPersistence,
 } from "firebase/auth"
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
-import { auth, db, googleProvider, type UserData } from "@/lib/firebase"
+import { auth, db, googleProvider, isFirebaseConfigured, type UserData } from "@/lib/firebase"
 import { useToast } from "@/hooks/useToast"
 
 interface AuthContextType {
@@ -21,6 +21,7 @@ interface AuthContextType {
   logout: () => Promise<void>
   incrementSearchCount: () => Promise<boolean>
   canSearch: boolean
+  isFirebaseEnabled: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -33,10 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast()
 
   useEffect(() => {
-    // Vérifier que Firebase est initialisé
-    if (!auth || !db) {
-      console.error("❌ Firebase not initialized")
+    // Si Firebase n'est pas configuré, utiliser un mode dégradé
+    if (!isFirebaseConfigured || !auth || !db) {
+      console.warn("⚠️ Firebase not available - using offline mode")
       setIsLoading(false)
+      setCanSearch(true)
       return
     }
 
@@ -122,6 +124,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [showToast])
 
   const signInWithGoogle = async () => {
+    if (!isFirebaseConfigured) {
+      showToast("Authentification non configurée. Contactez l'administrateur.", "error")
+      return
+    }
+
     if (!auth || !googleProvider) {
       showToast("Service d'authentification non disponible", "error")
       return
@@ -156,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
-    if (!auth) {
+    if (!isFirebaseConfigured || !auth) {
       showToast("Service d'authentification non disponible", "error")
       return
     }
@@ -172,6 +179,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const incrementSearchCount = async (): Promise<boolean> => {
+    // Si Firebase n'est pas configuré, permettre les recherches illimitées
+    if (!isFirebaseConfigured) {
+      return true
+    }
+
     if (!user || !userData || !db) return false
 
     // Les utilisateurs admin et premium n'ont pas de limites
@@ -234,6 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         incrementSearchCount,
         canSearch,
+        isFirebaseEnabled: isFirebaseConfigured,
       }}
     >
       {children}
