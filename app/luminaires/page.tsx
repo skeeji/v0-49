@@ -19,7 +19,7 @@ import { Lightbox } from "@/components/Lightbox"
 import { Grid, List } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
-import { showToast } from "@/utils/toast" // Import showToast function
+import { useToast } from "@/hooks/useToast"
 
 export default function LuminairesPage() {
   const [allLuminaires, setAllLuminaires] = useState([])
@@ -46,6 +46,7 @@ export default function LuminairesPage() {
   const [favorites, setFavorites] = useState<string[]>([])
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const { user, userData } = useAuth()
+  const { showToast } = useToast()
 
   // Charger les luminaires depuis l'API MongoDB
   const loadLuminaires = useCallback(
