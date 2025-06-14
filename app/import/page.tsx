@@ -4,7 +4,7 @@ import { useState } from "react"
 import { UploadForm } from "@/components/UploadForm"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
-import { useToast } from "@/hooks/useToast"
+import { toast } from "sonner" // CORRECTION: Import du nouveau système de toast
 import { RoleGuard } from "@/components/RoleGuard"
 
 export default function ImportPage() {
@@ -14,58 +14,70 @@ export default function ImportPage() {
   const [designerImages, setDesignerImages] = useState([])
   const [video, setVideo] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const { showToast } = useToast()
+  // CORRECTION: L'ancien `const { showToast } = useToast()` a été supprimé
 
   const handleCsvUpload = async (data: any[]) => {
-    setIsUploading(true)
-    try {
-      // Traiter les données CSV pour les luminaires
-      const processedData = data.map((item) => ({
-        nom: item["Nom luminaire"] || "",
-        designer: item["Artiste / Dates"] || "",
-        specialite: item["Spécialité"] || "",
-        collaboration: item["Collaboration / Œuvre"] || "",
-        annee: Number.parseInt(item["Année"]) || new Date().getFullYear(),
-        signe: item["Signé"] || "",
-        filename: item["Nom du fichier"] || "",
-        dimensions: item["Dimensions"] || "",
-        estimation: item["Estimation"] || "",
-        materiaux: item["Matériaux"] ? item["Matériaux"].split(",").map((m: string) => m.trim()) : [],
-        images: [],
-        periode: item["Spécialité"] || "",
-        description: `${item["Collaboration / Œuvre"] || ""} ${item["Spécialité"] || ""}`.trim(),
-        couleurs: [],
-      }))
+    setIsUploading(true);
+    toast.info(`Début de l'import de ${data.length} luminaires...`);
 
-      // Envoyer chaque luminaire à l'API
-      let successCount = 0
-      for (const luminaire of processedData) {
-        try {
-          const response = await fetch("/api/luminaires", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(luminaire),
-          })
+    let successCount = 0;
+    let errorCount = 0;
 
-          if (response.ok) {
-            successCount++
-          } else {
-            console.error("Erreur lors de l'ajout du luminaire:", await response.text())
-          }
-        } catch (error) {
-          console.error("Erreur réseau:", error)
+    // On traite chaque ligne individuellement pour ne pas bloquer tout l'import en cas d'erreur
+    for (const [index, item] of data.entries()) {
+      try {
+        // Validation et transformation sécurisée pour chaque ligne
+        const anneeText = item["Année"];
+        const anneeNum = Number.parseInt(anneeText, 10);
+
+        const luminaireData = {
+          nom: item["Nom luminaire"] || "", // Le nom peut être vide comme demandé
+          designer: item["Artiste / Dates"] || "",
+          specialite: item["Spécialité"] || "",
+          collaboration: item["Collaboration / Œuvre"] || "",
+          annee: !isNaN(anneeNum) ? anneeNum : 0, // Met 0 si l'année n'est pas un nombre valide
+          signe: item["Signé"] || "",
+          filename: item["Nom du fichier"] || "",
+          dimensions: item["Dimensions"] || "",
+          estimation: item["Estimation"] || "",
+          materiaux: typeof item["Matériaux"] === 'string' ? item["Matériaux"].split(",").map((m: string) => m.trim()) : [],
+          images: [],
+          periode: item["Spécialité"] || "",
+          description: `${item["Collaboration / Œuvre"] || ""} ${item["Spécialité"] || ""}`.trim(),
+          couleurs: [],
+        };
+
+        const response = await fetch("/api/luminaires", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(luminaireData),
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          errorCount++;
+          const errorText = await response.text();
+          console.error(`Erreur à la ligne ${index + 1}:`, errorText, "Données:", item);
         }
+      } catch (error) {
+        errorCount++;
+        console.error(`Erreur de traitement à la ligne ${index + 1}:`, error, "Données:", item);
       }
-
-      setCsvData((prev) => [...prev, ...processedData])
-      showToast(`${successCount}/${data.length} luminaires importés en base`, "success")
-    } catch (error) {
-      console.error("Erreur lors de l'import CSV:", error)
-      showToast("Erreur lors de l'import CSV", "error")
-    } finally {
-      setIsUploading(false)
     }
-  }
+
+    // Afficher le résumé final
+    if (errorCount > 0) {
+      toast.warning(`Import terminé : ${successCount} succès, ${errorCount} échecs.`, {
+        description: "Consultez la console (F12) pour voir le détail des erreurs.",
+      });
+    } else {
+      toast.success(`Import terminé : ${successCount}/${data.length} luminaires importés avec succès !`);
+    }
+
+    setCsvData((prev) => [...prev, ...data]);
+    setIsUploading(false);
+  };
 
   const handleImagesUpload = async (files: File[]) => {
     setIsUploading(true)
@@ -81,12 +93,9 @@ export default function ImportPage() {
       if (response.ok) {
         const result = await response.json()
 
-        // Associer les images aux luminaires par nom de fichier
         for (const uploadedFile of result.uploadedFiles) {
-          const fileName = uploadedFile.name.replace(/\.[^/.]+$/, "") // Enlever l'extension
-
+          const fileName = uploadedFile.name.replace(/\.[^/.]+$/, "")
           try {
-            // Chercher le luminaire correspondant
             const luminairesResponse = await fetch(`/api/luminaires?search=${encodeURIComponent(fileName)}`)
             if (luminairesResponse.ok) {
               const luminairesData = await luminairesResponse.json()
@@ -96,9 +105,7 @@ export default function ImportPage() {
                   l.filename === uploadedFile.name ||
                   l.nom.toLowerCase().includes(fileName.toLowerCase()),
               )
-
               if (matchingLuminaire) {
-                // Mettre à jour le luminaire avec l'image
                 const updateResponse = await fetch(`/api/luminaires/${matchingLuminaire._id}`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
@@ -107,7 +114,6 @@ export default function ImportPage() {
                     images: [...(matchingLuminaire.images || []), uploadedFile.path],
                   }),
                 })
-
                 if (!updateResponse.ok) {
                   console.error("Erreur lors de la mise à jour du luminaire:", await updateResponse.text())
                 }
@@ -119,7 +125,7 @@ export default function ImportPage() {
         }
 
         setImages((prev) => [...prev, ...files])
-        showToast(`${result.uploadedFiles.length} images uploadées et associées`, "success")
+        toast.success(`${result.uploadedFiles.length} images uploadées et associées`) // CORRECTION
 
         if (result.errors.length > 0) {
           console.warn("Erreurs lors de l'upload:", result.errors)
@@ -129,7 +135,7 @@ export default function ImportPage() {
       }
     } catch (error) {
       console.error("Erreur lors de l'upload d'images:", error)
-      showToast("Erreur lors de l'upload des images", "error")
+      toast.error("Erreur lors de l'upload des images") // CORRECTION
     } finally {
       setIsUploading(false)
     }
@@ -141,10 +147,7 @@ export default function ImportPage() {
       const processedDesigners = data.map((item) => ({
         nom: item["Nom"] || "",
         imageFile: item["imagedesigner"] || "",
-        slug: (item["Nom"] || "")
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9-]/g, ""),
+        slug: (item["Nom"] || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""),
         biographie: "",
         specialites: [],
         periodes: [],
@@ -159,7 +162,6 @@ export default function ImportPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(designer),
           })
-
           if (response.ok) {
             successCount++
           } else {
@@ -171,10 +173,10 @@ export default function ImportPage() {
       }
 
       setDesigners((prev) => [...prev, ...processedDesigners])
-      showToast(`${successCount}/${data.length} designers importés en base`, "success")
+      toast.success(`${successCount}/${data.length} designers importés en base`) // CORRECTION
     } catch (error) {
       console.error("Erreur lors de l'import des designers:", error)
-      showToast("Erreur lors de l'import des designers", "error")
+      toast.error("Erreur lors de l'import des designers") // CORRECTION
     } finally {
       setIsUploading(false)
     }
@@ -194,10 +196,8 @@ export default function ImportPage() {
       if (response.ok) {
         const result = await response.json()
 
-        // Associer les images aux designers
         for (const uploadedFile of result.uploadedFiles) {
           const fileName = uploadedFile.name.replace(/\.[^/.]+$/, "")
-
           try {
             const designersResponse = await fetch("/api/designers")
             if (designersResponse.ok) {
@@ -208,7 +208,6 @@ export default function ImportPage() {
                   d.imageFile === uploadedFile.name ||
                   d.nom.toLowerCase().includes(fileName.toLowerCase()),
               )
-
               if (matchingDesigner) {
                 const updateResponse = await fetch(`/api/designers/${matchingDesigner.slug}`, {
                   method: "PUT",
@@ -218,7 +217,6 @@ export default function ImportPage() {
                     images: [...(matchingDesigner.images || []), uploadedFile.path],
                   }),
                 })
-
                 if (!updateResponse.ok) {
                   console.error("Erreur lors de la mise à jour du designer:", await updateResponse.text())
                 }
@@ -230,13 +228,13 @@ export default function ImportPage() {
         }
 
         setDesignerImages((prev) => [...prev, ...files])
-        showToast(`${result.uploadedFiles.length} images de designers uploadées`, "success")
+        toast.success(`${result.uploadedFiles.length} images de designers uploadées`) // CORRECTION
       } else {
         throw new Error("Erreur lors de l'upload des images de designers")
       }
     } catch (error) {
       console.error("Erreur lors de l'upload d'images de designers:", error)
-      showToast("Erreur lors de l'upload des images de designers", "error")
+      toast.error("Erreur lors de l'upload des images de designers") // CORRECTION
     } finally {
       setIsUploading(false)
     }
@@ -256,13 +254,13 @@ export default function ImportPage() {
       if (response.ok) {
         const result = await response.json()
         setVideo(file)
-        showToast("Vidéo d'accueil uploadée en base", "success")
+        toast.success("Vidéo d'accueil uploadée en base") // CORRECTION
       } else {
         throw new Error("Erreur lors de l'upload de la vidéo")
       }
     } catch (error) {
       console.error("Erreur lors de l'upload de la vidéo:", error)
-      showToast("Erreur lors de l'upload de la vidéo", "error")
+      toast.error("Erreur lors de l'upload de la vidéo") // CORRECTION
     } finally {
       setIsUploading(false)
     }
@@ -270,17 +268,15 @@ export default function ImportPage() {
 
   const resetImports = async () => {
     try {
-      // Ici on pourrait ajouter une API pour supprimer toutes les données
-      // Pour l'instant, on reset juste l'état local
       setCsvData([])
       setImages([])
       setDesigners([])
       setDesignerImages([])
       setVideo(null)
-      showToast("État local réinitialisé", "success")
+      toast.success("État local réinitialisé") // CORRECTION
     } catch (error) {
       console.error("Erreur lors de la réinitialisation:", error)
-      showToast("Erreur lors de la réinitialisation", "error")
+      toast.error("Erreur lors de la réinitialisation") // CORRECTION
     }
   }
 
