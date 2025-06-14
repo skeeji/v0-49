@@ -1,100 +1,45 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
-import type { Luminaire } from "@/lib/models/Luminaire"
+import { NextResponse } from "next/server"
+import clientPromise from "../../../lib/mongodb"
 
-export async function GET(request: NextRequest) {
+const DBNAME = process.env.MONGO_INITDB_DATABASE
+
+if (!DBNAME) {
+  throw new Error('Invalid/Missing environment variable: "MONGO_INITDB_DATABASE"')
+}
+
+// Gérer les requêtes GET pour récupérer les luminaires
+export async function GET() {
   try {
-    const db = await getDatabase()
-    const searchParams = request.nextUrl.searchParams
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    // Construire le filtre
-    const filter: any = {}
+    const luminaires = await db.collection("luminaires").find({}).limit(20).toArray()
 
-    if (searchParams.get("search")) {
-      filter.$text = { $search: searchParams.get("search") }
-    }
-
-    if (searchParams.get("designer")) {
-      filter.designer = searchParams.get("designer")
-    }
-
-    if (searchParams.get("periode")) {
-      filter.periode = searchParams.get("periode")
-    }
-
-    if (searchParams.get("materiaux")) {
-      filter.materiaux = { $in: searchParams.get("materiaux")?.split(",") }
-    }
-
-    if (searchParams.get("couleurs")) {
-      filter.couleurs = { $in: searchParams.get("couleurs")?.split(",") }
-    }
-
-    if (searchParams.get("anneeMin") || searchParams.get("anneeMax")) {
-      filter.annee = {}
-      if (searchParams.get("anneeMin")) {
-        filter.annee.$gte = Number.parseInt(searchParams.get("anneeMin")!)
-      }
-      if (searchParams.get("anneeMax")) {
-        filter.annee.$lte = Number.parseInt(searchParams.get("anneeMax")!)
-      }
-    }
-
-    if (searchParams.get("isFavorite") === "true") {
-      filter.isFavorite = true
-    }
-
-    // Construire le tri
-    const sortField = searchParams.get("sortField") || "createdAt"
-    const sortDirection = searchParams.get("sortDirection") === "asc" ? 1 : -1
-    const sort = { [sortField]: sortDirection }
-
-    // Pagination
-    const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "20")
-    const skip = (page - 1) * limit
-
-    const luminaires = await db.collection("luminaires").find(filter).sort(sort).skip(skip).limit(limit).toArray()
-
-    const total = await db.collection("luminaires").countDocuments(filter)
-
-    return NextResponse.json({
-      luminaires,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    })
+    return NextResponse.json({ success: true, data: luminaires }, { status: 200 })
   } catch (error) {
-    console.error("Erreur lors de la récupération des luminaires:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+    console.error(error)
+    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+// Gérer les requêtes POST pour ajouter un luminaire
+export async function POST(request: Request) {
   try {
-    const db = await getDatabase()
-    const luminaire: Omit<Luminaire, "_id"> = await request.json()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    const newLuminaire = {
-      ...luminaire,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const luminaireData = await request.json()
+
+    // Logique de validation simple
+    if (!luminaireData.nom) {
+      return NextResponse.json({ success: false, error: "Le nom du luminaire est requis" }, { status: 400 })
     }
 
-    const result = await db.collection("luminaires").insertOne(newLuminaire)
+    const result = await db.collection("luminaires").insertOne(luminaireData)
 
-    return NextResponse.json(
-      {
-        _id: result.insertedId,
-        ...newLuminaire,
-      },
-      { status: 201 },
-    )
+    return NextResponse.json({ success: true, insertedId: result.insertedId }, { status: 201 })
   } catch (error) {
-    console.error("Erreur lors de la création du luminaire:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+    console.error(error)
+    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
   }
 }

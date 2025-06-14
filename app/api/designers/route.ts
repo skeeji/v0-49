@@ -1,60 +1,49 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
-import type { Designer } from "@/lib/models/Designer"
+import { NextResponse } from "next/server"
+import clientPromise from "../../../lib/mongodb"
 
-export async function GET(request: NextRequest) {
+const DBNAME = process.env.MONGO_INITDB_DATABASE
+
+if (!DBNAME) {
+  throw new Error('Invalid/Missing environment variable: "MONGO_INITDB_DATABASE"')
+}
+
+// Gérer les requêtes GET pour récupérer les designers
+export async function GET() {
   try {
-    const db = await getDatabase()
-    const searchParams = request.nextUrl.searchParams
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    const filter: any = {}
+    const designers = await db.collection("designers").find({}).toArray()
 
-    if (searchParams.get("search")) {
-      filter.$or = [
-        { nom: { $regex: searchParams.get("search"), $options: "i" } },
-        { biographie: { $regex: searchParams.get("search"), $options: "i" } },
-      ]
-    }
-
-    const designers = await db.collection("designers").find(filter).sort({ nom: 1 }).toArray()
-
-    // Calculer le nombre de luminaires pour chaque designer
-    for (const designer of designers) {
-      const count = await db.collection("luminaires").countDocuments({ designer: designer.nom })
-      designer.luminairesCount = count
-    }
-
-    return NextResponse.json(designers)
+    return NextResponse.json({ success: true, data: designers }, { status: 200 })
   } catch (error) {
-    console.error("Erreur lors de la récupération des designers:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+    console.error(error)
+    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+// Gérer les requêtes POST pour ajouter un designer
+export async function POST(request: Request) {
   try {
-    const db = await getDatabase()
-    const designer: Omit<Designer, "_id"> = await request.json()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    const newDesigner = {
-      ...designer,
-      slug: designer.nom.toLowerCase().replace(/\s+/g, "-"),
-      luminairesCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const designerData = await request.json()
+
+    // Logique de validation simple
+    if (!designerData.nom) {
+      return NextResponse.json({ success: false, error: "Le nom du designer est requis" }, { status: 400 })
     }
 
-    const result = await db.collection("designers").insertOne(newDesigner)
+    const result = await db.collection("designers").insertOne({
+      ...designerData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
 
-    return NextResponse.json(
-      {
-        _id: result.insertedId,
-        ...newDesigner,
-      },
-      { status: 201 },
-    )
+    return NextResponse.json({ success: true, insertedId: result.insertedId }, { status: 201 })
   } catch (error) {
-    console.error("Erreur lors de la création du designer:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+    console.error(error)
+    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
   }
 }
