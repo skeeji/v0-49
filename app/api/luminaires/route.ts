@@ -30,12 +30,16 @@ export async function POST(request: Request) {
 
     const luminaireData = await request.json()
 
-    // Logique de validation simple
-    if (!luminaireData.nom) {
-      return NextResponse.json({ success: false, error: "Le nom du luminaire est requis" }, { status: 400 })
-    }
+    // La validation stricte sur le nom a été retirée pour autoriser l'import.
+    
+    // On s'assure que les dates de création et de mise à jour sont bien présentes
+    const dataToInsert = {
+      ...luminaireData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    const result = await db.collection("luminaires").insertOne(luminaireData)
+    const result = await db.collection("luminaires").insertOne(dataToInsert)
 
     return NextResponse.json({ success: true, insertedId: result.insertedId }, { status: 201 })
   } catch (error) {
