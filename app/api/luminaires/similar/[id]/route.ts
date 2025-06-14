@@ -1,10 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { ObjectId } from "mongodb"
-import { getDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const db = await getDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
     // Récupérer le luminaire de référence
     const luminaire = await db.collection("luminaires").findOne({ _id: new ObjectId(params.id) })

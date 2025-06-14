@@ -1,10 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
-import type { TimelineDescription } from "@/lib/models/TimelineDescription"
+import clientPromise from "@/lib/mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET() {
   try {
-    const db = await getDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
     const descriptions = await db.collection("timelineDescriptions").find({}).sort({ periode: 1 }).toArray()
 
     return NextResponse.json(descriptions)
@@ -16,8 +19,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = await getDatabase()
-    const { periode, description }: Omit<TimelineDescription, "_id" | "createdAt" | "updatedAt"> = await request.json()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    const { periode, description } = await request.json()
 
     const timelineDescription = {
       periode,
@@ -43,7 +48,9 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const db = await getDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
     const { periode, description } = await request.json()
 
     const result = await db.collection("timelineDescriptions").updateOne(

@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
 import { saveUploadedFile, isValidVideoType } from "@/lib/upload"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +23,8 @@ export async function POST(request: NextRequest) {
     const filePath = await saveUploadedFile(file, "videos")
 
     // Sauvegarder les informations en base
-    const db = await getDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
     // Désactiver les autres vidéos
     await db.collection("welcomeVideos").updateMany({}, { $set: { isActive: false } })
@@ -45,6 +48,24 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Erreur lors de l'upload de vidéo:", error)
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+  }
+}
+
+export async function GET() {
+  try {
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    const welcomeVideo = await db.collection("welcomeVideos").findOne({ isActive: true })
+
+    if (!welcomeVideo) {
+      return NextResponse.json({ videoUrl: null })
+    }
+
+    return NextResponse.json({ videoUrl: welcomeVideo.videoPath })
+  } catch (error) {
+    console.error("Erreur lors de la récupération de la vidéo:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }

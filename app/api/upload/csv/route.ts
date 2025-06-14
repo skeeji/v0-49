@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
 import { saveUploadedFile } from "@/lib/upload"
 import { parse } from "csv-parse/sync"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +25,9 @@ export async function POST(request: NextRequest) {
       delimiter: ";",
     })
 
-    const db = await getDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
     const results = {
       success: 0,
       errors: [] as string[],
