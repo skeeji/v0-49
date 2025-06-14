@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Camera, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/useToast"
+import { toast } from "sonner"
 import Link from "next/link"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
@@ -34,7 +34,6 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { showToast } = useToast()
   const { user, userData, incrementSearchCount, canSearch } = useAuth()
 
   const callImageSimilarityAPI = async (file: File) => {
@@ -175,17 +174,17 @@ export default function HomePage() {
           lastModified: Date.now(),
         })
 
-        showToast("Arrière-plan supprimé avec succès!", "success")
+        toast.success("Arrière-plan supprimé avec succès!")
         return pngFile
       } else {
         const errorText = await response.text()
         console.error("❌ Erreur API remove.bg:", response.status, errorText)
-        showToast("Erreur lors de la suppression d'arrière-plan", "error")
+        toast.error("Erreur lors de la suppression d'arrière-plan")
         return null
       }
     } catch (error) {
       console.error("💥 Erreur suppression arrière-plan:", error)
-      showToast("Erreur lors de la suppression d'arrière-plan", "error")
+      toast.error("Erreur lors de la suppression d'arrière-plan")
       return null
     } finally {
       setIsRemovingBackground(false)
@@ -195,7 +194,7 @@ export default function HomePage() {
   const handleImageSearch = async (file: File) => {
     // Vérifier si l'utilisateur peut effectuer une recherche
     if (!canSearch) {
-      showToast("Limite de recherches quotidiennes atteinte (3/3)", "error")
+      toast.error("Limite de recherches quotidiennes atteinte (3/3)")
       return
     }
 
@@ -229,17 +228,17 @@ export default function HomePage() {
           setSearchResults(processedResults)
           const localMatches = processedResults.filter((r) => r.hasLocalMatch).length
           console.log(`🎯 ${processedResults.length} résultats traités, ${localMatches} avec correspondance locale`)
-          showToast(`${processedResults.length} luminaire(s) similaire(s) trouvé(s)`, "success")
+          toast.success(`${processedResults.length} luminaire(s) similaire(s) trouvé(s)`)
         } else {
-          showToast("Aucun résultat trouvé", "info")
+          toast.info("Aucun résultat trouvé")
         }
       } else {
         console.log(`❌ API échouée: ${apiResponse.type}`)
-        showToast("Erreur lors de l'appel à l'API IA", "error")
+        toast.error("Erreur lors de l'appel à l'API IA")
       }
     } catch (error) {
       console.error("💥 Erreur générale:", error)
-      showToast("Erreur lors de la recherche", "error")
+      toast.error("Erreur lors de la recherche")
     } finally {
       setCanSearchAgain(true)
       setIsSearching(false)
@@ -325,7 +324,7 @@ export default function HomePage() {
           console.log("🔗 Attachement du flux à l'élément vidéo...")
           videoRef.current.srcObject = mediaStream
           videoRef.current.play().catch(console.error)
-          showToast("Caméra activée - Touchez l'écran pour capturer", "success")
+          toast.success("Caméra activée - Touchez l'écran pour capturer")
         }
       }, 100)
     } catch (error) {
@@ -347,7 +346,7 @@ export default function HomePage() {
         errorMessage = error.message
       }
 
-      showToast(errorMessage, "error")
+      toast.error(errorMessage)
       cleanupCamera()
       setSearchMode(null)
     }
@@ -451,14 +450,14 @@ export default function HomePage() {
       cleanupCamera()
 
       console.log("✅ === CAPTURE TERMINÉE AVEC SUCCÈS ===")
-      showToast("Photo capturée - Recherche en cours...", "success")
+      toast.success("Photo capturée - Recherche en cours...")
 
       // Afficher les options d'arrière-plan
       setShowBackgroundOptions(true)
       setSelectedImageForSearch(file)
     } catch (error) {
       console.error("💥 === ERREUR CAPTURE ===", error)
-      showToast(`Erreur capture: ${error.message}`, "error")
+      toast.error(`Erreur capture: ${error.message}`)
     } finally {
       setIsCapturing(false)
     }
@@ -514,7 +513,7 @@ export default function HomePage() {
         handleImageSearch(selectedFile)
       }, 500)
     } else {
-      showToast("Aucune image disponible pour la recherche", "error")
+      toast.error("Aucune image disponible pour la recherche")
     }
   }
 
