@@ -30,9 +30,7 @@ export async function GET(request: Request, { params }: { params: { fileId: stri
       status: 200,
       headers: { "Content-Type": file.contentType || "application/octet-stream" },
     });
-
   } catch (error) {
-    console.error(`Erreur API [GET /api/files/${params.fileId}]:`, error);
     return new NextResponse("Erreur serveur", { status: 500 });
   }
 }
