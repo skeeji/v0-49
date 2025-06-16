@@ -1,14 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { bucket } from "@/lib/firebase-admin";
+import { GridFSBucket } from "mongodb";
+import clientPromise from "@/lib/mongodb";
 import { v4 as uuidv4 } from 'uuid';
 
-// Helper pour ne pas uploader de fichiers non-images
-const isValidImageType = (file: File) => {
-    return file.type.startsWith('image/');
-};
+const DBNAME = process.env.MONGO_INITDB_DATABASE!;
 
 export async function POST(request: NextRequest) {
   try {
+    const client = await clientPromise;
+    const db = client.db(DBNAME);
+    const bucket = new GridFSBucket(db, { bucketName: 'uploads' }); // Un seul bucket pour tous les fichiers
+
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
 
@@ -21,49 +23,34 @@ export async function POST(request: NextRequest) {
 
     for (const file of files) {
       try {
-        if (!isValidImageType(file)) {
-          errors.push({ name: file.name, error: 'Type de fichier non supporté' });
-          continue;
-        }
-
         const fileBuffer = Buffer.from(await file.arrayBuffer());
         const uniqueFileName = `${uuidv4()}-${file.name}`;
-        const filePath = `luminaires/${uniqueFileName}`; // Dossier dans Firebase Storage
-
-        const blob = bucket.file(filePath);
-        const blobStream = blob.createWriteStream({
-            metadata: { contentType: file.type },
+        
+        const uploadStream = bucket.openUploadStream(uniqueFileName, {
+          metadata: { contentType: file.type, originalName: file.name }
         });
 
         await new Promise<void>((resolve, reject) => {
-            blobStream.on('error', reject);
-            blobStream.on('finish', resolve);
-            blobStream.end(fileBuffer);
+          uploadStream.end(fileBuffer, (error) => {
+            if (error) reject(error);
+            else resolve();
+          });
         });
-        
-        // IMPORTANT: On génère une URL publique et permanente pour l'image
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
-        
+
         uploadedFiles.push({
-          name: file.name,
-          path: publicUrl, // On retourne cette URL publique
-          size: file.size,
+          fileId: uploadStream.id.toString(), // L'ID de GridFS est la clé
+          originalName: file.name,
         });
 
       } catch (error: any) {
-        console.error(`Erreur upload pour ${file.name}:`, error);
-        errors.push({ name: file.name, error: error.message || 'Erreur inconnue' });
+        errors.push({ name: file.name, error: error.message });
       }
     }
 
-    return NextResponse.json({
-      uploadedFiles,
-      errors,
-      message: `${uploadedFiles.length} fichiers uploadés avec succès sur Firebase Storage`,
-    });
+    return NextResponse.json({ uploadedFiles, errors });
 
   } catch (error) {
-    console.error("Erreur générale lors de l'upload:", error);
+    console.error("Erreur API [POST /api/upload/images]:", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
