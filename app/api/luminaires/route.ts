@@ -1,5 +1,4 @@
 // Fichier : app/api/luminaires/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 
@@ -7,10 +6,9 @@ import clientPromise from "@/lib/mongodb";
 export async function POST(request: NextRequest) {
   try {
     const client = await clientPromise;
-    const db = client.db(); // Utilise la DB de votre MONGODB_URI
+    const db = client.db();
     const body = await request.json();
 
-    // CHANGEMENT : On ne vérifie plus le nom, mais on s'assure qu'il y a au moins un nom de fichier.
     if (!body.filename) {
       return NextResponse.json({ success: false, error: "Le nom de fichier est requis pour la liaison d'image" }, { status: 400 });
     }
@@ -24,14 +22,19 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// FONCTION GET : Pour RÉCUPÉRER les luminaires
+// FONCTION GET : Pour RÉCUPÉRER les luminaires (avec recherche)
 export async function GET(request: NextRequest) {
   try {
     const client = await clientPromise;
     const db = client.db();
+    const search = request.nextUrl.searchParams.get("search");
 
-    // On récupère tous les luminaires, triés par année (plus récent en premier)
-    const luminaires = await db.collection("luminaires").find({}).sort({ annee: -1 }).toArray();
+    let query = {};
+    if (search) {
+      query = { filename: { $regex: search, $options: "i" } };
+    }
+
+    const luminaires = await db.collection("luminaires").find(query).sort({ annee: -1 }).toArray();
 
     return NextResponse.json({ success: true, luminaires });
   } catch (error) {
