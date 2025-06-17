@@ -1,6 +1,5 @@
 // Fichier : lib/gridfs.ts
-
-import clientPromise from "./mongodb"; // On utilise VOTRE fichier de connexion
+import clientPromise from "./mongodb";
 import { GridFSBucket } from "mongodb";
 
 let bucket: GridFSBucket;
