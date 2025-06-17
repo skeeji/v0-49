@@ -47,6 +47,8 @@ export default function ImportPage() {
           continue; // Passe au prochain élément de la boucle
         }
         // ----- FIN DE LA CORRECTION -----
+        
+        try {
           const response = await fetch("/api/luminaires", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
