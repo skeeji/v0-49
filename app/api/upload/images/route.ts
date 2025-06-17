@@ -1,7 +1,6 @@
 // Fichier : app/api/upload/images/route.ts
-
 import { type NextRequest, NextResponse } from "next/server";
-import { getBucket } from "@/lib/gridfs"; // On importe notre nouvelle fonction
+import { getBucket } from "@/lib/gridfs";
 import { Readable } from "stream";
 
 function fileToStream(file: File) {
@@ -16,7 +15,7 @@ function fileToStream(file: File) {
 
 export async function POST(request: NextRequest) {
   try {
-    const bucket = await getBucket(); // On récupère le seau de stockage
+    const bucket = await getBucket();
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
 
@@ -34,31 +33,19 @@ export async function POST(request: NextRequest) {
           contentType: file.type,
         });
         
-        await new Promise((resolve, reject) => {
-          stream.pipe(uploadStream).on('error', reject).on('finish', resolve);
+        await new Promise<void>((resolve, reject) => {
+          stream.pipe(uploadStream).on('error', reject).on('finish', () => resolve());
         });
 
-        const fileUrl = `/api/images/${uploadStream.id}`; // Lien permanent vers l'image
-
-        uploadedFiles.push({
-          name: file.name,
-          path: fileUrl,
-          size: file.size,
-        });
+        const fileUrl = `/api/images/${uploadStream.id}`;
+        uploadedFiles.push({ name: file.name, path: fileUrl, size: file.size });
 
       } catch (error: any) {
         errors.push(`${file.name}: ${error.message}`);
       }
     }
-
-    return NextResponse.json({
-      uploadedFiles,
-      errors,
-      message: `${uploadedFiles.length} fichiers uploadés dans MongoDB`,
-    });
-
+    return NextResponse.json({ uploadedFiles, errors, message: "Upload terminé." });
   } catch (error: any) {
-    console.error("Erreur lors de l'upload d'images:", error);
-    return NextResponse.json({ error: "Erreur serveur", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erreur serveur upload", details: error.message }, { status: 500 });
   }
 }
