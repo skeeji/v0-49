@@ -1,14 +1,13 @@
-// Fichier : app/chronologie/page.tsx
 "use client"
-// ... (toutes vos importations)
+
 import { useState, useEffect } from "react"
 import { TimelineBlock } from "@/components/TimelineBlock"
 
-const periods = [ /* ... Votre liste de périodes complète ici ... */ ];
+const periods = [ /* ... La liste complète de vos périodes ici ... */ ];
 
 export default function ChronologiePage() {
-  const [timelineData, setTimelineData] = useState<any[]>([]);
-  const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({});
+  const [timelineData, setTimelineData] = useState<any[]>([])
+  const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -20,21 +19,26 @@ export default function ChronologiePage() {
       try {
         const response = await fetch("/api/luminaires");
         const data = await response.json();
+
         if (data.success && data.luminaires) {
           const adaptedLuminaires = data.luminaires.map((lum: any) => ({
             ...lum,
             id: lum._id,
-            image: lum.images?.[0]
+            image: lum.images?.[0],
+            year: lum.annee, // CORRECTION: On utilise `year` que le composant enfant attend
+            artist: lum.designer, // CORRECTION: On utilise `artist` que le composant enfant attend
           }));
+
           const grouped = periods.map((period) => {
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
-              const year = Number.parseInt(luminaire.annee) || 0;
+              const year = Number.parseInt(luminaire.year) || 0;
               return year >= period.start && year <= period.end;
             });
+            const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => (a.year || 0) - (b.year || 0));
             return {
               ...period,
               description: savedDescriptions[period.name] || period.defaultDescription,
-              luminaires: periodLuminaires.sort((a: any, b: any) => (b.annee || 0) - (a.annee || 0)),
+              luminaires: sortedLuminaires,
             };
           });
           setTimelineData(grouped.sort((a, b) => a.start - b.start));
@@ -62,7 +66,7 @@ export default function ChronologiePage() {
     setTimelineData((prev) => prev.map((period) => (period.name === periodName ? { ...period, description: newDescription } : period)));
   }
 
-  if (isLoading) { return <div className="flex justify-center items-center h-screen"><p>Chargement...</p></div>; }
+  if (isLoading) { return ( <div className="flex justify-center items-center h-screen"><p>Chargement...</p></div> ); }
 
   return (
     <div className="container-responsive py-8">
