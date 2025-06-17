@@ -1,7 +1,6 @@
 // Fichier : app/api/images/[fileId]/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
-import { getBucket } from "@/lib/gridfs"; // On utilise la même fonction
+import { getBucket } from "@/lib/gridfs";
 import { ObjectId } from "mongodb";
 
 export async function GET(
@@ -10,14 +9,17 @@ export async function GET(
 ) {
   try {
     const bucket = await getBucket();
-    const fileId = new ObjectId(params.fileId);
     
+    if (!ObjectId.isValid(params.fileId)) {
+      return NextResponse.json({ error: "ID de fichier invalide" }, { status: 400 });
+    }
+    
+    const fileId = new ObjectId(params.fileId);
     const downloadStream = bucket.openDownloadStream(fileId);
-
-    // Stream la réponse directement au navigateur
+    
     return new NextResponse(downloadStream as any, {
       headers: {
-        'Content-Type': 'image/jpeg', // Ajustez si vous avez d'autres types
+        'Content-Type': 'image/jpeg', // Vous pouvez rendre ceci dynamique si besoin
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
     });
