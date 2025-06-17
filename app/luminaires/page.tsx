@@ -1,77 +1,67 @@
 "use client"
+
 import { useState, useEffect, useCallback } from "react";
 import { GalleryGrid } from "@/components/GalleryGrid";
 import { toast } from "sonner";
+// Importez vos composants de filtres si nécessaire
+// import { SearchBar } from "@/components/SearchBar"; 
+// import { SortSelector } from "@/components/SortSelector";
 
 export default function LuminairesPage() {
     const [displayedLuminaires, setDisplayedLuminaires] = useState<any[]>([]);
     const [page, setPage] = useState(1);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [hasMore, setHasMore] = useState(true);
-    // Ajoutez ici d'autres états pour les filtres si nécessaire, ex:
-    // const [sortBy, setSortBy] = useState("nom-asc");
-
-    const loadLuminaires = useCallback(async (isNewSearch: boolean) => {
-        if (isLoading) return;
+    
+    const loadLuminaires = useCallback(async (currentPage: number, isNewSearch: boolean) => {
         setIsLoading(true);
-        const currentPage = isNewSearch ? 1 : page;
-
         try {
-            const params = new URLSearchParams({
-                page: currentPage.toString(),
-                limit: "50",
-                // sortBy, etc.
-            });
-            
+            const params = new URLSearchParams({ page: currentPage.toString(), limit: "50" });
             const response = await fetch(`/api/luminaires?${params.toString()}`);
             if (!response.ok) throw new Error("Erreur réseau");
 
             const data = await response.json();
-            if (!data.success || !Array.isArray(data.data)) throw new Error("Format de données invalide");
+            if (!data.success) throw new Error("Réponse de l'API invalide");
 
-            const newLuminaires = data.data;
-
+            const newLuminaires = data.data || [];
             setDisplayedLuminaires(prev => isNewSearch ? newLuminaires : [...prev, ...newLuminaires]);
             setHasMore(data.pagination.page < data.pagination.pages);
         } catch (error) {
-            toast.error("Erreur de chargement.");
+            toast.error("Erreur de chargement des luminaires.");
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, page /*, sortBy, ...autres filtres */ ]);
+    }, []);
 
     useEffect(() => {
-        loadLuminaires(true);
-    }, [/* sortBy, ...autres filtres */]);
-
-    useEffect(() => {
-        if (page > 1) {
-            loadLuminaires(false);
-        }
-    }, [page, loadLuminaires]);
+        loadLuminaires(1, true); // Chargement initial
+    }, [loadLuminaires]);
     
-    const loadMore = useCallback(() => {
-        if (!isLoading && hasMore) {
-            setPage(prevPage => prevPage + 1);
-        }
-    }, [isLoading, hasMore]);
-
+    // Logique de scroll infini
     useEffect(() => {
         const handleScroll = () => {
-            if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 500) {
-                loadMore();
+            if (window.innerHeight + document.documentElement.scrollTop < document.documentElement.offsetHeight - 500 || isLoading || !hasMore) {
+                return;
             }
+            setPage(prevPage => prevPage + 1);
         };
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
-    }, [loadMore]);
+    }, [isLoading, hasMore]);
+    
+    useEffect(() => {
+        if (page > 1) {
+            loadLuminaires(page, false);
+        }
+    }, [page, loadLuminaires]);
 
     return (
-        <div className="container mx-auto py-8">
-            <h1 className="text-4xl font-bold mb-8">Galerie des Luminaires</h1>
+        <div className="container-responsive py-8">
+            <h1 className="text-4xl font-playfair text-dark mb-8">Galerie des Luminaires</h1>
+            {/* Vous pouvez ajouter vos filtres ici et les passer à `loadLuminaires` si besoin */}
             <GalleryGrid items={displayedLuminaires} />
-            {isLoading && <p className="text-center mt-4">Chargement...</p>}
-            {!hasMore && <p className="text-center mt-4 text-gray-500">Fin de la liste.</p>}
+            {isLoading && <p className="text-center py-4">Chargement...</p>}
+            {!hasMore && <p className="text-center py-4 text-gray-500">Vous avez vu tous les luminaires.</p>}
         </div>
     );
 }
