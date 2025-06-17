@@ -1,4 +1,3 @@
-// Fichier : app/chronologie/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -35,6 +34,7 @@ export default function ChronologiePage() {
       try {
         const response = await fetch("/api/luminaires");
         const data = await response.json();
+
         if (data.success && data.luminaires) {
           const luminaires = data.luminaires;
           const grouped = periods.map((period) => {
@@ -52,8 +52,11 @@ export default function ChronologiePage() {
           const sortedTimelineData = [...grouped].sort((a, b) => a.start - b.start);
           setTimelineData(sortedTimelineData);
         }
-      } catch (error) { console.error("Impossible de charger les luminaires", error); } 
-      finally { setIsLoading(false); }
+      } catch (error) {
+        console.error("Impossible de charger les luminaires pour la chronologie", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
     fetchAndProcessData();
   }, []);
