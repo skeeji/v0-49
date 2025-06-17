@@ -40,7 +40,13 @@ export default function ImportPage() {
       // Envoyer chaque luminaire à l'API
       let successCount = 0
       for (const luminaire of processedData) {
-        try {
+        // ----- DÉBUT DE LA CORRECTION -----
+        // Si le nom du luminaire est vide, on ignore cette ligne et on passe à la suivante.
+        if (!luminaire.nom) {
+          console.log("Ligne ignorée car le nom du luminaire est manquant :", luminaire);
+          continue; // Passe au prochain élément de la boucle
+        }
+        // ----- FIN DE LA CORRECTION -----
           const response = await fetch("/api/luminaires", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
