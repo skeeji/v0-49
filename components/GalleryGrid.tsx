@@ -3,29 +3,28 @@ import Image from "next/image";
 import Link from "next/link";
 
 export function GalleryGrid({ items }: { items: any[] }) {
-  if (!items || items.length === 0) {
-    return <p className="text-center text-gray-500">Aucun luminaire à afficher.</p>;
-  }
-
+  if (!items) return <div className="text-center">Chargement...</div>;
+  if (items.length === 0) return <div className="text-center">Aucun luminaire à afficher.</div>;
+  
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {items.map((item) => {
-        // L'image est le premier ID dans le tableau `images` du luminaire
-        const imageUrl = item.images && item.images[0]
-          ? `/api/files/${item.images[0]}` // Pointe vers notre API de service de fichiers
+        // L'image est le premier ID dans le tableau `images`
+        const imageUrl = item.images && item.images[0] 
+          ? `/api/files/${item.images[0]}` // Pointe vers l'API qui sert les fichiers
           : "/placeholder.svg"; // Image par défaut
 
         return (
           <div key={item._id} className="group">
             <Link href={`/luminaires/${item._id}`}>
-              <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden transition-transform duration-300 group-hover:scale-105">
+              <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
                 <Image
                   src={imageUrl}
                   alt={item.nom || "Luminaire"}
                   fill
-                  sizes="(max-width: 768px) 50vw, 33vw"
-                  className="object-cover"
-                  onError={(e) => { e.currentTarget.src = "/placeholder.svg"; }}
+                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  onError={(e) => { e.currentTarget.src = "/placeholder.svg"; }} // Si l'image ne charge pas
                 />
               </div>
               <div className="pt-2">
