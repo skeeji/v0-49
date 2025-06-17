@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import { useState } from "react";
 import { UploadForm } from "@/components/UploadForm";
@@ -7,49 +7,32 @@ import { RoleGuard } from "@/components/RoleGuard";
 
 export default function ImportPage() {
   const [isUploading, setIsUploading] = useState(false);
-  const [lastImportStats, setLastImportStats] = useState<any>(null);
 
-  // Fonction pour associer une image à une entité (luminaire ou designer)
-  const associateFile = async (entity: string, matchField: string, matchValue: string, fileId: string) => {
-    // Cette fonction est un placeholder. L'association se fait maintenant via une API dédiée
-    // pour plus de robustesse.
-  };
-
-  // Gère l'import du CSV des luminaires
+  // Gère l'import du CSV Luminaires
   const handleCsvUpload = async (data: any[]) => {
     setIsUploading(true);
-    toast.info(`Import de ${data.length} luminaires en cours...`);
+    toast.info(`Import de ${data.length} luminaires...`);
     let successCount = 0;
-    let errorCount = 0;
 
     for (const item of data) {
-      try {
-        const luminaireData = {
-          nom: item["Nom luminaire"] || "",
-          designer: item["Artiste / Dates"] || "",
-          annee: Number.parseInt(item["Année"], 10) || null,
-          filename: item["Nom du fichier"] || "", // Clé pour l'association future
-          // Ajoutez ici tous les autres champs de votre CSV
-        };
-        const response = await fetch("/api/luminaires", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(luminaireData),
-        });
-        if (response.ok) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-      } catch (e) {
-        errorCount++;
-      }
+      const luminaireData = {
+        nom: item["Nom luminaire"] || "",
+        designer: item["Artiste / Dates"] || "",
+        annee: Number.parseInt(item["Année"], 10) || null,
+        filename: item["Nom du fichier"] || "",
+        // Ajoutez tous les autres champs du CSV ici
+      };
+      const response = await fetch("/api/luminaires", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(luminaireData),
+      });
+      if (response.ok) successCount++;
     }
-    toast.success(`Import CSV terminé: ${successCount} succès, ${errorCount} échecs.`);
-    setLastImportStats({ type: 'Luminaires CSV', success: successCount, total: data.length });
+    toast.success(`Import CSV terminé: ${successCount}/${data.length} luminaires créés.`);
     setIsUploading(false);
   };
-  
+
   // Gère l'upload des images et les associe
   const handleImagesUpload = async (files: File[]) => {
     setIsUploading(true);
@@ -62,25 +45,24 @@ export default function ImportPage() {
       const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
       const result = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(result.error || "Échec de l'upload.");
-  
+
       toast.info(`Étape 2/2: Association de ${result.uploadedFiles.length} images...`);
       let associatedCount = 0;
       for (const uploadedFile of result.uploadedFiles) {
         const filename = uploadedFile.originalName.replace(/\.[^/.]+$/, "");
-        const imageId = uploadedFile.fileId;
-  
-        // Nous créons une nouvelle API juste pour ça
-        const assocResponse = await fetch('/api/luminaires/associate-image', {
+        const assocResponse = await fetch('/api/associate-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename, imageId })
+          body: JSON.stringify({
+            entity: 'luminaires',
+            matchField: 'filename',
+            matchValue: filename,
+            imageId: uploadedFile.fileId
+          })
         });
         if (assocResponse.ok) associatedCount++;
       }
-      
       toast.success(`Opération terminée: ${associatedCount} images associées.`);
-      setLastImportStats({ type: 'Images Luminaires', success: associatedCount, total: files.length });
-
     } catch (e: any) {
       toast.error(e.message || "Une erreur est survenue.");
     } finally {
@@ -88,35 +70,28 @@ export default function ImportPage() {
     }
   };
 
-
   return (
     <RoleGuard requiredRole="admin">
       <div className="container mx-auto py-8">
-        <h1 className="text-4xl font-bold mb-8">Système d'Import</h1>
-        {isUploading && <div className="text-blue-600 font-semibold my-4">Opération en cours, veuillez patienter...</div>}
+        <h1 className="text-4xl font-bold mb-8">Système d'Import de Données</h1>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="p-6 border rounded-lg shadow-md">
+          <div className="p-6 border rounded-lg shadow-sm">
             <h2 className="text-2xl font-bold mb-4">Luminaires</h2>
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <h3 className="font-semibold">1. Importer le Fichier CSV</h3>
-                <p className="text-sm text-gray-500 mb-2">Crée les entrées de base pour chaque luminaire.</p>
+                <h3 className="font-semibold text-lg">1. Importer Fichier CSV</h3>
+                <p className="text-sm text-gray-500 mb-2">Crée les fiches pour chaque luminaire.</p>
                 <UploadForm onUpload={handleCsvUpload} type="csv" disabled={isUploading} />
               </div>
               <div>
-                <h3 className="font-semibold">2. Importer les Images</h3>
-                <p className="text-sm text-gray-500 mb-2">Associe les images aux luminaires via le "Nom du fichier".</p>
+                <h3 className="font-semibold text-lg">2. Importer Images</h3>
+                <p className="text-sm text-gray-500 mb-2">Le nom des images doit correspondre au "Nom du fichier" du CSV.</p>
                 <UploadForm onUpload={handleImagesUpload} type="images" multiple disabled={isUploading} />
               </div>
             </div>
           </div>
-          {/* Ajoutez un bloc similaire pour les Designers et la Vidéo */}
-          <div className="p-6 border rounded-lg bg-gray-50">
-            <h2 className="text-2xl font-bold mb-4">Designers & Vidéo</h2>
-            <p className="text-gray-600">La logique pour les designers et la vidéo d'accueil suivra exactement le même modèle que pour les luminaires.</p>
-          </div>
+          {/* Les autres imports (Designers, Vidéo) peuvent être ajoutés ici sur le même modèle */}
         </div>
-        {lastImportStats && <div className="mt-6 p-4 bg-green-100 text-green-800 rounded">Dernier import ({lastImportStats.type}): {lastImportStats.success}/{lastImportStats.total} succès.</div>}
       </div>
     </RoleGuard>
   );
