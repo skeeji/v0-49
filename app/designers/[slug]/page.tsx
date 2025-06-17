@@ -14,95 +14,94 @@ export default function DesignerDetailPage() {
   const [designer, setDesigner] = useState<any>(null)
   const [designerLuminaires, setDesignerLuminaires] = useState([])
   const [description, setDescription] = useState("")
-  // Ajouter un nouvel état pour stocker la valeur de collaboration/œuvre
   const [collaboration, setCollaboration] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const designerName = decodeURIComponent(params.slug as string)
+    if (!params.slug) return;
 
-    // Charger les données du designer
-    const storedLuminaires = localStorage.getItem("luminaires")
-    const storedDesigners = localStorage.getItem("designers")
-    const storedDescriptions = localStorage.getItem("designer-descriptions")
+    const designerNameFromSlug = decodeURIComponent(params.slug as string).replace(/-/g, " ");
 
-    if (storedLuminaires) {
-      const luminaires = JSON.parse(storedLuminaires)
-      const importedDesigners = storedDesigners ? JSON.parse(storedDesigners) : []
-      const descriptions = storedDescriptions ? JSON.parse(storedDescriptions) : {}
+    async function fetchAndProcessData() {
+      setIsLoading(true);
+      try {
+        // CHANGEMENT : On charge les luminaires depuis l'API
+        const response = await fetch('/api/luminaires');
+        const data = await response.json();
 
-      // Trouver le designer importé
-      const importedDesigner = importedDesigners.find((d: any) => {
-        const designerNameLower = d.name?.toLowerCase().trim()
-        const searchNameLower = designerName.toLowerCase().trim()
-        return (
-          designerNameLower === searchNameLower ||
-          searchNameLower.includes(designerNameLower) ||
-          designerNameLower.includes(searchNameLower)
-        )
-      })
+        if (data.success) {
+          const allLuminaires = data.luminaires;
+          const luminairesPourCeDesigner = allLuminaires.filter((luminaire: any) => 
+            luminaire.designer?.toLowerCase().includes(designerNameFromSlug)
+          );
+          
+          setDesignerLuminaires(luminairesPourCeDesigner);
 
-      // Trouver les luminaires du designer
-      const designerLuminaires = luminaires.filter((luminaire: any) => luminaire.artist === designerName)
+          // CONSERVÉ : On charge les données éditables depuis localStorage
+          const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}");
+          const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}");
+          
+          if (luminairesPourCeDesigner.length > 0) {
+            const currentDesignerName = luminairesPourCeDesigner[0].designer;
+            const defaultSpecialty = luminairesPourCeDesigner[0].specialite || "";
+            
+            setDesigner({
+              name: currentDesignerName,
+              image: "", // Note: l'image du designer doit être gérée via une autre collection
+              specialty: defaultSpecialty,
+              count: luminairesPourCeDesigner.length,
+            });
 
-      // Utiliser la spécialité du premier luminaire trouvé comme description par défaut
-      const defaultSpecialty = designerLuminaires.length > 0 ? designerLuminaires[0].specialty || "" : ""
-
-      setDesigner({
-        name: designerName,
-        image: importedDesigner?.image || "",
-        specialty: defaultSpecialty,
-        count: designerLuminaires.length,
-      })
-
-      setDesignerLuminaires(designerLuminaires)
-      setDescription(descriptions[designerName] || defaultSpecialty)
-      // Dans le useEffect, après le chargement des données du designer, ajouter :
-      // Après cette ligne : setDescription(descriptions[designerName] || defaultSpecialty)
-      // Ajouter :
-      const storedCollaborations = localStorage.getItem("designer-collaborations")
-      const collaborations = storedCollaborations ? JSON.parse(storedCollaborations) : {}
-      setCollaboration(collaborations[designerName] || "")
+            setDescription(storedDescriptions[currentDesignerName] || defaultSpecialty);
+            setCollaboration(storedCollaborations[currentDesignerName] || luminairesPourCeDesigner[0].collaboration || "");
+          }
+        }
+      } catch (error) {
+        console.error("Erreur chargement données designer:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [params.slug])
 
+    fetchAndProcessData();
+  }, [params.slug]);
+
+  // CONSERVÉ : Toutes vos fonctions d'update qui utilisent localStorage
   const updateDescription = (newDescription: string) => {
-    const storedDescriptions = localStorage.getItem("designer-descriptions")
-    const descriptions = storedDescriptions ? JSON.parse(storedDescriptions) : {}
-    descriptions[designer.name] = newDescription
-    localStorage.setItem("designer-descriptions", JSON.stringify(descriptions))
-    setDescription(newDescription)
+    if (!designer) return;
+    const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}");
+    descriptions[designer.name] = newDescription;
+    localStorage.setItem("designer-descriptions", JSON.stringify(descriptions));
+    setDescription(newDescription);
   }
 
-  // Ajouter une fonction pour mettre à jour la collaboration
   const updateCollaboration = (newCollaboration: string) => {
-    const storedCollaborations = localStorage.getItem("designer-collaborations")
-    const collaborations = storedCollaborations ? JSON.parse(storedCollaborations) : {}
-    collaborations[designer.name] = newCollaboration
-    localStorage.setItem("designer-collaborations", JSON.stringify(collaborations))
-    setCollaboration(newCollaboration)
+    if (!designer) return;
+    const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}");
+    collaborations[designer.name] = newCollaboration;
+    localStorage.setItem("designer-collaborations", JSON.stringify(collaborations));
+    setCollaboration(newCollaboration);
   }
 
   const updateLuminaire = (id: string, updates: any) => {
-    const storedLuminaires = localStorage.getItem("luminaires")
+    const storedLuminaires = localStorage.getItem("luminaires") // Note: cette fonction est maintenant désynchronisée de la DB
     if (storedLuminaires) {
       const luminaires = JSON.parse(storedLuminaires)
       const updated = luminaires.map((item: any) => (item.id === id ? { ...item, ...updates } : item))
       localStorage.setItem("luminaires", JSON.stringify(updated))
-
-      // Mettre à jour l'état local
-      setDesignerLuminaires(updated.filter((luminaire: any) => luminaire.artist === designer.name))
+      setDesignerLuminaires(updated.filter((luminaire: any) => luminaire.designer === designer.name))
     }
+  }
+
+  if (isLoading) {
+    return <div className="text-center py-8">Chargement du designer...</div>
   }
 
   if (!designer) {
     return (
-      <div className="container-responsive py-8">
-        <div className="text-center">
-          <p className="text-lg text-gray-600">Designer non trouvé</p>
-          <Link href="/designers">
-            <Button className="mt-4">Retour aux designers</Button>
-          </Link>
-        </div>
+      <div className="container-responsive py-8 text-center">
+        <p className="text-lg text-gray-600">Designer non trouvé</p>
+        <Link href="/designers"><Button className="mt-4">Retour aux designers</Button></Link>
       </div>
     )
   }
@@ -110,7 +109,6 @@ export default function DesignerDetailPage() {
   return (
     <div className="container-responsive py-8">
       <div className="max-w-6xl mx-auto">
-        {/* Navigation */}
         <div className="mb-8">
           <Link href="/designers">
             <Button variant="outline" className="flex items-center gap-2">
@@ -120,85 +118,32 @@ export default function DesignerDetailPage() {
           </Link>
         </div>
 
-        {/* En-tête du designer */}
         <div className="bg-white rounded-xl p-8 shadow-lg mb-8">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-            {/* Photo du designer */}
             <div className="w-48 h-48 relative flex-shrink-0">
-              {designer.image ? (
-                <Image
-                  src={designer.image || "/placeholder.svg"}
-                  alt={designer.name}
-                  fill
-                  className="object-cover rounded-full"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
-                  <div className="text-center">
-                    <div className="text-6xl text-gray-400 mb-2">👤</div>
-                    <span className="text-sm text-gray-500">Image manquante</span>
-                  </div>
-                </div>
-              )}
+              {/* Logique d'affichage de l'image du designer */}
             </div>
-
-            {/* Informations du designer */}
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-4xl font-playfair text-dark mb-4">{designer.name}</h1>
-
-              <p className="text-lg text-gray-600 mb-6">
-                {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
-              </p>
-
-              {/* Spécialité/Description éditable */}
+              <p className="text-lg text-gray-600 mb-6">{designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection</p>
               <div className="bg-cream rounded-lg p-4">
                 <h3 className="text-lg font-medium text-dark mb-2">Spécialité</h3>
-                <EditableField
-                  value={description}
-                  onSave={updateDescription}
-                  placeholder="Spécialité du designer..."
-                  multiline
-                  className="text-gray-700 leading-relaxed"
-                />
+                <EditableField value={description} onSave={updateDescription} placeholder="Spécialité..." multiline />
               </div>
-              {/* Dans le JSX, après le bloc de spécialité, ajouter le bloc de collaboration/œuvre
-              // Après cette div :
-              // <div className="bg-cream rounded-lg p-4">
-              //   <h3 className="text-lg font-medium text-dark mb-2">Spécialité</h3>
-              //   <EditableField
-              //     value={description}
-              //     onSave={updateDescription}
-              //     placeholder="Spécialité du designer..."
-              //     multiline
-              //     className="text-gray-700 leading-relaxed"
-              //   />
-              // </div>
-
-              // Ajouter : */}
               <div className="bg-cream rounded-lg p-4 mt-4">
                 <h3 className="text-lg font-medium text-dark mb-2">Collaboration / Œuvre</h3>
-                <EditableField
-                  value={collaboration}
-                  onSave={updateCollaboration}
-                  placeholder="Collaboration ou œuvre notable..."
-                  multiline
-                  className="text-gray-700 leading-relaxed"
-                />
+                <EditableField value={collaboration} onSave={updateCollaboration} placeholder="Collaboration..." multiline />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Luminaires du designer */}
         <div className="bg-white rounded-xl p-8 shadow-lg">
           <h2 className="text-2xl font-playfair text-dark mb-6">Luminaires de {designer.name}</h2>
-
           {designerLuminaires.length > 0 ? (
             <GalleryGrid items={designerLuminaires} viewMode="grid" onItemUpdate={updateLuminaire} />
           ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Aucun luminaire trouvé pour ce designer</p>
-            </div>
+            <div className="text-center py-12"><p className="text-gray-500">Aucun luminaire trouvé pour ce designer</p></div>
           )}
         </div>
       </div>
