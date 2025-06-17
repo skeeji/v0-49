@@ -1,3 +1,4 @@
+// Fichier : app/chronologie/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -105,52 +106,59 @@ const periods = [
 ]
 
 export default function ChronologiePage() {
-  const [luminaires, setLuminaires] = useState([])
   const [timelineData, setTimelineData] = useState([])
   const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
+  const [isLoading, setIsLoading] = useState(true); // Ajout d'un état de chargement
 
   useEffect(() => {
-    const storedLuminaires = localStorage.getItem("luminaires")
-    const storedDescriptions = localStorage.getItem("timeline-descriptions")
+    // On combine les deux logiques : charger les descriptions depuis localStorage
+    // ET charger les luminaires depuis l'API.
+    const savedDescriptions = JSON.parse(localStorage.getItem("timeline-descriptions") || "{}");
+    setDescriptions(savedDescriptions);
 
-    if (storedDescriptions) {
-      setDescriptions(JSON.parse(storedDescriptions))
-    }
+    async function fetchAndProcessData() {
+      setIsLoading(true);
+      try {
+        // CHANGEMENT : On va chercher les données fraîches depuis l'API
+        const response = await fetch("/api/luminaires");
+        const data = await response.json();
 
-    if (storedLuminaires) {
-      const data = JSON.parse(storedLuminaires)
-      setLuminaires(data)
+        if (data.success) {
+          const luminaires = data.luminaires;
+          
+          // CONSERVÉ : La logique de groupement est la même
+          const grouped = periods.map((period) => {
+            const periodLuminaires = luminaires.filter((luminaire: any) => {
+              const year = Number.parseInt(luminaire.annee) || 0;
+              return year >= period.start && year <= period.end;
+            });
 
-      // Grouper par période
-      const grouped = periods.map((period) => {
-        // Filtrer les luminaires par année
-        const periodLuminaires = data.filter((luminaire: any) => {
-          const year = Number.parseInt(luminaire.year) || 0
-          return year >= period.start && year <= period.end
-        })
+            const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => (Number.parseInt(b.annee) || 0) - (Number.parseInt(a.annee) || 0));
 
-        // Trier les luminaires par année (du plus récent au plus ancien)
-        const sortedLuminaires = [...periodLuminaires].sort((a, b) => {
-          const yearA = Number.parseInt(a.year) || 0
-          const yearB = Number.parseInt(b.year) || 0
-          return yearB - yearA
-        })
+            return {
+              ...period,
+              // CONSERVÉ : On utilise les descriptions sauvegardées
+              description: savedDescriptions[period.name] || period.defaultDescription,
+              luminaires: sortedLuminaires,
+            };
+          });
 
-        return {
-          ...period,
-          description: descriptions[period.name] || period.defaultDescription,
-          luminaires: sortedLuminaires,
+          const sortedTimelineData = [...grouped].sort((a, b) => a.start - b.start);
+          setTimelineData(sortedTimelineData);
         }
-      })
-
-      // Trier les périodes par ordre chronologique (du plus ancien au plus récent)
-      const sortedTimelineData = [...grouped].sort((a, b) => a.start - b.start)
-      setTimelineData(sortedTimelineData)
+      } catch (error) {
+        console.error("Impossible de charger les luminaires pour la chronologie", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [descriptions])
 
+    fetchAndProcessData();
+  }, []); // Le tableau vide assure que cela ne s'exécute qu'une fois au chargement.
+
+  // CONSERVÉ : Le useEffect pour l'animation est identique
   useEffect(() => {
-    // Animation scroll reveal
+    if (isLoading) return; // On attend que les données soient chargées
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -166,17 +174,25 @@ export default function ChronologiePage() {
     elements.forEach((el) => observer.observe(el))
 
     return () => observer.disconnect()
-  }, [timelineData])
+  }, [timelineData, isLoading])
 
+  // CONSERVÉ : La fonction pour éditer les descriptions est identique
   const updateDescription = (periodName: string, newDescription: string) => {
-    const updatedDescriptions = { ...descriptions, [periodName]: newDescription }
-    setDescriptions(updatedDescriptions)
-    localStorage.setItem("timeline-descriptions", JSON.stringify(updatedDescriptions))
+    const updatedDescriptions = { ...descriptions, [periodName]: newDescription };
+    setDescriptions(updatedDescriptions);
+    localStorage.setItem("timeline-descriptions", JSON.stringify(updatedDescriptions));
 
-    // Mettre à jour timelineData
     setTimelineData((prev) =>
       prev.map((period) => (period.name === periodName ? { ...period, description: newDescription } : period)),
-    )
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+          <p>Chargement de la chronologie...</p>
+      </div>
+    );
   }
 
   return (
