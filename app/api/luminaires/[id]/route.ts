@@ -1,54 +1,82 @@
-import { NextResponse } from "next/server";
-import { GridFSBucket, ObjectId } from "mongodb";
-import clientPromise from "@/lib/mongodb";
-import { Readable } from "stream";
+import { NextResponse } from "next/server"
+import { ObjectId } from "mongodb"
+import clientPromise from "../../../../lib/mongodb"
 
-// Récupérer le nom de la base de données depuis les variables d'environnement
-const DBNAME = process.env.MONGO_INITDB_DATABASE;
+const DBNAME = process.env.MONGO_INITDB_DATABASE
 
 if (!DBNAME) {
-  throw new Error('Variable d\'environnement manquante ou invalide: "MONGO_INITDB_DATABASE"');
+  throw new Error('Invalid/Missing environment variable: "MONGO_INITDB_DATABASE"')
 }
 
-// Fonction pour gérer les requêtes GET et servir une image
-export async function GET(request: Request, { params }: { params: { fileId: string } }) {
+// Gérer les requêtes GET pour récupérer un luminaire par ID
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const client = await clientPromise;
-    const db = client.db(DBNAME);
-    
-    // S'assurer que le nom du bucket est le même que celui utilisé pour l'upload
-    const bucket = new GridFSBucket(db, { bucketName: 'images' });
-    
-    // Vérifier si l'ID est un ObjectId MongoDB valide
-    if (!ObjectId.isValid(params.fileId)) {
-        return new NextResponse("ID de fichier invalide", { status: 400 });
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
     }
 
-    const fileId = new ObjectId(params.fileId);
+    const luminaire = await db.collection("luminaires").findOne({ _id: new ObjectId(params.id) })
 
-    // Trouver les métadonnées du fichier pour obtenir le type de contenu (Content-Type)
-    const files = await bucket.find({ _id: fileId }).toArray();
-    if (!files.length) {
-        return new NextResponse("Fichier non trouvé", { status: 404 });
+    if (!luminaire) {
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
-    const file = files[0];
-    
-    // Ouvrir un flux de téléchargement depuis GridFS
-    const downloadStream = bucket.openDownloadStream(fileId);
-    
-    // Transformer le flux Node.js en flux web pour la réponse
-    const webStream = Readable.toWeb(downloadStream) as ReadableStream<Uint8Array>;
 
-    // Renvoyer le flux de l'image avec les bons en-têtes
-    return new NextResponse(webStream, {
-      status: 200,
-      headers: {
-        "Content-Type": file.contentType || "application/octet-stream",
-      },
-    });
-
+    return NextResponse.json({ success: true, data: luminaire }, { status: 200 })
   } catch (error) {
-    console.error(`Erreur API [GET /api/images/${params.fileId}]:`, error);
-    return new NextResponse("Erreur serveur ou fichier non trouvé", { status: 500 });
+    console.error(error)
+    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
+  }
+}
+
+// Gérer les requêtes PUT pour mettre à jour un luminaire
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+    }
+
+    const updateData = await request.json()
+
+    const result = await db
+      .collection("luminaires")
+      .updateOne({ _id: new ObjectId(params.id) }, { $set: { ...updateData, updatedAt: new Date() } })
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, modifiedCount: result.modifiedCount }, { status: 200 })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
+  }
+}
+
+// Gérer les requêtes DELETE pour supprimer un luminaire
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+    }
+
+    const result = await db.collection("luminaires").deleteOne({ _id: new ObjectId(params.id) })
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, deletedCount: result.deletedCount }, { status: 200 })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
   }
 }
