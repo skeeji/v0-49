@@ -43,7 +43,7 @@ export default function ImportPage() {
       let successCount = 0;
       for (const luminaire of processedData) {
         if (!luminaire.filename) {
-          console.warn("Ligne CSV ignorée car 'Nom du fichier' est manquant.", luminaire);
+          console.warn("Ligne CSV ignorée car le 'Nom du fichier' est manquant.", luminaire);
           continue;
         }
         try {
@@ -73,32 +73,36 @@ export default function ImportPage() {
       const result = await uploadResponse.json();
       showToast(`${result.uploadedFiles?.length || 0} images uploadées. Association en cours...`, "info");
       
+      const luminairesResponse = await fetch('/api/luminaires');
+      const luminairesData = await luminairesResponse.json();
+      if (!luminairesData.success) { throw new Error("Impossible de récupérer la liste des luminaires pour l'association."); }
+      
+      const allLuminaires = luminairesData.luminaires;
       let successCount = 0;
+
       for (const uploadedFile of result.uploadedFiles) {
         const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, "");
-        try {
-            const luminairesResponse = await fetch(`/api/luminaires?search=${encodeURIComponent(fileNameWithoutExt)}`);
-            const luminairesData = await luminairesResponse.json();
+        
+        const matchingLuminaire = allLuminaires.find((l: any) => l.filename === uploadedFile.name || l.filename === fileNameWithoutExt);
 
-            if (luminairesData.success && luminairesData.luminaires.length > 0) {
-              const matchingLuminaire = luminairesData.luminaires[0];
-              const updatedImages = [...(matchingLuminaire.images || []), uploadedFile.path];
-              const updateResponse = await fetch(`/api/luminaires/${matchingLuminaire._id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ images: updatedImages }),
-              });
-              if (updateResponse.ok) successCount++;
-              else console.error(`Échec de la mise à jour pour ${matchingLuminaire.nom}`, await updateResponse.text());
-            } else {
-              console.warn(`Aucun luminaire trouvé pour le fichier image : ${uploadedFile.name}`);
-            }
-        } catch(e: any) { 
-            console.error(`Erreur lors de la recherche ou l'association pour ${uploadedFile.name}`, e.message);
+        if (matchingLuminaire) {
+          try {
+            const updatedImages = [...(matchingLuminaire.images || []), uploadedFile.path];
+            const updateResponse = await fetch(`/api/luminaires/${matchingLuminaire._id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ images: updatedImages }),
+            });
+            if (updateResponse.ok) successCount++;
+            else console.error(`Échec de la mise à jour pour ${matchingLuminaire.nom}`, await updateResponse.text());
+          } catch(e: any) { console.error(`Erreur d'association pour ${matchingLuminaire.nom}`, e.message)}
+        } else {
+          console.warn(`Aucun luminaire trouvé pour le fichier image : ${uploadedFile.name}`);
         }
       }
       setImages((prev) => [...prev, ...files]);
       showToast(`${successCount} images associées avec succès.`, "success");
+
     } catch (error: any) {
       console.error("Erreur grave lors de l'upload d'images:", error.message);
       showToast("Erreur grave lors de l'upload des images", "error");
@@ -120,8 +124,11 @@ export default function ImportPage() {
       for (const designer of processedDesigners) {
         try {
           const response = await fetch("/api/designers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(designer) })
-          if (response.ok) successCount++
-          else console.error("Erreur lors de l'ajout du designer:", await response.text())
+          if (response.ok) {
+            successCount++
+          } else {
+            console.error("Erreur lors de l'ajout du designer:", await response.text())
+          }
         } catch (error) { console.error("Erreur réseau:", error) }
       }
       setDesigners((prev) => [...prev, ...processedDesigners])
@@ -138,6 +145,7 @@ export default function ImportPage() {
       const formData = new FormData()
       files.forEach((file) => formData.append("files", file))
       const response = await fetch("/api/upload/images", { method: "POST", body: formData })
+
       if (response.ok) {
         const result = await response.json()
         for (const uploadedFile of result.uploadedFiles) {
@@ -153,14 +161,18 @@ export default function ImportPage() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ ...matchingDesigner, images: [...(matchingDesigner.images || []), uploadedFile.path] }),
                 })
-                if (!updateResponse.ok) console.error("Erreur lors de la mise à jour du designer:", await updateResponse.text())
+                if (!updateResponse.ok) {
+                  console.error("Erreur lors de la mise à jour du designer:", await updateResponse.text())
+                }
               }
             }
           } catch (error) { console.error("Erreur lors de l'association de l'image:", error) }
         }
         setDesignerImages((prev) => [...prev, ...files])
         showToast(`${result.uploadedFiles.length} images de designers uploadées`, "success")
-      } else { throw new Error("Erreur lors de l'upload des images de designers") }
+      } else {
+        throw new Error("Erreur lors de l'upload des images de designers")
+      }
     } catch (error) {
       console.error("Erreur lors de l'upload d'images de designers:", error)
       showToast("Erreur lors de l'upload des images de designers", "error")
@@ -176,7 +188,9 @@ export default function ImportPage() {
       if (response.ok) {
         setVideo(file)
         showToast("Vidéo d'accueil uploadée en base", "success")
-      } else { throw new Error("Erreur lors de l'upload de la vidéo") }
+      } else {
+        throw new Error("Erreur lors de l'upload de la vidéo")
+      }
     } catch (error) {
       console.error("Erreur lors de l'upload de la vidéo:", error)
       showToast("Erreur lors de l'upload de la vidéo", "error")
@@ -186,9 +200,10 @@ export default function ImportPage() {
   const resetImports = async () => {
     try {
       setCsvData([]); setImages([]); setDesigners([]); setDesignerImages([]); setVideo(null);
-      showToast("État local réinitialisé", "success");
+      showToast("État local réinitialisé", "success")
     } catch (error: any) {
-      showToast("Erreur lors de la réinitialisation", "error");
+      console.error("Erreur lors de la réinitialisation:", error)
+      showToast("Erreur lors de la réinitialisation", "error")
     }
   }
 
@@ -197,21 +212,21 @@ export default function ImportPage() {
       <div className="container-responsive py-8">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-4xl font-playfair text-dark mb-8">Import des données</h1>
-          {isUploading && ( <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg"><div className="flex items-center"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div><span className="text-blue-800">Upload en cours...</span></div></div> )}
+          {isUploading && (<div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg"><div className="flex items-center"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div><span className="text-blue-800">Upload en cours...</span></div></div>)}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white rounded-xl p-6 shadow-lg">
               <h2 className="text-2xl font-playfair text-dark mb-4">📥 Import CSV Luminaires</h2>
-              <UploadForm accept=".csv" onUpload={handleCsvUpload} type="csv" disabled={isUploading} expectedColumns={["Artiste / Dates", "Spécialité", "Collaboration / Œuvre", "Nom luminaire", "Année", "Signé", "Image", "Nom du fichier", "Dimensions", "Estimation", "Matériaux",]} />
+              <UploadForm accept=".csv" onUpload={handleCsvUpload} type="csv" disabled={isUploading} expectedColumns={["Artiste / Dates", "Spécialité", "Collaboration / Œuvre", "Nom luminaire", "Année", "Signé", "Image", "Nom du fichier", "Dimensions", "Estimation", "Matériaux",]}/>
               {csvData.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{csvData.length} luminaires traités</p><p className="text-xs text-gray-600 mt-1">Données sauvegardées en base MongoDB</p></div>)}
             </div>
             <div className="bg-white rounded-xl p-6 shadow-lg">
               <h2 className="text-2xl font-playfair text-dark mb-4">🖼️ Import Images Luminaires</h2>
               <UploadForm accept="image/*" multiple onUpload={handleImagesUpload} type="images" disabled={isUploading} />
-              {images.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{images.length} images uploadées</p><div className="mt-2 text-xs text-gray-600">Images sauvegardées et associées automatiquement</div></div>)}
+              {images.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{images.length} images uploadées</p><div className="mt-2 text-xs text-gray-600">Images sauvegardées et associées automatiquement aux luminaires</div></div>)}
             </div>
             <div className="bg-white rounded-xl p-6 shadow-lg">
               <h2 className="text-2xl font-playfair text-dark mb-4">🧑‍🎨 Import CSV Designers</h2>
-              <UploadForm accept=".csv" onUpload={handleDesignersUpload} type="csv" disabled={isUploading} expectedColumns={["Nom", "imagedesigner"]} />
+              <UploadForm accept=".csv" onUpload={handleDesignersUpload} type="csv" disabled={isUploading} expectedColumns={["Nom", "imagedesigner"]}/>
               {designers.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{designers.length} designers traités</p><p className="text-xs text-gray-600 mt-1">Données sauvegardées en base MongoDB</p></div>)}
             </div>
             <div className="bg-white rounded-xl p-6 shadow-lg">
@@ -222,7 +237,7 @@ export default function ImportPage() {
             <div className="bg-white rounded-xl p-6 shadow-lg lg:col-span-2">
               <h2 className="text-2xl font-playfair text-dark mb-4">🎥 Vidéo d'accueil</h2>
               <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" disabled={isUploading} />
-              {video && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">Vidéo: {video.name}</p><div className="mt-2 text-xs text-gray-600">Vidéo sauvegardée et affichée sur la page d'accueil</div></div>)}
+              {video && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">Vidéo: {video.name}</p><div className="mt-2 text-xs text-gray-600">Vidéo sauvegardée en base et sera affichée sur la page d'accueil</div></div>)}
             </div>
           </div>
           <div className="mt-8 text-center">
