@@ -1,5 +1,4 @@
 // Fichier : lib/utils.ts
-
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -11,8 +10,10 @@ export function cn(...inputs: ClassValue[]) {
 // NOTRE NOUVELLE FONCTION (AJOUTÉE)
 export function createSlug(text: string): string {
   if (!text) return "";
-  return text
+  // Extrait le nom avant la parenthèse, nettoie et crée le slug
+  const nameOnly = text.split('(')[0].trim();
+  return nameOnly
     .toLowerCase()
     .replace(/\s+/g, '-')       // Remplace les espaces par -
-    .replace(/[^\w-]+/g, ''); // Supprime tous les caractères non alphanumériques (sauf le tiret)
+    .replace(/[^\w-]+/g, '');   // Supprime tous les caractères non valides
 }
