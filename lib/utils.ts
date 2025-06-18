@@ -14,5 +14,5 @@ export function createSlug(text: string): string {
   return text
     .toLowerCase()
     .replace(/\s+/g, '-')       // Remplace les espaces par -
-    .replace(/[^\w-]+/g, ''); // Supprime les caractères non valides
+    .replace(/[^\w-]+/g, ''); // Supprime tous les caractères non alphanumériques (sauf le tiret)
 }
