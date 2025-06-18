@@ -6,10 +6,10 @@ import clientPromise from "@/lib/mongodb";
 export async function GET(request: NextRequest) {
   try {
     const client = await clientPromise;
-    const db = client.db(); // CORRECTION : Utilise la base de données de l'URI de connexion
+    const db = client.db();
     const designers = await db.collection("designers").find({}).toArray();
 
-    // CORRECTION : Renvoie les données dans le champ "designers" pour être cohérent
+    // CORRECTION : On renvoie les données dans le champ "designers"
     return NextResponse.json({ success: true, designers: designers }); 
   } catch (error) {
     console.error("Erreur API /api/designers GET:", error);
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST pour ajouter un designer
+// POST pour ajouter un designer (conservé)
 export async function POST(request: NextRequest) {
   try {
     const client = await clientPromise;
@@ -28,6 +28,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Le nom du designer est requis" }, { status: 400 });
     }
     
+    // On s'assure que le slug est bien là avant d'insérer
+    if (!designerData.slug) {
+        return NextResponse.json({ success: false, error: "Le slug est manquant" }, { status: 400 });
+    }
+
     const result = await db.collection("designers").insertOne({ ...designerData, createdAt: new Date() });
     return NextResponse.json({ success: true, insertedId: result.insertedId }, { status: 201 });
   } catch (error) {
