@@ -9,8 +9,8 @@ import { useAuth } from "@/contexts/AuthContext"
 import { createSlug } from "@/lib/utils"
 
 const getDesignerNameOnly = (str: string = ""): string => {
-    if (!str) return "";
-    return str.split('(')[0].trim();
+  if (!str) return "";
+  return str.split('(')[0].trim();
 };
 
 export default function DesignersPage() {
@@ -26,46 +26,39 @@ export default function DesignersPage() {
       setIsLoading(true);
       try {
         const [luminaireRes, designerRes] = await Promise.all([
-            fetch('/api/luminaires'),
-            fetch('/api/designers')
+          fetch('/api/luminaires'),
+          fetch('/api/designers')
         ]);
-
         const luminaireData = await luminaireRes.json();
         const designerData = await designerRes.json();
 
         if (luminaireData.success && designerData.success) {
-            const allLuminaires = luminaireData.luminaires;
-            const allDesigners = designerData.designers;
-            const designerMap = new Map();
+          const allLuminaires = luminaireData.luminaires;
+          const allDesigners = designerData.designers;
+          const designerMap = new Map();
 
-            // CORRECTION : On restaure la logique de construction depuis les luminaires
-            allLuminaires.forEach((luminaire: any) => {
-                const designerName = getDesignerNameOnly(luminaire.designer);
-                if (designerName) {
-                    if (!designerMap.has(designerName)) {
-                        const matchingImportedDesigner = allDesigners.find((d: any) => getDesignerNameOnly(d.nom) === designerName);
-                        
-                        designerMap.set(designerName, {
-                            name: designerName,
-                            count: 0,
-                            luminaires: [],
-                            image: matchingImportedDesigner?.images?.[0] || null,
-                            slug: createSlug(designerName), // Utilise notre fonction fiable
-                        });
-                    }
-                    const designerEntry = designerMap.get(designerName);
-                    designerEntry.count++;
-                    designerEntry.luminaires.push({ image: luminaire.images?.[0] });
-                }
-            });
-            const designersArray = Array.from(designerMap.values());
-            setDesigners(designersArray);
+          allLuminaires.forEach((luminaire: any) => {
+            const designerName = getDesignerNameOnly(luminaire.designer);
+            if (designerName) {
+              if (!designerMap.has(designerName)) {
+                const matchingImportedDesigner = allDesigners.find((d: any) => getDesignerNameOnly(d.nom) === designerName);
+                designerMap.set(designerName, {
+                  name: designerName,
+                  count: 0,
+                  luminaires: [],
+                  image: matchingImportedDesigner?.images?.[0] || null,
+                  slug: createSlug(designerName),
+                });
+              }
+              const designerEntry = designerMap.get(designerName);
+              designerEntry.count++;
+              designerEntry.luminaires.push({ image: luminaire.images?.[0] });
+            }
+          });
+          setDesigners(Array.from(designerMap.values()));
         }
-      } catch(e) {
-          console.error("Impossible de charger les données des designers", e);
-      } finally {
-          setIsLoading(false);
-      }
+      } catch (e) { console.error("Impossible de charger les données des designers", e); } 
+      finally { setIsLoading(false); }
     }
     fetchAndProcessData();
   }, []);
@@ -81,8 +74,7 @@ export default function DesignersPage() {
       if (sortBy === 'count-desc') return b.count - a.count;
       return 0;
     });
-    
-    // La logique pour les utilisateurs "free" est conservée
+
     if (userData?.role === "free") {
       const limitedDesigners = filtered.slice(0, Math.max(Math.floor(filtered.length * 0.1), 5));
       setFilteredDesigners(limitedDesigners);
@@ -90,18 +82,14 @@ export default function DesignersPage() {
       setFilteredDesigners(filtered);
     }
   }, [designers, searchTerm, sortBy, userData]);
-
+  
   if (isLoading) { return <div className="text-center py-16">Chargement...</div>; }
 
   return (
     <div className="container-responsive py-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-playfair text-dark mb-8">Designers ({filteredDesigners.length})</h1>
-        {userData?.role === "free" && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-             <p className="flex items-center"><span className="mr-2">ℹ️</span><span>Vous utilisez un compte gratuit. Seuls 10% des designers sont affichés. <Link href="#" className="ml-1 underline font-medium">Passez à Premium</Link> pour voir tous les designers.</span></p>
-          </div>
-        )}
+        {userData?.role === "free" && ( <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800"><p className="flex items-center"><span className="mr-2">ℹ️</span><span>Vous utilisez un compte gratuit. Seuls 10% des designers sont affichés. <Link href="#" className="ml-1 underline font-medium">Passez à Premium</Link> pour voir tous les designers.</span></p></div> )}
         <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un designer..." />
@@ -114,7 +102,7 @@ export default function DesignersPage() {
               <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full">
                 <div className="text-center">
                   <div className="w-24 h-24 mx-auto mb-4 relative">
-                    <Image src={designer.image || "/placeholder.svg"} alt={designer.name} fill className="object-cover rounded-full" />
+                    {designer.image ? (<Image src={designer.image} alt={designer.name} fill className="object-cover rounded-full" />) : (<div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200"><div className="text-center"><div className="text-2xl text-gray-400 mb-1">👤</div><span className="text-xs text-gray-500">Image manquante</span></div></div>)}
                   </div>
                   <h3 className="text-xl font-playfair text-dark mb-2">{designer.name}</h3>
                   <p className="text-gray-600 mb-4">{designer.count} luminaire{designer.count > 1 ? "s" : ""}</p>
