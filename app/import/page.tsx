@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
 import { RoleGuard } from "@/components/RoleGuard"
-import { createSlug } from "@/lib/utils"
+import { createSlug } from "@/lib/utils" // Assurez-vous que lib/utils.ts existe
 
 export default function ImportPage() {
   const [csvData, setCsvData] = useState<any[]>([])
@@ -38,27 +38,28 @@ export default function ImportPage() {
       }));
       let successCount = 0;
       for (const luminaire of processedData) {
-        if (!luminaire.filename) continue;
+        if (!luminaire.filename) { console.warn("Ligne CSV ignorée car 'Nom du fichier' est manquant.", luminaire); continue; }
         try {
           const response = await fetch("/api/luminaires", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(luminaire) });
           if (response.ok) successCount++;
-        } catch (e) { console.error(e); }
+          else console.error("Erreur ajout luminaire:", await response.text());
+        } catch (error) { console.error("Erreur réseau:", error); }
       }
       setCsvData(processedData);
       showToast(`${successCount}/${processedData.length} luminaires traités.`, "success");
-    } catch (e: any) { showToast(e.message, "error"); }
+    } catch (error: any) { console.error("Erreur import CSV:", error.message); showToast("Erreur lors de l'import CSV", "error"); } 
     finally { setIsUploading(false); }
   };
 
   const handleImagesUpload = async (files: File[]) => {
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      files.forEach((file) => formData.append("files", file));
-      const uploadResponse = await fetch("/api/upload/images", { method: "POST", body: formData });
-      if (!uploadResponse.ok) throw new Error("Upload des images a échoué");
+      const uploadFormData = new FormData();
+      files.forEach((file) => uploadFormData.append("files", file));
+      const uploadResponse = await fetch("/api/upload/images", { method: "POST", body: uploadFormData });
+      if (!uploadResponse.ok) throw new Error("L'upload des images a échoué.");
       const result = await uploadResponse.json();
-      showToast(`${result.uploadedFiles?.length || 0} images uploadées.`, "info");
+      showToast(`${result.uploadedFiles?.length || 0} images uploadées. Association en cours...`, "info");
       
       const luminairesResponse = await fetch('/api/luminaires');
       const luminairesData = await luminairesResponse.json();
@@ -76,29 +77,31 @@ export default function ImportPage() {
       }
       setImages(files);
       showToast(`${successCount} images associées.`, "success");
-    } catch (e: any) { showToast(e.message, "error"); }
+    } catch (error: any) { console.error(error.message); showToast(error.message, "error"); } 
     finally { setIsUploading(false); }
   };
-
-  // --- DÉBUT DES MODIFICATIONS ---
+  
   const handleDesignersUpload = async (data: any[]) => {
     setIsUploading(true);
     try {
-      const processedDesigners = data.map((item) => {
-        const nom = item["Nom"] || "";
-        return { nom: nom, imageFile: item["imagedesigner"] || "", slug: createSlug(nom), images: [] };
-      });
+      const processedDesigners = data.map((item) => ({
+        nom: item["Nom"] || "",
+        imageFile: item["imagedesigner"] || "",
+        slug: createSlug(item["Nom"] || ""),
+        images: [],
+        biographie: "", specialites: [], periodes: [],
+      }));
       let successCount = 0;
       for (const designer of processedDesigners) {
         if (!designer.nom) continue;
         try {
           const response = await fetch("/api/designers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(designer) });
           if(response.ok) successCount++;
-        } catch (e) { console.error(e) }
+        } catch (e) { console.error(e); }
       }
       setDesigners(processedDesigners);
       showToast(`${successCount} designers importés.`, "success");
-    } catch (e: any) { showToast(e.message, "error") }
+    } catch (e: any) { showToast(e.message, "error"); }
     finally { setIsUploading(false); }
   };
 
@@ -109,11 +112,11 @@ export default function ImportPage() {
       files.forEach((file) => formData.append("files", file));
       const response = await fetch("/api/upload/images", { method: "POST", body: formData });
       if (!response.ok) throw new Error("Upload des portraits a échoué");
+
       const result = await response.json();
-      
       const designersResponse = await fetch("/api/designers");
       const designersData = await designersResponse.json();
-      if (!designersData.success) throw new Error("Impossible de lister les designers");
+      if (!designersData.success) throw new Error("Impossible de récupérer les designers");
       
       let successCount = 0;
       for (const uploadedFile of result.uploadedFiles) {
@@ -129,10 +132,10 @@ export default function ImportPage() {
       }
       setDesignerImages(files);
       showToast(`${successCount} portraits associés.`, "success");
-    } catch (e: any) { showToast(e.message, "error"); }
+    } catch (error: any) { showToast(error.message, "error"); }
     finally { setIsUploading(false); }
   };
-  
+
   const handleVideoUpload = async (file: File) => {
     setIsUploading(true);
     try {
@@ -143,12 +146,12 @@ export default function ImportPage() {
         setVideo(file);
         showToast("Vidéo d'accueil sauvegardée.", "success");
       } else { throw new Error("L'upload de la vidéo a échoué"); }
-    } catch (e: any) { showToast(e.message, "error"); }
+    } catch (error: any) { showToast(error.message, "error"); }
     finally { setIsUploading(false); }
   };
 
   const resetImports = async () => {
-    const isConfirmed = window.confirm("Vider les collections LUMINAIRES et DESIGNERS ? Action irréversible.");
+    const isConfirmed = window.confirm("Vider les collections LUMINAIRES et DESIGNERS ? Cette action est irréversible.");
     if (isConfirmed) {
       setIsUploading(true);
       try {
@@ -157,15 +160,56 @@ export default function ImportPage() {
           showToast("Base de données réinitialisée.", "success");
           setCsvData([]); setImages([]); setDesigners([]); setDesignerImages([]); setVideo(null);
         } else { throw new Error("La réinitialisation a échoué."); }
-      } catch (e: any) { showToast(e.message, "error"); }
+      } catch (error: any) { showToast(error.message, "error"); }
       finally { setIsUploading(false); }
     }
   };
-  // --- FIN DES MODIFICATIONS ---
 
   return (
     <RoleGuard requiredRole="admin">
-        {/* ... VOTRE JSX COMPLET ET INTACt ... */}
+        <div className="container-responsive py-8">
+            <div className="max-w-6xl mx-auto">
+                <h1 className="text-4xl font-playfair text-dark mb-8">Import des données</h1>
+                {isUploading && (
+                    <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            <span className="text-blue-800">Upload en cours...</span>
+                        </div>
+                    </div>
+                )}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="bg-white rounded-xl p-6 shadow-lg">
+                        <h2 className="text-2xl font-playfair text-dark mb-4">📥 Import CSV Luminaires</h2>
+                        <UploadForm accept=".csv" onUpload={handleCsvUpload} type="csv" disabled={isUploading} expectedColumns={["Artiste / Dates", "Spécialité", "Collaboration / Œuvre", "Nom luminaire", "Année", "Signé", "Image", "Nom du fichier", "Dimensions", "Estimation", "Matériaux",]} />
+                        {csvData.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{csvData.length} luminaires traités</p><p className="text-xs text-gray-600 mt-1">Données sauvegardées en base MongoDB</p></div>)}
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-lg">
+                        <h2 className="text-2xl font-playfair text-dark mb-4">🖼️ Import Images Luminaires</h2>
+                        <UploadForm accept="image/*" multiple onUpload={handleImagesUpload} type="images" disabled={isUploading} />
+                        {images.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{images.length} images uploadées</p><div className="mt-2 text-xs text-gray-600">Images sauvegardées et associées</div></div>)}
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-lg">
+                        <h2 className="text-2xl font-playfair text-dark mb-4">🧑‍🎨 Import CSV Designers</h2>
+                        <UploadForm accept=".csv" onUpload={handleDesignersUpload} type="csv" disabled={isUploading} expectedColumns={["Nom", "imagedesigner"]}/>
+                        {designers.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{designers.length} designers traités</p><p className="text-xs text-gray-600 mt-1">Données sauvegardées</p></div>)}
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-lg">
+                        <h2 className="text-2xl font-playfair text-dark mb-4">👤 Import Images Designers</h2>
+                        <UploadForm accept="image/*" multiple onUpload={handleDesignerImagesUpload} type="images" disabled={isUploading} />
+                        {designerImages.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{designerImages.length} portraits uploadés</p><div className="mt-2 text-xs text-gray-600">Images associées</div></div>)}
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-lg lg:col-span-2">
+                        <h2 className="text-2xl font-playfair text-dark mb-4">🎥 Vidéo d'accueil</h2>
+                        <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" disabled={isUploading} />
+                        {video && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">Vidéo: {video.name}</p><div className="mt-2 text-xs text-gray-600">Vidéo sauvegardée</div></div>)}
+                    </div>
+                </div>
+                <div className="mt-8 text-center">
+                    <Button onClick={resetImports} variant="destructive" className="bg-red-500 hover:bg-red-600" disabled={isUploading}><Trash2 className="w-4 h-4 mr-2" />Réinitialiser la Base de Données</Button>
+                </div>
+            </div>
+        </div>
     </RoleGuard>
   )
 }
