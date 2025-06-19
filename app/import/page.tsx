@@ -17,7 +17,6 @@ export default function ImportPage() {
   const [isUploading, setIsUploading] = useState(false)
   const { showToast } = useToast()
 
-  // CONSERVÉ : Votre fonction originale, qui est correcte
   const handleCsvUpload = async (data: any[]) => {
     setIsUploading(true);
     try {
@@ -51,7 +50,6 @@ export default function ImportPage() {
     finally { setIsUploading(false); }
   };
 
-  // CONSERVÉ : Votre fonction originale, qui est correcte
   const handleImagesUpload = async (files: File[]) => {
     setIsUploading(true);
     try {
@@ -82,7 +80,6 @@ export default function ImportPage() {
     finally { setIsUploading(false); }
   };
 
-  // CONSERVÉ : Votre fonction originale, avec la création de slug
   const handleDesignersUpload = async (data: any[]) => {
     setIsUploading(true);
     try {
@@ -107,7 +104,6 @@ export default function ImportPage() {
     finally { setIsUploading(false); }
   };
 
-  // CONSERVÉ : Votre fonction originale, avec l'appel à l'API par slug
   const handleDesignerImagesUpload = async (files: File[]) => {
     setIsUploading(true);
     try {
@@ -115,8 +111,8 @@ export default function ImportPage() {
       files.forEach((file) => formData.append("files", file));
       const response = await fetch("/api/upload/images", { method: "POST", body: formData });
       if (!response.ok) throw new Error("Upload des portraits a échoué");
-
       const result = await response.json();
+      
       const designersResponse = await fetch("/api/designers");
       const designersData = await designersResponse.json();
       if (!designersData.success) throw new Error("Impossible de récupérer les designers");
@@ -139,63 +135,73 @@ export default function ImportPage() {
     finally { setIsUploading(false); }
   };
 
-  // --- DÉBUT DE LA MODIFICATION ---
   const handleVideoUpload = async (file: File) => {
     setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append("video", file);
-      // On appelle la nouvelle API pour la vidéo
       const response = await fetch("/api/upload/video", { method: "POST", body: formData });
       if (response.ok) {
         setVideo(file);
-        showToast("Vidéo d'accueil sauvegardée dans la base de données.", "success");
-      } else {
-        throw new Error("L'upload de la vidéo a échoué.");
-      }
-    } catch (error: any) {
-      console.error("Erreur upload vidéo:", error);
-      showToast(error.message, "error");
-    } finally {
-      setIsUploading(false);
-    }
+        showToast("Vidéo d'accueil sauvegardée.", "success");
+      } else { throw new Error("L'upload de la vidéo a échoué"); }
+    } catch (error: any) { showToast(error.message, "error"); }
+    finally { setIsUploading(false); }
   };
 
   const resetImports = async () => {
-    // On ajoute une confirmation pour cette action dangereuse
-    const isConfirmed = window.confirm("Êtes-vous certain de vouloir vider les collections LUMINAIRES et DESIGNERS ? Cette action est irréversible.");
+    const isConfirmed = window.confirm("Vider les collections LUMINAIRES et DESIGNERS ? Cette action est irréversible.");
     if (isConfirmed) {
       setIsUploading(true);
       try {
-        // On appelle la nouvelle API de réinitialisation
         const response = await fetch("/api/reset", { method: "DELETE" });
         if (response.ok) {
-          showToast("Base de données réinitialisée avec succès.", "success");
-          setCsvData([]);
-          setImages([]);
-          setDesigners([]);
-          setDesignerImages([]);
-          setVideo(null);
-        } else {
-          throw new Error("La réinitialisation de la base de données a échoué.");
-        }
-      } catch (error: any) {
-        console.error("Erreur lors de la réinitialisation:", error);
-        showToast(error.message, "error");
-      } finally {
-        setIsUploading(false);
-      }
+          showToast("Base de données réinitialisée.", "success");
+          setCsvData([]); setImages([]); setDesigners([]); setDesignerImages([]); setVideo(null);
+        } else { throw new Error("La réinitialisation a échoué."); }
+      } catch (error: any) { showToast(error.message, "error"); }
+      finally { setIsUploading(false); }
     }
   };
-  // --- FIN DE LA MODIFICATION ---
 
   return (
     <RoleGuard requiredRole="admin">
-        <div className="container-responsive py-8">
+      <div className="container-responsive py-8">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-4xl font-playfair text-dark mb-8">Import des données</h1>
           {isUploading && (<div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg"><div className="flex items-center"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div><span className="text-blue-800">Upload en cours...</span></div></div>)}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white rounded-xl p-6 shadow-lg">
               <h2 className="text-2xl font-playfair text-dark mb-4">📥 Import CSV Luminaires</h2>
-              <UploadForm accept=".csv" onUpload={handleCsvUpload} type="csv" disabled={isUploading} expectedColumns={["Artiste / Dates
+              <UploadForm accept=".csv" onUpload={handleCsvUpload} type="csv" disabled={isUploading} expectedColumns={["Artiste / Dates", "Spécialité", "Collaboration / Œuvre", "Nom luminaire", "Année", "Signé", "Image", "Nom du fichier", "Dimensions", "Estimation", "Matériaux",]}/>
+              {csvData.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{csvData.length} luminaires traités</p><p className="text-xs text-gray-600 mt-1">Données sauvegardées en base MongoDB</p></div>)}
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-playfair text-dark mb-4">🖼️ Import Images Luminaires</h2>
+              <UploadForm accept="image/*" multiple onUpload={handleImagesUpload} type="images" disabled={isUploading} />
+              {images.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{images.length} images uploadées</p><div className="mt-2 text-xs text-gray-600">Images sauvegardées et associées</div></div>)}
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-playfair text-dark mb-4">🧑‍🎨 Import CSV Designers</h2>
+              <UploadForm accept=".csv" onUpload={handleDesignersUpload} type="csv" disabled={isUploading} expectedColumns={["Nom", "imagedesigner"]}/>
+              {designers.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{designers.length} designers traités</p><p className="text-xs text-gray-600 mt-1">Données sauvegardées</p></div>)}
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-playfair text-dark mb-4">👤 Import Images Designers</h2>
+              <UploadForm accept="image/*" multiple onUpload={handleDesignerImagesUpload} type="images" disabled={isUploading} />
+              {designerImages.length > 0 && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">{designerImages.length} portraits uploadés</p><div className="mt-2 text-xs text-gray-600">Images associées</div></div>)}
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-lg lg:col-span-2">
+              <h2 className="text-2xl font-playfair text-dark mb-4">🎥 Vidéo d'accueil</h2>
+              <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" disabled={isUploading} />
+              {video && (<div className="mt-4 p-4 bg-cream rounded-lg"><p className="text-sm text-dark">Vidéo: {video.name}</p><div className="mt-2 text-xs text-gray-600">Vidéo sauvegardée</div></div>)}
+            </div>
+          </div>
+          <div className="mt-8 text-center">
+            <Button onClick={resetImports} variant="destructive" className="bg-red-500 hover:bg-red-600" disabled={isUploading}><Trash2 className="w-4 h-4 mr-2" />Réinitialiser la Base de Données</Button>
+          </div>
+        </div>
+      </div>
+    </RoleGuard>
+  )
+}
