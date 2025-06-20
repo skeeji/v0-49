@@ -22,7 +22,6 @@ export default function LuminaireDetailPage() {
 
   const canEdit = !authLoading && userData?.role === "admin"
 
-  // --- DÉBUT DE LA MODIFICATION ---
   useEffect(() => {
     if (!params.id) return;
 
@@ -42,6 +41,8 @@ export default function LuminaireDetailPage() {
             year: result.data.annee,
             materials: Array.isArray(result.data.materiaux) ? result.data.materiaux.join(', ') : "",
             signed: result.data.signe,
+            specialty: result.data.specialite, // Assurez-vous que ce champ est bien mappé
+            name: result.data.nom, // Assurez-vous que ce champ est bien mappé
           };
           setLuminaire(formattedLuminaire);
 
@@ -89,7 +90,7 @@ export default function LuminaireDetailPage() {
   const handleUpdate = async (field: string, value: string) => {
     if (!canEdit || !luminaire) return;
 
-    const keyMapping: { [key: string]: string } = { artist: 'designer', year: 'annee', materials: 'materiaux', signed: 'signe', specialty: 'specialite' };
+    const keyMapping: { [key: string]: string } = { artist: 'designer', year: 'annee', materials: 'materiaux', signed: 'signe', specialty: 'specialite', name: 'nom' };
     const keyToUpdate = keyMapping[field] || field;
     
     setLuminaire((prev: any) => ({ ...prev, [field]: value }));
@@ -102,7 +103,6 @@ export default function LuminaireDetailPage() {
       });
     } catch (error) { console.error("Erreur de mise à jour:", error); }
   };
-  // --- FIN DE LA MODIFICATION ---
 
   const toggleFavorite = () => {
     if (!luminaire) return;
@@ -113,77 +113,103 @@ export default function LuminaireDetailPage() {
   };
 
   const generatePDF = async () => {
-      if (generatingPDF) return
-   setGeneratingPDF(true)
+      if (generatingPDF || !luminaire) return;
+      setGeneratingPDF(true);
 
-   try {
-     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
-     doc.setFont("helvetica", "bold")
-     doc.setFontSize(18)
-     doc.text("FICHE TECHNIQUE LUMINAIRE", 105, 20, { align: "center" })
-     doc.setLineWidth(0.5)
-     doc.line(20, 25, 190, 25)
+      try {
+          const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(18);
+          doc.text("FICHE TECHNIQUE LUMINAIRE", 105, 20, { align: "center" });
+          doc.setLineWidth(0.5);
+          doc.line(20, 25, 190, 25);
 
-     let yPosition = 40
-     let imageAdded = false
+          let yPosition = 40;
+          let imageAdded = false;
 
-     if (luminaire.image && !luminaire.image.includes("placeholder.svg")) {
-       try {
-         const response = await fetch(luminaire.image);
-         const blob = await response.blob();
-         const imgData = await new Promise<string>((resolve, reject) => {
-           const reader = new FileReader();
-           reader.onloadend = () => resolve(reader.result as string);
-           reader.onerror = reject;
-           reader.readAsDataURL(blob);
-         });
+          if (luminaire.image && !luminaire.image.includes("placeholder.svg")) {
+              try {
+                  const response = await fetch(luminaire.image);
+                  const blob = await response.blob();
+                  const imgData = await new Promise<string>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => resolve(reader.result as string);
+                      reader.onerror = reject;
+                      reader.readAsDataURL(blob);
+                  });
 
-         const img = new window.Image();
-         img.src = imgData;
-         await new Promise(resolve => { img.onload = resolve; });
+                  const img = new window.Image();
+                  img.src = imgData;
+                  await new Promise(resolve => { img.onload = resolve; });
 
-         const imgRatio = img.height / img.width;
-         const imgWidth = 80;
-         const imgHeight = imgWidth * imgRatio;
-         const xPosition = (210 - imgWidth) / 2;
+                  const imgRatio = img.height / img.width;
+                  const imgWidth = 80;
+                  const imgHeight = imgWidth * imgRatio;
+                  const xPosition = (210 - imgWidth) / 2;
 
-         doc.addImage(imgData, "JPEG", xPosition, yPosition, imgWidth, imgHeight);
-         yPosition += imgHeight + 15;
-         imageAdded = true;
-       } catch (error) {
-         console.error("Erreur lors de l'ajout de l'image au PDF:", error)
-         yPosition += 15;
-       }
-     }
-     
-     if (!imageAdded) { yPosition = 35; }
-     
-     const addInfoLine = (label: string, value: string, isMultiline = false) => {
-        // ... votre logique addInfoLine existante ...
-     }
-     
-     addInfoLine("Nom du luminaire", luminaire.name || "")
-     addInfoLine("Artiste / Dates", luminaire.artist || "")
-     addInfoLine("Spécialité", luminaire.specialty || "")
-     addInfoLine("Collaboration / Œuvre", luminaire.collaboration || "", true)
-     addInfoLine("Description", luminaire.description || "", true)
-     addInfoLine("Année", luminaire.year || "")
-     addInfoLine("Dimensions", luminaire.dimensions || "")
-     addInfoLine("Matériaux", luminaire.materials || "", true)
-     addInfoLine("Signé", luminaire.signed || "")
-     addInfoLine("Estimation", luminaire.estimation || "")
-     addInfoLine("Lien internet", luminaire.url || "")
+                  doc.addImage(imgData, "JPEG", xPosition, yPosition, imgWidth, imgHeight);
+                  yPosition += imgHeight + 15;
+                  imageAdded = true;
+              } catch (error) {
+                  console.error("Erreur lors de l'ajout de l'image au PDF:", error);
+                  yPosition += 15;
+              }
+          }
+          
+          if (!imageAdded) { yPosition = 35; }
+          
+          const addInfoLine = (label: string, value: string, isMultiline = false) => {
+              if (!value || yPosition > 270) {
+                  if (yPosition > 270) {
+                      doc.addPage();
+                      yPosition = 20;
+                  } else {
+                      return;
+                  }
+              }
 
-     const fileName = `${luminaire.name || "luminaire"}.pdf`;
-     doc.save(fileName);
-   } catch (error) {
-     console.error("Erreur génération PDF:", error);
-   } finally {
-     setGeneratingPDF(false);
-   }
+              const leftMargin = 20;
+              const valueXPosition = 70;
+              const rightMargin = 190;
+              const maxWidth = rightMargin - valueXPosition;
+
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(10);
+              doc.text(label + " :", leftMargin, yPosition);
+
+              doc.setFont("helvetica", "normal");
+              if (isMultiline) {
+                  const lines = doc.splitTextToSize(value, maxWidth);
+                  doc.text(lines, valueXPosition, yPosition);
+                  yPosition += (lines.length * 5) + 5;
+              } else {
+                  doc.text(value, valueXPosition, yPosition);
+                  yPosition += 10;
+              }
+          };
+          
+          addInfoLine("Nom du luminaire", luminaire.name || "");
+          addInfoLine("Artiste / Dates", luminaire.artist || "");
+          addInfoLine("Spécialité", luminaire.specialty || "");
+          addInfoLine("Collaboration / Œuvre", luminaire.collaboration || "", true);
+          addInfoLine("Description", luminaire.description || "", true);
+          addInfoLine("Année", luminaire.year ? String(luminaire.year) : "");
+          addInfoLine("Dimensions", luminaire.dimensions || "");
+          addInfoLine("Matériaux", luminaire.materials || "", true);
+          addInfoLine("Signé", luminaire.signed || "");
+          addInfoLine("Estimation", luminaire.estimation || "");
+          addInfoLine("Lien internet", luminaire.url || "");
+
+          const fileName = `${(luminaire.name || "luminaire").replace(/ /g, "_")}.pdf`;
+          doc.save(fileName);
+      } catch (error) {
+          console.error("Erreur génération PDF:", error);
+      } finally {
+          setGeneratingPDF(false);
+      }
   };
 
-  if (isLoading || authLoading) { return ( <div className="text-center py-16"><p>Chargement...</p></div> ); }
+  if (isLoading || authLoading) { return ( <div className="flex justify-center items-center h-screen"><p>Chargement...</p></div> ); }
 
   if (!luminaire) { return ( <div className="container-responsive py-8 text-center"><p>Luminaire non trouvé.</p><Link href="/"><Button className="mt-4">Retour</Button></Link></div> ); }
 
@@ -197,7 +223,7 @@ export default function LuminaireDetailPage() {
             <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
           </div>
         </div>
-        {!canEdit && (<div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800"><p>Mode lecture seule.</p></div>)}
+        {!canEdit && (<div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800"><p>Mode lecture seule. Seuls les administrateurs peuvent modifier les informations.</p></div>)}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
           <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
             <Image src={luminaire.image || "/placeholder.svg?height=600&width=600"} alt={luminaire.name || "Luminaire"} fill className="object-cover" />
