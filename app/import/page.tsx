@@ -24,56 +24,53 @@ export default function ImportPage() {
   const { showToast } = useToast()
 
   const handleCsvUpload = async (data: any[]) => {
-    setIsUploading(true)
+    setIsUploading(true);
     try {
       const processedData = data.map((item) => {
-        const filename = item["Nom du fichier"] || ""
-        const nomLuminaire = item["Nom luminaire"] || ""
-        const finalNom = nomLuminaire || filename.replace(/\.[^/.]+$/, "")
-        return {
-          nom: finalNom,
-          designer: item["Artiste / Dates"] || "",
-          specialite: item["Spécialité"] || "",
-          collaboration: item["Collaboration / Œuvre"] || "",
-          annee: Number.parseInt(item["Année"]) || new Date().getFullYear(),
-          signe: item["Signé"] || "",
-          filename: filename,
-          dimensions: item["Dimensions"] || "",
-          estimation: item["Estimation"] || "",
-          materiaux: item["Matériaux"] ? item["Matériaux"].split(",").map((m: string) => m.trim()) : [],
-          images: [],
-          periode: item["Spécialité"] || "",
-          description: `${item["Collaboration / Œuvre"] || ""} ${item["Spécialité"] || ""}`.trim(),
+        const filename = item["Nom du fichier"] || "";
+        const nomLuminaire = item["Nom luminaire"] || "";
+        const finalNom = nomLuminaire || filename.replace(/\.[^/.]+$/, "");
+
+        // --- DÉBUT DE LA CORRECTION POUR L'ANNÉE ---
+        const anneeBrute = Number.parseInt(item["Année"]);
+        const anneeFinale = isNaN(anneeBrute) ? null : anneeBrute; // Si ce n'est pas un nombre, on met null
+        // --- FIN DE LA CORRECTION POUR L'ANNÉE ---
+
+        return { 
+          nom: finalNom, 
+          designer: item["Artiste / Dates"] || "", 
+          specialite: item["Spécialité"] || "", 
+          collaboration: item["Collaboration / Œuvre"] || "", 
+          annee: anneeFinale, // On utilise la valeur corrigée
+          signe: item["Signé"] || "", 
+          filename: filename, 
+          dimensions: item["Dimensions"] || "", 
+          estimation: item["Estimation"] || "", 
+          materiaux: item["Matériaux"] ? item["Matériaux"].split(",").map((m: string) => m.trim()) : [], 
+          images: [], 
+          periode: item["Spécialité"] || "", 
+          description: `${item["Collaboration / Œuvre"] || ""} ${item["Spécialité"] || ""}`.trim(), 
           couleurs: [],
-        }
-      })
-      let successCount = 0
+        };
+      });
+      
+      let successCount = 0;
       for (const luminaire of processedData) {
-        if (!luminaire.filename) {
-          console.warn("Ligne CSV ignorée car le 'Nom du fichier' est manquant.", luminaire)
-          continue
-        }
+        if (!luminaire.filename) { console.warn("Ligne CSV ignorée car le 'Nom du fichier' est manquant.", luminaire); continue; }
         try {
-          const response = await fetch("/api/luminaires", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(luminaire),
-          })
-          if (response.ok) successCount++
-          else console.error("Erreur ajout luminaire:", await response.text())
-        } catch (error) {
-          console.error("Erreur réseau:", error)
-        }
+          const response = await fetch("/api/luminaires", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(luminaire) });
+          if (response.ok) successCount++; 
+          else console.error("Erreur ajout luminaire:", await response.text());
+        } catch (error) { console.error("Erreur réseau:", error); }
       }
-      setCsvData(processedData)
-      showToast(`${successCount} sur ${processedData.length} luminaires traités.`, "success")
-    } catch (error: any) {
-      console.error("Erreur import CSV:", error.message)
-      showToast("Erreur lors de l'import CSV", "error")
-    } finally {
-      setIsUploading(false)
-    }
-  }
+      setCsvData(processedData);
+      showToast(`${successCount} sur ${processedData.length} luminaires traités.`, "success");
+    } catch (error: any) { 
+      console.error("Erreur import CSV:", error.message); 
+      showToast("Erreur lors de l'import CSV", "error"); 
+    } 
+    finally { setIsUploading(false); }
+  };  
 
   const handleImagesUpload = async (files: File[]) => {
     setIsUploading(true)
