@@ -36,41 +36,41 @@ export default function ImportPage() {
         const anneeFinale = isNaN(anneeBrute) ? null : anneeBrute; // Si ce n'est pas un nombre, on met null
         // --- FIN DE LA CORRECTION POUR L'ANNÉE ---
 
-        return { 
-          nom: finalNom, 
-          designer: item["Artiste / Dates"] || "", 
-          specialite: item["Spécialité"] || "", 
-          collaboration: item["Collaboration / Œuvre"] || "", 
+        return {
+          nom: finalNom,
+          designer: item["Artiste / Dates"] || "",
+          specialite: item["Spécialité"] || "",
+          collaboration: item["Collaboration / Œuvre"] || "",
           annee: anneeFinale, // On utilise la valeur corrigée
-          signe: item["Signé"] || "", 
-          filename: filename, 
-          dimensions: item["Dimensions"] || "", 
-          estimation: item["Estimation"] || "", 
-          materiaux: item["Matériaux"] ? item["Matériaux"].split(",").map((m: string) => m.trim()) : [], 
-          images: [], 
-          periode: item["Spécialité"] || "", 
-          description: `${item["Collaboration / Œuvre"] || ""} ${item["Spécialité"] || ""}`.trim(), 
+          signe: item["Signé"] || "",
+          filename: filename,
+          dimensions: item["Dimensions"] || "",
+          estimation: item["Estimation"] || "",
+          materiaux: item["Matériaux"] ? item["Matériaux"].split(",").map((m: string) => m.trim()) : [],
+          images: [],
+          periode: item["Spécialité"] || "",
+          description: `${item["Collaboration / Œuvre"] || ""} ${item["Spécialité"] || ""}`.trim(),
           couleurs: [],
         };
       });
-      
+
       let successCount = 0;
       for (const luminaire of processedData) {
         if (!luminaire.filename) { console.warn("Ligne CSV ignorée car le 'Nom du fichier' est manquant.", luminaire); continue; }
         try {
           const response = await fetch("/api/luminaires", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(luminaire) });
-          if (response.ok) successCount++; 
+          if (response.ok) successCount++;
           else console.error("Erreur ajout luminaire:", await response.text());
         } catch (error) { console.error("Erreur réseau:", error); }
       }
       setCsvData(processedData);
       showToast(`${successCount} sur ${processedData.length} luminaires traités.`, "success");
-    } catch (error: any) { 
-      console.error("Erreur import CSV:", error.message); 
-      showToast("Erreur lors de l'import CSV", "error"); 
-    } 
+    } catch (error: any) {
+      console.error("Erreur import CSV:", error.message);
+      showToast("Erreur lors de l'import CSV", "error");
+    }
     finally { setIsUploading(false); }
-  };  
+  };
 
   const handleImagesUpload = async (files: File[]) => {
     setIsUploading(true)
@@ -221,30 +221,39 @@ export default function ImportPage() {
     }
   }
 
+  // --- DÉBUT DU BLOC REMPLACÉ ---
   const resetImports = async () => {
-    const isConfirmed = window.confirm("Vider les collections LUMINAIRES et DESIGNERS ? Cette action est irréversible.")
+    // Étape 1 : Demander une confirmation à l'utilisateur
+    const isConfirmed = window.confirm(
+      "Êtes-vous certain de vouloir supprimer TOUS les luminaires, designers et la vidéo d'accueil de la base de données ? Cette action est irréversible."
+    );
+
+    // Étape 2 : Si confirmé, appeler l'API
     if (isConfirmed) {
-      setIsUploading(true)
+      setIsUploading(true); // Affiche le message "Upload en cours..."
       try {
-        const response = await fetch("/api/reset", { method: "DELETE" })
+        const response = await fetch("/api/reset", { method: "DELETE" });
+
         if (response.ok) {
-          showToast("Base de données réinitialisée avec succès.", "success")
-          setCsvData([])
-          setImages([])
-          setDesigners([])
-          setDesignerImages([])
-          setVideo(null)
+          showToast("Base de données réinitialisée avec succès.", "success");
+          // On vide aussi l'état local pour rafraîchir l'affichage de la page
+          setCsvData([]);
+          setImages([]);
+          setDesigners([]);
+          setDesignerImages([]);
+          setVideo(null);
         } else {
-          throw new Error("La réinitialisation de la base de données a échoué.")
+          throw new Error("La réinitialisation de la base de données a échoué.");
         }
       } catch (error: any) {
-        console.error("Erreur lors de la réinitialisation:", error)
-        showToast(error.message, "error")
+        console.error("Erreur lors de la réinitialisation:", error);
+        showToast(error.message, "error");
       } finally {
-        setIsUploading(false)
+        setIsUploading(false);
       }
     }
-  }
+  };
+  // --- FIN DU BLOC REMPLACÉ ---
 
   return (
     <RoleGuard requiredRole="admin">
