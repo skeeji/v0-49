@@ -1,20 +1,25 @@
-// Fichier : lib/gridfs.ts
-import clientPromise from "./mongodb";
+// lib/gridfs.ts
+
 import { GridFSBucket } from "mongodb";
+import clientPromise from "./mongodb";
 
 let bucket: GridFSBucket;
 
-// Cette fonction prépare et retourne le "seau" de stockage
-export async function getBucket() {
+// Fonction pour initialiser et/ou récupérer l'instance du bucket GridFS
+export const getBucket = async () => {
   if (bucket) {
     return bucket;
   }
 
-  const client = await clientPromise;
-  
-  // Important : client.db() utilise la base de données définie dans votre MONGODB_URI
-  const db = client.db(); 
-  
-  bucket = new GridFSBucket(db, { bucketName: 'images' });
-  return bucket;
-}
+  try {
+    const client = await clientPromise;
+    const db = client.db("gersaint"); // Assurez-vous que le nom de la base est correct
+    // Le nom du bucket est 'images'. MongoDB créera les collections 'images.files' et 'images.chunks'.
+    bucket = new GridFSBucket(db, { bucketName: "images" }); 
+    console.log("GridFS Bucket 'images' initialisé.");
+    return bucket;
+  } catch (error) {
+    console.error("Erreur lors de l'initialisation de GridFS Bucket:", error);
+    throw new Error("Impossible d'initialiser le stockage de fichiers GridFS.");
+  }
+};
