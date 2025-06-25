@@ -1,45 +1,59 @@
-// app/api/upload/video/route.ts
-
+// Fichier : app/api/upload/video/route.ts
 import { NextResponse } from "next/server";
 import { getBucket } from "@/lib/gridfs";
+import clientPromise from "@/lib/mongodb";
 import { Readable } from "stream";
+
+const DBNAME = "gersaint";
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const videoFile = formData.get("video") as File | null;
-    const bucket = await getBucket();
-
+    
     if (!videoFile) {
       return NextResponse.json({ success: false, error: "Aucun fichier vidéo fourni." }, { status: 400 });
     }
 
+    const client = await clientPromise;
+    const db = client.db(DBNAME);
+    const bucket = await getBucket();
+    
     const buffer = Buffer.from(await videoFile.arrayBuffer());
     const readableStream = Readable.from(buffer);
 
-    // On stocke la vidéo dans le même bucket que les images
+    // Supprimer l'ancienne vidéo si elle existe pour ne pas accumuler les fichiers
+    const oldVideoSetting = await db.collection("settings").findOne({ key: "welcomeVideoId" });
+    if (oldVideoSetting && oldVideoSetting.value) {
+        try {
+            await bucket.delete(oldVideoSetting.value);
+        } catch (delError) {
+            console.warn("Ancienne vidéo non trouvée dans GridFS, suppression ignorée.", delError);
+        }
+    }
+
     const uploadStream = bucket.openUploadStream(videoFile.name, {
       contentType: videoFile.type || "video/mp4",
-      // On peut ajouter des métadonnées, par exemple pour identifier la vidéo d'accueil
-      metadata: { type: "home_video" },
+      metadata: { type: "welcome_video" },
     });
 
-    const uploadPromise = new Promise((resolve, reject) => {
-      readableStream.pipe(uploadStream)
-        .on("error", (error) => reject(error))
-        .on("finish", () => resolve(true));
+    await new Promise<void>((resolve, reject) => {
+      readableStream.pipe(uploadStream).on("error", reject).on("finish", () => resolve());
     });
-
-    await uploadPromise;
     
     const videoUrl = `/api/video/${uploadStream.id}`;
+
+    // On sauvegarde l'ID du nouveau fichier dans les settings
+    await db.collection("settings").updateOne(
+        { key: "welcomeVideoId" },
+        { $set: { value: uploadStream.id } }, // On stocke l'ID, pas l'URL
+        { upsert: true }
+    );
     
-    // Au lieu de sauvegarder dans 'settings', on pourrait directement utiliser
-    // l'ID du fichier pour la retrouver. Pour l'instant, on retourne l'URL.
-    return NextResponse.json({ success: true, url: videoUrl, fileId: uploadStream.id });
+    return NextResponse.json({ success: true, url: videoUrl });
 
   } catch (error) {
-    console.error("Erreur lors de l'upload de la vidéo vers GridFS:", error);
+    console.error("❌ Erreur upload vidéo:", error);
     return NextResponse.json({ success: false, error: "Erreur serveur lors de l'upload." }, { status: 500 });
   }
 }
