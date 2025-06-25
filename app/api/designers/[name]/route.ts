@@ -1,40 +1,45 @@
-import { NextResponse } from "next/server"
-import clientPromise from "../../../../lib/mongodb"
+// Fichier : app/api/designers/[slug]/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE
+const DBNAME = process.env.MONGO_INITDB_DATABASE;
 
 if (!DBNAME) {
-  throw new Error('Invalid/Missing environment variable: "MONGO_INITDB_DATABASE"')
+  throw new Error('Invalid/Missing environment variable: "MONGO_INITDB_DATABASE"');
 }
 
-// Gérer les requêtes GET pour récupérer un designer par nom
-export async function GET(request: Request, { params }: { params: { name: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { slug: string } }
+) {
   try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    const client = await clientPromise;
+    const db = client.db(DBNAME);
+    const { slug } = params;
+    const body = await request.json();
 
-    const decodedName = decodeURIComponent(params.name)
-    const designer = await db.collection("designers").findOne({ nom: decodedName })
-
-    if (!designer) {
-      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
+    if (!slug) {
+      return NextResponse.json({ success: false, error: "Slug manquant" }, { status: 400 });
     }
 
-    // Récupérer aussi les luminaires de ce designer
-    const luminaires = await db.collection("luminaires").find({ designer: decodedName }).toArray()
+    const { images } = body;
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          designer,
-          luminaires,
-        },
-      },
-      { status: 200 },
-    )
+    if (!images || !Array.isArray(images)) {
+      return NextResponse.json({ success: false, error: "Le champ 'images' doit être un tableau" }, { status: 400 });
+    }
+
+    const result = await db.collection("designers").updateOne(
+      { slug: slug },
+      { $set: { images: images, updatedAt: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+        return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
+    console.error(`Erreur API /api/designers/${params.slug} PUT:`, error);
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 });
   }
 }
