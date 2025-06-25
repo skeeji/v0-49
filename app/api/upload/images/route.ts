@@ -20,11 +20,8 @@ export async function POST(request: Request) {
     for (const file of files) {
       const uploadStream = bucket.openUploadStream(file.name, { contentType: file.type });
       const buffer = Buffer.from(await file.arrayBuffer());
-      const readableStream = Readable.from(buffer);
-      await new Promise<void>((resolve, reject) => {
-        readableStream.pipe(uploadStream).on("error", reject).on("finish", () => resolve());
-      });
-
+      Readable.from(buffer).pipe(uploadStream);
+      
       const fileUrl = `/api/images/${uploadStream.id}`;
       const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
 
