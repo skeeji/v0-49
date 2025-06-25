@@ -1,51 +1,46 @@
-// Fichier : app/api/upload/images/route.ts
-import { type NextRequest, NextResponse } from "next/server";
+// app/api/upload/images/route.ts
+
+import { NextResponse } from "next/server";
 import { getBucket } from "@/lib/gridfs";
 import { Readable } from "stream";
 
-function fileToStream(file: File) {
-  const reader = file.stream().getReader();
-  return new Readable({
-    async read() {
-      const { done, value } = await reader.read();
-      this.push(done ? null : Buffer.from(value));
-    },
-  });
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const bucket = await getBucket();
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
+    const bucket = await getBucket();
+    const uploadedFilesInfo = [];
 
     if (!files || files.length === 0) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Aucun fichier fourni." }, { status: 400 });
     }
-
-    const uploadedFiles = [];
-    const errors = [];
 
     for (const file of files) {
-      try {
-        const stream = fileToStream(file);
-        const uploadStream = bucket.openUploadStream(file.name, {
-          contentType: file.type,
-        });
-        
-        await new Promise<void>((resolve, reject) => {
-          stream.pipe(uploadStream).on('error', reject).on('finish', () => resolve());
-        });
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const readableStream = Readable.from(buffer);
 
-        const fileUrl = `/api/images/${uploadStream.id}`;
-        uploadedFiles.push({ name: file.name, path: fileUrl, size: file.size });
+      const uploadStream = bucket.openUploadStream(file.name, {
+        contentType: file.type || "application/octet-stream",
+      });
+      const uploadPromise = new Promise((resolve, reject) => {
+        readableStream.pipe(uploadStream)
+          .on("error", (error) => reject(error))
+          .on("finish", () => resolve(true));
+      });
 
-      } catch (error: any) {
-        errors.push(`${file.name}: ${error.message}`);
-      }
+      await uploadPromise;
+
+      // Très important : le chemin est maintenant une URL vers notre propre API
+      const fileUrl = `/api/images/${uploadStream.id}`;
+      uploadedFilesInfo.push({
+        name: file.name,
+        path: fileUrl,
+      });
     }
-    return NextResponse.json({ uploadedFiles, errors, message: "Upload terminé." });
-  } catch (error: any) {
-    return NextResponse.json({ error: "Erreur serveur upload", details: error.message }, { status: 500 });
+
+    return NextResponse.json({ success: true, uploadedFiles: uploadedFilesInfo });
+  } catch (error) {
+    console.error("Erreur lors de l'upload vers GridFS:", error);
+    return NextResponse.json({ success: false, error: "Erreur serveur lors de l'upload." }, { status: 500 });
   }
 }
