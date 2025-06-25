@@ -7,7 +7,7 @@ import clientPromise from "@/lib/mongodb";
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const client = await clientPromise;
-    const db = client.db(); // Correction: utilise la db de l'URI
+    const db = client.db("gersaint");
     if (!ObjectId.isValid(params.id)) {
       return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 });
     }
@@ -26,12 +26,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const client = await clientPromise;
-    const db = client.db(); // Correction: utilise la db de l'URI
+    const db = client.db("gersaint");
     if (!ObjectId.isValid(params.id)) {
       return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 });
     }
     const body = await request.json();
-    const { _id, ...updateData } = body; // Enlève l'_id pour l'update
+    const { _id, ...updateData } = body; 
     const result = await db
       .collection("luminaires")
       .updateOne({ _id: new ObjectId(params.id) }, { $set: updateData });
@@ -49,7 +49,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const client = await clientPromise;
-    const db = client.db(); // Correction: utilise la db de l'URI
+    const db = client.db("gersaint");
     if (!ObjectId.isValid(params.id)) {
       return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 });
     }
