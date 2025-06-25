@@ -11,7 +11,6 @@ export async function DELETE() {
     const client = await clientPromise;
     const db = client.db(DBNAME);
 
-    // Vider les collections de données
     await db.collection("luminaires").deleteMany({});
     console.log("✅ Collection 'luminaires' vidée.");
     
@@ -21,16 +20,15 @@ export async function DELETE() {
     await db.collection("settings").deleteMany({});
     console.log("✅ Collection 'settings' vidée.");
 
-    // Vider TOUS les fichiers de GridFS
     try {
         const bucket = await getBucket();
         await bucket.drop();
         console.log("✅ Stockage de fichiers (GridFS) vidé.");
     } catch (error: any) {
-        if (error.message.includes('ns not found')) {
-            console.log("🟡 GridFS était déjà vide.");
+        if (error.codeName === 'NamespaceNotFound' || error.message.includes('ns not found')) {
+            console.log("🟡 GridFS était déjà vide, suppression ignorée.");
         } else {
-            throw error; // Relancer les autres erreurs
+            throw error;
         }
     }
 
