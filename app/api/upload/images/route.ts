@@ -1,4 +1,6 @@
 // Fichier : app/api/upload/images/route.ts
+// Pas de changement majeur nécessaire, votre code est fonctionnel.
+// On s'assure juste que `uploadStream.id` est bien l'ObjectId du fichier.
 import { type NextRequest, NextResponse } from "next/server";
 import { getBucket } from "@/lib/gridfs";
 import { Readable } from "stream";
@@ -29,15 +31,18 @@ export async function POST(request: NextRequest) {
     for (const file of files) {
       try {
         const stream = fileToStream(file);
+        // On passe le contentType directement à GridFS
         const uploadStream = bucket.openUploadStream(file.name, {
-          contentType: file.type,
+          contentType: file.type || 'application/octet-stream', // fallback
         });
         
         await new Promise<void>((resolve, reject) => {
           stream.pipe(uploadStream).on('error', reject).on('finish', () => resolve());
         });
 
-        const fileUrl = `/api/images/${uploadStream.id}`;
+        // Cette URL est celle qui sera utilisée par le frontend pour afficher l'image.
+        // Elle pointe vers notre API route `app/api/images/[fileId]/route.ts`
+        const fileUrl = `/api/images/${uploadStream.id}`; 
         uploadedFiles.push({ name: file.name, path: fileUrl, size: file.size });
 
       } catch (error: any) {
