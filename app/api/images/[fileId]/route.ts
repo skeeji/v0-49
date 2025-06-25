@@ -1,31 +1,37 @@
-// Fichier : app/api/images/[fileId]/route.ts
+// app/api/images/[id]/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { getBucket } from "@/lib/gridfs";
 import { ObjectId } from "mongodb";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { fileId: string } }
-) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const bucket = await getBucket();
-    
-    if (!ObjectId.isValid(params.fileId)) {
-      return NextResponse.json({ error: "ID de fichier invalide" }, { status: 400 });
+    const { id } = params;
+
+    if (!ObjectId.isValid(id)) {
+      return new NextResponse("ID de fichier invalide.", { status: 400 });
     }
     
-    const fileId = new ObjectId(params.fileId);
-    const downloadStream = bucket.openDownloadStream(fileId);
+    const bucket = await getBucket();
+    const objectId = new ObjectId(id);
+
+    const file = await bucket.find({ _id: objectId }).next();
+    if (!file) {
+      return new NextResponse("Fichier non trouvé.", { status: 404 });
+    }
+
+    const downloadStream = bucket.openDownloadStream(objectId);
     
-    return new NextResponse(downloadStream as any, {
+    // On retourne la réponse avec le contenu du fichier et les bons en-têtes
+    return new Response(downloadStream as any, {
       headers: {
-        'Content-Type': 'image/jpeg', // Vous pouvez rendre ceci dynamique si besoin
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        "Content-Type": file.contentType || "application/octet-stream",
+        "Cache-Control": "public, max-age=31536000, immutable", // Cache pour 1 an
       },
     });
 
   } catch (error) {
-    console.error("Impossible de récupérer l'image:", error);
-    return NextResponse.json({ error: "Image non trouvée" }, { status: 404 });
+    console.error(`Erreur pour récupérer l'image ${params.id} de GridFS:`, error);
+    return new NextResponse("Erreur serveur.", { status: 500 });
   }
 }
