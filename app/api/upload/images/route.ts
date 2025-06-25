@@ -1,45 +1,51 @@
 // Fichier : app/api/upload/images/route.ts
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getBucket } from "@/lib/gridfs";
-import clientPromise from "@/lib/mongodb";
 import { Readable } from "stream";
 
-const DBNAME = "gersaint";
+function fileToStream(file: File) {
+  const reader = file.stream().getReader();
+  return new Readable({
+    async read() {
+      const { done, value } = await reader.read();
+      this.push(done ? null : Buffer.from(value));
+    },
+  });
+}
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const bucket = await getBucket();
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
-    
-    const client = await clientPromise;
-    const db = client.db(DBNAME);
-    const bucket = await getBucket();
 
-    let successCount = 0;
-    
-    for (const file of files) {
-      const uploadStream = bucket.openUploadStream(file.name, { contentType: file.type });
-      const buffer = Buffer.from(await file.arrayBuffer());
-      Readable.from(buffer).pipe(uploadStream);
-      
-      const fileUrl = `/api/images/${uploadStream.id}`;
-      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
-
-      const luminaireUpdate = await db.collection("luminaires").updateOne(
-        { filename: { $in: [file.name, fileNameWithoutExt] } },
-        { $push: { images: fileUrl } }
-      );
-      const designerUpdate = await db.collection("designers").updateOne(
-        { imageFile: { $in: [file.name, fileNameWithoutExt] } },
-        { $set: { images: [fileUrl] } }
-      );
-      
-      if (luminaireUpdate.modifiedCount > 0 || designerUpdate.modifiedCount > 0) successCount++;
+    if (!files || files.length === 0) {
+      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, message: `${successCount} sur ${files.length} images associées.` });
-  } catch (error) {
-    console.error("❌ Erreur upload images:", error);
-    return NextResponse.json({ success: false, error: "Erreur serveur upload." }, { status: 500 });
+    const uploadedFiles = [];
+    const errors = [];
+
+    for (const file of files) {
+      try {
+        const stream = fileToStream(file);
+        const uploadStream = bucket.openUploadStream(file.name, {
+          contentType: file.type,
+        });
+        
+        await new Promise<void>((resolve, reject) => {
+          stream.pipe(uploadStream).on('error', reject).on('finish', () => resolve());
+        });
+
+        const fileUrl = `/api/images/${uploadStream.id}`;
+        uploadedFiles.push({ name: file.name, path: fileUrl, size: file.size });
+
+      } catch (error: any) {
+        errors.push(`${file.name}: ${error.message}`);
+      }
+    }
+    return NextResponse.json({ uploadedFiles, errors, message: "Upload terminé." });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Erreur serveur upload", details: error.message }, { status: 500 });
   }
 }

@@ -1,73 +1,76 @@
-// Fichier : app/api/upload/csv/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
-import { parse } from "csv-parse/sync";
+import { type NextRequest, NextResponse } from "next/server"
+import clientPromise from "@/lib/mongodb"
+import { saveUploadedFile } from "@/lib/upload"
+import { parse } from "csv-parse/sync"
 
-const DBNAME = "gersaint";
-
-const createSlug = (text: string = "") =>
-  text.toString().toLowerCase()
-    .replace(/\s+/g, "-").replace(/[^\w\-]+/g, "")
-    .replace(/\-\-+/g, "-").replace(/^-+/, "").replace(/-+$/, "");
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-    const type = formData.get("type") as "luminaires" | "designers";
+    const formData = await request.formData()
+    const file = formData.get("file") as File
 
-    if (!file || !type) {
-      return NextResponse.json({ success: false, error: "Fichier ou type manquant." }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    const fileContent = await file.text();
-    const records = parse(fileContent, { columns: true, skip_empty_lines: true, delimiter: "," });
+    // Sauvegarder le fichier
+    const filePath = await saveUploadedFile(file, "csv")
 
-    const client = await clientPromise;
-    const db = client.db(DBNAME);
+    // Lire et parser le CSV
+    const fileContent = await file.text()
+    const records = parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true,
+      delimiter: ";",
+    })
 
-    if (type === "luminaires") {
-      const luminaireDocs = records.map((rec: any) => ({
-        nom: rec["Nom luminaire"] || rec.filename?.replace(/\.[^/.]+$/, "") || "",
-        designer: rec["Artiste / Dates"] || "",
-        specialite: rec["Spécialité"] || "",
-        collaboration: rec["Collaboration / Œuvre"] || "",
-        annee: rec["Année"] ? parseInt(rec["Année"], 10) || null : null,
-        signe: rec["Signé"] || "",
-        filename: rec["Nom du fichier"] || "",
-        dimensions: rec["Dimensions"] || "",
-        estimation: rec["Estimation"] || "",
-        materiaux: rec["Matériaux"] ? rec["Matériaux"].split(",").map((m: string) => m.trim()) : [],
-        images: [],
-        periode: rec["Spécialité"] || "",
-        description: `${rec["Collaboration / Œuvre"] || ""} ${rec["Spécialité"] || ""}`.trim(),
-        createdAt: new Date(),
-      }));
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-      if (luminaireDocs.length > 0) await db.collection("luminaires").insertMany(luminaireDocs);
-      return NextResponse.json({ success: true, message: `${luminaireDocs.length} luminaires importés.` });
-    } 
-    
-    if (type === "designers") {
-      const designerDocs = records.map((rec: any) => ({
-        nom: rec["Nom"] || "",
-        imageFile: rec["imagedesigner"] || "",
-        slug: createSlug(rec["Nom"] || ""),
-        images: [],
-      }));
+    const results = {
+      success: 0,
+      errors: [] as string[],
+    }
 
-      if (designerDocs.length > 0) {
-        const operations = designerDocs.map(doc => ({
-            updateOne: { filter: { nom: doc.nom }, update: { $set: doc }, upsert: true }
-        }));
-        await db.collection("designers").bulkWrite(operations);
+    // Traiter chaque ligne
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i]
+
+      try {
+        const luminaire = {
+          nom: record.nom || "",
+          designer: record.designer || "",
+          annee: Number.parseInt(record.annee) || new Date().getFullYear(),
+          periode: record.periode || "",
+          description: record.description || "",
+          materiaux: record.materiaux ? record.materiaux.split(",").map((m: string) => m.trim()) : [],
+          couleurs: record.couleurs ? record.couleurs.split(",").map((c: string) => c.trim()) : [],
+          dimensions: {
+            hauteur: record.hauteur ? Number.parseFloat(record.hauteur) : undefined,
+            largeur: record.largeur ? Number.parseFloat(record.largeur) : undefined,
+            profondeur: record.profondeur ? Number.parseFloat(record.profondeur) : undefined,
+          },
+          images: record.images ? record.images.split(",").map((img: string) => img.trim()) : [],
+          isFavorite: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+
+        await db.collection("luminaires").insertOne(luminaire)
+        results.success++
+      } catch (error) {
+        results.errors.push(`Ligne ${i + 2}: ${error}`)
       }
-      return NextResponse.json({ success: true, message: `${designerDocs.length} designers importés.` });
     }
 
-    return NextResponse.json({ success: false, error: "Type non supporté." }, { status: 400 });
+    return NextResponse.json({
+      message: `Import terminé: ${results.success} luminaires importés`,
+      filePath,
+      results,
+    })
   } catch (error) {
-    console.error("❌ Erreur Import CSV:", error);
-    return NextResponse.json({ success: false, error: "Erreur serveur lors de l'import CSV." }, { status: 500 });
+    console.error("Erreur lors de l'import CSV:", error)
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }
