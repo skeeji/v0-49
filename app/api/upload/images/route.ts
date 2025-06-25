@@ -1,20 +1,22 @@
-// app/api/upload/images/route.ts
-
+// Fichier : app/api/upload/images/route.ts
 import { NextResponse } from "next/server";
 import { getBucket } from "@/lib/gridfs";
+import clientPromise from "@/lib/mongodb";
 import { Readable } from "stream";
+
+const DBNAME = "gersaint";
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
+    
+    const client = await clientPromise;
+    const db = client.db(DBNAME);
     const bucket = await getBucket();
-    const uploadedFilesInfo = [];
 
-    if (!files || files.length === 0) {
-      return NextResponse.json({ success: false, error: "Aucun fichier fourni." }, { status: 400 });
-    }
-
+    let successCount = 0;
+    
     for (const file of files) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const readableStream = Readable.from(buffer);
@@ -22,25 +24,34 @@ export async function POST(request: Request) {
       const uploadStream = bucket.openUploadStream(file.name, {
         contentType: file.type || "application/octet-stream",
       });
-      const uploadPromise = new Promise((resolve, reject) => {
-        readableStream.pipe(uploadStream)
-          .on("error", (error) => reject(error))
-          .on("finish", () => resolve(true));
+      
+      await new Promise<void>((resolve, reject) => {
+        readableStream.pipe(uploadStream).on("error", reject).on("finish", () => resolve());
       });
 
-      await uploadPromise;
-
-      // Très important : le chemin est maintenant une URL vers notre propre API
       const fileUrl = `/api/images/${uploadStream.id}`;
-      uploadedFilesInfo.push({
-        name: file.name,
-        path: fileUrl,
-      });
+      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+
+      // Tentative d'associer à un luminaire
+      const luminaireUpdate = await db.collection("luminaires").updateOne(
+        { filename: { $in: [file.name, fileNameWithoutExt] } },
+        { $push: { images: fileUrl } }
+      );
+
+      // Tentative d'associer à un designer
+      const designerUpdate = await db.collection("designers").updateOne(
+        { imageFile: { $in: [file.name, fileNameWithoutExt] } },
+        { $set: { images: [fileUrl] } } // On remplace le portrait
+      );
+      
+      if (luminaireUpdate.modifiedCount > 0 || designerUpdate.modifiedCount > 0) {
+        successCount++;
+      }
     }
 
-    return NextResponse.json({ success: true, uploadedFiles: uploadedFilesInfo });
+    return NextResponse.json({ success: true, message: `${successCount} sur ${files.length} images associées.` });
   } catch (error) {
-    console.error("Erreur lors de l'upload vers GridFS:", error);
+    console.error("❌ Erreur upload images:", error);
     return NextResponse.json({ success: false, error: "Erreur serveur lors de l'upload." }, { status: 500 });
   }
 }
