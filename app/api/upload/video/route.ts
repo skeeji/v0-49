@@ -1,38 +1,45 @@
-import { type NextRequest, NextResponse } from "next/server";
+// app/api/upload/video/route.ts
+
+import { NextResponse } from "next/server";
 import { getBucket } from "@/lib/gridfs";
-import clientPromise from "@/lib/mongodb";
 import { Readable } from "stream";
-import { ObjectId } from "mongodb";
 
-// Fonction pour convertir un fichier en stream
-const fileToStream = (file: File) => new Readable({ async read() { const r = file.stream().getReader(); const { done, value } = await r.read(); this.push(done ? null : value); }});
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const bucket = await getBucket();
-    const client = await clientPromise;
-    const db = client.db();
     const formData = await request.formData();
     const videoFile = formData.get("video") as File | null;
+    const bucket = await getBucket();
 
-    if (!videoFile) { return NextResponse.json({ error: "Aucun fichier vidéo" }, { status: 400 }); }
-
-    const settings = await db.collection("settings").findOne({ _id: "site_config" });
-    if (settings?.welcomeVideoId) {
-      try { await bucket.delete(new ObjectId(settings.welcomeVideoId)); } catch (e) { console.warn("Ancienne vidéo non trouvée, ignoré.") }
+    if (!videoFile) {
+      return NextResponse.json({ success: false, error: "Aucun fichier vidéo fourni." }, { status: 400 });
     }
 
-    const uploadStream = bucket.openUploadStream(videoFile.name, { contentType: videoFile.type });
-    await new Promise<void>((resolve, reject) => fileToStream(videoFile).pipe(uploadStream).on('error', reject).on('finish', resolve));
+    const buffer = Buffer.from(await videoFile.arrayBuffer());
+    const readableStream = Readable.from(buffer);
 
-    await db.collection("settings").updateOne(
-      { _id: "site_config" },
-      { $set: { welcomeVideoId: uploadStream.id.toHexString() } },
-      { upsert: true }
-    );
+    // On stocke la vidéo dans le même bucket que les images
+    const uploadStream = bucket.openUploadStream(videoFile.name, {
+      contentType: videoFile.type || "video/mp4",
+      // On peut ajouter des métadonnées, par exemple pour identifier la vidéo d'accueil
+      metadata: { type: "home_video" },
+    });
 
-    return NextResponse.json({ success: true, fileId: uploadStream.id });
-  } catch (error: any) {
-    return NextResponse.json({ error: "Erreur upload vidéo", details: error.message }, { status: 500 });
+    const uploadPromise = new Promise((resolve, reject) => {
+      readableStream.pipe(uploadStream)
+        .on("error", (error) => reject(error))
+        .on("finish", () => resolve(true));
+    });
+
+    await uploadPromise;
+    
+    const videoUrl = `/api/video/${uploadStream.id}`;
+    
+    // Au lieu de sauvegarder dans 'settings', on pourrait directement utiliser
+    // l'ID du fichier pour la retrouver. Pour l'instant, on retourne l'URL.
+    return NextResponse.json({ success: true, url: videoUrl, fileId: uploadStream.id });
+
+  } catch (error) {
+    console.error("Erreur lors de l'upload de la vidéo vers GridFS:", error);
+    return NextResponse.json({ success: false, error: "Erreur serveur lors de l'upload." }, { status: 500 });
   }
 }
