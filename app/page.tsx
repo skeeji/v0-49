@@ -80,23 +80,16 @@ export default function HomePage() {
   }
 
   const processApiResults = (apiResults: any[]) => {
-    console.log(`🔍 Traitement de ${apiResults.length} résultats API`)
-
-    const processedResults = apiResults.map((result, index) => {
+    console.log(`🔍 Traitement de ${apiResults.length} résultats avec ${luminaires.length} luminaires locaux.`);
+    return apiResults.map((result, index) => {
       const imageId = result.image_id || `result_${index}`
       const similarity = result.similarity || 0
       const imageUrl = result.image_url || ""
       const metadata = result.metadata || {}
-
-      // Nettoyer l'image_id
       const cleanImageId = String(imageId).split("#")[0]
-
-      // Construire l'URL complète
       let finalImageUrl = "/placeholder.svg?height=200&width=200&text=Image+non+disponible"
-
       if (imageUrl && String(imageUrl).trim()) {
         const urlString = String(imageUrl).trim()
-
         if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
           finalImageUrl = urlString.split("#")[0]
         } else if (urlString.startsWith("/")) {
@@ -107,17 +100,13 @@ export default function HomePage() {
         }
       }
 
-      // Chercher par filename
       const localMatch = luminaires.find((luminaire: any) => {
         const localFilename = (luminaire.filename || "").toLowerCase()
         const searchFilename = cleanImageId.toLowerCase()
-
-        // Correspondance exacte par filename
         return localFilename === searchFilename || localFilename.includes(searchFilename.replace(/\.[^/.]+$/, ""))
       })
 
-      console.log(`🔍 Recherche: "${cleanImageId}" → ${localMatch ? `✅ Trouvé: ${localMatch.id}` : "❌ Pas trouvé"}`)
-
+      console.log(`🔍 Recherche: "${cleanImageId}" → ${localMatch ? `✅ Trouvé: ${localMatch._id}` : "❌ Pas trouvé"}`)
       const slug = cleanImageId.replace(/\.[^/.]+$/, "")
 
       return {
@@ -125,7 +114,7 @@ export default function HomePage() {
         slug: slug,
         imageUrl: finalImageUrl,
         ficheUrl: `/fiche-produit/${slug}`,
-        luminaireUrl: localMatch ? `/luminaires/${localMatch.id}` : null,
+        luminaireUrl: localMatch ? `/luminaires/${localMatch._id}` : null, // CORRECTION ICI
         localMatch: localMatch,
         hasLocalMatch: !!localMatch,
         index: index,
@@ -134,8 +123,6 @@ export default function HomePage() {
         hasValidUrl: finalImageUrl !== "/placeholder.svg?height=200&width=200&text=Image+non+disponible",
       }
     })
-
-    return processedResults
   }
 
   const removeBackground = async (file: File) => {
@@ -286,66 +273,33 @@ export default function HomePage() {
   }
 
   const startCamera = async () => {
+    // CORRECTION : On ajoute la vérification HTTPS au début
+    if (typeof window !== "undefined" && window.location.protocol !== "https:") {
+      toast.error("La caméra nécessite une connexion sécurisée (HTTPS).")
+      return
+    }
+    // Le reste de votre fonction originale est conservé
     try {
       console.log("📷 === DÉMARRAGE CAMÉRA ===")
       setSearchMode("camera")
       setIsCameraLoading(true)
-
-      // Nettoyer tout flux existant
       cleanupCamera()
-
-      console.log("🎥 Demande d'accès à la caméra...")
-
-      // Contraintes optimisées pour la compatibilité
-      const constraints = {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280, min: 640, max: 1920 },
-          height: { ideal: 720, min: 480, max: 1080 },
-          frameRate: { ideal: 30, max: 60 },
-        },
-        audio: false,
-      }
-
-      console.log("📋 Contraintes caméra:", JSON.stringify(constraints, null, 2))
-
+      const constraints = { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } }
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-
-      console.log("✅ MediaStream obtenu avec succès")
-      console.log(`📊 Nombre de tracks: ${mediaStream.getTracks().length}`)
-
       setStream(mediaStream)
       setIsCameraLoading(false)
       setIsCameraActive(true)
-
-      // Attacher le flux après que l'état soit mis à jour
       setTimeout(() => {
         if (videoRef.current && mediaStream) {
-          console.log("🔗 Attachement du flux à l'élément vidéo...")
           videoRef.current.srcObject = mediaStream
           videoRef.current.play().catch(console.error)
-          toast.success("Caméra activée - Touchez l'écran pour capturer")
         }
       }, 100)
-    } catch (error) {
-      console.error("❌ === ERREUR CAMÉRA ===", error)
-
+    } catch (error: any) {
       let errorMessage = "Impossible d'accéder à la caméra"
-
       if (error.name === "NotAllowedError") {
-        errorMessage = "Permission caméra refusée. Veuillez autoriser l'accès dans votre navigateur."
-      } else if (error.name === "NotFoundError") {
-        errorMessage = "Aucune caméra trouvée sur cet appareil."
-      } else if (error.name === "NotReadableError") {
-        errorMessage = "Caméra déjà utilisée par une autre application."
-      } else if (error.name === "OverconstrainedError") {
-        errorMessage = "Contraintes caméra non supportées par votre appareil."
-      } else if (error.name === "SecurityError") {
-        errorMessage = "Accès caméra bloqué pour des raisons de sécurité."
-      } else if (error.message) {
-        errorMessage = error.message
+        errorMessage = "Permission caméra refusée."
       }
-
       toast.error(errorMessage)
       cleanupCamera()
       setSearchMode(null)
@@ -436,10 +390,10 @@ export default function HomePage() {
       })
 
       console.log("📁 File créé:")
-      console.log(`   - Nom: ${file.name}`)
-      console.log(`   - Taille: ${file.size} bytes`)
-      console.log(`   - Type: ${file.type}`)
-      console.log(`   - Capture terminée avec succès`)
+      console.log(`  - Nom: ${file.name}`)
+      console.log(`  - Taille: ${file.size} bytes`)
+      console.log(`  - Type: ${file.type}`)
+      console.log("  - Capture terminée avec succès")
 
       // Mettre à jour les états (identique à un upload)
       const previewUrl = canvas.toDataURL(format, quality)
@@ -525,30 +479,31 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    // Charger les luminaires depuis localStorage
-    const storedLuminaires = localStorage.getItem("luminaires")
-    if (storedLuminaires) {
-      const data = JSON.parse(storedLuminaires)
-      console.log(`📊 ${data.length} luminaires chargés pour la recherche IA`)
-      setLuminaires(data)
-    }
-
-    // Charger la vidéo d'accueil
-    const storedVideo = localStorage.getItem("welcomeVideo")
-    if (storedVideo) {
-      setWelcomeVideo(storedVideo)
-    }
-
-    // Cleanup au démontage du composant
-    return () => {
-      console.log("🧹 Cleanup au démontage du composant")
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
+    async function fetchInitialData() {
+      // Charger les luminaires depuis l'API pour la recherche
+      try {
+        const res = await fetch("/api/luminaires")
+        const data = await res.json()
+        if (data.success) {
+          console.log(`PAGE D'ACCUEIL: ${data.luminaires.length} luminaires chargés depuis la DB pour la recherche.`)
+          setLuminaires(data.luminaires)
+        }
+      } catch (e) {
+        console.error("Erreur chargement luminaires pour la recherche", e)
       }
-      if (capturedImage && capturedImage.startsWith("blob:")) {
-        URL.revokeObjectURL(capturedImage)
+
+      // Charger la vidéo d'accueil depuis l'API
+      try {
+        const res = await fetch("/api/settings")
+        const data = await res.json()
+        if (data.success && data.settings?.welcomeVideoId) {
+          setWelcomeVideo(`/api/video/${data.settings.welcomeVideoId}`)
+        }
+      } catch (e) {
+        console.error("Erreur chargement vidéo d'accueil", e)
       }
     }
+    fetchInitialData()
   }, [])
 
   return (
@@ -572,23 +527,21 @@ export default function HomePage() {
             Luminaires du Moyen Âge
             <br />à nos jours
           </h1>
-          <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Découvrez des luminaires de toutes époques et styles
-          </p>
+          <p className="text-xl text-white/90 max-w-2xl mx-auto">Découvrez des luminaires de toutes époques et styles</p>
         </div>
 
         {/* Zone de recherche par image */}
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 md:p-8 max-w-md w-full shadow-2xl">
-          <h2 className="text-xl md:text-2xl font-playfair text-dark mb-4 md:mb-6 text-center">
-            Recherche par image IA
-          </h2>
+          <h2 className="text-xl md:text-2xl font-playfair text-dark mb-4 md:mb-6 text-center">Recherche par image IA</h2>
 
           {/* Message pour les utilisateurs "free" */}
           {userData?.role === "free" && (
             <div className="mb-4 p-2 bg-blue-50 rounded-lg text-xs text-blue-800">
               <p className="flex items-center">
                 <span className="mr-1">ℹ️</span>
-                <span>Compte gratuit : {3 - (userData.searchCount || 0)}/3 recherches restantes aujourd'hui</span>
+                <span>
+                  Compte gratuit : {3 - (userData.searchCount || 0)}/3 recherches restantes aujourd'hui
+                </span>
               </p>
             </div>
           )}
@@ -864,7 +817,9 @@ export default function HomePage() {
                         fill
                         className="object-cover rounded-lg"
                         onError={(e) => {
-                          const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || `Image ${index + 1}`)}`
+                          const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(
+                            result.imageId || `Image ${index + 1}`,
+                          )}`
                           e.currentTarget.src = fallbackUrl
                         }}
                       />
