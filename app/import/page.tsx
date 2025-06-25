@@ -1,3 +1,4 @@
+// app/import/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -17,6 +18,7 @@ export default function ImportPage() {
   const { showToast } = useToast()
 
   const handleCsvUpload = async (data: any[]) => {
+    // ... (votre code est correct, pas de changement ici)
     setIsUploading(true)
     try {
       const processedData = data.map((item) => {
@@ -68,11 +70,16 @@ export default function ImportPage() {
       const uploadFormData = new FormData();
       files.forEach((file) => uploadFormData.append("files", file));
       const uploadResponse = await fetch("/api/upload/images", { method: "POST", body: uploadFormData });
-      if (!uploadResponse.ok) { throw new Error("L'upload des fichiers images a échoué."); }
+
+      if (!uploadResponse.ok) { throw new Error(`L'upload des fichiers images a échoué: ${await uploadResponse.text()}`); }
       
       const result = await uploadResponse.json();
+      if (result.errors && result.errors.length > 0) {
+        showToast(`Erreurs d'upload: ${result.errors.join(', ')}`, "error");
+      }
       showToast(`${result.uploadedFiles?.length || 0} images uploadées. Association en cours...`, "info");
       
+      // OPTIMISATION: Récupérer les luminaires UNE SEULE FOIS avant la boucle
       const luminairesResponse = await fetch('/api/luminaires');
       const luminairesData = await luminairesResponse.json();
       if (!luminairesData.success) { throw new Error("Impossible de récupérer la liste des luminaires pour l'association."); }
@@ -82,20 +89,28 @@ export default function ImportPage() {
 
       for (const uploadedFile of result.uploadedFiles) {
         const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, "");
-        
         const matchingLuminaire = allLuminaires.find((l: any) => l.filename === uploadedFile.name || l.filename === fileNameWithoutExt);
 
         if (matchingLuminaire) {
           try {
+            // On s'assure que le tableau `images` existe
             const updatedImages = [...(matchingLuminaire.images || []), uploadedFile.path];
+            
+            // L'appel à la route PUT qui doit exister
             const updateResponse = await fetch(`/api/luminaires/${matchingLuminaire._id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ images: updatedImages }),
             });
-            if (updateResponse.ok) successCount++;
-            else console.error(`Échec de la mise à jour pour ${matchingLuminaire.nom}`, await updateResponse.text());
-          } catch(e: any) { console.error(`Erreur d'association pour ${matchingLuminaire.nom}`, e.message)}
+
+            if (updateResponse.ok) {
+              successCount++;
+            } else {
+              console.error(`Échec de la mise à jour pour ${matchingLuminaire.nom}`, await updateResponse.text());
+            }
+          } catch(e: any) {
+             console.error(`Erreur d'association pour ${matchingLuminaire.nom}`, e.message)
+          }
         } else {
           console.warn(`Aucun luminaire trouvé pour le fichier image : ${uploadedFile.name}`);
         }
@@ -105,13 +120,14 @@ export default function ImportPage() {
 
     } catch (error: any) {
       console.error("Erreur grave lors de l'upload d'images:", error.message);
-      showToast("Erreur grave lors de l'upload des images", "error");
+      showToast(error.message, "error");
     } finally {
       setIsUploading(false);
     }
   }
 
   const handleDesignersUpload = async (data: any[]) => {
+    // ... (votre code est correct, pas de changement ici)
     setIsUploading(true)
     try {
       const processedDesigners = data.map((item) => ({
@@ -140,47 +156,74 @@ export default function ImportPage() {
   }
 
   const handleDesignerImagesUpload = async (files: File[]) => {
-    setIsUploading(true)
+    setIsUploading(true);
     try {
-      const formData = new FormData()
-      files.forEach((file) => formData.append("files", file))
-      const response = await fetch("/api/upload/images", { method: "POST", body: formData })
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+      const uploadResponse = await fetch("/api/upload/images", { method: "POST", body: formData });
 
-      if (response.ok) {
-        const result = await response.json()
-        for (const uploadedFile of result.uploadedFiles) {
-          const fileName = uploadedFile.name.replace(/\.[^/.]+$/, "")
-          try {
-            const designersResponse = await fetch("/api/designers")
-            if (designersResponse.ok) {
-              const designersData = await designersResponse.json()
-              const matchingDesigner = designersData.designers.find((d: any) => d.imageFile === fileName || d.imageFile === uploadedFile.name || d.nom.toLowerCase().includes(fileName.toLowerCase()))
-              if (matchingDesigner) {
-                const updateResponse = await fetch(`/api/designers/${matchingDesigner.slug}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ ...matchingDesigner, images: [...(matchingDesigner.images || []), uploadedFile.path] }),
-                })
-                if (!updateResponse.ok) {
-                  console.error("Erreur lors de la mise à jour du designer:", await updateResponse.text())
-                }
-              }
-            }
-          } catch (error) { console.error("Erreur lors de l'association de l'image:", error) }
-        }
-        setDesignerImages((prev) => [...prev, ...files])
-        showToast(`${result.uploadedFiles.length} images de designers uploadées`, "success")
-      } else {
-        throw new Error("Erreur lors de l'upload des images de designers")
+      if (!uploadResponse.ok) {
+        throw new Error("Erreur lors de l'upload des images de designers");
       }
-    } catch (error) {
-      console.error("Erreur lors de l'upload d'images de designers:", error)
-      showToast("Erreur lors de l'upload des images de designers", "error")
-    } finally { setIsUploading(false) }
+      
+      const result = await uploadResponse.json();
+
+      // OPTIMISATION: Récupérer les designers UNE SEULE FOIS
+      const designersResponse = await fetch("/api/designers");
+      if (!designersResponse.ok) {
+        throw new Error("Impossible de récupérer la liste des designers pour l'association.");
+      }
+      const designersData = await designersResponse.json();
+      
+      // CORRECTION: Utiliser `designersData.data` au lieu de `designersData.designers`
+      const allDesigners = designersData.data; 
+      let successCount = 0;
+
+      for (const uploadedFile of result.uploadedFiles) {
+        const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, "");
+        
+        const matchingDesigner = allDesigners.find((d: any) => 
+            d.imageFile === uploadedFile.name || 
+            d.imageFile === fileNameWithoutExt
+        );
+
+        if (matchingDesigner) {
+            try {
+                const updatedImages = [...(matchingDesigner.images || []), uploadedFile.path];
+                // L'appel à la route PUT qui doit exister
+                const updateResponse = await fetch(`/api/designers/${matchingDesigner.slug}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ images: updatedImages }),
+                });
+
+                if (updateResponse.ok) {
+                    successCount++;
+                } else {
+                    console.error("Erreur lors de la mise à jour du designer:", await updateResponse.text());
+                }
+            } catch (error) {
+                console.error("Erreur lors de l'association de l'image:", error);
+            }
+        } else {
+            console.warn(`Aucun designer trouvé pour l'image: ${uploadedFile.name}`);
+        }
+      }
+
+      setDesignerImages((prev) => [...prev, ...files]);
+      showToast(`${successCount} images de designers associées.`, "success");
+
+    } catch (error: any) {
+      console.error("Erreur lors de l'upload d'images de designers:", error.message);
+      showToast(error.message, "error");
+    } finally {
+      setIsUploading(false);
+    }
   }
 
   const handleVideoUpload = async (file: File) => {
-    setIsUploading(true)
+    // ... (votre code est correct, pas de changement ici)
+     setIsUploading(true)
     try {
       const formData = new FormData()
       formData.append("video", file)
@@ -198,6 +241,7 @@ export default function ImportPage() {
   }
 
   const resetImports = async () => {
+    // ... (votre code est correct, pas de changement ici)
     try {
       setCsvData([]); setImages([]); setDesigners([]); setDesignerImages([]); setVideo(null);
       showToast("État local réinitialisé", "success")
@@ -208,7 +252,8 @@ export default function ImportPage() {
   }
 
   return (
-    <RoleGuard requiredRole="admin">
+    // ... (votre JSX est correct, pas de changement ici)
+     <RoleGuard requiredRole="admin">
       <div className="container-responsive py-8">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-4xl font-playfair text-dark mb-8">Import des données</h1>
