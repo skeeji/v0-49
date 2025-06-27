@@ -4,17 +4,26 @@ import { ObjectId } from "mongodb"
 
 export async function GET(request: NextRequest, { params }: { params: { fileId: string } }) {
   try {
+    console.log("🖼️ API /api/images/[fileId] GET - FileId:", params.fileId)
+
     const bucket = await getBucket()
+
+    if (!ObjectId.isValid(params.fileId)) {
+      return NextResponse.json({ error: "ID de fichier invalide" }, { status: 400 })
+    }
+
     const fileId = new ObjectId(params.fileId)
 
+    // Vérifier si le fichier existe
+    const files = await bucket.find({ _id: fileId }).toArray()
+    if (files.length === 0) {
+      return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 })
+    }
+
+    const file = files[0]
     const downloadStream = bucket.openDownloadStream(fileId)
 
-    // Gérer les erreurs de stream
-    downloadStream.on("error", (error) => {
-      console.error("Erreur lors du téléchargement du fichier:", error)
-    })
-
-    // Convertir le stream en Response
+    // Convertir le stream en buffer
     const chunks: Buffer[] = []
 
     return new Promise<NextResponse>((resolve, reject) => {
@@ -24,27 +33,27 @@ export async function GET(request: NextRequest, { params }: { params: { fileId: 
 
       downloadStream.on("end", () => {
         const buffer = Buffer.concat(chunks)
+        const contentType = file.contentType || "image/jpeg"
 
-        // Déterminer le type de contenu
-        const contentType = downloadStream.s?.file?.contentType || "application/octet-stream"
+        console.log("✅ Image servie:", params.fileId)
 
         resolve(
           new NextResponse(buffer, {
             headers: {
               "Content-Type": contentType,
-              "Cache-Control": "public, max-age=31536000",
+              "Cache-Control": "public, max-age=31536000, immutable",
             },
           }),
         )
       })
 
       downloadStream.on("error", (error) => {
-        console.error("Erreur stream:", error)
-        reject(new NextResponse("Fichier non trouvé", { status: 404 }))
+        console.error("❌ Erreur stream:", error)
+        reject(new NextResponse("Erreur lors de la lecture du fichier", { status: 500 }))
       })
     })
   } catch (error) {
-    console.error("Erreur lors de la récupération du fichier:", error)
-    return new NextResponse("Erreur serveur", { status: 500 })
+    console.error("❌ Erreur API /api/images/[fileId]:", error)
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }

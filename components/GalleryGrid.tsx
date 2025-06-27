@@ -36,19 +36,36 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
     localStorage.setItem("favorites", JSON.stringify(newFavorites))
   }
 
+  // Fonction pour obtenir l'URL de l'image
+  const getImageUrl = (item: any) => {
+    if (item.image) {
+      // Si l'image commence déjà par /api/images/, l'utiliser directement
+      if (item.image.startsWith("/api/images/")) {
+        return item.image
+      }
+      // Sinon, construire l'URL
+      return `/api/images/${item.image}`
+    }
+    return "/placeholder.svg?height=300&width=300"
+  }
+
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
         {items.map((item) => (
-          <div key={item.id} id={`luminaire-${item.id}`} className="bg-white rounded-xl p-6 shadow-lg">
+          <div
+            key={item.id || item._id}
+            id={`luminaire-${item.id || item._id}`}
+            className="bg-white rounded-xl p-6 shadow-lg"
+          >
             <div className="flex flex-col md:flex-row gap-6">
               <Link
-                href={`/luminaires/${item.id}`}
+                href={`/luminaires/${item.id || item._id}`}
                 className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
               >
                 <Image
-                  src={item.image || "/placeholder.svg?height=200&width=200"}
-                  alt={item.name || "Luminaire"}
+                  src={getImageUrl(item) || "/placeholder.svg"}
+                  alt={item.name || item.nom || "Luminaire"}
                   fill
                   className="object-cover"
                 />
@@ -56,18 +73,18 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
               <div className="flex-1 space-y-4">
                 <div className="flex items-start justify-between">
-                  <Link href={`/luminaires/${item.id}`}>
+                  <Link href={`/luminaires/${item.id || item._id}`}>
                     <h3 className="text-xl font-playfair text-dark hover:text-orange cursor-pointer">
-                      {item.name || "Nom du luminaire"}
+                      {item.name || item.nom || "Nom du luminaire"}
                     </h3>
                   </Link>
 
                   <div className="flex items-center gap-2">
                     <FavoriteToggleButton
-                      isActive={favorites.includes(item.id)}
-                      onClick={() => toggleFavorite(item.id)}
+                      isActive={favorites.includes(item.id || item._id)}
+                      onClick={() => toggleFavorite(item.id || item._id)}
                     />
-                    <Button onClick={() => setLightboxImage(item.image)} variant="outline" size="sm">
+                    <Button onClick={() => setLightboxImage(getImageUrl(item))} variant="outline" size="sm">
                       <Eye className="w-4 h-4" />
                     </Button>
                   </div>
@@ -76,19 +93,19 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
-                    <p className="text-gray-900">{item.artist || "Non renseigné"}</p>
+                    <p className="text-gray-900">{item.artist || item.designer || "Non renseigné"}</p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
-                    <p className="text-gray-900">{item.year || "Non renseigné"}</p>
+                    <p className="text-gray-900">{item.year || item.annee || "Non renseigné"}</p>
                   </div>
                 </div>
 
-                {item.specialty && (
+                {(item.specialty || item.specialite) && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
-                    <p className="text-gray-600">{item.specialty}</p>
+                    <p className="text-gray-600">{item.specialty || item.specialite}</p>
                   </div>
                 )}
 
@@ -99,10 +116,16 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                   </div>
                 )}
 
-                {item.materials && (
+                {(item.materials || item.materiaux) && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Matériaux</label>
-                    <p className="text-gray-600">{item.materials}</p>
+                    <p className="text-gray-600">
+                      {Array.isArray(item.materials)
+                        ? item.materials.join(", ")
+                        : Array.isArray(item.materiaux)
+                          ? item.materiaux.join(", ")
+                          : item.materials || item.materiaux}
+                    </p>
                   </div>
                 )}
 
@@ -129,9 +152,6 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
     )
   }
 
-  // Modifier la taille des luminaires en réduisant leur taille en mode grille
-  // Modifier la ligne qui définit les classes de grille pour augmenter le nombre de colonnes
-
   // Déterminer les classes de grille en fonction du nombre de colonnes
   const gridColumnsClass =
     {
@@ -141,31 +161,30 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
       6: "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8",
     }[columns] || "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
 
-  // Réduire la taille du padding dans les cartes de luminaires
   return (
     <div className={`grid ${gridColumnsClass} gap-2 md:gap-3`}>
       {items.map((item) => (
         <div
-          key={item.id}
-          id={`luminaire-${item.id}`}
+          key={item.id || item._id}
+          id={`luminaire-${item.id || item._id}`}
           className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
         >
-          <Link href={`/luminaires/${item.id}`}>
+          <Link href={`/luminaires/${item.id || item._id}`}>
             <div className="aspect-square relative bg-gray-100 cursor-pointer hover:scale-105 transition-transform">
               <Image
-                src={item.image || "/placeholder.svg?height=300&width=300"}
-                alt={item.name || "Luminaire"}
+                src={getImageUrl(item) || "/placeholder.svg"}
+                alt={item.name || item.nom || "Luminaire"}
                 fill
                 className="object-cover"
               />
 
               <div className="absolute top-2 right-2">
                 <FavoriteToggleButton
-                  isActive={favorites.includes(item.id)}
+                  isActive={favorites.includes(item.id || item._id)}
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
-                    toggleFavorite(item.id)
+                    toggleFavorite(item.id || item._id)
                   }}
                 />
               </div>
@@ -173,18 +192,23 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
           </Link>
 
           <div className="p-2 space-y-0.5">
-            <Link href={`/luminaires/${item.id}`}>
+            <Link href={`/luminaires/${item.id || item._id}`}>
               <h3 className="font-playfair text-xs md:text-sm text-dark hover:text-orange cursor-pointer truncate">
-                {item.name || "Nom du luminaire"}
+                {item.name || item.nom || "Nom du luminaire"}
               </h3>
             </Link>
 
-            <p className="text-gray-600 text-xs truncate">{item.artist || "Artiste non renseigné"}</p>
+            <p className="text-gray-600 text-xs truncate">{item.artist || item.designer || "Artiste non renseigné"}</p>
 
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">{item.year || "Année inconnue"}</span>
+              <span className="text-xs text-gray-500">{item.year || item.annee || "Année inconnue"}</span>
 
-              <Button onClick={() => setLightboxImage(item.image)} variant="ghost" size="sm" className="p-1 h-auto">
+              <Button
+                onClick={() => setLightboxImage(getImageUrl(item))}
+                variant="ghost"
+                size="sm"
+                className="p-1 h-auto"
+              >
                 <Eye className="w-3 h-3" />
               </Button>
             </div>

@@ -1,20 +1,20 @@
-import { GridFSBucket } from "mongodb"
-import { connectToDatabase } from "./mongodb"
+// Fichier : lib/gridfs.ts
+import clientPromise from "./mongodb";
+import { GridFSBucket } from "mongodb";
 
-let bucket: GridFSBucket
+let bucket: GridFSBucket;
 
-export async function getBucket(): Promise<GridFSBucket> {
+// Cette fonction prépare et retourne le "seau" de stockage
+export async function getBucket() {
   if (bucket) {
-    return bucket
+    return bucket;
   }
 
-  try {
-    const { db } = await connectToDatabase()
-    bucket = new GridFSBucket(db, { bucketName: "images" })
-    console.log("✅ GridFS bucket initialisé")
-    return bucket
-  } catch (error) {
-    console.error("❌ Erreur initialisation GridFS:", error)
-    throw error
-  }
+  const client = await clientPromise;
+  
+  // Important : client.db() utilise la base de données définie dans votre MONGODB_URI
+  const db = client.db(); 
+  
+  bucket = new GridFSBucket(db, { bucketName: 'images' });
+  return bucket;
 }
