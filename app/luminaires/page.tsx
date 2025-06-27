@@ -123,28 +123,18 @@ export default function LuminairesPage() {
 
           console.log(`📊 ${adaptedLuminaires.length} luminaires chargés depuis MongoDB`)
         } else {
-          console.error("Erreur lors du chargement des luminaires:", await response.text())
-          // Fallback vers localStorage si l'API échoue
-          const storedLuminaires = localStorage.getItem("luminaires")
-          if (storedLuminaires) {
-            const data = JSON.parse(storedLuminaires)
-            setAllLuminaires(data)
-            setFilteredLuminaires(data)
-            setDisplayedLuminaires(data.slice(0, itemsPerPage))
-            console.log("📊 Fallback vers localStorage")
-          }
+            console.error("Erreur lors du chargement des luminaires:", await response.text());
+            showToast("Impossible de charger les luminaires depuis le serveur.", "error");
+            setAllLuminaires([]);
+            setFilteredLuminaires([]);
+            setDisplayedLuminaires([]);
         }
       } catch (error) {
-        console.error("Erreur lors du chargement des luminaires:", error)
-        // Fallback vers localStorage en cas d'erreur
-        const storedLuminaires = localStorage.getItem("luminaires")
-        if (storedLuminaires) {
-          const data = JSON.parse(storedLuminaires)
-          setAllLuminaires(data)
-          setFilteredLuminaires(data)
-          setDisplayedLuminaires(data.slice(0, itemsPerPage))
-          console.log("📊 Fallback vers localStorage après erreur")
-        }
+          console.error("Erreur réseau lors du chargement des luminaires:", error);
+          showToast("Une erreur réseau est survenue lors du chargement des données.", "error");
+          setAllLuminaires([]);
+          setFilteredLuminaires([]);
+          setDisplayedLuminaires([]);
       } finally {
         setIsLoading(false)
       }
