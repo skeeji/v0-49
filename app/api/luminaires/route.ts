@@ -75,14 +75,14 @@ export async function GET(request: NextRequest) {
     const total = await db.collection("luminaires").countDocuments(query);
 
     // ====================================================================
-    // === DÉBUT DE LA CORRECTION : INTÉGRATION DE LA "TRANSFORMATION MAGIQUE" ===
-    // On remplace votre ancien nettoyage par la nouvelle transformation complète
+    // === DÉBUT DE LA CORRECTION : INTÉGRATION DE LA TRANSFORMATION CENTRALE ===
+    // On intègre ici la nouvelle transformation complète des données.
     // ====================================================================
     const adaptedLuminaires = luminairesFromDB.map(lum => {
       // 1. Nettoyer le nom du designer de manière robuste
       const cleanedDesigner = (lum.designer && typeof lum.designer === 'string')
-                              ? lum.designer.split(':')[0].trim()
-                              : "Artiste non spécifié";
+                                  ? lum.designer.split(':')[0].trim()
+                                  : "Artiste non spécifié";
 
       // 2. Créer un objet propre et cohérent pour le frontend
       return {
