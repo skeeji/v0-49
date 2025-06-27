@@ -1,40 +1,51 @@
-import { NextResponse } from "next/server"
-import clientPromise from "../../../../lib/mongodb"
+import { type NextRequest, NextResponse } from "next/server"
+import { connectToDatabase } from "@/lib/mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE
-
-if (!DBNAME) {
-  throw new Error('Invalid/Missing environment variable: "MONGO_INITDB_DATABASE"')
-}
-
-// Gérer les requêtes GET pour récupérer un designer par nom
-export async function GET(request: Request, { params }: { params: { name: string } }) {
+export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    const { db } = await connectToDatabase()
+    const designerSlug = decodeURIComponent(params.name)
 
-    const decodedName = decodeURIComponent(params.name)
-    const designer = await db.collection("designers").findOne({ nom: decodedName })
+    // Récupérer tous les luminaires
+    const luminaires = await db.collection("luminaires").find({}).toArray()
 
-    if (!designer) {
-      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
+    // Fonction pour extraire le nom du designer
+    const getDesignerNameOnly = (str = ""): string => {
+      if (!str) return ""
+      return str.split("(")[0].trim()
     }
 
-    // Récupérer aussi les luminaires de ce designer
-    const luminaires = await db.collection("luminaires").find({ designer: decodedName }).toArray()
+    // Filtrer les luminaires pour ce designer
+    const designerLuminaires = luminaires.filter((luminaire) => {
+      const designerName = getDesignerNameOnly(luminaire.designer)
+      const slug = designerName.toLowerCase().replace(/\s+/g, "-")
+      return slug === designerSlug
+    })
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          designer,
-          luminaires,
-        },
+    if (designerLuminaires.length === 0) {
+      return NextResponse.json({ success: false, message: "Designer non trouvé" }, { status: 404 })
+    }
+
+    // Créer l'objet designer
+    const firstLuminaire = designerLuminaires[0]
+    const designerName = getDesignerNameOnly(firstLuminaire.designer)
+
+    const designer = {
+      nom: designerName,
+      slug: designerSlug,
+      image: null, // À implémenter si vous avez des images de designers
+      count: designerLuminaires.length,
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        designer,
+        luminaires: designerLuminaires,
       },
-      { status: 200 },
-    )
+    })
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
+    console.error("Erreur API designers/[name]:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
   }
 }

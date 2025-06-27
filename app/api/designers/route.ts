@@ -1,49 +1,53 @@
-import { NextResponse } from "next/server"
-import clientPromise from "../../../lib/mongodb"
+import { type NextRequest, NextResponse } from "next/server"
+import { connectToDatabase } from "@/lib/mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE
-
-if (!DBNAME) {
-  throw new Error('Invalid/Missing environment variable: "MONGO_INITDB_DATABASE"')
-}
-
-// Gérer les requêtes GET pour récupérer les designers
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    const { db } = await connectToDatabase()
 
-    const designers = await db.collection("designers").find({}).toArray()
+    // Récupérer tous les luminaires pour grouper par designer
+    const luminaires = await db.collection("luminaires").find({}).toArray()
 
-    return NextResponse.json({ success: true, data: designers }, { status: 200 })
-  } catch (error) {
-    console.error(error)
-    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
-  }
-}
-
-// Gérer les requêtes POST pour ajouter un designer
-export async function POST(request: Request) {
-  try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    const designerData = await request.json()
-
-    // Logique de validation simple
-    if (!designerData.nom) {
-      return NextResponse.json({ success: false, error: "Le nom du designer est requis" }, { status: 400 })
+    // Fonction pour extraire le nom du designer
+    const getDesignerNameOnly = (str = ""): string => {
+      if (!str) return ""
+      return str.split("(")[0].trim()
     }
 
-    const result = await db.collection("designers").insertOne({
-      ...designerData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    // Grouper par designer
+    const designerMap = new Map()
+
+    luminaires.forEach((luminaire) => {
+      const designerName = getDesignerNameOnly(luminaire.designer)
+      if (designerName) {
+        if (!designerMap.has(designerName)) {
+          designerMap.set(designerName, {
+            nom: designerName,
+            slug: designerName.toLowerCase().replace(/\s+/g, "-"),
+            count: 0,
+            luminaires: [],
+            image: null, // À implémenter si vous avez des images de designers
+          })
+        }
+        const designer = designerMap.get(designerName)
+        designer.count++
+        designer.luminaires.push({
+          ...luminaire,
+          id: luminaire._id,
+          image: luminaire.images?.[0],
+        })
+      }
     })
 
-    return NextResponse.json({ success: true, insertedId: result.insertedId }, { status: 201 })
+    const designers = Array.from(designerMap.values())
+
+    return NextResponse.json({
+      success: true,
+      designers,
+      total: designers.length,
+    })
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ success: false, error: "Server Error" }, { status: 500 })
+    console.error("Erreur API designers:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
   }
 }
