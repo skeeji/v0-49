@@ -197,15 +197,33 @@ export default function ImportPage() {
     } finally { setIsUploading(false) }
   }
 
-  const resetImports = async () => {
-    try {
-      setCsvData([]); setImages([]); setDesigners([]); setDesignerImages([]); setVideo(null);
-      showToast("État local réinitialisé", "success")
-    } catch (error: any) {
-      console.error("Erreur lors de la réinitialisation:", error)
-      showToast("Erreur lors de la réinitialisation", "error")
+  // Nouvelle fonction qui appelle le backend pour TOUT supprimer
+  const handleResetDatabase = async () => {
+    // On demande une confirmation car l'action est destructrice
+    const isConfirmed = window.confirm(
+      "Êtes-vous certain de vouloir supprimer TOUTES les données et TOUS les fichiers du serveur ? Cette action est IRRÉVERSIBLE."
+    );
+
+    if (isConfirmed) {
+      setIsUploading(true); // Pour montrer un indicateur de chargement
+      showToast("Réinitialisation du serveur en cours...", "info");
+      try {
+        const response = await fetch("/api/reset", { method: "DELETE" });
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showToast("Serveur réinitialisé avec succès !", "success");
+        } else {
+          // Affiche l'erreur renvoyée par l'API s'il y en a une
+          throw new Error(result.error || "La réinitialisation du serveur a échoué.");
+        }
+      } catch (error: any) {
+        showToast(error.message, "error");
+      } finally {
+        setIsUploading(false);
+      }
     }
-  }
+  };
 
   return (
     <RoleGuard requiredRole="admin">
@@ -241,7 +259,7 @@ export default function ImportPage() {
             </div>
           </div>
           <div className="mt-8 text-center">
-            <Button onClick={resetImports} variant="destructive" className="bg-red-500 hover:bg-red-600" disabled={isUploading}><Trash2 className="w-4 h-4 mr-2" />Réinitialiser l'état local</Button>
+            <Button onClick={handleResetDatabase} variant="destructive" className="bg-red-500 hover:bg-red-600" disabled={isUploading}><Trash2 className="w-4 h-4 mr-2" />Réinitialiser le Serveur (DANGER)</Button>
           </div>
         </div>
       </div>
