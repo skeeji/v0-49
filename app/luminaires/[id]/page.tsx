@@ -32,50 +32,48 @@ export default function LuminaireDetailPage() {
     async function fetchAllData() {
       setIsLoading(true);
       try {
-        // Étape 1 : Récupérer le luminaire principal par son ID
+        // Étape 1 : Récupérer le luminaire principal
         const luminaireResponse = await fetch(`/api/luminaires/${params.id}`);
         const luminaireResult = await luminaireResponse.json();
 
-        if (!luminaireResult.success) {
-          throw new Error("Luminaire principal non trouvé.");
+        if (!luminaireResult.success || !luminaireResult.data) {
+            throw new Error("Luminaire principal non trouvé.");
         }
-
-        // On formate les données reçues de l'API pour les utiliser dans la page
-        const formattedLuminaire = {
-            ...luminaireResult.data, // Garde toutes les données originales
+        
+        // On formate les données ici pour s'assurer que le reste du composant fonctionne
+        const formattedData = {
+            ...luminaireResult.data,
             id: luminaireResult.data._id,
             name: luminaireResult.data.nom,
             artist: (luminaireResult.data.designer || "").split(':')[0].trim(),
             year: luminaireResult.data.annee,
             image: luminaireResult.data.images?.[0] || null,
             materials: Array.isArray(luminaireResult.data.materiaux) ? luminaireResult.data.materiaux.join(', ') : "",
-            signed: luminaireResult.data.signe,
         };
-        setLuminaire(formattedLuminaire);
+        setLuminaire(formattedData);
 
         // VOTRE LOGIQUE DE FAVORIS EST CONSERVÉE
         const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
         setIsFavorite(favorites.includes(params.id as string));
 
-        // Étape 2 : Récupérer les luminaires similaires via la nouvelle API dédiée
+        // Étape 2 : Récupérer les luminaires similaires via la bonne API
         const similarResponse = await fetch(`/api/luminaires/similar/${params.id}`);
         const similarResult = await similarResponse.json();
-        
-        // On s'assure que la réponse est bien un tableau et on le formate
+
         if (Array.isArray(similarResult)) {
-          const adaptedSimilar = similarResult.map(lum => ({
-            id: lum._id,
-            name: lum.nom,
-            artist: (lum.designer || "").split(':')[0].trim(),
-            year: lum.annee,
-            image: lum.images?.[0] || null,
-          }));
-          setSimilarLuminaires(adaptedSimilar);
+            const adaptedSimilar = similarResult.map(lum => ({
+                id: lum._id,
+                name: lum.nom,
+                artist: (lum.designer || "").split(':')[0].trim(),
+                year: lum.annee,
+                image: lum.images?.[0] || null,
+            }));
+            setSimilarLuminaires(adaptedSimilar);
         }
 
       } catch (error) {
-        console.error("Erreur lors du chargement des données de la page de détail:", error);
-        setLuminaire(null); // En cas d'erreur, on vide le luminaire
+        console.error("Erreur chargement page de détail:", error);
+        setLuminaire(null);
       } finally {
         setIsLoading(false);
       }
@@ -88,10 +86,41 @@ export default function LuminaireDetailPage() {
   // ====================================================================
 
 
-  // VOS FONCTIONS HELPER SONT CONSERVÉES (même si findSimilarLuminaires n'est plus utilisée)
-  const findSimilarLuminaires = (current: any, all: any[]) => { /* ... Votre fonction est conservée ... */ };
-  const handleUpdate = async (field: string, value: string) => { /* ... Votre fonction est conservée ... */ };
-  const toggleFavorite = () => { /* ... Votre fonction est conservée ... */ };
+  // VOS FONCTIONS HELPER SONT CONSERVÉES
+  const handleUpdate = async (field: string, value: string) => { 
+    if (!canEdit || !luminaire) return;
+
+    const updatedLuminaire = { ...luminaire, [field]: value };
+    setLuminaire(updatedLuminaire);
+
+    // Persist changes to the backend
+    try {
+        await fetch(`/api/luminaires/${luminaire.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: value }), // Send only the updated field
+        });
+    } catch (error) {
+        console.error("Failed to update luminaire:", error);
+        // Optionally revert state or show an error toast
+    }
+  };
+
+  const toggleFavorite = () => { 
+    if (!luminaire) return;
+    const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+    const isCurrentlyFavorite = favorites.includes(luminaire.id);
+    
+    let updatedFavorites;
+    if (isCurrentlyFavorite) {
+        updatedFavorites = favorites.filter((id: string) => id !== luminaire.id);
+    } else {
+        updatedFavorites = [...favorites, luminaire.id];
+    }
+    
+    localStorage.setItem("favorites", JSON.stringify(updatedFavorites));
+    setIsFavorite(!isCurrentlyFavorite);
+  };
 
 
   // VOTRE FONCTION DE GÉNÉRATION PDF EST CONSERVÉE
