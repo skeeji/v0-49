@@ -29,7 +29,6 @@ export async function GET(request: NextRequest) {
     const db = client.db();
     const { searchParams } = new URL(request.url);
 
-    // Ligne mise à jour comme demandé
     const isSimpleFetch = !searchParams.has("search") && !searchParams.has("designer") && !searchParams.has("page") && !searchParams.has("full");
 
     let query: any = {};
@@ -69,6 +68,17 @@ export async function GET(request: NextRequest) {
     }
 
     const luminaires = await cursor.toArray();
+
+    // --- DÉBUT DE LA MODIFICATION ---
+    // On nettoie les données avant de les envoyer au client
+    const cleanedLuminaires = luminaires.map(lum => {
+      if (lum.designer && typeof lum.designer === 'string') {
+        lum.designer = lum.designer.split(':')[0].trim();
+      }
+      return lum;
+    });
+    // --- FIN DE LA MODIFICATION ---
+
     const total = await db.collection("luminaires").countDocuments(query);
 
     const pagination = {
@@ -78,7 +88,8 @@ export async function GET(request: NextRequest) {
         total,
     };
 
-    return NextResponse.json({ success: true, luminaires, pagination });
+    // --- MODIFICATION POUR UTILISER LES DONNÉES NETTOYÉES ---
+    return NextResponse.json({ success: true, luminaires: cleanedLuminaires, pagination });
 
   } catch (error) {
     console.error("Erreur API /api/luminaires GET:", error);
