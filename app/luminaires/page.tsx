@@ -22,7 +22,9 @@ import { LoginModal } from "@/components/LoginModal"
 import { useToast } from "@/hooks/useToast"
 
 export default function LuminairesPage() {
-  const [displayedLuminaires, setDisplayedLuminaires] = useState<any[]>([])
+  const [allLuminaires, setAllLuminaires] = useState([])
+  const [filteredLuminaires, setFilteredLuminaires] = useState([])
+  const [displayedLuminaires, setDisplayedLuminaires] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("nom-asc")
   const [yearRange, setYearRange] = useState([1900, 2025])
@@ -35,7 +37,7 @@ export default function LuminairesPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [designers, setDesigners] = useState<string[]>([])
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [filtersActive, setFiltersActive] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
@@ -46,45 +48,35 @@ export default function LuminairesPage() {
   const { user, userData } = useAuth()
   const { showToast } = useToast()
 
-  // EFFET N°1 : Cet effet se déclenche UNIQUEMENT quand un filtre change.
-  // Son seul rôle est de remettre la page à 1 pour recommencer une nouvelle recherche.
-  useEffect(() => {
-    console.log("[DEBUG] Un filtre a changé. Reset de la page à 1.")
-    setPage(1)
-  }, [searchTerm, sortBy, selectedDesigner, yearRange, showFavorites])
-
-
-  // EFFET N°2 : Cet effet se déclenche quand la page change (ou au 1er chargement).
-  // C'est lui, et seulement lui, qui charge les données.
-  useEffect(() => {
-    console.log(`[DEBUG] Déclenchement du chargement pour la page: ${page}`)
-    setIsLoading(true)
-
-    const loadData = async () => {
-      const params = new URLSearchParams()
-      // On construit les paramètres de la requête
-      params.append("page", page.toString())
-      params.append("limit", itemsPerPage.toString())
-      if (searchTerm) params.append("search", searchTerm)
-      if (selectedDesigner && selectedDesigner !== "all") params.append("designer", selectedDesigner)
-      if (yearRange[0] !== minYear) params.append("anneeMin", yearRange[0].toString())
-      if (yearRange[1] !== maxYear) params.append("anneeMax", yearRange[1].toString())
-      if (showFavorites) params.append("isFavorite", "true")
-      
-      if (sortBy) {
-        const [field, direction] = sortBy.split("-")
-        params.append("sortField", field)
-        params.append("sortDirection", direction)
-      }
-      
+  // Charger les luminaires depuis l'API MongoDB
+  const loadLuminaires = useCallback(
+    async (resetPage = false) => {
+      setIsLoading(true)
       try {
+        const params = new URLSearchParams()
+
+        if (searchTerm) params.append("search", searchTerm)
+        if (selectedDesigner && selectedDesigner !== "all") params.append("designer", selectedDesigner)
+        if (yearRange[0] !== minYear) params.append("anneeMin", yearRange[0].toString())
+        if (yearRange[1] !== maxYear) params.append("anneeMax", yearRange[1].toString())
+        if (showFavorites) params.append("isFavorite", "true")
+
+        // Tri
+        const [field, direction] = sortBy.split("-")
+        params.append("sortField", field === "name" ? "nom" : field === "year" ? "annee" : field)
+        params.append("sortDirection", direction)
+
+        // Pagination
+        const currentPage = resetPage ? 1 : page
+        params.append("page", currentPage.toString())
+        params.append("limit", itemsPerPage.toString())
+
         const response = await fetch(`/api/luminaires?${params.toString()}`)
-        console.log(`[DEBUG] Réponse API reçue avec statut: ${response.status}`)
-        
+
         if (response.ok) {
           const data = await response.json()
-          console.log("[DEBUG] Données API reçues:", data)
 
+          // Adapter les données pour l'interface existante
           const adaptedLuminaires = data.luminaires.map((l: any) => ({
             id: l._id,
             name: l.nom,
@@ -101,57 +93,70 @@ export default function LuminairesPage() {
             description: l.description || "",
           }))
 
-          if (page === 1) {
-            // Si c'est la page 1, on remplace les données
-            console.log("[DEBUG] Page 1 chargée, on remplace les données.")
+          if (resetPage || currentPage === 1) {
+            setAllLuminaires(adaptedLuminaires)
+            setFilteredLuminaires(adaptedLuminaires)
             setDisplayedLuminaires(adaptedLuminaires)
           } else {
-            // Sinon, on ajoute les nouvelles données à la suite des anciennes
-            console.log("[DEBUG] Page > 1 chargée, on ajoute les données.")
             setDisplayedLuminaires((prev) => [...prev, ...adaptedLuminaires])
           }
-          // On vérifie s'il y a encore des pages à charger
-          setHasMore(data.pagination ? data.pagination.page < data.pagination.pages : false)
+
+          setHasMore(data.pagination.page < data.pagination.pages)
+
+          // Extraire les designers uniques
+          const uniqueDesigners = [...new Set(adaptedLuminaires.map((item: any) => item.artist))].filter(Boolean)
+          setDesigners(uniqueDesigners)
+
+          // Déterminer la plage d'années
+          const years = adaptedLuminaires
+            .map((item: any) => Number.parseInt(item.year))
+            .filter((year) => !isNaN(year) && year > 0)
+          if (years.length > 0) {
+            const min = Math.max(1000, Math.min(...years))
+            const max = Math.min(2025, Math.max(...years))
+            setMinYear(min)
+            setMaxYear(max)
+            if (resetPage) {
+              setYearRange([min, max])
+            }
+          }
+
+          console.log(`📊 ${adaptedLuminaires.length} luminaires chargés depuis MongoDB`)
         } else {
-          console.error("[DEBUG] Erreur API:", await response.text())
-          showToast("Impossible de charger les luminaires depuis le serveur.", "error")
-          setHasMore(false)
+          console.error("Erreur lors du chargement des luminaires:", await response.text())
+          // Fallback vers localStorage si l'API échoue
+          const storedLuminaires = localStorage.getItem("luminaires")
+          if (storedLuminaires) {
+            const data = JSON.parse(storedLuminaires)
+            setAllLuminaires(data)
+            setFilteredLuminaires(data)
+            setDisplayedLuminaires(data.slice(0, itemsPerPage))
+            console.log("📊 Fallback vers localStorage")
+          }
         }
       } catch (error) {
-        console.error("Erreur de chargement des luminaires:", error)
-        showToast("Une erreur réseau est survenue lors du chargement des données.", "error")
-        setHasMore(false)
+        console.error("Erreur lors du chargement des luminaires:", error)
+        // Fallback vers localStorage en cas d'erreur
+        const storedLuminaires = localStorage.getItem("luminaires")
+        if (storedLuminaires) {
+          const data = JSON.parse(storedLuminaires)
+          setAllLuminaires(data)
+          setFilteredLuminaires(data)
+          setDisplayedLuminaires(data.slice(0, itemsPerPage))
+          console.log("📊 Fallback vers localStorage après erreur")
+        }
       } finally {
         setIsLoading(false)
       }
-    }
+    },
+    [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy, page, itemsPerPage, minYear, maxYear],
+  )
 
-    loadData()
-  }, [page, searchTerm, sortBy, selectedDesigner, yearRange, showFavorites, itemsPerPage, minYear, maxYear, showToast])
-
-
-  // EFFET N°3 : L'écouteur de scroll. Il ne fait qu'appeler loadMore.
-  const loadMore = useCallback(() => {
-    // On ne fait rien si on charge déjà ou s'il n'y a plus rien à charger
-    if (isLoading || !hasMore) return
-    console.log("[DEBUG] loadMore appelé, passage à la page suivante.")
-    setPage((prevPage) => prevPage + 1)
-  }, [isLoading, hasMore])
-
+  // Charger les données au montage et quand les filtres changent
   useEffect(() => {
-    // Conservation de la logique pour le rôle "free"
-    if (userData?.role === "free") return
-
-    const handleScroll = () => {
-      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 500) {
-        console.log("[DEBUG] handleScroll - Bas de page atteint, appel de loadMore.")
-        loadMore()
-      }
-    }
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [loadMore, userData])
-
+    loadLuminaires(true)
+    setPage(1)
+  }, [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy])
 
   // Charger les favoris depuis localStorage
   useEffect(() => {
@@ -160,7 +165,6 @@ export default function LuminairesPage() {
       setFavorites(JSON.parse(storedFavorites))
     }
   }, [])
-
 
   // Gérer le highlight depuis les paramètres d'URL
   useEffect(() => {
@@ -188,7 +192,6 @@ export default function LuminairesPage() {
     }
   }, [searchParams])
 
-
   // Vérifier si des filtres sont actifs
   useEffect(() => {
     const isFilterActive =
@@ -201,8 +204,29 @@ export default function LuminairesPage() {
     setFiltersActive(isFilterActive)
   }, [searchTerm, selectedDesigner, showFavorites, yearRange, minYear, maxYear])
 
-    
-  // Toutes les fonctions de gestion (add, update, reset, toggle...) restent identiques
+  // Fonction de chargement de plus d'éléments
+  const loadMore = useCallback(() => {
+    if (userData?.role === "free") return
+    if (isLoading || !hasMore) return
+
+    setPage((prev) => prev + 1)
+    loadLuminaires(false)
+  }, [isLoading, hasMore, userData, loadLuminaires])
+
+  // Scroll infini
+  useEffect(() => {
+    if (userData?.role === "free") return
+
+    const handleScroll = () => {
+      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 1000) {
+        loadMore()
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [loadMore, userData])
+
   const addLuminaire = async (newLuminaire: any) => {
     if (userData?.role !== "admin") {
       setShowLoginModal(true)
@@ -231,8 +255,7 @@ export default function LuminairesPage() {
       })
 
       if (response.ok) {
-        // Recharger la première page pour voir le nouvel ajout
-        setPage(1) // Déclenchera le rechargement via l'effet principal
+        loadLuminaires(true) // Recharger les données
         setShowAddModal(false)
         showToast("Luminaire ajouté avec succès", "success")
       } else {
@@ -266,7 +289,7 @@ export default function LuminairesPage() {
       })
 
       if (response.ok) {
-        setDisplayedLuminaires(prev => prev.map(item => item.id === id ? {...item, ...updates} : item));
+        loadLuminaires(true) // Recharger les données
         showToast("Luminaire mis à jour avec succès", "success")
       } else {
         throw new Error("Erreur lors de la mise à jour du luminaire")
@@ -298,13 +321,11 @@ export default function LuminairesPage() {
     localStorage.setItem("favorites", JSON.stringify(updatedFavorites))
   }
 
-
-  // TOUT VOTRE JSX RESTE LE MÊME
   return (
     <div className="container-responsive py-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
-          <h1 className="text-4xl font-playfair text-dark mb-4 lg:mb-0">Luminaires ({displayedLuminaires.length})</h1>
+          <h1 className="text-4xl font-playfair text-dark mb-4 lg:mb-0">Luminaires ({filteredLuminaires.length})</h1>
 
           <div className="flex items-center gap-4">
             {userData?.role === "admin" && (
@@ -314,7 +335,7 @@ export default function LuminairesPage() {
               </Button>
             )}
 
-            {userData?.role === "admin" && <CSVExportButton data={displayedLuminaires} />}
+            {userData?.role === "admin" && <CSVExportButton data={allLuminaires} />}
 
             <FavoriteToggleButton isActive={showFavorites} onClick={() => setShowFavorites(!showFavorites)} />
           </div>
@@ -326,11 +347,11 @@ export default function LuminairesPage() {
             <p className="flex items-center">
               <span className="mr-2">ℹ️</span>
               <span>
-                Vous utilisez un compte gratuit. Seuls les premiers luminaires sont affichés.
+                Vous utilisez un compte gratuit. Seuls 10% des luminaires sont affichés.
                 <Link href="#" className="ml-1 underline font-medium">
                   Passez à Premium
                 </Link>{" "}
-                pour voir tous les résultats.
+                pour voir tous les luminaires.
               </span>
             </p>
           </div>
@@ -390,8 +411,8 @@ export default function LuminairesPage() {
 
           {filtersActive && (
             <div className="mt-4 p-2 bg-orange/10 rounded-lg text-sm text-orange">
-              ⚠️ Filtres actifs - {displayedLuminaires.length} luminaires affichés
-              {userData?.role === "free" && <span className="ml-2">(limité)</span>}
+              ⚠️ Filtres actifs - {filteredLuminaires.length} luminaires affichés
+              {userData?.role === "free" && <span className="ml-2">(limité à 10% des résultats)</span>}
             </div>
           )}
         </div>
@@ -401,7 +422,7 @@ export default function LuminairesPage() {
           <GalleryGrid items={displayedLuminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={8} />
         ) : (
           <div className="space-y-2">
-            {displayedLuminaires.map((item: any) => (
+            {displayedLuminaires.map((item) => (
               <div key={item.id} id={`luminaire-${item.id}`} className="bg-white rounded-lg p-3 shadow-sm">
                 <div className="flex items-center gap-4">
                   <Link
@@ -478,7 +499,7 @@ export default function LuminairesPage() {
         )}
 
         {/* Message aucun résultat */}
-        {displayedLuminaires.length === 0 && !isLoading && (
+        {filteredLuminaires.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">Aucun luminaire trouvé</p>
             <p className="text-gray-400 text-sm mt-2">Essayez de modifier vos critères de recherche</p>
