@@ -22,21 +22,63 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// FONCTION GET : Pour RÉCUPÉRER les luminaires (avec recherche)
+// FONCTION GET : Pour RÉCUPÉRER les luminaires (avec recherche, filtres, tri, pagination et optimisation)
 export async function GET(request: NextRequest) {
   try {
     const client = await clientPromise;
     const db = client.db();
-    const search = request.nextUrl.searchParams.get("search");
+    const { searchParams } = new URL(request.url);
 
-    let query = {};
+    const isSimpleFetch = !searchParams.has("search") && !searchParams.has("designer") && !searchParams.has("page");
+
+    let query: any = {};
+    const search = searchParams.get("search");
     if (search) {
-      query = { filename: { $regex: search, $options: "i" } };
+        query.$or = [
+            { nom: { $regex: search, $options: "i" } },
+            { designer: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } }
+        ];
     }
 
-    const luminaires = await db.collection("luminaires").find(query).sort({ annee: -1 }).toArray();
+    const designer = searchParams.get("designer");
+    if (designer) query.designer = designer;
 
-    return NextResponse.json({ success: true, luminaires });
+    const anneeMin = searchParams.get("anneeMin");
+    if (anneeMin) query.annee = { ...query.annee, $gte: parseInt(anneeMin) };
+
+    const anneeMax = searchParams.get("anneeMax");
+    if (anneeMax) query.annee = { ...query.annee, $lte: parseInt(anneeMax) };
+
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const skip = (page - 1) * limit;
+
+    const sortField = searchParams.get("sortField") || "nom";
+    const sortDirection = searchParams.get("sortDirection") === "desc" ? -1 : 1;
+    const sortOptions = { [sortField]: sortDirection };
+
+    const cursor = db.collection("luminaires").find(query);
+
+    if (isSimpleFetch) {
+      cursor.project({ designer: 1, images: 1, _id: 0 });
+      console.log("Optimisation : Appel simple, projection des champs pour la page designers.");
+    } else {
+      cursor.sort(sortOptions).skip(skip).limit(limit);
+    }
+
+    const luminaires = await cursor.toArray();
+    const total = await db.collection("luminaires").countDocuments(query);
+
+    const pagination = {
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+        total,
+    };
+
+    return NextResponse.json({ success: true, luminaires, pagination });
+
   } catch (error) {
     console.error("Erreur API /api/luminaires GET:", error);
     return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 });
