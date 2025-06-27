@@ -11,10 +11,11 @@ export async function getBucket() {
   }
 
   const client = await clientPromise;
-  
-  // Important : client.db() utilise la base de données définie dans votre MONGODB_URI
+
   const db = client.db(); 
-  
-  bucket = new GridFSBucket(db, { bucketName: 'images' });
+
+  // On utilise un nom générique car on y stocke images ET vidéos. 'media' est un bon choix.
+  bucket = new GridFSBucket(db, { bucketName: 'media' });
+
   return bucket;
 }
