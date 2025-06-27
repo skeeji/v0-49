@@ -2,97 +2,117 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 
-// FONCTION POST : Pour AJOUTER un luminaire
+// FONCTION POST : Pour AJOUTER un luminaire (INCHANGÉE)
 export async function POST(request: NextRequest) {
-  try {
-    const client = await clientPromise;
-    const db = client.db();
-    const body = await request.json();
+  try {
+    const client = await clientPromise;
+    const db = client.db();
+    const body = await request.json();
 
-    if (!body.filename) {
-      return NextResponse.json({ success: false, error: "Le nom de fichier est requis pour la liaison d'image" }, { status: 400 });
-    }
+    if (!body.filename) {
+      return NextResponse.json({ success: false, error: "Le nom de fichier est requis pour la liaison d'image" }, { status: 400 });
+    }
 
-    const result = await db.collection("luminaires").insertOne(body);
+    const result = await db.collection("luminaires").insertOne(body);
 
-    return NextResponse.json({ success: true, insertedId: result.insertedId }, { status: 201 });
-  } catch (error) {
-    console.error("Erreur API /api/luminaires POST:", error);
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 });
-  }
+    return NextResponse.json({ success: true, insertedId: result.insertedId }, { status: 201 });
+  } catch (error) {
+    console.error("Erreur API /api/luminaires POST:", error);
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 });
+  }
 }
 
-// FONCTION GET : Pour RÉCUPÉRER les luminaires (avec recherche, filtres, tri, pagination et optimisation)
+// FONCTION GET : MODIFIÉE pour intégrer la correction centrale sans rien supprimer
 export async function GET(request: NextRequest) {
-  try {
-    const client = await clientPromise;
-    const db = client.db();
-    const { searchParams } = new URL(request.url);
+  try {
+    const client = await clientPromise;
+    const db = client.db();
+    const { searchParams } = new URL(request.url);
 
-    const isSimpleFetch = !searchParams.has("search") && !searchParams.has("designer") && !searchParams.has("page") && !searchParams.has("full");
+    // Votre logique de détection d'appel simple est CONSERVÉE
+    const isSimpleFetch = !searchParams.has("search") && !searchParams.has("designer") && !searchParams.has("page") && !searchParams.has("full");
 
-    let query: any = {};
-    const search = searchParams.get("search");
-    if (search) {
-        query.$or = [
-            { nom: { $regex: search, $options: "i" } },
-            { designer: { $regex: search, $options: "i" } },
-            { description: { $regex: search, $options: "i" } }
-        ];
-    }
+    // Votre logique de construction de la requête est CONSERVÉE
+    let query: any = {};
+    const search = searchParams.get("search");
+    if (search) {
+        // La recherche sur la description est CONSERVÉE
+        query.$or = [
+            { nom: { $regex: search, $options: "i" } },
+            { designer: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } }
+        ];
+    }
 
-    const designer = searchParams.get("designer");
-    if (designer) query.designer = designer;
+    const designer = searchParams.get("designer");
+    if (designer) query.designer = designer;
 
-    const anneeMin = searchParams.get("anneeMin");
-    if (anneeMin) query.annee = { ...query.annee, $gte: parseInt(anneeMin) };
+    const anneeMin = searchParams.get("anneeMin");
+    if (anneeMin) query.annee = { ...query.annee, $gte: parseInt(anneeMin) };
 
-    const anneeMax = searchParams.get("anneeMax");
-    if (anneeMax) query.annee = { ...query.annee, $lte: parseInt(anneeMax) };
+    const anneeMax = searchParams.get("anneeMax");
+    if (anneeMax) query.annee = { ...query.annee, $lte: parseInt(anneeMax) };
 
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const skip = (page - 1) * limit;
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const skip = (page - 1) * limit;
 
-    const sortField = searchParams.get("sortField") || "nom";
-    const sortDirection = searchParams.get("sortDirection") === "desc" ? -1 : 1;
-    const sortOptions = { [sortField]: sortDirection };
+    const sortField = searchParams.get("sortField") || "nom";
+    const sortDirection = searchParams.get("sortDirection") === "desc" ? -1 : 1;
+    const sortOptions = { [sortField]: sortDirection };
 
-    const cursor = db.collection("luminaires").find(query);
+    const cursor = db.collection("luminaires").find(query);
 
-    if (isSimpleFetch) {
-      cursor.project({ designer: 1, images: 1, _id: 0 });
-      console.log("Optimisation : Appel simple, projection des champs pour la page designers.");
-    } else {
-      cursor.sort(sortOptions).skip(skip).limit(limit);
-    }
+    // Votre logique d'optimisation pour la page designers est CONSERVÉE
+    if (isSimpleFetch) {
+      cursor.project({ designer: 1, images: 1, _id: 0 });
+      console.log("Optimisation : Appel simple, projection des champs pour la page designers.");
+    } else {
+      cursor.sort(sortOptions).skip(skip).limit(limit);
+    }
 
-    const luminaires = await cursor.toArray();
+    const luminairesFromDB = await cursor.toArray();
+    const total = await db.collection("luminaires").countDocuments(query);
 
-    // --- DÉBUT DE LA MODIFICATION ---
-    // On nettoie les données avant de les envoyer au client
-    const cleanedLuminaires = luminaires.map(lum => {
-      if (lum.designer && typeof lum.designer === 'string') {
-        lum.designer = lum.designer.split(':')[0].trim();
-      }
-      return lum;
+    // ====================================================================
+    // === DÉBUT DE LA CORRECTION : INTÉGRATION DE LA "TRANSFORMATION MAGIQUE" ===
+    // On remplace votre ancien nettoyage par la nouvelle transformation complète
+    // ====================================================================
+    const adaptedLuminaires = luminairesFromDB.map(lum => {
+      // 1. Nettoyer le nom du designer de manière robuste
+      const cleanedDesigner = (lum.designer && typeof lum.designer === 'string')
+                              ? lum.designer.split(':')[0].trim()
+                              : "Artiste non spécifié";
+
+      // 2. Créer un objet propre et cohérent pour le frontend
+      return {
+        // Clés attendues par le frontend :
+        id: lum._id,
+        name: lum.nom,
+        artist: cleanedDesigner,
+        year: lum.annee,
+        image: lum.images?.[0] || null, // On prend la 1ère image, ou null
+
+        // On garde les autres données originales pour la page de détail
+        ...lum
+      };
     });
-    // --- FIN DE LA MODIFICATION ---
+    // ====================================================================
+    // === FIN DE LA CORRECTION ===
+    // ====================================================================
 
-    const total = await db.collection("luminaires").countDocuments(query);
+    const pagination = {
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+        total,
+    };
 
-    const pagination = {
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-        total,
-    };
+    // On retourne les données transformées (`adaptedLuminaires`)
+    return NextResponse.json({ success: true, luminaires: adaptedLuminaires, pagination });
 
-    // --- MODIFICATION POUR UTILISER LES DONNÉES NETTOYÉES ---
-    return NextResponse.json({ success: true, luminaires: cleanedLuminaires, pagination });
-
-  } catch (error) {
-    console.error("Erreur API /api/luminaires GET:", error);
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 });
-  }
+  } catch (error) {
+    console.error("Erreur API /api/luminaires GET:", error);
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 });
+  }
 }
