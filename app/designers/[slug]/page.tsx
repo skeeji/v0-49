@@ -14,41 +14,52 @@ export default function DesignerDetailPage() {
   const [designerLuminaires, setDesignerLuminaires] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // ====================================================================
+  // === DÉBUT DE LA CORRECTION : Le hook useEffect est remplacé. ===
+  // ====================================================================
   useEffect(() => {
     if (!params.slug) return;
     const slug = params.slug as string;
 
     async function fetchDesignerData() {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`/api/designers/${slug}`);
-        const result = await response.json();
+        setIsLoading(true);
+        try {
+            // On utilise la route API existante pour un designer
+            const response = await fetch(`/api/designers/${slug}`);
+            if (!response.ok) { // Gère le 404 et autres erreurs HTTP directement
+                throw new Error(`Designer with slug '${slug}' not found`);
+            }
+            const result = await response.json();
 
-        if (result.success) {
-          setDesigner(result.data.designer);
-          
-          // On adapte les données des luminaires pour la grille
-          const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            image: lum.images?.[0],
-            artist: lum.designer,
-            year: lum.annee,
-          }));
-          setDesignerLuminaires(adaptedLuminaires);
-        } else {
-          setDesigner(null);
+            if (result.success) {
+                // On formate les données des luminaires pour la cohérence
+                const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
+                  id: lum._id,
+                  name: lum.nom,
+                  artist: (lum.designer || "").split(':')[0].trim(), // Nettoyage du nom
+                  year: lum.annee,
+                  image: lum.images?.[0] || null,
+                  ...lum
+                }));
+                setDesigner(result.data.designer);
+                setDesignerLuminaires(adaptedLuminaires);
+            } else {
+                setDesigner(null); // Cas où la requête réussit mais l'API renvoie success: false
+            }
+        } catch (error) {
+            console.error("Erreur chargement du designer:", error);
+            setDesigner(null);
+        } finally {
+            setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Erreur lors du chargement des données du designer:", error);
-        setDesigner(null);
-      } finally {
-        setIsLoading(false);
-      }
     }
     fetchDesignerData();
   }, [params.slug]);
+  // ====================================================================
+  // === FIN DE LA CORRECTION ===
+  // ====================================================================
   
+  // VOTRE JSX ET VOS CONDITIONS D'AFFICHAGE SONT CONSERVÉS
   if (isLoading) { return <div className="text-center py-16">Chargement...</div>; }
 
   if (!designer) { return <div className="container-responsive py-8 text-center"><p className="text-lg">Désolé, ce designer n'a pas été trouvé.</p><Link href="/designers"><Button className="mt-4">Retour à la liste</Button></Link></div>; }
