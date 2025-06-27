@@ -33,19 +33,15 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true);
       try {
-        const response = await fetch("/api/luminaires");
+        // MODIFICATION 1 : On s'assure de charger tous les luminaires pour la chronologie complète.
+        const response = await fetch("/api/luminaires?limit=12000"); 
         const data = await response.json();
 
         if (data.success && data.luminaires) {
-          // CORRECTION FINALE : On "traduit" les données ici
-          const adaptedLuminaires = data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,                  // Le composant attend 'id'
-            image: lum.images?.[0],       // Le composant attend 'image' (la première du tableau)
-            year: lum.annee,              // Le composant attend 'year'
-            artist: lum.designer,         // Le composant attend 'artist'
-          }));
+          // MODIFICATION 2 : La transformation manuelle est supprimée. L'API fournit déjà les bonnes données.
+          const adaptedLuminaires = data.luminaires;
 
+          // VOTRE LOGIQUE DE GROUPEMENT EST CONSERVÉE À L'IDENTIQUE
           const grouped = periods.map((period) => {
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
               const year = Number.parseInt(luminaire.year) || 0;
@@ -66,6 +62,7 @@ export default function ChronologiePage() {
     fetchAndProcessData();
   }, []);
 
+  // VOTRE DEUXIÈME useEffect POUR LES ANIMATIONS EST CONSERVÉ
   useEffect(() => {
     if (isLoading) return;
     const observer = new IntersectionObserver((entries) => {
@@ -76,6 +73,7 @@ export default function ChronologiePage() {
     return () => observer.disconnect();
   }, [timelineData, isLoading]);
 
+  // VOTRE FONCTION DE MISE À JOUR EST CONSERVÉE
   const updateDescription = (periodName: string, newDescription: string) => {
     const updatedDescriptions = { ...descriptions, [periodName]: newDescription };
     setDescriptions(updatedDescriptions);
@@ -83,6 +81,7 @@ export default function ChronologiePage() {
     setTimelineData((prev) => prev.map((period) => (period.name === periodName ? { ...period, description: newDescription } : period)));
   }
 
+  // VOTRE JSX EST CONSERVÉ
   if (isLoading) { return ( <div className="flex justify-center items-center h-screen"><p>Chargement...</p></div> ); }
 
   return (
