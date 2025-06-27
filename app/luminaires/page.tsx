@@ -22,9 +22,7 @@ import { LoginModal } from "@/components/LoginModal"
 import { useToast } from "@/hooks/useToast"
 
 export default function LuminairesPage() {
-  const [allLuminaires, setAllLuminaires] = useState([])
-  const [filteredLuminaires, setFilteredLuminaires] = useState([])
-  const [displayedLuminaires, setDisplayedLuminaires] = useState([])
+  const [displayedLuminaires, setDisplayedLuminaires] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("nom-asc")
   const [yearRange, setYearRange] = useState([1900, 2025])
@@ -37,7 +35,7 @@ export default function LuminairesPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [designers, setDesigners] = useState<string[]>([])
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
   const [filtersActive, setFiltersActive] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
@@ -48,32 +46,45 @@ export default function LuminairesPage() {
   const { user, userData } = useAuth()
   const { showToast } = useToast()
 
-  const loadLuminaires = useCallback(
-    async (pageToLoad: number) => {
-      console.log(`[DEBUG] Appel de loadLuminaires pour la page: ${pageToLoad}`);
-      setIsLoading(true);
+  // EFFET N°1 : Cet effet se déclenche UNIQUEMENT quand un filtre change.
+  // Son seul rôle est de remettre la page à 1 pour recommencer une nouvelle recherche.
+  useEffect(() => {
+    console.log("[DEBUG] Un filtre a changé. Reset de la page à 1.")
+    setPage(1)
+  }, [searchTerm, sortBy, selectedDesigner, yearRange, showFavorites])
+
+
+  // EFFET N°2 : Cet effet se déclenche quand la page change (ou au 1er chargement).
+  // C'est lui, et seulement lui, qui charge les données.
+  useEffect(() => {
+    console.log(`[DEBUG] Déclenchement du chargement pour la page: ${page}`)
+    setIsLoading(true)
+
+    const loadData = async () => {
+      const params = new URLSearchParams()
+      // On construit les paramètres de la requête
+      params.append("page", page.toString())
+      params.append("limit", itemsPerPage.toString())
+      if (searchTerm) params.append("search", searchTerm)
+      if (selectedDesigner && selectedDesigner !== "all") params.append("designer", selectedDesigner)
+      if (yearRange[0] !== minYear) params.append("anneeMin", yearRange[0].toString())
+      if (yearRange[1] !== maxYear) params.append("anneeMax", yearRange[1].toString())
+      if (showFavorites) params.append("isFavorite", "true")
+      
+      if (sortBy) {
+        const [field, direction] = sortBy.split("-")
+        params.append("sortField", field)
+        params.append("sortDirection", direction)
+      }
+      
       try {
-        const params = new URLSearchParams();
-
-        if (searchTerm) params.append("search", searchTerm);
-        if (selectedDesigner && selectedDesigner !== "all") params.append("designer", selectedDesigner);
-        if (yearRange[0] !== minYear) params.append("anneeMin", yearRange[0].toString());
-        if (yearRange[1] !== maxYear) params.append("anneeMax", yearRange[1].toString());
-        if (showFavorites) params.append("isFavorite", "true");
+        const response = await fetch(`/api/luminaires?${params.toString()}`)
+        console.log(`[DEBUG] Réponse API reçue avec statut: ${response.status}`)
         
-        const [field, direction] = sortBy.split("-");
-        params.append("sortField", field);
-        params.append("sortDirection", direction);
-
-        params.append("page", pageToLoad.toString());
-        params.append("limit", itemsPerPage.toString()); // Assurons-nous que la limite est bien 50
-
-        const response = await fetch(`/api/luminaires?${params.toString()}`);
-        console.log(`[DEBUG] Réponse API reçue avec statut: ${response.status}`);
-
         if (response.ok) {
-          const data = await response.json();
-          console.log("[DEBUG] Données API reçues:", data);
+          const data = await response.json()
+          console.log("[DEBUG] Données API reçues:", data)
+
           const adaptedLuminaires = data.luminaires.map((l: any) => ({
             id: l._id,
             name: l.nom,
@@ -88,52 +99,59 @@ export default function LuminairesPage() {
             estimation: l.estimation || "",
             materials: Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux || "",
             description: l.description || "",
-          }));
+          }))
 
-          return { newLuminaires: adaptedLuminaires, pagination: data.pagination };
+          if (page === 1) {
+            // Si c'est la page 1, on remplace les données
+            console.log("[DEBUG] Page 1 chargée, on remplace les données.")
+            setDisplayedLuminaires(adaptedLuminaires)
+          } else {
+            // Sinon, on ajoute les nouvelles données à la suite des anciennes
+            console.log("[DEBUG] Page > 1 chargée, on ajoute les données.")
+            setDisplayedLuminaires((prev) => [...prev, ...adaptedLuminaires])
+          }
+          // On vérifie s'il y a encore des pages à charger
+          setHasMore(data.pagination ? data.pagination.page < data.pagination.pages : false)
         } else {
-          console.error("[DEBUG] Erreur API:", await response.text());
-          showToast("Impossible de charger les luminaires depuis le serveur.", "error");
-          return { newLuminaires: [], pagination: null };
+          console.error("[DEBUG] Erreur API:", await response.text())
+          showToast("Impossible de charger les luminaires depuis le serveur.", "error")
+          setHasMore(false)
         }
       } catch (error) {
-        console.error("[DEBUG] Erreur réseau:", error);
-        showToast("Une erreur réseau est survenue lors du chargement des données.", "error");
-        return { newLuminaires: [], pagination: null };
+        console.error("Erreur de chargement des luminaires:", error)
+        showToast("Une erreur réseau est survenue lors du chargement des données.", "error")
+        setHasMore(false)
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    },
-    [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy, itemsPerPage, minYear, maxYear, showToast]
-  );
-
-  useEffect(() => {
-    console.log("[DEBUG] useEffect [Filtres] - Déclenchement. Reset de la page.");
-    setPage(1);
-    loadLuminaires(1).then((result) => {
-      if (result) {
-        console.log("[DEBUG] useEffect [Filtres] - Chargement initial terminé.", result);
-        setDisplayedLuminaires(result.newLuminaires);
-        setHasMore(result.pagination ? result.pagination.page < result.pagination.pages : false);
-      }
-    });
-  }, [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy, loadLuminaires]);
-
-  useEffect(() => {
-    if (page > 1) {
-      console.log(`[DEBUG] useEffect [Page] - Page changée à ${page}. Chargement de la suite.`);
-      loadLuminaires(page).then((result) => {
-        if (result && result.newLuminaires.length > 0) {
-          console.log("[DEBUG] useEffect [Page] - Ajout de nouveaux luminaires.", result.newLuminaires);
-          setDisplayedLuminaires((prev) => [...prev, ...result.newLuminaires]);
-          setHasMore(result.pagination ? result.pagination.page < result.pagination.pages : false);
-        } else {
-          console.log("[DEBUG] useEffect [Page] - Plus de luminaires à charger.");
-          setHasMore(false);
-        }
-      });
     }
-  }, [page, loadLuminaires]);
+
+    loadData()
+  }, [page, searchTerm, sortBy, selectedDesigner, yearRange, showFavorites, itemsPerPage, minYear, maxYear, showToast])
+
+
+  // EFFET N°3 : L'écouteur de scroll. Il ne fait qu'appeler loadMore.
+  const loadMore = useCallback(() => {
+    // On ne fait rien si on charge déjà ou s'il n'y a plus rien à charger
+    if (isLoading || !hasMore) return
+    console.log("[DEBUG] loadMore appelé, passage à la page suivante.")
+    setPage((prevPage) => prevPage + 1)
+  }, [isLoading, hasMore])
+
+  useEffect(() => {
+    // Conservation de la logique pour le rôle "free"
+    if (userData?.role === "free") return
+
+    const handleScroll = () => {
+      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 500) {
+        console.log("[DEBUG] handleScroll - Bas de page atteint, appel de loadMore.")
+        loadMore()
+      }
+    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [loadMore, userData])
+
 
   // Charger les favoris depuis localStorage
   useEffect(() => {
@@ -142,6 +160,7 @@ export default function LuminairesPage() {
       setFavorites(JSON.parse(storedFavorites))
     }
   }, [])
+
 
   // Gérer le highlight depuis les paramètres d'URL
   useEffect(() => {
@@ -169,6 +188,7 @@ export default function LuminairesPage() {
     }
   }, [searchParams])
 
+
   // Vérifier si des filtres sont actifs
   useEffect(() => {
     const isFilterActive =
@@ -180,29 +200,9 @@ export default function LuminairesPage() {
 
     setFiltersActive(isFilterActive)
   }, [searchTerm, selectedDesigner, showFavorites, yearRange, minYear, maxYear])
-  
-  const loadMore = useCallback(() => {
-    console.log(`[DEBUG] loadMore appelé. Conditions: isLoading=${isLoading}, hasMore=${hasMore}`);
-    if (isLoading || !hasMore) return;
-    setPage((prevPage) => prevPage + 1);
-  }, [isLoading, hasMore]);
 
-  // Scroll infini
-  useEffect(() => {
-    // Conservation de la logique pour le rôle "free"
-    if (userData?.role === "free") return;
-
-    const handleScroll = () => {
-      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 500) {
-          // Ce console.log est crucial. S'il n'apparait pas, le problème est dans la détection du scroll.
-          console.log("[DEBUG] handleScroll - Bas de page atteint, appel de loadMore.");
-          loadMore();
-      }
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [loadMore, userData]);
-
+    
+  // Toutes les fonctions de gestion (add, update, reset, toggle...) restent identiques
   const addLuminaire = async (newLuminaire: any) => {
     if (userData?.role !== "admin") {
       setShowLoginModal(true)
@@ -232,9 +232,7 @@ export default function LuminairesPage() {
 
       if (response.ok) {
         // Recharger la première page pour voir le nouvel ajout
-        loadLuminaires(1).then(result => {
-            if (result) setDisplayedLuminaires(result.newLuminaires);
-        });
+        setPage(1) // Déclenchera le rechargement via l'effet principal
         setShowAddModal(false)
         showToast("Luminaire ajouté avec succès", "success")
       } else {
@@ -268,10 +266,7 @@ export default function LuminairesPage() {
       })
 
       if (response.ok) {
-        // Recharger la page actuelle pour voir les changements
-        loadLuminaires(page).then(result => {
-            if (result) setDisplayedLuminaires(prev => prev.map(item => item.id === id ? {...item, ...updates} : item));
-        });
+        setDisplayedLuminaires(prev => prev.map(item => item.id === id ? {...item, ...updates} : item));
         showToast("Luminaire mis à jour avec succès", "success")
       } else {
         throw new Error("Erreur lors de la mise à jour du luminaire")
@@ -303,6 +298,8 @@ export default function LuminairesPage() {
     localStorage.setItem("favorites", JSON.stringify(updatedFavorites))
   }
 
+
+  // TOUT VOTRE JSX RESTE LE MÊME
   return (
     <div className="container-responsive py-8">
       <div className="max-w-7xl mx-auto">
@@ -317,7 +314,7 @@ export default function LuminairesPage() {
               </Button>
             )}
 
-            {userData?.role === "admin" && <CSVExportButton data={allLuminaires} />}
+            {userData?.role === "admin" && <CSVExportButton data={displayedLuminaires} />}
 
             <FavoriteToggleButton isActive={showFavorites} onClick={() => setShowFavorites(!showFavorites)} />
           </div>
