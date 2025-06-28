@@ -44,11 +44,11 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
       if (item.filename.startsWith("http")) {
         return item.filename
       }
-      // Si c'est un nom de fichier, construire l'URL vers l'API images
-      return `/api/images/${item.filename}`
+      // CORRECTION: Utiliser la nouvelle API pour les noms de fichiers
+      return `/api/images/filename/${item.filename}`
     }
 
-    // Fallback sur l'ancien système d'images
+    // Fallback sur l'ancien système d'images (ObjectId)
     if (item.image) {
       if (item.image.startsWith("/api/images/")) {
         return item.image
@@ -58,6 +58,10 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
       }
       if (item.image.startsWith("http")) {
         return item.image
+      }
+      // Si c'est un nom de fichier, utiliser la nouvelle API
+      if (item.image.includes(".")) {
+        return `/api/images/filename/${item.image}`
       }
       return `/api/images/${item.image}`
     }

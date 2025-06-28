@@ -1,35 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-// Gérer les requêtes GET pour récupérer un luminaire par ID
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("🔍 API /api/luminaires/[id] GET - ID:", params.id)
+    console.log("🔍 Chargement luminaire ID:", params.id)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: "ID invalide" }, { status: 400 })
+    }
 
     const client = await clientPromise
     const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
 
-    if (!ObjectId.isValid(params.id)) {
-      console.log("❌ ID invalide:", params.id)
-      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
-    }
-
-    const luminaire = await db.collection("luminaires").findOne({ _id: new ObjectId(params.id) })
+    const luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
 
     if (!luminaire) {
-      console.log("❌ Luminaire non trouvé pour ID:", params.id)
-      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+      return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log("✅ Luminaire trouvé:", luminaire.nom)
-
-    // CORRECTION: Convertir l'objet dimensions en string pour éviter l'erreur React #31
+    // Transformer les données pour le frontend
     const transformedLuminaire = {
       ...luminaire,
       _id: luminaire._id.toString(),
+      images: luminaire.images || [],
+      materiaux: luminaire.materiaux || [],
+      couleurs: luminaire.couleurs || [],
+      // CORRECTION: Convertir l'objet dimensions en string pour éviter l'erreur React #31
       dimensions:
         typeof luminaire.dimensions === "object" && luminaire.dimensions !== null
           ? `${luminaire.dimensions.hauteur || ""}x${luminaire.dimensions.largeur || ""}x${luminaire.dimensions.profondeur || ""}`.replace(
@@ -39,66 +39,118 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           : luminaire.dimensions || "",
     }
 
-    return NextResponse.json({ success: true, data: transformedLuminaire })
-  } catch (error) {
-    console.error("❌ Erreur API /api/luminaires/[id] GET:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    console.log("📊 Réponse API luminaire:", { success: true, data: transformedLuminaire })
+
+    return NextResponse.json({
+      success: true,
+      data: transformedLuminaire,
+    })
+  } catch (error: any) {
+    console.error("❌ Erreur dans GET /api/luminaires/[id]:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }
 
-// Gérer les requêtes PUT pour mettre à jour un luminaire
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("📝 API /api/luminaires/[id] PUT - ID:", params.id)
+    console.log("✏️ Mise à jour luminaire ID:", params.id)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: "ID invalide" }, { status: 400 })
+    }
+
+    const body = await request.json()
+    console.log("📥 Données de mise à jour:", JSON.stringify(body, null, 2))
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const updates = await request.json()
+    const collection = db.collection("luminaires")
 
-    if (!ObjectId.isValid(params.id)) {
-      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+    // Préparer les données de mise à jour
+    const updateData = {
+      nom: body.nom || "",
+      designer: body.designer || "",
+      annee: Number.parseInt(body.annee) || new Date().getFullYear(),
+      periode: body.periode || "",
+      description: body.description || "",
+      materiaux: Array.isArray(body.materiaux) ? body.materiaux : [],
+      couleurs: Array.isArray(body.couleurs) ? body.couleurs : [],
+      dimensions: body.dimensions || {},
+      images: Array.isArray(body.images) ? body.images : [],
+      filename: body.filename || "",
+      specialite: body.specialite || "",
+      collaboration: body.collaboration || "",
+      signe: body.signe || "",
+      estimation: body.estimation || "",
+      updatedAt: new Date(),
     }
 
-    const result = await db
-      .collection("luminaires")
-      .updateOne({ _id: new ObjectId(params.id) }, { $set: { ...updates, updatedAt: new Date() } })
+    const result = await collection.updateOne({ _id: new ObjectId(params.id) }, { $set: updateData })
 
     if (result.matchedCount === 0) {
-      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+      return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log("✅ Luminaire mis à jour")
+    console.log(`✅ Luminaire mis à jour: ${params.id}`)
 
-    return NextResponse.json({ success: true, message: "Luminaire mis à jour avec succès" })
-  } catch (error) {
-    console.error("❌ Erreur API /api/luminaires/[id] PUT:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    return NextResponse.json({
+      success: true,
+      message: "Luminaire mis à jour avec succès",
+      id: params.id,
+    })
+  } catch (error: any) {
+    console.error("❌ Erreur dans PUT /api/luminaires/[id]:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la mise à jour du luminaire",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }
 
-// Gérer les requêtes DELETE pour supprimer un luminaire
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("🗑️ API /api/luminaires/[id] DELETE - ID:", params.id)
+    console.log("🗑️ Suppression luminaire ID:", params.id)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: "ID invalide" }, { status: 400 })
+    }
 
     const client = await clientPromise
     const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
 
-    if (!ObjectId.isValid(params.id)) {
-      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
-    }
-
-    const result = await db.collection("luminaires").deleteOne({ _id: new ObjectId(params.id) })
+    const result = await collection.deleteOne({ _id: new ObjectId(params.id) })
 
     if (result.deletedCount === 0) {
-      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+      return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log("✅ Luminaire supprimé")
+    console.log(`✅ Luminaire supprimé: ${params.id}`)
 
-    return NextResponse.json({ success: true, deletedCount: result.deletedCount })
-  } catch (error) {
-    console.error("❌ Erreur API /api/luminaires/[id] DELETE:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    return NextResponse.json({
+      success: true,
+      message: "Luminaire supprimé avec succès",
+    })
+  } catch (error: any) {
+    console.error("❌ Erreur dans DELETE /api/luminaires/[id]:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la suppression du luminaire",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

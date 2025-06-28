@@ -439,7 +439,11 @@ export default function LuminairesPage() {
                     className="w-16 h-16 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
                   >
                     <Image
-                      src={item.image ? `/api/images/${item.image}` : "/placeholder.svg?height=100&width=100"}
+                      src={
+                        item.filename
+                          ? `/api/images/filename/${item.filename}`
+                          : "/placeholder.svg?height=100&width=100"
+                      }
                       alt={item.name || "Luminaire"}
                       fill
                       className="object-cover"
@@ -462,7 +466,7 @@ export default function LuminairesPage() {
                       onClick={() => toggleFavorite(item.id)}
                     />
                     <Button
-                      onClick={() => setLightboxImage(item.image ? `/api/images/${item.image}` : null)}
+                      onClick={() => setLightboxImage(item.filename ? `/api/images/filename/${item.filename}` : null)}
                       variant="ghost"
                       size="sm"
                       className="p-1 h-auto"
