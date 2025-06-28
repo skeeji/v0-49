@@ -13,7 +13,6 @@ export default function ImportPage() {
   const [designers, setDesigners] = useState<any[]>([])
   const [designerImages, setDesignerImages] = useState<File[]>([])
   const [video, setVideo] = useState<File | null>(null)
-  const [logo, setLogo] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [importStats, setImportStats] = useState({
     luminaires: { total: 0, success: 0, errors: 0 },
@@ -57,9 +56,9 @@ export default function ImportPage() {
       const formData = new FormData()
       formData.append("file", csvFile)
 
-      console.log(`🚀 Envoi vers l'API /api/upload/csv-luminaires...`)
+      console.log(`🚀 Envoi vers l'API /api/upload/csv...`)
 
-      const response = await fetch("/api/upload/csv-luminaires", {
+      const response = await fetch("/api/upload/csv", {
         method: "POST",
         body: formData,
       })
@@ -142,55 +141,63 @@ export default function ImportPage() {
     console.log("👨‍🎨 Début de l'import designers:", data.length, "lignes")
 
     try {
-      // Créer un CSV temporaire avec les données parsées
-      const headers = Object.keys(data[0])
-      const csvLines = [
-        headers.join(";"), // En-têtes
-        ...data.map((row) =>
-          headers
-            .map((header) => {
-              const value = row[header] || ""
-              return `"${String(value).replace(/"/g, '""')}"`
-            })
-            .join(";"),
-        ),
-      ]
+      const processedDesigners = data.map((item, index) => {
+        const designer = {
+          nom: item["Nom"] || "",
+          imageFile: item["imagedesigner"] || "",
+          slug: (item["Nom"] || "")
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]/g, ""),
+          biographie: "",
+          specialites: [],
+          periodes: [],
+          images: [],
+        }
 
-      const csvContent = csvLines.join("\n")
-      const csvBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8" })
-      const csvFile = new File([csvBlob], "designers_import.csv", { type: "text/csv" })
-
-      const formData = new FormData()
-      formData.append("file", csvFile)
-
-      console.log(`🚀 Envoi vers l'API /api/upload/csv-designers...`)
-
-      const response = await fetch("/api/upload/csv-designers", {
-        method: "POST",
-        body: formData,
+        console.log(`👤 Designer ${index + 1}:`, designer)
+        return designer
       })
 
-      const result = await response.json()
-      console.log("📊 Réponse API designers:", result)
+      let successCount = 0
+      let errorCount = 0
 
-      if (result.success) {
-        setDesigners((prev) => [...prev, ...data])
-        setImportStats((prev) => ({
-          ...prev,
-          designers: {
-            total: result.processed || data.length,
-            success: result.imported || 0,
-            errors: result.totalErrors || 0,
-          },
-        }))
+      for (const designer of processedDesigners) {
+        try {
+          console.log(`📤 Envoi designer: ${designer.nom}`)
 
-        showToast(`✅ ${result.imported} designers importés sur ${result.processed} lignes`, "success")
+          const response = await fetch("/api/designers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(designer),
+          })
 
-        if (result.totalErrors > 0) {
-          showToast(`⚠️ ${result.totalErrors} erreurs rencontrées`, "error")
+          const result = await response.json()
+
+          if (response.ok && result.success) {
+            successCount++
+            console.log(`✅ Designer créé: ${designer.nom}`)
+          } else {
+            errorCount++
+            console.error(`❌ Erreur designer ${designer.nom}:`, result.error)
+          }
+        } catch (error: any) {
+          errorCount++
+          console.error(`❌ Erreur réseau designer ${designer.nom}:`, error.message)
         }
-      } else {
-        throw new Error(result.error || "Erreur lors de l'import")
+      }
+
+      setDesigners((prev) => [...prev, ...processedDesigners])
+      setImportStats((prev) => ({
+        ...prev,
+        designers: { total: processedDesigners.length, success: successCount, errors: errorCount },
+      }))
+
+      if (successCount > 0) {
+        showToast(`✅ ${successCount}/${processedDesigners.length} designers importés`, "success")
+      }
+      if (errorCount > 0) {
+        showToast(`⚠️ ${errorCount} erreurs lors de l'import designers`, "error")
       }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'import designers:", error)
@@ -251,32 +258,6 @@ export default function ImportPage() {
     }
   }
 
-  const handleLogoUpload = async (file: File) => {
-    setIsUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append("images", file)
-
-      const response = await fetch("/api/upload/images", { method: "POST", body: formData })
-
-      if (response.ok) {
-        const result = await response.json()
-        setLogo(file)
-        showToast("✅ Logo uploadé avec succès", "success")
-
-        // Sauvegarder le nom du fichier logo dans localStorage pour le header
-        localStorage.setItem("logoFilename", file.name)
-      } else {
-        throw new Error("Erreur lors de l'upload du logo")
-      }
-    } catch (error: any) {
-      console.error("❌ Erreur upload logo:", error)
-      showToast(`❌ Erreur: ${error.message}`, "error")
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
   const handleResetDatabase = async () => {
     const isConfirmed = window.confirm(
       "⚠️ ATTENTION: Cette action va supprimer TOUTES les données et TOUS les fichiers du serveur MongoDB et GridFS. Cette action est IRRÉVERSIBLE.\n\nÊtes-vous absolument certain de vouloir continuer ?",
@@ -299,15 +280,11 @@ export default function ImportPage() {
           setDesigners([])
           setDesignerImages([])
           setVideo(null)
-          setLogo(null)
           setImportStats({
             luminaires: { total: 0, success: 0, errors: 0 },
             designers: { total: 0, success: 0, errors: 0 },
             images: { total: 0, success: 0, errors: 0 },
           })
-
-          // Nettoyer le localStorage
-          localStorage.removeItem("logoFilename")
 
           console.log("✅ Réinitialisation terminée:", result)
           showToast("✅ Serveur réinitialisé avec succès !", "success")
@@ -396,7 +373,11 @@ export default function ImportPage() {
                   "Nom luminaire",
                   "Année",
                   "Signé",
+                  "Image",
                   "Nom du fichier",
+                  "Dimensions",
+                  "Estimation",
+                  "Matériaux",
                 ]}
               />
               {csvData.length > 0 && (
@@ -455,25 +436,13 @@ export default function ImportPage() {
             </div>
 
             {/* Import Vidéo */}
-            <div className="bg-white rounded-xl p-6 shadow-lg">
+            <div className="bg-white rounded-xl p-6 shadow-lg lg:col-span-2">
               <h2 className="text-2xl font-playfair text-dark mb-4">🎥 Vidéo d'accueil</h2>
               <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" />
               {video && (
                 <div className="mt-4 p-4 bg-cream rounded-lg">
                   <p className="text-sm text-dark font-medium">Vidéo: {video.name}</p>
                   <p className="text-xs text-gray-600 mt-1">Vidéo sauvegardée et disponible sur la page d'accueil</p>
-                </div>
-              )}
-            </div>
-
-            {/* Import Logo */}
-            <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-playfair text-dark mb-4">🏷️ Logo du Header</h2>
-              <UploadForm accept="image/*" onUpload={handleLogoUpload} type="logo" />
-              {logo && (
-                <div className="mt-4 p-4 bg-cream rounded-lg">
-                  <p className="text-sm text-dark font-medium">Logo: {logo.name}</p>
-                  <p className="text-xs text-gray-600 mt-1">Logo sauvegardé et disponible dans le header</p>
                 </div>
               )}
             </div>

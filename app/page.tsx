@@ -525,47 +525,19 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    // Charger les luminaires depuis l'API
-    const loadLuminaires = async () => {
-      try {
-        const response = await fetch("/api/luminaires?limit=1000")
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            const adaptedLuminaires = data.luminaires.map((l: any) => ({
-              id: l._id,
-              filename: l.filename || "",
-              nom: l.nom || "",
-              designer: l.designer || "",
-            }))
-            setLuminaires(adaptedLuminaires)
-            console.log(`📊 ${adaptedLuminaires.length} luminaires chargés pour la recherche IA`)
-          }
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement des luminaires:", error)
-      }
+    // Charger les luminaires depuis localStorage
+    const storedLuminaires = localStorage.getItem("luminaires")
+    if (storedLuminaires) {
+      const data = JSON.parse(storedLuminaires)
+      console.log(`📊 ${data.length} luminaires chargés pour la recherche IA`)
+      setLuminaires(data)
     }
 
-    // Charger la vidéo d'accueil depuis l'API
-    const loadWelcomeVideo = async () => {
-      try {
-        const response = await fetch("/api/upload/video")
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.videos.length > 0) {
-            const videoUrl = `/api/images/${data.videos[0].fileId}`
-            setWelcomeVideo(videoUrl)
-            console.log("🎥 Vidéo de bienvenue chargée:", videoUrl)
-          }
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement de la vidéo:", error)
-      }
+    // Charger la vidéo d'accueil
+    const storedVideo = localStorage.getItem("welcomeVideo")
+    if (storedVideo) {
+      setWelcomeVideo(storedVideo)
     }
-
-    loadLuminaires()
-    loadWelcomeVideo()
 
     // Cleanup au démontage du composant
     return () => {
@@ -667,7 +639,7 @@ export default function HomePage() {
               <Button
                 onClick={startCamera}
                 variant="outline"
-                className="w-full border-orange text-orange hover:bg-orange hover:text-white py-3 md:py-4 text-base md:text-lg bg-transparent"
+                className="w-full border-orange text-orange hover:bg-orange hover:text-white py-3 md:py-4 text-base md:text-lg"
                 disabled={isSearching || isCameraLoading || !canSearch}
               >
                 {isCameraLoading ? (
@@ -709,7 +681,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <Button onClick={resetSearch} variant="outline" className="w-full bg-transparent">
+              <Button onClick={resetSearch} variant="outline" className="w-full">
                 <X className="w-4 h-4 mr-2" />
                 Annuler
               </Button>
@@ -746,7 +718,7 @@ export default function HomePage() {
                   )}
                 </Button>
 
-                <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent" disabled={isCapturing}>
+                <Button onClick={resetSearch} variant="outline" className="px-4" disabled={isCapturing}>
                   <X className="w-4 h-4" />
                 </Button>
               </div>
@@ -838,7 +810,7 @@ export default function HomePage() {
                   >
                     Rechercher maintenant
                   </Button>
-                  <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent">
+                  <Button onClick={resetSearch} variant="outline" className="px-4">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
@@ -873,12 +845,7 @@ export default function HomePage() {
                     <span>🔄 Refaire la recherche</span>
                   )}
                 </Button>
-                <Button
-                  onClick={resetSearch}
-                  variant="outline"
-                  size="sm"
-                  className="text-sm md:text-base bg-transparent"
-                >
+                <Button onClick={resetSearch} variant="outline" size="sm" className="text-sm md:text-base">
                   <X className="w-4 h-4 mr-2" />
                   Nouvelle image
                 </Button>

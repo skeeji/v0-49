@@ -7,7 +7,6 @@ import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { GalleryGrid } from "@/components/GalleryGrid"
-import Image from "next/image"
 
 // Fonction pour extraire le nom de l'artiste de la chaine de caractères
 const getDesignerNameOnly = (str = ""): string => {
@@ -46,8 +45,6 @@ export default function DesignerDetailPage() {
             ...lum,
             id: lum._id,
             image: lum.images?.[0] ? `/api/images/${lum.images[0]}` : null,
-            // CORRECTION: Utiliser filename pour les images des luminaires
-            filename: lum.filename || "",
             artist: lum.designer,
             year: lum.annee,
             name: lum.nom,
@@ -137,22 +134,8 @@ export default function DesignerDetailPage() {
         <div className="bg-white rounded-xl p-8 shadow-lg mb-8">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             <div className="w-48 h-48 relative flex-shrink-0">
-              <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 overflow-hidden">
-                {/* CORRECTION: Afficher l'image du designer depuis imagedesigner */}
-                {designer.imagedesigner ? (
-                  <Image
-                    src={`/api/images/filename/${designer.imagedesigner}`}
-                    alt={designer.nom}
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      // Fallback vers l'icône par défaut
-                      e.currentTarget.style.display = "none"
-                      e.currentTarget.nextElementSibling?.classList.remove("hidden")
-                    }}
-                  />
-                ) : null}
-                <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
+              <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
+                <div className="text-center">
                   <div className="text-6xl text-gray-400 mb-2">👤</div>
                   <span className="text-sm text-gray-500">Image</span>
                 </div>

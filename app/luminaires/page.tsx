@@ -34,7 +34,7 @@ export default function LuminairesPage() {
 
   const { showToast } = useToast()
 
-  // Fonction pour charger les luminaires avec scroll infini
+  // Fonction pour charger les luminaires
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -47,7 +47,7 @@ export default function LuminairesPage() {
 
         const params = new URLSearchParams({
           page: page.toString(),
-          limit: "50", // Réduire la limite pour améliorer les performances
+          limit: "100",
           search: searchTerm,
           designer: selectedDesigner,
           periode: selectedPeriode,
@@ -66,10 +66,8 @@ export default function LuminairesPage() {
 
         if (data.success) {
           if (append && page > 1) {
-            // CORRECTION: Ajouter les nouveaux luminaires à la liste existante
             setLuminaires((prev) => [...prev, ...data.luminaires])
           } else {
-            // Première page ou reset
             setLuminaires(data.luminaires)
           }
 
@@ -109,41 +107,24 @@ export default function LuminairesPage() {
     loadLuminaires(1, false)
   }, [loadLuminaires])
 
-  // CORRECTION: Fonction pour charger plus de luminaires (scroll infini)
+  // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading) {
+    if (!loadingMore && hasMore) {
       const nextPage = currentPage + 1
-      console.log(`📄 Chargement page suivante: ${nextPage}`)
-      setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
-  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
+  }, [loadLuminaires, loadingMore, hasMore, currentPage])
 
-  // CORRECTION: Scroll infini optimisé
+  // Scroll infini
   useEffect(() => {
     const handleScroll = () => {
-      // Vérifier si on est proche du bas de la page
-      const scrollTop = document.documentElement.scrollTop
-      const scrollHeight = document.documentElement.scrollHeight
-      const clientHeight = document.documentElement.clientHeight
-
-      if (scrollTop + clientHeight >= scrollHeight - 1000) {
+      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 1000) {
         loadMore()
       }
     }
 
-    // Throttle pour éviter trop d'appels
-    let timeoutId: NodeJS.Timeout
-    const throttledHandleScroll = () => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(handleScroll, 100)
-    }
-
-    window.addEventListener("scroll", throttledHandleScroll, { passive: true })
-    return () => {
-      window.removeEventListener("scroll", throttledHandleScroll)
-      clearTimeout(timeoutId)
-    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
   }, [loadMore])
 
   // Fonction pour mettre à jour un luminaire
@@ -242,7 +223,6 @@ export default function LuminairesPage() {
           <h1 className="text-3xl font-playfair text-dark mb-2">Luminaires</h1>
           <p className="text-gray-600">
             {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
-            {hasMore && ` (scroll pour charger plus)`}
           </p>
         </div>
 
@@ -325,22 +305,19 @@ export default function LuminairesPage() {
       {/* Grille des luminaires */}
       <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
 
-      {/* Indicateur de chargement pour le scroll infini */}
-      {loadingMore && (
+      {/* Bouton "Charger plus" pour les utilisateurs gratuits */}
+      {hasMore && (
         <div className="text-center mt-8">
-          <div className="inline-flex items-center px-4 py-2 bg-orange/10 rounded-lg">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange mr-2"></div>
-            <span className="text-orange">Chargement de plus de luminaires...</span>
-          </div>
+          <Button onClick={loadMore} disabled={loadingMore} variant="outline">
+            {loadingMore ? "Chargement..." : "Charger plus"}
+          </Button>
         </div>
       )}
 
-      {/* Message fin de liste */}
-      {!hasMore && luminaires.length > 0 && (
-        <div className="text-center mt-8 py-4">
-          <p className="text-gray-500">
-            ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
-          </p>
+      {/* Indicateur de chargement */}
+      {loadingMore && (
+        <div className="text-center mt-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange mx-auto"></div>
         </div>
       )}
 

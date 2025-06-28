@@ -95,11 +95,11 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Parser l'année - CORRECTION: ne pas mettre 2025 par défaut
-        let annee = null
-        if (anneeStr && anneeStr.trim() && !isNaN(Number(anneeStr))) {
+        // Parser l'année
+        let annee = new Date().getFullYear()
+        if (anneeStr) {
           const parsedYear = Number.parseInt(anneeStr.toString())
-          if (parsedYear > 1000 && parsedYear <= 2025) {
+          if (!isNaN(parsedYear) && parsedYear > 1000 && parsedYear <= 2025) {
             annee = parsedYear
           }
         }
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         const luminaire = {
           nom: finalNom,
           designer: designer.trim(),
-          annee: annee, // CORRECTION: peut être null au lieu de 2025
+          annee: annee,
           periode: specialite.trim() || "",
           description: (record["Description"] || record["description"] || "").trim(),
           materiaux: record["Matériaux"]

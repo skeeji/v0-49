@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
-
 // Fonction pour extraire le nom du designer
 const getDesignerNameOnly = (str = ""): string => {
   if (!str) return ""
@@ -11,93 +9,56 @@ const getDesignerNameOnly = (str = ""): string => {
 
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
-    const designerName = decodeURIComponent(params.name)
-    console.log(`🔍 Recherche du designer: "${designerName}"`)
+    console.log("🔍 API /api/designers/[name] GET - Name:", params.name)
 
     const client = await clientPromise
-    const db = client.db(DBNAME)
+    const db = client.db()
 
-    // Rechercher d'abord dans la collection designers
-    let designer = await db.collection("designers").findOne({
-      $or: [{ nom: designerName }, { slug: designerName }, { nom: { $regex: new RegExp(`^${designerName}`, "i") } }],
+    const designerSlug = decodeURIComponent(params.name)
+    console.log("🔍 Designer slug:", designerSlug)
+
+    // Récupérer tous les luminaires
+    const luminaires = await db.collection("luminaires").find({}).toArray()
+    console.log("📊 Total luminaires:", luminaires.length)
+
+    // Filtrer les luminaires pour ce designer
+    const designerLuminaires = luminaires.filter((luminaire) => {
+      const designerName = getDesignerNameOnly(luminaire.designer)
+      const slug = designerName
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+      return slug === designerSlug
     })
 
-    console.log("👨‍🎨 Designer trouvé dans la collection designers:", designer ? "Oui" : "Non")
+    console.log("📊 Luminaires pour ce designer:", designerLuminaires.length)
 
-    // Si pas trouvé, créer un designer basique à partir des luminaires
-    if (!designer) {
-      const luminaires = await db
-        .collection("luminaires")
-        .find({ designer: { $regex: new RegExp(designerName, "i") } })
-        .toArray()
-
-      if (luminaires.length > 0) {
-        const firstLuminaire = luminaires[0]
-        designer = {
-          nom: getDesignerNameOnly(firstLuminaire.designer),
-          slug: designerName,
-          imagedesigner: "", // Pas d'image par défaut
-          count: luminaires.length,
-        }
-        console.log("👨‍🎨 Designer créé à partir des luminaires")
-      }
-    } else {
-      // Compter les luminaires pour ce designer
-      const luminairesCount = await db
-        .collection("luminaires")
-        .countDocuments({ designer: { $regex: new RegExp(designer.nom, "i") } })
-
-      designer.count = luminairesCount
+    if (designerLuminaires.length === 0) {
+      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
     }
 
-    if (!designer) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Designer non trouvé",
-        },
-        { status: 404 },
-      )
+    // Créer l'objet designer
+    const firstLuminaire = designerLuminaires[0]
+    const designerName = getDesignerNameOnly(firstLuminaire.designer)
+
+    const designer = {
+      nom: designerName,
+      slug: designerSlug,
+      image: null, // À implémenter si vous avez des images de designers
+      count: designerLuminaires.length,
     }
 
-    // Récupérer les luminaires du designer
-    const luminaires = await db
-      .collection("luminaires")
-      .find({ designer: { $regex: new RegExp(designer.nom, "i") } })
-      .sort({ nom: 1 })
-      .toArray()
-
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour ${designer.nom}`)
-
-    // Transformer les luminaires
-    const transformedLuminaires = luminaires.map((luminaire) => ({
-      ...luminaire,
-      _id: luminaire._id.toString(),
-      images: luminaire.images || [],
-      materiaux: luminaire.materiaux || [],
-      couleurs: luminaire.couleurs || [],
-      filename: luminaire.filename || "",
-    }))
+    console.log("✅ Designer trouvé:", designer.nom)
 
     return NextResponse.json({
       success: true,
       data: {
-        designer: {
-          ...designer,
-          _id: designer._id ? designer._id.toString() : null,
-        },
-        luminaires: transformedLuminaires,
+        designer,
+        luminaires: designerLuminaires,
       },
     })
-  } catch (error: any) {
-    console.error("❌ Erreur dans GET /api/designers/[name]:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erreur serveur",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+  } catch (error) {
+    console.error("❌ Erreur API /api/designers/[name] GET:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
   }
 }
