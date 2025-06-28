@@ -4,129 +4,203 @@ import type React from "react"
 
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Upload, FileText, ImageIcon, Video, Tag } from "lucide-react"
+import Papa from "papaparse"
 
 interface UploadFormProps {
-  onUpload: (file: File) => void
-  isUploading?: boolean
+  onUpload: (data: any) => void
   accept?: string
+  multiple?: boolean
+  type?: "csv" | "images" | "video" | "logo"
+  expectedColumns?: string[]
   buttonText?: string
   onUploadStart?: () => void
 }
 
 export function UploadForm({
   onUpload,
-  isUploading = false,
   accept = "*",
-  buttonText = "Télécharger",
+  multiple = false,
+  type = "csv",
+  expectedColumns = [],
+  buttonText,
   onUploadStart,
 }: UploadFormProps) {
-  const [dragActive, setDragActive] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
+  const getIcon = () => {
+    switch (type) {
+      case "csv":
+        return <FileText className="w-8 h-8 text-gray-400" />
+      case "images":
+        return <ImageIcon className="w-8 h-8 text-gray-400" />
+      case "video":
+        return <Video className="w-8 h-8 text-gray-400" />
+      case "logo":
+        return <Tag className="w-8 h-8 text-gray-400" />
+      default:
+        return <Upload className="w-8 h-8 text-gray-400" />
+    }
+  }
+
+  const getDefaultButtonText = () => {
+    switch (type) {
+      case "csv":
+        return "Sélectionner un fichier CSV"
+      case "images":
+        return multiple ? "Sélectionner des images" : "Sélectionner une image"
+      case "video":
+        return "Sélectionner une vidéo"
+      case "logo":
+        return "Sélectionner un logo"
+      default:
+        return "Sélectionner un fichier"
+    }
+  }
+
+  const handleFiles = async (files: FileList) => {
+    if (files.length === 0) return
+
+    setIsProcessing(true)
+    onUploadStart?.()
+
+    try {
+      if (type === "csv") {
+        // Traitement CSV
+        const file = files[0]
+        const text = await file.text()
+
+        Papa.parse(text, {
+          header: true,
+          skipEmptyLines: true,
+          delimiter: ";", // Utiliser point-virgule par défaut
+          complete: (results) => {
+            console.log("📊 CSV parsé:", results.data.length, "lignes")
+            console.log("📋 Colonnes:", results.meta.fields)
+
+            if (expectedColumns.length > 0) {
+              const missingColumns = expectedColumns.filter((col) => !results.meta.fields?.includes(col))
+              if (missingColumns.length > 0) {
+                console.warn("⚠️ Colonnes manquantes:", missingColumns)
+              }
+            }
+
+            onUpload(results.data)
+          },
+          error: (error) => {
+            console.error("❌ Erreur parsing CSV:", error)
+            // Essayer avec virgule si point-virgule échoue
+            Papa.parse(text, {
+              header: true,
+              skipEmptyLines: true,
+              delimiter: ",",
+              complete: (results) => {
+                console.log("📊 CSV parsé avec virgule:", results.data.length, "lignes")
+                onUpload(results.data)
+              },
+              error: (error2) => {
+                console.error("❌ Erreur parsing CSV avec virgule:", error2)
+                alert("Erreur lors de la lecture du fichier CSV")
+              },
+            })
+          },
+        })
+      } else {
+        // Traitement fichiers (images, vidéo, logo)
+        if (multiple) {
+          onUpload(Array.from(files))
+        } else {
+          onUpload(files[0])
+        }
+      }
+    } catch (error) {
+      console.error("❌ Erreur traitement fichier:", error)
+      alert("Erreur lors du traitement du fichier")
+    } finally {
+      setIsProcessing(false)
     }
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setSelectedFile(e.dataTransfer.files[0])
-    }
+    setIsDragging(false)
+    handleFiles(e.dataTransfer.files)
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0])
-    }
+    setIsDragging(true)
   }
 
-  const handleUpload = () => {
-    if (selectedFile) {
-      onUploadStart?.()
-      onUpload(selectedFile)
-    }
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
   }
 
-  const openFileDialog = () => {
-    inputRef.current?.click()
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      handleFiles(e.target.files)
+    }
   }
 
   return (
-    <div className="w-full">
-      <Card
-        className={`border-2 border-dashed transition-colors ${
-          dragActive ? "border-blue-400 bg-blue-50" : "border-gray-300"
+    <div className="space-y-4">
+      {/* Zone de drop */}
+      <div
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          isDragging ? "border-orange bg-orange/5" : "border-gray-300 hover:border-gray-400"
         }`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
       >
-        <CardContent className="p-6">
-          <div
-            className="text-center"
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <input ref={inputRef} type="file" accept={accept} onChange={handleChange} className="hidden" />
+        <div className="flex flex-col items-center space-y-4">
+          {getIcon()}
 
-            <div className="mb-4">
-              <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                <path
-                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-
-            {selectedFile ? (
-              <div className="mb-4">
-                <p className="text-sm font-medium text-gray-900">Fichier sélectionné:</p>
-                <p className="text-sm text-gray-500">{selectedFile.name}</p>
-                <p className="text-xs text-gray-400">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-              </div>
-            ) : (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">
-                  Glissez-déposez votre fichier ici, ou{" "}
-                  <button
-                    type="button"
-                    className="text-blue-600 hover:text-blue-500 font-medium"
-                    onClick={openFileDialog}
-                  >
-                    parcourez
-                  </button>
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Formats acceptés: {accept}</p>
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-center">
-              <Button type="button" variant="outline" onClick={openFileDialog} disabled={isUploading}>
-                Choisir un fichier
-              </Button>
-
-              {selectedFile && (
-                <Button type="button" onClick={handleUpload} disabled={isUploading}>
-                  {isUploading ? "Import en cours..." : buttonText}
-                </Button>
-              )}
-            </div>
+          <div>
+            <p className="text-lg font-medium text-gray-900">
+              {isDragging ? "Déposez le fichier ici" : "Glissez-déposez votre fichier"}
+            </p>
+            <p className="text-sm text-gray-500">ou</p>
           </div>
-        </CardContent>
-      </Card>
+
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            className="bg-orange hover:bg-orange/90"
+          >
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>
+                Traitement...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4 mr-2" />
+                {buttonText || getDefaultButtonText()}
+              </>
+            )}
+          </Button>
+
+          {expectedColumns.length > 0 && (
+            <div className="text-xs text-gray-500 mt-2">
+              <p className="font-medium">Colonnes attendues :</p>
+              <p>{expectedColumns.join(", ")}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        onChange={handleFileSelect}
+        className="hidden"
+      />
     </div>
   )
 }
