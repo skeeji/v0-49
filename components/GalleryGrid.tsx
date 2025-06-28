@@ -38,13 +38,21 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
   // Fonction pour obtenir l'URL de l'image - CORRECTION MAJEURE
   const getImageUrl = (item: any) => {
-    // CORRECTION: Utiliser filename (8ème colonne CSV) pour les luminaires
-    if (item.filename) {
+    // CORRECTION: Utiliser "Nom du fichier" (8ème colonne CSV) pour les luminaires
+    if (item["Nom du fichier"]) {
       // Si c'est déjà une URL complète, l'utiliser directement
+      if (item["Nom du fichier"].startsWith("http")) {
+        return item["Nom du fichier"]
+      }
+      // CORRECTION: Utiliser la nouvelle API pour les noms de fichiers
+      return `/api/images/filename/${item["Nom du fichier"]}`
+    }
+
+    // Fallback sur filename (au cas où)
+    if (item.filename) {
       if (item.filename.startsWith("http")) {
         return item.filename
       }
-      // CORRECTION: Utiliser la nouvelle API pour les noms de fichiers
       return `/api/images/filename/${item.filename}`
     }
 

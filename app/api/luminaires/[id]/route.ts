@@ -37,6 +37,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
               "",
             ) || ""
           : luminaire.dimensions || "",
+      // Garder "Nom du fichier" tel quel
+      "Nom du fichier": luminaire["Nom du fichier"] || luminaire.filename || "",
     }
 
     console.log("📊 Réponse API luminaire:", { success: true, data: transformedLuminaire })
@@ -84,7 +86,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       couleurs: Array.isArray(body.couleurs) ? body.couleurs : [],
       dimensions: body.dimensions || {},
       images: Array.isArray(body.images) ? body.images : [],
-      filename: body.filename || "",
+      "Nom du fichier": body["Nom du fichier"] || body.filename || "",
       specialite: body.specialite || "",
       collaboration: body.collaboration || "",
       signe: body.signe || "",
