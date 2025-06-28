@@ -22,51 +22,36 @@ export default function ImportPage() {
   const { showToast } = useToast()
 
   const handleCsvUpload = async (data: any[]) => {
-    setIsUploading(true)
     console.log("📥 Début de l'import CSV:", data.length, "lignes")
 
+    if (data.length === 0) {
+      showToast("❌ Aucune donnée trouvée dans le fichier CSV", "error")
+      return
+    }
+
+    setIsUploading(true)
+
     try {
-      const processedData = data.map((item, index) => {
-        const filename = item["Nom du fichier"] || ""
-        const nomLuminaire = item["Nom luminaire"] || ""
-        const finalNom = nomLuminaire || filename.replace(/\.[^/.]+$/, "")
-
-        console.log(`📋 Ligne ${index + 1}:`, {
-          nom: finalNom,
-          designer: item["Artiste / Dates"],
-          annee: item["Année"],
-          filename: filename,
-        })
-
-        return {
-          nom: finalNom,
-          designer: item["Artiste / Dates"] || "",
-          specialite: item["Spécialité"] || "",
-          collaboration: item["Collaboration / Œuvre"] || "",
-          annee: Number.parseInt(item["Année"]) || new Date().getFullYear(),
-          signe: item["Signé"] || "",
-          filename: filename,
-          dimensions: item["Dimensions"] || "",
-          estimation: item["Estimation"] || "",
-          materiaux: item["Matériaux"] ? item["Matériaux"].split(",").map((m: string) => m.trim()) : [],
-          images: [],
-          periode: item["Spécialité"] || "",
-          description: `${item["Collaboration / Œuvre"] || ""} ${item["Spécialité"] || ""}`.trim(),
-          couleurs: [],
-        }
-      })
-
-      // Créer un fichier CSV temporaire pour l'API
-      const csvContent = [
-        "nom;designer;specialite;collaboration;annee;signe;filename;dimensions;estimation;materiaux",
-        ...processedData.map(
-          (item) =>
-            `${item.nom};${item.designer};${item.specialite};${item.collaboration};${item.annee};${item.signe};${item.filename};${item.dimensions};${item.estimation};${item.materiaux.join(",")}`,
+      // Créer un CSV temporaire avec les données parsées
+      const headers = Object.keys(data[0])
+      const csvLines = [
+        headers.join(";"), // En-têtes
+        ...data.map((row) =>
+          headers
+            .map((header) => {
+              const value = row[header] || ""
+              // Échapper les guillemets et virgules
+              return `"${String(value).replace(/"/g, '""')}"`
+            })
+            .join(";"),
         ),
-      ].join("\n")
+      ]
 
-      const csvBlob = new Blob([csvContent], { type: "text/csv" })
-      const csvFile = new File([csvBlob], "luminaires.csv", { type: "text/csv" })
+      const csvContent = csvLines.join("\n")
+      console.log(`📄 CSV généré: ${csvContent.length} caractères, ${csvLines.length} lignes`)
+
+      const csvBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8" })
+      const csvFile = new File([csvBlob], "luminaires_import.csv", { type: "text/csv" })
 
       const formData = new FormData()
       formData.append("file", csvFile)
@@ -82,17 +67,21 @@ export default function ImportPage() {
       console.log("📊 Réponse API:", result)
 
       if (result.success) {
-        setCsvData(processedData)
+        setCsvData(data)
         setImportStats((prev) => ({
           ...prev,
           luminaires: {
-            total: processedData.length,
+            total: result.processed || data.length,
             success: result.imported || 0,
-            errors: result.errors?.length || 0,
+            errors: result.totalErrors || 0,
           },
         }))
 
-        showToast(`✅ ${result.imported} luminaires importés avec succès`, "success")
+        showToast(`✅ ${result.imported} luminaires importés sur ${result.processed} lignes`, "success")
+
+        if (result.totalErrors > 0) {
+          showToast(`⚠️ ${result.totalErrors} erreurs rencontrées`, "error")
+        }
       } else {
         throw new Error(result.error || "Erreur lors de l'import")
       }
@@ -338,6 +327,9 @@ export default function ImportPage() {
                     <p className="text-lg font-bold text-green-900">
                       {importStats.luminaires.success}/{importStats.luminaires.total}
                     </p>
+                    {importStats.luminaires.errors > 0 && (
+                      <p className="text-xs text-red-600">{importStats.luminaires.errors} erreurs</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -390,7 +382,7 @@ export default function ImportPage() {
               />
               {csvData.length > 0 && (
                 <div className="mt-4 p-4 bg-cream rounded-lg">
-                  <p className="text-sm text-dark font-medium">{csvData.length} luminaires traités</p>
+                  <p className="text-sm text-dark font-medium">{csvData.length} lignes CSV traitées</p>
                   <p className="text-xs text-gray-600 mt-1">
                     ✅ {importStats.luminaires.success} réussis • ❌ {importStats.luminaires.errors} erreurs
                   </p>
