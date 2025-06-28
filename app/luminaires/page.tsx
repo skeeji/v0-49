@@ -51,6 +51,8 @@ export default function LuminairesPage() {
   // Charger les luminaires depuis l'API MongoDB
   const loadLuminaires = useCallback(
     async (resetPage = false) => {
+      if (isLoading) return
+
       setIsLoading(true)
       try {
         const params = new URLSearchParams()
@@ -71,91 +73,81 @@ export default function LuminairesPage() {
         params.append("page", currentPage.toString())
         params.append("limit", itemsPerPage.toString())
 
+        console.log(`🔍 Chargement page ${currentPage} avec filtres:`, Object.fromEntries(params))
+
         const response = await fetch(`/api/luminaires?${params.toString()}`)
 
         if (response.ok) {
           const data = await response.json()
+          console.log(`📊 Données reçues:`, data)
 
-          // Adapter les données pour l'interface existante
-          const adaptedLuminaires = data.luminaires.map((l: any) => ({
-            id: l._id,
-            name: l.nom,
-            artist: l.designer,
-            year: l.annee?.toString() || "",
-            specialty: l.specialite || "",
-            collaboration: l.collaboration || "",
-            signed: l.signe || "",
-            image: l.images?.[0] || "",
-            filename: l.filename || "",
-            dimensions: l.dimensions || "",
-            estimation: l.estimation || "",
-            materials: Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux || "",
-            description: l.description || "",
-          }))
+          if (data.success && data.luminaires) {
+            // Adapter les données pour l'interface existante
+            const adaptedLuminaires = data.luminaires.map((l: any) => ({
+              id: l._id,
+              name: l.nom,
+              artist: l.designer,
+              year: l.annee?.toString() || "",
+              specialty: l.specialite || "",
+              collaboration: l.collaboration || "",
+              signed: l.signe || "",
+              image: l.images?.[0] ? `/api/images/${l.images[0]}` : null,
+              filename: l.filename || "",
+              dimensions: l.dimensions || "",
+              estimation: l.estimation || "",
+              materials: Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux || "",
+              description: l.description || "",
+            }))
 
-          if (resetPage || currentPage === 1) {
-            setAllLuminaires(adaptedLuminaires)
-            setFilteredLuminaires(adaptedLuminaires)
-            setDisplayedLuminaires(adaptedLuminaires)
-          } else {
-            setDisplayedLuminaires((prev) => [...prev, ...adaptedLuminaires])
-          }
-
-          setHasMore(data.pagination.page < data.pagination.pages)
-
-          // Extraire les designers uniques
-          const uniqueDesigners = [...new Set(adaptedLuminaires.map((item: any) => item.artist))].filter(Boolean)
-          setDesigners(uniqueDesigners)
-
-          // Déterminer la plage d'années
-          const years = adaptedLuminaires
-            .map((item: any) => Number.parseInt(item.year))
-            .filter((year) => !isNaN(year) && year > 0)
-          if (years.length > 0) {
-            const min = Math.max(1000, Math.min(...years))
-            const max = Math.min(2025, Math.max(...years))
-            setMinYear(min)
-            setMaxYear(max)
-            if (resetPage) {
-              setYearRange([min, max])
+            if (resetPage || currentPage === 1) {
+              setAllLuminaires(adaptedLuminaires)
+              setFilteredLuminaires(adaptedLuminaires)
+              setDisplayedLuminaires(adaptedLuminaires)
+              setPage(1)
+            } else {
+              setDisplayedLuminaires((prev) => [...prev, ...adaptedLuminaires])
             }
-          }
 
-          console.log(`📊 ${adaptedLuminaires.length} luminaires chargés depuis MongoDB`)
+            // Mettre à jour la pagination
+            setHasMore(data.pagination.hasNext)
+
+            // Extraire les designers uniques
+            const uniqueDesigners = [...new Set(adaptedLuminaires.map((item: any) => item.artist))].filter(Boolean)
+            setDesigners(uniqueDesigners)
+
+            // Déterminer la plage d'années
+            const years = adaptedLuminaires
+              .map((item: any) => Number.parseInt(item.year))
+              .filter((year) => !isNaN(year) && year > 0)
+            if (years.length > 0) {
+              const min = Math.max(1000, Math.min(...years))
+              const max = Math.min(2025, Math.max(...years))
+              setMinYear(min)
+              setMaxYear(max)
+              if (resetPage) {
+                setYearRange([min, max])
+              }
+            }
+
+            console.log(`📊 ${adaptedLuminaires.length} luminaires chargés depuis MongoDB (page ${currentPage})`)
+          }
         } else {
           console.error("Erreur lors du chargement des luminaires:", await response.text())
-          // Fallback vers localStorage si l'API échoue
-          const storedLuminaires = localStorage.getItem("luminaires")
-          if (storedLuminaires) {
-            const data = JSON.parse(storedLuminaires)
-            setAllLuminaires(data)
-            setFilteredLuminaires(data)
-            setDisplayedLuminaires(data.slice(0, itemsPerPage))
-            console.log("📊 Fallback vers localStorage")
-          }
+          showToast("Erreur lors du chargement des luminaires", "error")
         }
       } catch (error) {
         console.error("Erreur lors du chargement des luminaires:", error)
-        // Fallback vers localStorage en cas d'erreur
-        const storedLuminaires = localStorage.getItem("luminaires")
-        if (storedLuminaires) {
-          const data = JSON.parse(storedLuminaires)
-          setAllLuminaires(data)
-          setFilteredLuminaires(data)
-          setDisplayedLuminaires(data.slice(0, itemsPerPage))
-          console.log("📊 Fallback vers localStorage après erreur")
-        }
+        showToast("Erreur de connexion", "error")
       } finally {
         setIsLoading(false)
       }
     },
-    [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy, page, itemsPerPage, minYear, maxYear],
+    [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy, page, itemsPerPage, minYear, maxYear, isLoading],
   )
 
   // Charger les données au montage et quand les filtres changent
   useEffect(() => {
     loadLuminaires(true)
-    setPage(1)
   }, [searchTerm, selectedDesigner, yearRange, showFavorites, sortBy])
 
   // Charger les favoris depuis localStorage
@@ -204,14 +196,21 @@ export default function LuminairesPage() {
     setFiltersActive(isFilterActive)
   }, [searchTerm, selectedDesigner, showFavorites, yearRange, minYear, maxYear])
 
-  // Fonction de chargement de plus d'éléments
+  // Fonction de chargement de plus d'éléments (scroll infini)
   const loadMore = useCallback(() => {
     if (userData?.role === "free") return
     if (isLoading || !hasMore) return
 
+    console.log(`📄 Chargement de la page suivante: ${page + 1}`)
     setPage((prev) => prev + 1)
-    loadLuminaires(false)
-  }, [isLoading, hasMore, userData, loadLuminaires])
+  }, [isLoading, hasMore, userData, page])
+
+  // Charger plus quand la page change
+  useEffect(() => {
+    if (page > 1) {
+      loadLuminaires(false)
+    }
+  }, [page])
 
   // Scroll infini
   useEffect(() => {

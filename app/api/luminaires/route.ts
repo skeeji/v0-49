@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
     const sortField = searchParams.get("sortField") || "nom"
     const sortDirection = searchParams.get("sortDirection") === "desc" ? -1 : 1
     const search = searchParams.get("search") || ""
+    const designer = searchParams.get("designer") || ""
+    const anneeMin = searchParams.get("anneeMin")
+    const anneeMax = searchParams.get("anneeMax")
 
     console.log(`📊 Paramètres: page=${page}, limit=${limit}, sort=${sortField}:${sortDirection}, search="${search}"`)
 
@@ -22,12 +25,24 @@ export async function GET(request: NextRequest) {
 
     // Construire le filtre de recherche
     const filter: any = {}
+
     if (search) {
       filter.$or = [
         { nom: { $regex: search, $options: "i" } },
         { designer: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
+        { specialite: { $regex: search, $options: "i" } },
       ]
+    }
+
+    if (designer && designer !== "all") {
+      filter.designer = { $regex: designer, $options: "i" }
+    }
+
+    if (anneeMin || anneeMax) {
+      filter.annee = {}
+      if (anneeMin) filter.annee.$gte = Number.parseInt(anneeMin)
+      if (anneeMax) filter.annee.$lte = Number.parseInt(anneeMax)
     }
 
     console.log("🔍 Filtre de recherche:", JSON.stringify(filter))
@@ -57,6 +72,7 @@ export async function GET(request: NextRequest) {
       dimensions: luminaire.dimensions || {},
     }))
 
+    const totalPages = Math.ceil(total / limit)
     const response = {
       success: true,
       luminaires: transformedLuminaires,
@@ -64,15 +80,13 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
+        pages: totalPages,
+        hasNext: page < totalPages,
         hasPrev: page > 1,
       },
     }
 
-    console.log(
-      `📤 Réponse envoyée: ${transformedLuminaires.length} luminaires, page ${page}/${Math.ceil(total / limit)}`,
-    )
+    console.log(`📤 Réponse envoyée: ${transformedLuminaires.length} luminaires, page ${page}/${totalPages}`)
     return NextResponse.json(response)
   } catch (error: any) {
     console.error("❌ Erreur dans GET /api/luminaires:", error)
