@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Menu, Search, Upload, Clock, Users, Home } from "lucide-react"
@@ -11,11 +11,35 @@ import { useAuth } from "@/contexts/AuthContext"
 
 export function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [logoFilename, setLogoFilename] = useState<string | null>(null)
   const { isFirebaseEnabled } = useAuth()
 
   const toggleDrawer = () => {
     setIsDrawerOpen(!isDrawerOpen)
   }
+
+  // CORRECTION: Charger le logo depuis l'API ou utiliser le logo par défaut
+  useEffect(() => {
+    const loadLogo = async () => {
+      try {
+        // Essayer de charger le logo depuis l'API
+        const response = await fetch("/api/logo")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.filename) {
+            setLogoFilename(data.filename)
+            console.log("🏷️ Logo personnalisé chargé:", data.filename)
+          }
+        }
+      } catch (error) {
+        console.log("ℹ️ Aucun logo personnalisé trouvé, utilisation du logo par défaut")
+      }
+    }
+
+    loadLogo()
+  }, [])
+
+  const logoSrc = logoFilename ? `/api/images/filename/${logoFilename}` : "/images/gersaint-logo.png"
 
   return (
     <>
@@ -33,7 +57,17 @@ export function Header() {
               </button>
 
               <Link href="/" className="flex items-center ml-2 md:ml-0">
-                <Image src="/images/gersaint-logo.png" alt="Gersaint Logo" width={40} height={40} className="mr-3" />
+                <Image
+                  src={logoSrc || "/placeholder.svg"}
+                  alt="Logo"
+                  width={40}
+                  height={40}
+                  className="mr-3"
+                  onError={(e) => {
+                    // Fallback vers le logo par défaut en cas d'erreur
+                    e.currentTarget.src = "/images/gersaint-logo.png"
+                  }}
+                />
                 <span className="text-xl font-bold text-gray-900 hidden sm:block">Gersaint</span>
               </Link>
             </div>

@@ -13,6 +13,7 @@ export default function ImportPage() {
   const [designers, setDesigners] = useState<any[]>([])
   const [designerImages, setDesignerImages] = useState<File[]>([])
   const [video, setVideo] = useState<File | null>(null)
+  const [logo, setLogo] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [importStats, setImportStats] = useState({
     luminaires: { total: 0, success: 0, errors: 0 },
@@ -144,7 +145,7 @@ export default function ImportPage() {
       const processedDesigners = data.map((item, index) => {
         const designer = {
           nom: item["Nom"] || "",
-          imageFile: item["imagedesigner"] || "",
+          imagedesigner: item["imagedesigner"] || "",
           slug: (item["Nom"] || "")
             .toLowerCase()
             .replace(/\s+/g, "-")
@@ -258,6 +259,31 @@ export default function ImportPage() {
     }
   }
 
+  // CORRECTION: Nouvelle fonction pour uploader le logo
+  const handleLogoUpload = async (file: File) => {
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("logo", file)
+
+      const response = await fetch("/api/upload/logo", { method: "POST", body: formData })
+
+      if (response.ok) {
+        const result = await response.json()
+        setLogo(file)
+        showToast("✅ Logo uploadé avec succès", "success")
+        console.log("🏷️ Logo sauvegardé:", result.filename)
+      } else {
+        throw new Error("Erreur lors de l'upload du logo")
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur upload logo:", error)
+      showToast(`❌ Erreur: ${error.message}`, "error")
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const handleResetDatabase = async () => {
     const isConfirmed = window.confirm(
       "⚠️ ATTENTION: Cette action va supprimer TOUTES les données et TOUS les fichiers du serveur MongoDB et GridFS. Cette action est IRRÉVERSIBLE.\n\nÊtes-vous absolument certain de vouloir continuer ?",
@@ -280,6 +306,7 @@ export default function ImportPage() {
           setDesigners([])
           setDesignerImages([])
           setVideo(null)
+          setLogo(null)
           setImportStats({
             luminaires: { total: 0, success: 0, errors: 0 },
             designers: { total: 0, success: 0, errors: 0 },
@@ -436,13 +463,25 @@ export default function ImportPage() {
             </div>
 
             {/* Import Vidéo */}
-            <div className="bg-white rounded-xl p-6 shadow-lg lg:col-span-2">
+            <div className="bg-white rounded-xl p-6 shadow-lg">
               <h2 className="text-2xl font-playfair text-dark mb-4">🎥 Vidéo d'accueil</h2>
               <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" />
               {video && (
                 <div className="mt-4 p-4 bg-cream rounded-lg">
                   <p className="text-sm text-dark font-medium">Vidéo: {video.name}</p>
                   <p className="text-xs text-gray-600 mt-1">Vidéo sauvegardée et disponible sur la page d'accueil</p>
+                </div>
+              )}
+            </div>
+
+            {/* CORRECTION: Import Logo */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-playfair text-dark mb-4">🏷️ Logo du Header</h2>
+              <UploadForm accept="image/*" onUpload={handleLogoUpload} type="logo" />
+              {logo && (
+                <div className="mt-4 p-4 bg-cream rounded-lg">
+                  <p className="text-sm text-dark font-medium">Logo: {logo.name}</p>
+                  <p className="text-xs text-gray-600 mt-1">Logo sauvegardé et disponible dans le header</p>
                 </div>
               )}
             </div>

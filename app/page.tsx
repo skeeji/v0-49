@@ -107,25 +107,22 @@ export default function HomePage() {
         }
       }
 
-      // Chercher par filename
+      // CORRECTION: Chercher par filename dans la base MongoDB
       const localMatch = luminaires.find((luminaire: any) => {
-        const localFilename = (luminaire.filename || "").toLowerCase()
+        const localFilename = (luminaire.filename || luminaire["Nom du fichier"] || "").toLowerCase()
         const searchFilename = cleanImageId.toLowerCase()
 
         // Correspondance exacte par filename
         return localFilename === searchFilename || localFilename.includes(searchFilename.replace(/\.[^/.]+$/, ""))
       })
 
-      console.log(`🔍 Recherche: "${cleanImageId}" → ${localMatch ? `✅ Trouvé: ${localMatch.id}` : "❌ Pas trouvé"}`)
-
-      const slug = cleanImageId.replace(/\.[^/.]+$/, "")
+      console.log(`🔍 Recherche: "${cleanImageId}" → ${localMatch ? `✅ Trouvé: ${localMatch._id}` : "❌ Pas trouvé"}`)
 
       return {
         imageId: cleanImageId,
-        slug: slug,
         imageUrl: finalImageUrl,
-        ficheUrl: `/fiche-produit/${slug}`,
-        luminaireUrl: localMatch ? `/luminaires/${localMatch.id}` : null,
+        // CORRECTION: Utiliser l'ID MongoDB pour créer le lien vers la page luminaire
+        luminaireUrl: localMatch ? `/luminaires/${localMatch._id}` : null,
         localMatch: localMatch,
         hasLocalMatch: !!localMatch,
         index: index,
@@ -525,19 +522,41 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    // Charger les luminaires depuis localStorage
-    const storedLuminaires = localStorage.getItem("luminaires")
-    if (storedLuminaires) {
-      const data = JSON.parse(storedLuminaires)
-      console.log(`📊 ${data.length} luminaires chargés pour la recherche IA`)
-      setLuminaires(data)
+    // CORRECTION: Charger les luminaires depuis l'API MongoDB
+    const loadLuminaires = async () => {
+      try {
+        const response = await fetch("/api/luminaires?limit=10000") // Charger tous les luminaires
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setLuminaires(data.luminaires)
+            console.log(`📊 ${data.luminaires.length} luminaires chargés pour la recherche IA`)
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des luminaires:", error)
+      }
     }
 
-    // Charger la vidéo d'accueil
-    const storedVideo = localStorage.getItem("welcomeVideo")
-    if (storedVideo) {
-      setWelcomeVideo(storedVideo)
+    // CORRECTION: Charger la vidéo d'accueil depuis l'API
+    const loadWelcomeVideo = async () => {
+      try {
+        const response = await fetch("/api/welcome-video")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.video) {
+            const videoUrl = `/api/videos/${data.video._id}`
+            setWelcomeVideo(videoUrl)
+            console.log("🎥 Vidéo de bienvenue chargée:", videoUrl)
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement de la vidéo:", error)
+      }
     }
+
+    loadLuminaires()
+    loadWelcomeVideo()
 
     // Cleanup au démontage du composant
     return () => {
@@ -639,7 +658,7 @@ export default function HomePage() {
               <Button
                 onClick={startCamera}
                 variant="outline"
-                className="w-full border-orange text-orange hover:bg-orange hover:text-white py-3 md:py-4 text-base md:text-lg"
+                className="w-full border-orange text-orange hover:bg-orange hover:text-white py-3 md:py-4 text-base md:text-lg bg-transparent"
                 disabled={isSearching || isCameraLoading || !canSearch}
               >
                 {isCameraLoading ? (
@@ -681,7 +700,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <Button onClick={resetSearch} variant="outline" className="w-full">
+              <Button onClick={resetSearch} variant="outline" className="w-full bg-transparent">
                 <X className="w-4 h-4 mr-2" />
                 Annuler
               </Button>
@@ -718,7 +737,7 @@ export default function HomePage() {
                   )}
                 </Button>
 
-                <Button onClick={resetSearch} variant="outline" className="px-4" disabled={isCapturing}>
+                <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent" disabled={isCapturing}>
                   <X className="w-4 h-4" />
                 </Button>
               </div>
@@ -810,7 +829,7 @@ export default function HomePage() {
                   >
                     Rechercher maintenant
                   </Button>
-                  <Button onClick={resetSearch} variant="outline" className="px-4">
+                  <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
@@ -845,7 +864,12 @@ export default function HomePage() {
                     <span>🔄 Refaire la recherche</span>
                   )}
                 </Button>
-                <Button onClick={resetSearch} variant="outline" size="sm" className="text-sm md:text-base">
+                <Button
+                  onClick={resetSearch}
+                  variant="outline"
+                  size="sm"
+                  className="text-sm md:text-base bg-transparent"
+                >
                   <X className="w-4 h-4 mr-2" />
                   Nouvelle image
                 </Button>
@@ -856,8 +880,23 @@ export default function HomePage() {
               {searchResults.map((result: any, index) => (
                 <div key={index} className="bg-white rounded-lg p-2 md:p-3 shadow-md border">
                   {/* Image cliquable */}
-                  <Link href={result.hasLocalMatch ? result.luminaireUrl : result.ficheUrl}>
-                    <div className="relative w-full h-24 md:h-32 mb-2 md:mb-3 cursor-pointer hover:scale-105 transition-transform">
+                  {result.hasLocalMatch && result.luminaireUrl ? (
+                    <Link href={result.luminaireUrl}>
+                      <div className="relative w-full h-24 md:h-32 mb-2 md:mb-3 cursor-pointer hover:scale-105 transition-transform">
+                        <Image
+                          src={result.imageUrl || "/placeholder.svg"}
+                          alt={result.imageId || `Résultat ${index + 1}`}
+                          fill
+                          className="object-cover rounded-lg"
+                          onError={(e) => {
+                            const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || `Image ${index + 1}`)}`
+                            e.currentTarget.src = fallbackUrl
+                          }}
+                        />
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="relative w-full h-24 md:h-32 mb-2 md:mb-3">
                       <Image
                         src={result.imageUrl || "/placeholder.svg"}
                         alt={result.imageId || `Résultat ${index + 1}`}
@@ -869,15 +908,15 @@ export default function HomePage() {
                         }}
                       />
                     </div>
-                  </Link>
+                  )}
 
                   <p className="text-xs md:text-sm font-medium text-dark truncate mb-1 md:mb-2">
-                    {result.metadata?.name || result.imageId || `Résultat ${index + 1}`}
+                    {result.localMatch?.nom || result.imageId || `Résultat ${index + 1}`}
                   </p>
                   <p className="text-xs text-orange mb-2 md:mb-3">Similarité: {Math.round(result.similarity * 100)}%</p>
 
                   <p className="text-xs text-gray-500">
-                    {result.hasLocalMatch ? "Fiche disponible" : "Fiche produit externe"}
+                    {result.hasLocalMatch ? "Fiche disponible" : "Image similaire"}
                   </p>
                 </div>
               ))}
