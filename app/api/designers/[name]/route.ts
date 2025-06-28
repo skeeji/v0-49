@@ -1,57 +1,64 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 
-// La fonction getDesignerNameOnly n'est plus nécessaire ici si on récupère le nom depuis la BDD
-// mais on la garde au cas où.
+// Fonction pour extraire le nom du designer
 const getDesignerNameOnly = (str = ""): string => {
-  if (!str) return ""
-  return str.split("(")[0].trim()
+  if (!str) return ""
+  return str.split("(")[0].trim()
 }
 
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
-  try {
-    const designerSlugOrName = decodeURIComponent(params.name)
-    console.log(`🔍 API /api/designers/[name] GET - Reçu: ${designerSlugOrName}`)
+  try {
+    console.log("🔍 API /api/designers/[name] GET - Name:", params.name)
 
-    const client = await clientPromise
-    const db = client.db()
+    const client = await clientPromise
+    const db = client.db()
 
-    // 1. On cherche d'abord les informations du designer dans la collection "designers"
-    // Le slug est créé lors de l'import, on peut donc l'utiliser pour une recherche fiable.
-    // On cherche aussi par le nom au cas où le paramètre n'est pas un slug.
-    const designerDoc = await db.collection("designers").findOne({
-      $or: [{ slug: designerSlugOrName }, { Nom: designerSlugOrName }],
-    })
+    const designerSlug = decodeURIComponent(params.name)
+    console.log("🔍 Designer slug:", designerSlug)
 
-    if (!designerDoc) {
-      return NextResponse.json({ success: false, error: "Designer non trouvé dans la collection 'designers'" }, { status: 404 })
-    }
+    // Récupérer tous les luminaires
+    const luminaires = await db.collection("luminaires").find({}).toArray()
+    console.log("📊 Total luminaires:", luminaires.length)
 
-    // On utilise le nom complet et exact de la base de données pour la suite
-    const fullDesignerName = designerDoc.Nom;
-    console.log(`🧑‍🎨 Designer trouvé dans la collection 'designers': ${fullDesignerName}`);
+    // Filtrer les luminaires pour ce designer
+    const designerLuminaires = luminaires.filter((luminaire) => {
+      const designerName = getDesignerNameOnly(luminaire.designer)
+      const slug = designerName
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+      return slug === designerSlug
+    })
 
-    // 2. On récupère tous les luminaires pour ce designer en utilisant son nom complet et exact
-    const designerLuminaires = await db.collection("luminaires").find({ designer: fullDesignerName }).toArray()
-    console.log("📊 Luminaires trouvés pour ce designer:", designerLuminaires.length)
+    console.log("📊 Luminaires pour ce designer:", designerLuminaires.length)
 
-    // 3. On construit l'objet de réponse final avec les données des deux collections
-    const designer = {
-      nom: fullDesignerName,
-      slug: designerDoc.slug,
-      imagedesigner: designerDoc.imagedesigner || "", // On ajoute le nom du fichier image
-      count: designerLuminaires.length,
-    }
+    if (designerLuminaires.length === 0) {
+      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        designer,
-        luminaires: designerLuminaires,
-      },
-    })
-  } catch (error) {
-    console.error("❌ Erreur API /api/designers/[name] GET:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
-  }
+    // Créer l'objet designer
+    const firstLuminaire = designerLuminaires[0]
+    const designerName = getDesignerNameOnly(firstLuminaire.designer)
+
+    const designer = {
+      nom: designerName,
+      slug: designerSlug,
+      image: null, // À implémenter si vous avez des images de designers
+      count: designerLuminaires.length,
+    }
+
+    console.log("✅ Designer trouvé:", designer.nom)
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        designer,
+        luminaires: designerLuminaires,
+      },
+    })
+  } catch (error) {
+    console.error("❌ Erreur API /api/designers/[name] GET:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+  }
 }
