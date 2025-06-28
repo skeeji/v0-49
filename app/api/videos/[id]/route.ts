@@ -1,60 +1,71 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { GridFSBucket, ObjectId } from "mongodb"
-
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+import { ObjectId } from "mongodb"
+import { getBucket } from "@/lib/gridfs"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log(`🎥 API GET /api/videos/${params.id} appelée`)
+    const { id } = params
+    console.log(`🎥 Récupération de la vidéo: ${id}`)
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    // Récupérer les informations de la vidéo
-    const video = await db.collection("welcomeVideos").findOne({ _id: new ObjectId(params.id) })
-
-    if (!video) {
-      console.log(`❌ Vidéo non trouvée: ${params.id}`)
-      return NextResponse.json({ error: "Vidéo non trouvée" }, { status: 404 })
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, error: "ID vidéo invalide" }, { status: 400 })
     }
 
-    // Créer le bucket GridFS
-    const bucket = new GridFSBucket(db, { bucketName: "videos" })
+    const bucket = await getBucket()
+    const objectId = new ObjectId(id)
 
-    // Ouvrir le stream de téléchargement
-    const downloadStream = bucket.openDownloadStream(new ObjectId(video.fileId))
+    // Vérifier que le fichier existe
+    const fileInfo = await bucket.find({ _id: objectId }).toArray()
+    if (fileInfo.length === 0) {
+      return NextResponse.json({ success: false, error: "Vidéo non trouvée" }, { status: 404 })
+    }
 
-    // Convertir le stream en buffer
-    const chunks: Buffer[] = []
+    const file = fileInfo[0]
+    console.log(`📁 Fichier trouvé: ${file.filename}, taille: ${file.length} bytes`)
 
-    return new Promise<NextResponse>((resolve, reject) => {
-      downloadStream.on("data", (chunk) => {
-        chunks.push(chunk)
-      })
+    // Créer un stream de lecture depuis GridFS
+    const downloadStream = bucket.openDownloadStream(objectId)
 
-      downloadStream.on("end", () => {
-        const buffer = Buffer.concat(chunks)
-        console.log(`✅ Vidéo servie: ${video.title} (${buffer.length} bytes)`)
+    // Gérer les erreurs du stream
+    downloadStream.on("error", (error) => {
+      console.error("❌ Erreur stream vidéo:", error)
+    })
 
-        resolve(
-          new NextResponse(buffer, {
-            headers: {
-              "Content-Type": "video/mp4",
-              "Cache-Control": "public, max-age=31536000, immutable",
-              "Content-Length": buffer.length.toString(),
-            },
-          }),
-        )
-      })
+    // Convertir le stream en Response
+    const readableStream = new ReadableStream({
+      start(controller) {
+        downloadStream.on("data", (chunk) => {
+          controller.enqueue(new Uint8Array(chunk))
+        })
 
-      downloadStream.on("error", (error) => {
-        console.error(`❌ Erreur lecture vidéo ${params.id}:`, error)
-        reject(new NextResponse("Erreur lors de la lecture de la vidéo", { status: 500 }))
-      })
+        downloadStream.on("end", () => {
+          controller.close()
+        })
+
+        downloadStream.on("error", (error) => {
+          controller.error(error)
+        })
+      },
+    })
+
+    // Retourner la vidéo avec les bons headers
+    return new NextResponse(readableStream, {
+      headers: {
+        "Content-Type": file.metadata?.contentType || "video/mp4",
+        "Content-Length": file.length.toString(),
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=31536000",
+      },
     })
   } catch (error: any) {
-    console.error(`❌ Erreur dans GET /api/videos/${params.id}:`, error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+    console.error("❌ Erreur récupération vidéo:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la récupération de la vidéo",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

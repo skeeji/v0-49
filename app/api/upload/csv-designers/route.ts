@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { GridFSBucket } from "mongodb"
+import Papa from "papaparse"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📥 Import CSV Designers démarré")
+    console.log("📥 Début de l'import CSV designers...")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -15,116 +15,87 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📄 Fichier reçu: ${file.name} (${file.size} bytes)`)
+    // Lire le contenu du fichier
+    const fileContent = await file.text()
+    console.log(`📄 Fichier CSV lu: ${fileContent.length} caractères`)
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "images" })
+    // Parser le CSV
+    const parseResult = Papa.parse(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: ";",
+      encoding: "UTF-8",
+    })
 
-    // Lire le contenu du fichier CSV
-    const csvContent = await file.text()
-    const lines = csvContent.split("\n").filter((line) => line.trim())
-
-    if (lines.length < 2) {
+    if (parseResult.errors.length > 0) {
+      console.error("❌ Erreurs parsing CSV:", parseResult.errors)
       return NextResponse.json(
-        { success: false, error: "Le fichier CSV doit contenir au moins un en-tête et une ligne de données" },
+        { success: false, error: "Erreur lors du parsing du CSV", details: parseResult.errors },
         { status: 400 },
       )
     }
 
-    // Analyser l'en-tête
-    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""))
-    console.log("📋 En-têtes détectés:", headers)
+    const data = parseResult.data as any[]
+    console.log(`📊 ${data.length} lignes parsées`)
 
-    // Vérifier que les colonnes requises sont présentes
+    if (data.length === 0) {
+      return NextResponse.json({ success: false, error: "Aucune donnée trouvée dans le CSV" }, { status: 400 })
+    }
+
+    // Vérifier les colonnes requises
     const requiredColumns = ["Nom", "imagedesigner"]
+    const headers = Object.keys(data[0])
     const missingColumns = requiredColumns.filter((col) => !headers.includes(col))
 
     if (missingColumns.length > 0) {
       return NextResponse.json(
-        { success: false, error: `Colonnes manquantes: ${missingColumns.join(", ")}` },
+        {
+          success: false,
+          error: `Colonnes manquantes: ${missingColumns.join(", ")}`,
+          found: headers,
+          required: requiredColumns,
+        },
         { status: 400 },
       )
     }
 
-    // Traiter chaque ligne de données
-    const designers = []
-    let processedCount = 0
-    let errorCount = 0
+    // Connexion à MongoDB
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("designers")
 
-    for (let i = 1; i < lines.length; i++) {
-      try {
-        const values = lines[i].split(",").map((v) => v.trim().replace(/"/g, ""))
+    // Supprimer les anciens designers
+    await collection.deleteMany({})
+    console.log("🗑️ Anciens designers supprimés")
 
-        if (values.length !== headers.length) {
-          console.warn(`⚠️ Ligne ${i + 1}: nombre de colonnes incorrect (${values.length} vs ${headers.length})`)
-          errorCount++
-          continue
-        }
-
-        // Créer l'objet designer
-        const designer: any = {}
-        headers.forEach((header, index) => {
-          designer[header] = values[index] || ""
-        })
-
-        // Validation des données essentielles
-        if (!designer.Nom) {
-          console.warn(`⚠️ Ligne ${i + 1}: Nom manquant`)
-          errorCount++
-          continue
-        }
-
-        // Ajouter des métadonnées
-        designer.createdAt = new Date()
-        designer.updatedAt = new Date()
-        designer.importedFrom = "csv-designers"
-
-        designers.push(designer)
-        processedCount++
-
-        if (processedCount % 100 === 0) {
-          console.log(`📊 ${processedCount} designers traités...`)
-        }
-      } catch (error) {
-        console.error(`❌ Erreur ligne ${i + 1}:`, error)
-        errorCount++
-      }
-    }
-
-    console.log(`📊 Traitement terminé: ${processedCount} designers valides, ${errorCount} erreurs`)
-
-    if (designers.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Aucun designer valide trouvé dans le fichier" },
-        { status: 400 },
-      )
-    }
-
-    // Supprimer les anciens designers importés depuis CSV
-    const deleteResult = await db.collection("designers").deleteMany({ importedFrom: "csv-designers" })
-    console.log(`🗑️ ${deleteResult.deletedCount} anciens designers supprimés`)
+    // Préparer les données pour l'insertion
+    const designersToInsert = data.map((row, index) => ({
+      Nom: row.Nom || "",
+      imagedesigner: row.imagedesigner || "",
+      slug: (row.Nom || "")
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, ""),
+      createdAt: new Date(),
+      index: index,
+    }))
 
     // Insérer les nouveaux designers
-    const insertResult = await db.collection("designers").insertMany(designers)
+    const insertResult = await collection.insertMany(designersToInsert)
     console.log(`✅ ${insertResult.insertedCount} designers insérés`)
 
     return NextResponse.json({
       success: true,
-      message: `Import réussi: ${insertResult.insertedCount} designers importés`,
-      stats: {
-        processed: processedCount,
-        inserted: insertResult.insertedCount,
-        errors: errorCount,
-        deleted: deleteResult.deletedCount,
-      },
+      message: `${insertResult.insertedCount} designers importés avec succès`,
+      imported: insertResult.insertedCount,
+      processed: data.length,
     })
   } catch (error: any) {
     console.error("❌ Erreur import CSV designers:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'import",
+        error: "Erreur lors de l'import des designers",
         details: error.message,
       },
       { status: 500 },

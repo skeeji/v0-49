@@ -1,43 +1,40 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log("🎥 API GET /api/welcome-video appelée")
+    console.log("🎥 Récupération de la vidéo de bienvenue...")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Récupérer la vidéo de bienvenue depuis la collection welcomeVideos
+    // Récupérer la vidéo de bienvenue la plus récente
     const video = await db.collection("welcomeVideos").findOne({}, { sort: { uploadedAt: -1 } })
 
-    if (video) {
-      console.log(`✅ Vidéo de bienvenue trouvée: ${video.title}`)
-      return NextResponse.json({
-        success: true,
-        video: {
-          _id: video._id.toString(),
-          title: video.title,
-          description: video.description,
-          fileId: video.fileId,
-          uploadedAt: video.uploadedAt,
-        },
-      })
-    } else {
-      console.log("ℹ️ Aucune vidéo de bienvenue trouvée")
-      return NextResponse.json({
-        success: false,
-        message: "Aucune vidéo de bienvenue trouvée",
-      })
+    if (!video) {
+      return NextResponse.json({ success: false, error: "Aucune vidéo de bienvenue trouvée" }, { status: 404 })
     }
+
+    console.log(`✅ Vidéo trouvée: ${video.title}`)
+
+    return NextResponse.json({
+      success: true,
+      video: {
+        _id: video._id,
+        title: video.title,
+        description: video.description,
+        filename: video.filename,
+        uploadedAt: video.uploadedAt,
+      },
+    })
   } catch (error: any) {
-    console.error("❌ Erreur dans GET /api/welcome-video:", error)
+    console.error("❌ Erreur récupération vidéo de bienvenue:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de la récupération de la vidéo",
+        error: "Erreur lors de la récupération de la vidéo",
         details: error.message,
       },
       { status: 500 },
