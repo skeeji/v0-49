@@ -100,7 +100,7 @@ export function UploadForm({ accept, multiple, onUpload, type, expectedColumns }
           inQuotes = !inQuotes
           i++
         }
-      } else if (char === "," && !inQuotes) {
+      } else if ((char === "," || char === ";") && !inQuotes) {
         // Fin de champ
         result.push(current.trim())
         current = ""

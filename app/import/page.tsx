@@ -1,283 +1,476 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { UploadForm } from "@/components/UploadForm"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, FileText, ImageIcon, RotateCcw, AlertCircle } from "lucide-react"
+import { Trash2, Database, Upload, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
-
-interface ImportStats {
-  luminaires: number
-  images: number
-  errors: number
-}
+import { RoleGuard } from "@/components/RoleGuard"
 
 export default function ImportPage() {
-  const [isImporting, setIsImporting] = useState(false)
-  const [isResetting, setIsResetting] = useState(false)
-  const [importStats, setImportStats] = useState<ImportStats>({ luminaires: 0, images: 0, errors: 0 })
-  const [logs, setLogs] = useState<string[]>([])
+  const [csvData, setCsvData] = useState<any[]>([])
+  const [images, setImages] = useState<File[]>([])
+  const [designers, setDesigners] = useState<any[]>([])
+  const [designerImages, setDesignerImages] = useState<File[]>([])
+  const [video, setVideo] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [importStats, setImportStats] = useState({
+    luminaires: { total: 0, success: 0, errors: 0 },
+    designers: { total: 0, success: 0, errors: 0 },
+    images: { total: 0, success: 0, errors: 0 },
+  })
   const { showToast } = useToast()
 
-  const addLog = (message: string) => {
-    console.log(message)
-    setLogs((prev) => [...prev.slice(-9), `${new Date().toLocaleTimeString()} - ${message}`])
-  }
-
-  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    addLog(`📁 Fichier CSV sélectionné: ${file.name}`)
-    setIsImporting(true)
-    setImportStats({ luminaires: 0, images: 0, errors: 0 })
+  const handleCsvUpload = async (data: any[]) => {
+    setIsUploading(true)
+    console.log("📥 Début de l'import CSV:", data.length, "lignes")
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
+      const processedData = data.map((item, index) => {
+        const filename = item["Nom du fichier"] || ""
+        const nomLuminaire = item["Nom luminaire"] || ""
+        const finalNom = nomLuminaire || filename.replace(/\.[^/.]+$/, "")
 
-      addLog("📤 Upload du fichier CSV en cours...")
+        console.log(`📋 Ligne ${index + 1}:`, {
+          nom: finalNom,
+          designer: item["Artiste / Dates"],
+          annee: item["Année"],
+          filename: filename,
+        })
+
+        return {
+          nom: finalNom,
+          designer: item["Artiste / Dates"] || "",
+          specialite: item["Spécialité"] || "",
+          collaboration: item["Collaboration / Œuvre"] || "",
+          annee: Number.parseInt(item["Année"]) || new Date().getFullYear(),
+          signe: item["Signé"] || "",
+          filename: filename,
+          dimensions: item["Dimensions"] || "",
+          estimation: item["Estimation"] || "",
+          materiaux: item["Matériaux"] ? item["Matériaux"].split(",").map((m: string) => m.trim()) : [],
+          images: [],
+          periode: item["Spécialité"] || "",
+          description: `${item["Collaboration / Œuvre"] || ""} ${item["Spécialité"] || ""}`.trim(),
+          couleurs: [],
+        }
+      })
+
+      // Créer un fichier CSV temporaire pour l'API
+      const csvContent = [
+        "nom;designer;specialite;collaboration;annee;signe;filename;dimensions;estimation;materiaux",
+        ...processedData.map(
+          (item) =>
+            `${item.nom};${item.designer};${item.specialite};${item.collaboration};${item.annee};${item.signe};${item.filename};${item.dimensions};${item.estimation};${item.materiaux.join(",")}`,
+        ),
+      ].join("\n")
+
+      const csvBlob = new Blob([csvContent], { type: "text/csv" })
+      const csvFile = new File([csvBlob], "luminaires.csv", { type: "text/csv" })
+
+      const formData = new FormData()
+      formData.append("file", csvFile)
+
+      console.log(`🚀 Envoi vers l'API /api/upload/csv...`)
+
       const response = await fetch("/api/upload/csv", {
         method: "POST",
         body: formData,
       })
 
       const result = await response.json()
-      addLog(`📊 Réponse serveur: ${JSON.stringify(result)}`)
+      console.log("📊 Réponse API:", result)
 
       if (result.success) {
-        setImportStats((prev) => ({ ...prev, luminaires: result.imported || 0 }))
-        addLog(`✅ ${result.imported} luminaires importés avec succès`)
-        showToast(`${result.imported} luminaires importés avec succès`, "success")
+        setCsvData(processedData)
+        setImportStats((prev) => ({
+          ...prev,
+          luminaires: {
+            total: processedData.length,
+            success: result.imported || 0,
+            errors: result.errors?.length || 0,
+          },
+        }))
+
+        showToast(`✅ ${result.imported} luminaires importés avec succès`, "success")
       } else {
-        addLog(`❌ Erreur: ${result.error}`)
-        setImportStats((prev) => ({ ...prev, errors: prev.errors + 1 }))
-        showToast(`Erreur: ${result.error}`, "error")
+        throw new Error(result.error || "Erreur lors de l'import")
       }
     } catch (error: any) {
-      addLog(`❌ Erreur réseau: ${error.message}`)
-      setImportStats((prev) => ({ ...prev, errors: prev.errors + 1 }))
-      showToast("Erreur lors de l'import du CSV", "error")
+      console.error("❌ Erreur critique lors de l'import CSV:", error)
+      showToast(`❌ Erreur: ${error.message}`, "error")
     } finally {
-      setIsImporting(false)
-      // Reset input
-      event.target.value = ""
+      setIsUploading(false)
     }
   }
 
-  const handleImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (!files || files.length === 0) return
-
-    addLog(`🖼️ ${files.length} images sélectionnées`)
-    setIsImporting(true)
+  const handleImagesUpload = async (files: File[]) => {
+    setIsUploading(true)
+    console.log("🖼️ Début de l'upload d'images:", files.length, "fichiers")
 
     try {
       const formData = new FormData()
-      Array.from(files).forEach((file) => {
+      files.forEach((file) => {
         formData.append("images", file)
+        console.log("📁 Fichier à uploader:", file.name, file.size, "bytes")
       })
 
-      addLog("📤 Upload des images en cours...")
+      console.log("📤 Envoi des fichiers vers /api/upload/images...")
       const response = await fetch("/api/upload/images", {
         method: "POST",
         body: formData,
       })
 
       const result = await response.json()
-      addLog(`📊 Réponse serveur: ${JSON.stringify(result)}`)
+      console.log("✅ Upload terminé:", result)
 
       if (result.success) {
-        const uploaded = result.uploaded || files.length
-        setImportStats((prev) => ({ ...prev, images: prev.images + uploaded }))
-        addLog(`✅ ${uploaded} images uploadées avec succès`)
-        showToast(`${uploaded} images uploadées avec succès`, "success")
+        setImages((prev) => [...prev, ...files])
+        setImportStats((prev) => ({
+          ...prev,
+          images: {
+            total: files.length,
+            success: result.associated || 0,
+            errors: files.length - (result.associated || 0),
+          },
+        }))
+
+        showToast(`📤 ${result.uploaded} images uploadées, ${result.associated} associées`, "success")
       } else {
-        addLog(`❌ Erreur: ${result.error}`)
-        setImportStats((prev) => ({ ...prev, errors: prev.errors + 1 }))
-        showToast(`Erreur: ${result.error}`, "error")
+        throw new Error(result.error || "Erreur lors de l'upload")
       }
     } catch (error: any) {
-      addLog(`❌ Erreur réseau: ${error.message}`)
-      setImportStats((prev) => ({ ...prev, errors: prev.errors + 1 }))
-      showToast("Erreur lors de l'upload des images", "error")
+      console.error("❌ Erreur critique lors de l'upload d'images:", error)
+      showToast(`❌ Erreur: ${error.message}`, "error")
     } finally {
-      setIsImporting(false)
-      // Reset input
-      event.target.value = ""
+      setIsUploading(false)
     }
   }
 
-  const handleReset = async () => {
-    if (
-      !confirm("⚠️ Êtes-vous sûr de vouloir supprimer TOUTES les données et images ? Cette action est irréversible !")
-    ) {
-      return
-    }
-
-    addLog("🗑️ Début de la réinitialisation...")
-    setIsResetting(true)
+  const handleDesignersUpload = async (data: any[]) => {
+    setIsUploading(true)
+    console.log("👨‍🎨 Début de l'import designers:", data.length, "lignes")
 
     try {
-      const response = await fetch("/api/reset", {
-        method: "POST",
+      const processedDesigners = data.map((item, index) => {
+        const designer = {
+          nom: item["Nom"] || "",
+          imageFile: item["imagedesigner"] || "",
+          slug: (item["Nom"] || "")
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]/g, ""),
+          biographie: "",
+          specialites: [],
+          periodes: [],
+          images: [],
+        }
+
+        console.log(`👤 Designer ${index + 1}:`, designer)
+        return designer
       })
 
-      const result = await response.json()
-      addLog(`📊 Réponse serveur: ${JSON.stringify(result)}`)
+      let successCount = 0
+      let errorCount = 0
 
-      if (result.success) {
-        setImportStats({ luminaires: 0, images: 0, errors: 0 })
-        addLog("✅ Base de données et fichiers réinitialisés avec succès")
-        showToast("Réinitialisation terminée avec succès", "success")
-      } else {
-        addLog(`❌ Erreur: ${result.error}`)
-        showToast(`Erreur: ${result.error}`, "error")
+      for (const designer of processedDesigners) {
+        try {
+          console.log(`📤 Envoi designer: ${designer.nom}`)
+
+          const response = await fetch("/api/designers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(designer),
+          })
+
+          const result = await response.json()
+
+          if (response.ok && result.success) {
+            successCount++
+            console.log(`✅ Designer créé: ${designer.nom}`)
+          } else {
+            errorCount++
+            console.error(`❌ Erreur designer ${designer.nom}:`, result.error)
+          }
+        } catch (error: any) {
+          errorCount++
+          console.error(`❌ Erreur réseau designer ${designer.nom}:`, error.message)
+        }
+      }
+
+      setDesigners((prev) => [...prev, ...processedDesigners])
+      setImportStats((prev) => ({
+        ...prev,
+        designers: { total: processedDesigners.length, success: successCount, errors: errorCount },
+      }))
+
+      if (successCount > 0) {
+        showToast(`✅ ${successCount}/${processedDesigners.length} designers importés`, "success")
+      }
+      if (errorCount > 0) {
+        showToast(`⚠️ ${errorCount} erreurs lors de l'import designers`, "error")
       }
     } catch (error: any) {
-      addLog(`❌ Erreur réseau: ${error.message}`)
-      showToast("Erreur lors de la réinitialisation", "error")
+      console.error("❌ Erreur critique lors de l'import designers:", error)
+      showToast(`❌ Erreur: ${error.message}`, "error")
     } finally {
-      setIsResetting(false)
+      setIsUploading(false)
+    }
+  }
+
+  const handleDesignerImagesUpload = async (files: File[]) => {
+    setIsUploading(true)
+    console.log("🖼️ Début de l'upload d'images designers:", files.length, "fichiers")
+
+    try {
+      const formData = new FormData()
+      files.forEach((file) => formData.append("images", file))
+
+      const response = await fetch("/api/upload/images", { method: "POST", body: formData })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log("✅ Upload images designers terminé:", result)
+
+        setDesignerImages((prev) => [...prev, ...files])
+        showToast(`✅ ${result.uploaded || files.length} images de designers uploadées`, "success")
+      } else {
+        throw new Error("Erreur lors de l'upload des images de designers")
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur upload images designers:", error)
+      showToast(`❌ Erreur: ${error.message}`, "error")
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleVideoUpload = async (file: File) => {
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("title", "Vidéo d'accueil")
+      formData.append("description", "Vidéo de bienvenue de la galerie")
+
+      const response = await fetch("/api/upload/video", { method: "POST", body: formData })
+
+      if (response.ok) {
+        setVideo(file)
+        showToast("✅ Vidéo d'accueil uploadée", "success")
+      } else {
+        throw new Error("Erreur lors de l'upload de la vidéo")
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur upload vidéo:", error)
+      showToast(`❌ Erreur: ${error.message}`, "error")
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleResetDatabase = async () => {
+    const isConfirmed = window.confirm(
+      "⚠️ ATTENTION: Cette action va supprimer TOUTES les données et TOUS les fichiers du serveur MongoDB et GridFS. Cette action est IRRÉVERSIBLE.\n\nÊtes-vous absolument certain de vouloir continuer ?",
+    )
+
+    if (isConfirmed) {
+      setIsUploading(true)
+      showToast("🗑️ Réinitialisation du serveur en cours...", "info")
+
+      try {
+        console.log("🗑️ Début de la réinitialisation complète...")
+
+        const response = await fetch("/api/reset", { method: "DELETE" })
+        const result = await response.json()
+
+        if (response.ok && result.success) {
+          // Réinitialiser l'état local
+          setCsvData([])
+          setImages([])
+          setDesigners([])
+          setDesignerImages([])
+          setVideo(null)
+          setImportStats({
+            luminaires: { total: 0, success: 0, errors: 0 },
+            designers: { total: 0, success: 0, errors: 0 },
+            images: { total: 0, success: 0, errors: 0 },
+          })
+
+          console.log("✅ Réinitialisation terminée:", result)
+          showToast("✅ Serveur réinitialisé avec succès !", "success")
+        } else {
+          throw new Error(result.error || "La réinitialisation a échoué")
+        }
+      } catch (error: any) {
+        console.error("❌ Erreur lors de la réinitialisation:", error)
+        showToast(`❌ Erreur: ${error.message}`, "error")
+      } finally {
+        setIsUploading(false)
+      }
     }
   }
 
   return (
-    <div className="container-responsive py-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-playfair text-dark mb-8">Import de données</h1>
+    <RoleGuard requiredRole="admin">
+      <div className="container-responsive py-8">
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-4xl font-playfair text-dark mb-8">Import des données</h1>
 
-        {/* Statistiques */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Luminaires</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{importStats.luminaires}</div>
-              <p className="text-xs text-muted-foreground">importés</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Images</CardTitle>
-              <ImageIcon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{importStats.images}</div>
-              <p className="text-xs text-muted-foreground">uploadées</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Erreurs</CardTitle>
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{importStats.errors}</div>
-              <p className="text-xs text-muted-foreground">rencontrées</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Actions d'import */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Import CSV
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">Importez un fichier CSV contenant les données des luminaires</p>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCSVUpload}
-                  disabled={isImporting}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                />
-                <Button disabled={isImporting} className="w-full">
-                  <Upload className="w-4 h-4 mr-2" />
-                  {isImporting ? "Import en cours..." : "Sélectionner un fichier CSV"}
-                </Button>
+          {/* Indicateur de chargement */}
+          {isUploading && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                <span className="text-blue-800">Traitement en cours...</span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5" />
-                Import Images
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">Uploadez les images des luminaires (JPG, PNG)</p>
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImagesUpload}
-                  disabled={isImporting}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                />
-                <Button disabled={isImporting} className="w-full">
-                  <Upload className="w-4 h-4 mr-2" />
-                  {isImporting ? "Upload en cours..." : "Sélectionner des images"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Réinitialisation */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-600">
-              <RotateCcw className="w-5 h-5" />
-              Réinitialisation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              ⚠️ Supprime TOUTES les données et images de la base de données. Cette action est irréversible !
-            </p>
-            <Button onClick={handleReset} disabled={isResetting} variant="destructive" className="w-full">
-              <RotateCcw className="w-4 h-4 mr-2" />
-              {isResetting ? "Réinitialisation en cours..." : "Réinitialiser la base de données"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Logs */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Logs d'activité</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto">
-              {logs.length === 0 ? (
-                <p className="text-gray-500 text-sm">Aucune activité pour le moment...</p>
-              ) : (
-                logs.map((log, index) => (
-                  <div key={index} className="text-sm font-mono mb-1">
-                    {log}
+          {/* Statistiques d'import */}
+          {(importStats.luminaires.total > 0 || importStats.designers.total > 0 || importStats.images.total > 0) && (
+            <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                  <div>
+                    <p className="text-sm font-medium text-green-800">Luminaires</p>
+                    <p className="text-lg font-bold text-green-900">
+                      {importStats.luminaires.success}/{importStats.luminaires.total}
+                    </p>
                   </div>
-                ))
+                </div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <Upload className="h-5 w-5 text-blue-600 mr-2" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">Images</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {importStats.images.success}/{importStats.images.total}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <Database className="h-5 w-5 text-purple-600 mr-2" />
+                  <div>
+                    <p className="text-sm font-medium text-purple-800">Designers</p>
+                    <p className="text-lg font-bold text-purple-900">
+                      {importStats.designers.success}/{importStats.designers.total}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Import CSV Luminaires */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-playfair text-dark mb-4">📥 Import CSV Luminaires</h2>
+              <UploadForm
+                accept=".csv"
+                onUpload={handleCsvUpload}
+                type="csv"
+                expectedColumns={[
+                  "Artiste / Dates",
+                  "Spécialité",
+                  "Collaboration / Œuvre",
+                  "Nom luminaire",
+                  "Année",
+                  "Signé",
+                  "Image",
+                  "Nom du fichier",
+                  "Dimensions",
+                  "Estimation",
+                  "Matériaux",
+                ]}
+              />
+              {csvData.length > 0 && (
+                <div className="mt-4 p-4 bg-cream rounded-lg">
+                  <p className="text-sm text-dark font-medium">{csvData.length} luminaires traités</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    ✅ {importStats.luminaires.success} réussis • ❌ {importStats.luminaires.errors} erreurs
+                  </p>
+                </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Import Images Luminaires */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-playfair text-dark mb-4">🖼️ Import Images Luminaires</h2>
+              <UploadForm accept="image/*" multiple onUpload={handleImagesUpload} type="images" />
+              {images.length > 0 && (
+                <div className="mt-4 p-4 bg-cream rounded-lg">
+                  <p className="text-sm text-dark font-medium">{images.length} images uploadées</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    ✅ {importStats.images.success} associées • ❌ {importStats.images.errors} non associées
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Import CSV Designers */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-playfair text-dark mb-4">🧑‍🎨 Import CSV Designers</h2>
+              <UploadForm
+                accept=".csv"
+                onUpload={handleDesignersUpload}
+                type="csv"
+                expectedColumns={["Nom", "imagedesigner"]}
+              />
+              {designers.length > 0 && (
+                <div className="mt-4 p-4 bg-cream rounded-lg">
+                  <p className="text-sm text-dark font-medium">{designers.length} designers traités</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    ✅ {importStats.designers.success} réussis • ❌ {importStats.designers.errors} erreurs
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Import Images Designers */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-playfair text-dark mb-4">👤 Import Images Designers</h2>
+              <UploadForm accept="image/*" multiple onUpload={handleDesignerImagesUpload} type="images" />
+              {designerImages.length > 0 && (
+                <div className="mt-4 p-4 bg-cream rounded-lg">
+                  <p className="text-sm text-dark font-medium">{designerImages.length} portraits uploadés</p>
+                  <p className="text-xs text-gray-600 mt-1">Images associées aux designers</p>
+                </div>
+              )}
+            </div>
+
+            {/* Import Vidéo */}
+            <div className="bg-white rounded-xl p-6 shadow-lg lg:col-span-2">
+              <h2 className="text-2xl font-playfair text-dark mb-4">🎥 Vidéo d'accueil</h2>
+              <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" />
+              {video && (
+                <div className="mt-4 p-4 bg-cream rounded-lg">
+                  <p className="text-sm text-dark font-medium">Vidéo: {video.name}</p>
+                  <p className="text-xs text-gray-600 mt-1">Vidéo sauvegardée et disponible sur la page d'accueil</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bouton de réinitialisation */}
+          <div className="mt-8 text-center">
+            <Button
+              onClick={handleResetDatabase}
+              variant="destructive"
+              className="bg-red-500 hover:bg-red-600"
+              disabled={isUploading}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Réinitialiser le Serveur (DANGER)
+            </Button>
+            <p className="text-xs text-gray-500 mt-2">⚠️ Supprime TOUTES les données MongoDB et GridFS</p>
+          </div>
+        </div>
       </div>
-    </div>
+    </RoleGuard>
   )
 }
