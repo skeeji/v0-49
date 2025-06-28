@@ -3,244 +3,130 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import { Upload, FileText, ImageIcon, Video } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface UploadFormProps {
-  accept: string
-  multiple?: boolean
-  onUpload: (data: any) => void
-  type: "csv" | "images" | "video"
-  expectedColumns?: string[]
+  onUpload: (file: File) => void
+  isUploading?: boolean
+  accept?: string
+  buttonText?: string
+  onUploadStart?: () => void
 }
 
-export function UploadForm({ accept, multiple, onUpload, type, expectedColumns }: UploadFormProps) {
-  const [isDragging, setIsDragging] = useState(false)
-  const [preview, setPreview] = useState<any[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
+export function UploadForm({
+  onUpload,
+  isUploading = false,
+  accept = "*",
+  buttonText = "Télécharger",
+  onUploadStart,
+}: UploadFormProps) {
+  const [dragActive, setDragActive] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragging(false)
-    const files = Array.from(e.dataTransfer.files)
-    handleFiles(files)
-  }
+    e.stopPropagation()
+    setDragActive(false)
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    handleFiles(files)
-  }
-
-  const parseCSV = (text: string) => {
-    // Nettoyer le texte et gérer les différents encodages
-    const cleanText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
-    const lines = cleanText.split("\n").filter((line) => line.trim())
-
-    if (lines.length === 0) return []
-
-    // Parser la première ligne pour les headers
-    const headerLine = lines[0]
-    const headers = parseCSVLine(headerLine)
-
-    console.log("Headers détectés:", headers)
-
-    const data = []
-
-    // Parser chaque ligne de données
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim()
-      if (line) {
-        const values = parseCSVLine(line)
-        const row: any = {}
-
-        // Associer chaque valeur à son header
-        headers.forEach((header, index) => {
-          row[header] = values[index] || ""
-        })
-
-        // Vérifier que la ligne n'est pas vide
-        const hasData = Object.values(row).some((value) => String(value).trim())
-        if (hasData) {
-          data.push(row)
-        }
-      }
-    }
-
-    console.log(`Parsed ${data.length} lignes de données`)
-    return data
-  }
-
-  const parseCSVLine = (line: string): string[] => {
-    const result = []
-    let current = ""
-    let inQuotes = false
-    let i = 0
-
-    while (i < line.length) {
-      const char = line[i]
-      const nextChar = line[i + 1]
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          // Double quote - ajouter une seule quote
-          current += '"'
-          i += 2
-        } else {
-          // Toggle quote state
-          inQuotes = !inQuotes
-          i++
-        }
-      } else if ((char === "," || char === ";") && !inQuotes) {
-        // Fin de champ
-        result.push(current.trim())
-        current = ""
-        i++
-      } else {
-        current += char
-        i++
-      }
-    }
-
-    // Ajouter le dernier champ
-    result.push(current.trim())
-
-    return result
-  }
-
-  const handleFiles = (files: File[]) => {
-    if (type === "csv") {
-      const file = files[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const text = e.target?.result as string
-          const data = parseCSV(text)
-          console.log("Données CSV parsées:", data.length, "lignes")
-          setPreview(data.slice(0, 5)) // Show first 5 rows
-          onUpload(data)
-        }
-        // Essayer différents encodages
-        reader.readAsText(file, "UTF-8")
-      }
-    } else if (type === "images") {
-      onUpload(files)
-    } else if (type === "video") {
-      onUpload(files[0])
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setSelectedFile(e.dataTransfer.files[0])
     }
   }
 
-  const getIcon = () => {
-    switch (type) {
-      case "csv":
-        return <FileText className="w-12 h-12 text-gray-400" />
-      case "images":
-        return <ImageIcon className="w-12 h-12 text-gray-400" />
-      case "video":
-        return <Video className="w-12 h-12 text-gray-400" />
-      default:
-        return <Upload className="w-12 h-12 text-gray-400" />
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0])
     }
   }
 
-  const getLabel = () => {
-    switch (type) {
-      case "csv":
-        return "Glissez votre fichier CSV ici"
-      case "images":
-        return "Glissez vos images ici"
-      case "video":
-        return "Glissez votre vidéo ici"
-      default:
-        return "Glissez vos fichiers ici"
+  const handleUpload = () => {
+    if (selectedFile) {
+      onUploadStart?.()
+      onUpload(selectedFile)
     }
+  }
+
+  const openFileDialog = () => {
+    inputRef.current?.click()
   }
 
   return (
-    <div className="space-y-4">
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          isDragging ? "border-orange bg-orange/10" : "border-gray-300 hover:border-orange"
+    <div className="w-full">
+      <Card
+        className={`border-2 border-dashed transition-colors ${
+          dragActive ? "border-blue-400 bg-blue-50" : "border-gray-300"
         }`}
       >
-        {getIcon()}
-        <p className="mt-4 text-lg font-medium text-gray-700">{getLabel()}</p>
-        <p className="text-sm text-gray-500 mb-4">ou cliquez pour sélectionner</p>
+        <CardContent className="p-6">
+          <div
+            className="text-center"
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <input ref={inputRef} type="file" accept={accept} onChange={handleChange} className="hidden" />
 
-        <Button onClick={() => fileInputRef.current?.click()} className="bg-orange hover:bg-orange/90">
-          <Upload className="w-4 h-4 mr-2" />
-          Sélectionner {multiple ? "des fichiers" : "un fichier"}
-        </Button>
+            <div className="mb-4">
+              <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                <path
+                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={accept}
-          multiple={multiple}
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-      </div>
+            {selectedFile ? (
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-900">Fichier sélectionné:</p>
+                <p className="text-sm text-gray-500">{selectedFile.name}</p>
+                <p className="text-xs text-gray-400">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">
+                  Glissez-déposez votre fichier ici, ou{" "}
+                  <button
+                    type="button"
+                    className="text-blue-600 hover:text-blue-500 font-medium"
+                    onClick={openFileDialog}
+                  >
+                    parcourez
+                  </button>
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Formats acceptés: {accept}</p>
+              </div>
+            )}
 
-      {/* Aperçu CSV */}
-      {type === "csv" && preview.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="font-medium mb-2">
-            Aperçu ({preview.length} premières lignes sur {preview.length} total)
-          </h4>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  {Object.keys(preview[0]).map((key) => (
-                    <th key={key} className="text-left p-2 font-medium text-xs">
-                      {key}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {preview.map((row, index) => (
-                  <tr key={index} className="border-b">
-                    {Object.values(row).map((value: any, cellIndex) => (
-                      <td key={cellIndex} className="p-2 text-xs">
-                        {String(value).substring(0, 50)}
-                        {String(value).length > 50 ? "..." : ""}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="flex gap-2 justify-center">
+              <Button type="button" variant="outline" onClick={openFileDialog} disabled={isUploading}>
+                Choisir un fichier
+              </Button>
+
+              {selectedFile && (
+                <Button type="button" onClick={handleUpload} disabled={isUploading}>
+                  {isUploading ? "Import en cours..." : buttonText}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Colonnes attendues */}
-      {expectedColumns && (
-        <div className="bg-blue-50 rounded-lg p-4">
-          <h4 className="font-medium mb-2">Colonnes attendues :</h4>
-          <div className="flex flex-wrap gap-2">
-            {expectedColumns.map((column) => (
-              <span key={column} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                {column}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

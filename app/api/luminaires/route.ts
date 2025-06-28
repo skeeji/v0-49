@@ -5,29 +5,25 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("🔍 API GET /api/luminaires appelée")
+
     const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "100")
-    const search = searchParams.get("search") || ""
     const sortField = searchParams.get("sortField") || "nom"
-    const sortDirection = searchParams.get("sortDirection") || "asc"
+    const sortDirection = searchParams.get("sortDirection") === "desc" ? -1 : 1
+    const search = searchParams.get("search") || ""
     const designer = searchParams.get("designer") || ""
-    const periode = searchParams.get("periode") || ""
-    const materiaux = searchParams.get("materiaux") || ""
-    const couleurs = searchParams.get("couleurs") || ""
+    const anneeMin = searchParams.get("anneeMin")
+    const anneeMax = searchParams.get("anneeMax")
 
-    console.log(`🔍 Chargement page ${page} avec filtres:`, {
-      sortField,
-      sortDirection,
-      page: page.toString(),
-      limit: limit.toString(),
-    })
+    console.log(`📊 Paramètres: page=${page}, limit=${limit}, sort=${sortField}:${sortDirection}, search="${search}"`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Construction du filtre de recherche
+    // Construire le filtre de recherche
     const filter: any = {}
 
     if (search) {
@@ -35,69 +31,78 @@ export async function GET(request: NextRequest) {
         { nom: { $regex: search, $options: "i" } },
         { designer: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
+        { specialite: { $regex: search, $options: "i" } },
       ]
     }
 
-    if (designer) {
+    if (designer && designer !== "all") {
       filter.designer = { $regex: designer, $options: "i" }
     }
 
-    if (periode) {
-      filter.periode = { $regex: periode, $options: "i" }
+    if (anneeMin || anneeMax) {
+      filter.annee = {}
+      if (anneeMin) filter.annee.$gte = Number.parseInt(anneeMin)
+      if (anneeMax) filter.annee.$lte = Number.parseInt(anneeMax)
     }
 
-    if (materiaux) {
-      filter.materiaux = { $in: [new RegExp(materiaux, "i")] }
-    }
+    console.log("🔍 Filtre de recherche:", JSON.stringify(filter))
 
-    if (couleurs) {
-      filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
-    }
+    // Compter le total
+    const total = await collection.countDocuments(filter)
+    console.log(`📊 Total de luminaires trouvés: ${total}`)
 
-    // Construction du tri
-    const sortOptions: any = {}
-    sortOptions[sortField] = sortDirection === "desc" ? -1 : 1
-
-    // Calcul de la pagination
+    // Récupérer les luminaires avec pagination
     const skip = (page - 1) * limit
+    const luminaires = await collection
+      .find(filter)
+      .sort({ [sortField]: sortDirection })
+      .skip(skip)
+      .limit(limit)
+      .toArray()
 
-    // Exécution des requêtes
-    const [luminaires, total] = await Promise.all([
-      collection.find(filter).sort(sortOptions).skip(skip).limit(limit).toArray(),
-      collection.countDocuments(filter),
-    ])
+    console.log(`✅ ${luminaires.length} luminaires récupérés pour la page ${page}`)
 
-    // Transformation des données pour le frontend
+    // Transformer les données pour le frontend
     const transformedLuminaires = luminaires.map((luminaire) => ({
       ...luminaire,
       _id: luminaire._id.toString(),
       images: luminaire.images || [],
       materiaux: luminaire.materiaux || [],
       couleurs: luminaire.couleurs || [],
-      // Garder "Nom du fichier" tel quel pour l'affichage des images
-      "Nom du fichier": luminaire["Nom du fichier"] || luminaire.filename || "",
+      // CORRECTION: Convertir l'objet dimensions en string pour éviter l'erreur React #31
+      dimensions:
+        typeof luminaire.dimensions === "object" && luminaire.dimensions !== null
+          ? `${luminaire.dimensions.hauteur || ""}x${luminaire.dimensions.largeur || ""}x${luminaire.dimensions.profondeur || ""}`.replace(
+              /^x+|x+$/g,
+              "",
+            ) || ""
+          : luminaire.dimensions || "",
+      // CORRECTION: Utiliser le bon champ pour l'image (filename = 8ème colonne CSV)
+      filename: luminaire.filename || "",
     }))
 
-    console.log(`📊 ${transformedLuminaires.length} luminaires chargés depuis MongoDB (page ${page})`)
-    console.log(`📊 Total dans la base: ${total}`)
-
-    return NextResponse.json({
+    const totalPages = Math.ceil(total / limit)
+    const response = {
       success: true,
       luminaires: transformedLuminaires,
       pagination: {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasMore: page * limit < total,
+        pages: totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
       },
-    })
+    }
+
+    console.log(`📤 Réponse envoyée: ${transformedLuminaires.length} luminaires, page ${page}/${totalPages}`)
+    return NextResponse.json(response)
   } catch (error: any) {
     console.error("❌ Erreur dans GET /api/luminaires:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors du chargement des luminaires",
+        error: "Erreur serveur",
         details: error.message,
       },
       { status: 500 },
@@ -107,43 +112,48 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📝 Création d'un nouveau luminaire")
+    console.log("➕ API POST /api/luminaires appelée")
 
     const body = await request.json()
     console.log("📥 Données reçues:", JSON.stringify(body, null, 2))
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
 
-    // Préparer les données du luminaire
-    const luminaireData = {
+    // Préparer les données du luminaire - CORRECTION: ne pas mettre 2025 par défaut
+    const luminaire = {
       nom: body.nom || "",
       designer: body.designer || "",
-      annee: Number.parseInt(body.annee) || new Date().getFullYear(),
+      annee: body.annee ? Number.parseInt(body.annee) : null, // CORRECTION: laisser null si pas d'année
       periode: body.periode || "",
       description: body.description || "",
       materiaux: Array.isArray(body.materiaux) ? body.materiaux : [],
       couleurs: Array.isArray(body.couleurs) ? body.couleurs : [],
       dimensions: body.dimensions || {},
       images: Array.isArray(body.images) ? body.images : [],
-      "Nom du fichier": body["Nom du fichier"] || body.filename || "",
+      filename: body.filename || "",
       specialite: body.specialite || "",
       collaboration: body.collaboration || "",
       signe: body.signe || "",
       estimation: body.estimation || "",
+      isFavorite: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
-    const result = await collection.insertOne(luminaireData)
+    console.log("💾 Luminaire à insérer:", JSON.stringify(luminaire, null, 2))
 
-    console.log(`✅ Nouveau luminaire créé avec l'ID: ${result.insertedId}`)
+    const result = await db.collection("luminaires").insertOne(luminaire)
+    console.log(`✅ Luminaire inséré avec l'ID: ${result.insertedId}`)
 
     return NextResponse.json({
       success: true,
       message: "Luminaire créé avec succès",
       id: result.insertedId.toString(),
+      luminaire: {
+        ...luminaire,
+        _id: result.insertedId.toString(),
+      },
     })
   } catch (error: any) {
     console.error("❌ Erreur dans POST /api/luminaires:", error)
