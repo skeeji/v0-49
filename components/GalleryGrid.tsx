@@ -38,22 +38,30 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
   // Fonction pour obtenir l'URL de l'image - CORRECTION MAJEURE
   const getImageUrl = (item: any) => {
+    // CORRECTION: Utiliser filename (8ème colonne CSV) pour les luminaires
+    if (item.filename) {
+      // Si c'est déjà une URL complète, l'utiliser directement
+      if (item.filename.startsWith("http")) {
+        return item.filename
+      }
+      // Si c'est un nom de fichier, construire l'URL vers l'API images
+      return `/api/images/${item.filename}`
+    }
+
+    // Fallback sur l'ancien système d'images
     if (item.image) {
-      // Si l'image commence déjà par /api/images/, l'utiliser directement
       if (item.image.startsWith("/api/images/")) {
         return item.image
       }
-      // Si c'est un ObjectId MongoDB (24 caractères hexadécimaux), construire l'URL
       if (typeof item.image === "string" && /^[0-9a-fA-F]{24}$/.test(item.image)) {
         return `/api/images/${item.image}`
       }
-      // Si c'est une URL complète, l'utiliser directement
       if (item.image.startsWith("http")) {
         return item.image
       }
-      // Sinon, essayer de construire l'URL
       return `/api/images/${item.image}`
     }
+
     return "/placeholder.svg?height=300&width=300"
   }
 

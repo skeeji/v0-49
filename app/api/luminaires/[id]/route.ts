@@ -1,4 +1,3 @@
-// Fichier : app/api/luminaires/[id]/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
@@ -27,7 +26,20 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     console.log("✅ Luminaire trouvé:", luminaire.nom)
 
-    return NextResponse.json({ success: true, data: luminaire })
+    // CORRECTION: Convertir l'objet dimensions en string pour éviter l'erreur React #31
+    const transformedLuminaire = {
+      ...luminaire,
+      _id: luminaire._id.toString(),
+      dimensions:
+        typeof luminaire.dimensions === "object" && luminaire.dimensions !== null
+          ? `${luminaire.dimensions.hauteur || ""}x${luminaire.dimensions.largeur || ""}x${luminaire.dimensions.profondeur || ""}`.replace(
+              /^x+|x+$/g,
+              "",
+            ) || ""
+          : luminaire.dimensions || "",
+    }
+
+    return NextResponse.json({ success: true, data: transformedLuminaire })
   } catch (error) {
     console.error("❌ Erreur API /api/luminaires/[id] GET:", error)
     return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })

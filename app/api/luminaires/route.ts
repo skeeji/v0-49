@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "100") // Augmenté à 100
+    const limit = Number.parseInt(searchParams.get("limit") || "100")
     const sortField = searchParams.get("sortField") || "nom"
     const sortDirection = searchParams.get("sortDirection") === "desc" ? -1 : 1
     const search = searchParams.get("search") || ""
@@ -62,14 +62,23 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ ${luminaires.length} luminaires récupérés pour la page ${page}`)
 
-    // Transformer les données pour le frontend
+    // Transformer les données pour le frontend - CORRECTION MAJEURE
     const transformedLuminaires = luminaires.map((luminaire) => ({
       ...luminaire,
       _id: luminaire._id.toString(),
       images: luminaire.images || [],
       materiaux: luminaire.materiaux || [],
       couleurs: luminaire.couleurs || [],
-      dimensions: luminaire.dimensions || {},
+      // CORRECTION: Convertir l'objet dimensions en string pour éviter l'erreur React #31
+      dimensions:
+        typeof luminaire.dimensions === "object" && luminaire.dimensions !== null
+          ? `${luminaire.dimensions.hauteur || ""}x${luminaire.dimensions.largeur || ""}x${luminaire.dimensions.profondeur || ""}`.replace(
+              /^x+|x+$/g,
+              "",
+            ) || ""
+          : luminaire.dimensions || "",
+      // CORRECTION: Utiliser le bon champ pour l'image (filename = 8ème colonne CSV)
+      filename: luminaire.filename || "",
     }))
 
     const totalPages = Math.ceil(total / limit)

@@ -43,7 +43,7 @@ export default function LuminairesPage() {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
   const searchParams = useSearchParams()
-  const itemsPerPage = 100 // Augmenté à 100
+  const itemsPerPage = 100
   const [favorites, setFavorites] = useState<string[]>([])
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const { user, userData } = useAuth()
@@ -83,7 +83,7 @@ export default function LuminairesPage() {
           console.log(`📊 Données reçues:`, data)
 
           if (data.success && data.luminaires) {
-            // Adapter les données pour l'interface existante
+            // Adapter les données pour l'interface existante - CORRECTION MAJEURE
             const adaptedLuminaires = data.luminaires.map((l: any) => ({
               id: l._id,
               name: l.nom,
@@ -92,8 +92,10 @@ export default function LuminairesPage() {
               specialty: l.specialite || "",
               collaboration: l.collaboration || "",
               signed: l.signe || "",
-              image: l.images?.[0] ? l.images[0] : null, // Garder l'ObjectId brut
+              // CORRECTION: Utiliser filename (8ème colonne CSV) pour l'image
+              image: l.filename || null,
               filename: l.filename || "",
+              // CORRECTION: dimensions déjà converti en string dans l'API
               dimensions: l.dimensions || "",
               estimation: l.estimation || "",
               materials: Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux || "",
@@ -204,7 +206,7 @@ export default function LuminairesPage() {
     setFiltersActive(isFilterActive)
   }, [searchTerm, selectedDesigner, showFavorites, yearRange, minYear, maxYear])
 
-  // Fonction de chargement de plus d'éléments (scroll infini)
+  // Fonction de chargement de plus d'éléments (scroll infini) - CORRECTION
   const loadMore = useCallback(() => {
     if (isLoading || !hasMore) return
 
@@ -212,12 +214,12 @@ export default function LuminairesPage() {
     setPage((prev) => prev + 1)
   }, [isLoading, hasMore, page])
 
-  // Charger plus quand la page change
+  // Charger plus quand la page change - CORRECTION
   useEffect(() => {
     if (page > 1) {
       loadLuminaires(false)
     }
-  }, [page])
+  }, [page, loadLuminaires])
 
   // Scroll infini - CORRECTION
   useEffect(() => {
