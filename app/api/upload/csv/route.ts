@@ -1,185 +1,173 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
+import { parse } from "csv-parse/sync"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📥 API POST /api/upload/csv appelée")
+    console.log("📥 API /api/upload/csv - Début du traitement")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
 
     if (!file) {
-      return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
+      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log("📄 Fichier reçu:", file.name, `(${file.size} bytes)`)
+    console.log(`📁 Fichier CSV reçu: ${file.name}, taille: ${file.size} bytes`)
 
-    const text = await file.text()
-    const lines = text.split("\n").filter((line) => line.trim())
+    // Lire le contenu du fichier
+    const fileContent = await file.text()
+    console.log(`📄 Contenu lu: ${fileContent.length} caractères`)
 
-    if (lines.length === 0) {
-      return NextResponse.json({ success: false, error: "Fichier CSV vide" }, { status: 400 })
-    }
+    // Parser le CSV avec différents délimiteurs
+    let records: any[] = []
 
-    // Analyser l'en-tête
-    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""))
-    console.log("📋 En-têtes détectées:", headers)
-
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
-
-    const luminaires = []
-    let processed = 0
-    let errors = 0
-
-    // Traiter chaque ligne
-    for (let i = 1; i < lines.length; i++) {
+    try {
+      // Essayer avec point-virgule d'abord
+      records = parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true,
+        delimiter: ";",
+        trim: true,
+      })
+      console.log(`✅ Parsing avec ';' réussi: ${records.length} lignes`)
+    } catch (error) {
       try {
-        const values = lines[i].split(",").map((v) => v.trim().replace(/"/g, ""))
-
-        if (values.length !== headers.length) {
-          console.warn(`⚠️ Ligne ${i + 1}: nombre de colonnes incorrect`)
-          errors++
-          continue
-        }
-
-        const luminaire: any = {}
-
-        // Mapper chaque colonne
-        headers.forEach((header, index) => {
-          const value = values[index]?.trim()
-
-          switch (header.toLowerCase()) {
-            case "nom":
-            case "name":
-              luminaire.nom = value || ""
-              break
-            case "designer":
-            case "artiste":
-            case "artist":
-              luminaire.designer = value || ""
-              break
-            case "annee":
-            case "année":
-            case "year":
-              // CORRECTION: Ne pas mettre 2025 par défaut, laisser null si vide
-              if (value && value !== "" && !isNaN(Number(value))) {
-                const year = Number(value)
-                if (year > 0 && year <= new Date().getFullYear() + 10) {
-                  luminaire.annee = year
-                } else {
-                  luminaire.annee = null
-                }
-              } else {
-                luminaire.annee = null
-              }
-              break
-            case "periode":
-            case "période":
-            case "period":
-              luminaire.periode = value || ""
-              break
-            case "description":
-              luminaire.description = value || ""
-              break
-            case "materiaux":
-            case "matériaux":
-            case "materials":
-              luminaire.materiaux = value
-                ? value
-                    .split(";")
-                    .map((m) => m.trim())
-                    .filter(Boolean)
-                : []
-              break
-            case "couleurs":
-            case "colors":
-              luminaire.couleurs = value
-                ? value
-                    .split(";")
-                    .map((c) => c.trim())
-                    .filter(Boolean)
-                : []
-              break
-            case "dimensions":
-              luminaire.dimensions = value || ""
-              break
-            case "estimation":
-            case "prix":
-            case "price":
-              luminaire.estimation = value || ""
-              break
-            case "specialite":
-            case "spécialité":
-            case "specialty":
-              luminaire.specialite = value || ""
-              break
-            case "collaboration":
-              luminaire.collaboration = value || ""
-              break
-            case "signe":
-            case "signé":
-            case "signed":
-              luminaire.signe = value || ""
-              break
-            case "nom du fichier":
-            case "filename":
-            case "image":
-              luminaire["Nom du fichier"] = value || ""
-              break
-            default:
-              // Garder les colonnes non reconnues
-              luminaire[header] = value || ""
-          }
+        // Essayer avec virgule
+        records = parse(fileContent, {
+          columns: true,
+          skip_empty_lines: true,
+          delimiter: ",",
+          trim: true,
         })
-
-        // Ajouter les métadonnées
-        luminaire.createdAt = new Date()
-        luminaire.updatedAt = new Date()
-        luminaire.images = luminaire["Nom du fichier"] ? [luminaire["Nom du fichier"]] : []
-
-        luminaires.push(luminaire)
-        processed++
-
-        if (processed % 100 === 0) {
-          console.log(`📊 Traité ${processed} luminaires...`)
-        }
-      } catch (err) {
-        console.error(`❌ Erreur ligne ${i + 1}:`, err)
-        errors++
+        console.log(`✅ Parsing avec ',' réussi: ${records.length} lignes`)
+      } catch (error2) {
+        console.error("❌ Erreur parsing CSV:", error2)
+        return NextResponse.json({ error: "Impossible de parser le fichier CSV" }, { status: 400 })
       }
     }
 
-    console.log(`📊 Traitement terminé: ${processed} luminaires, ${errors} erreurs`)
-
-    if (luminaires.length === 0) {
-      return NextResponse.json({ success: false, error: "Aucun luminaire valide trouvé" }, { status: 400 })
+    if (records.length === 0) {
+      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV" }, { status: 400 })
     }
 
-    // Insérer en base
-    const result = await collection.insertMany(luminaires)
-    console.log(`✅ ${result.insertedCount} luminaires insérés en base`)
+    console.log(`📊 ${records.length} lignes parsées du CSV`)
+    console.log("📋 Colonnes détectées:", Object.keys(records[0]))
+    console.log("📋 Premier enregistrement:", records[0])
+
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    const results = {
+      success: 0,
+      errors: [] as string[],
+      processed: 0,
+    }
+
+    // Traiter chaque ligne
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i]
+      results.processed++
+
+      try {
+        // Mapping des colonnes (flexible)
+        const nomLuminaire = record["Nom luminaire"] || record["nom"] || record["Nom"] || record["name"] || ""
+
+        const filename = record["Nom du fichier"] || record["filename"] || record["Filename"] || record["image"] || ""
+
+        const designer =
+          record["Artiste / Dates"] || record["designer"] || record["Designer"] || record["artiste"] || ""
+
+        const anneeStr = record["Année"] || record["annee"] || record["year"] || record["Year"] || ""
+
+        const specialite = record["Spécialité"] || record["specialite"] || record["specialty"] || ""
+
+        // Déterminer le nom final
+        let finalNom = nomLuminaire.trim()
+        if (!finalNom && filename) {
+          finalNom = filename.replace(/\.[^/.]+$/, "").trim()
+        }
+
+        if (!finalNom) {
+          results.errors.push(`Ligne ${i + 2}: nom manquant`)
+          continue
+        }
+
+        // Parser l'année
+        let annee = new Date().getFullYear()
+        if (anneeStr) {
+          const parsedYear = Number.parseInt(anneeStr.toString())
+          if (!isNaN(parsedYear) && parsedYear > 1000 && parsedYear <= 2025) {
+            annee = parsedYear
+          }
+        }
+
+        // Créer l'objet luminaire
+        const luminaire = {
+          nom: finalNom,
+          designer: designer.trim(),
+          annee: annee,
+          periode: specialite.trim() || "",
+          description: (record["Description"] || record["description"] || "").trim(),
+          materiaux: record["Matériaux"]
+            ? record["Matériaux"]
+                .split(",")
+                .map((m: string) => m.trim())
+                .filter(Boolean)
+            : [],
+          couleurs: [],
+          dimensions: {
+            hauteur: record["hauteur"] ? Number.parseFloat(record["hauteur"]) : undefined,
+            largeur: record["largeur"] ? Number.parseFloat(record["largeur"]) : undefined,
+            profondeur: record["profondeur"] ? Number.parseFloat(record["profondeur"]) : undefined,
+          },
+          images: [],
+          filename: filename.trim(),
+          specialite: specialite.trim(),
+          collaboration: (record["Collaboration / Œuvre"] || record["collaboration"] || "").trim(),
+          signe: (record["Signé"] || record["signe"] || "").trim(),
+          estimation: (record["Estimation"] || record["estimation"] || "").trim(),
+          isFavorite: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+
+        console.log(`💾 Insertion luminaire ${i + 1}/${records.length}: ${luminaire.nom}`)
+
+        await db.collection("luminaires").insertOne(luminaire)
+        results.success++
+
+        // Log de progression tous les 1000 éléments
+        if (results.success % 1000 === 0) {
+          console.log(`📊 Progression: ${results.success}/${records.length} luminaires insérés`)
+        }
+      } catch (error: any) {
+        results.errors.push(`Ligne ${i + 2}: ${error.message}`)
+        console.error(`❌ Erreur ligne ${i + 2}:`, error.message)
+      }
+    }
+
+    console.log(
+      `✅ Import terminé: ${results.success} succès, ${results.errors.length} erreurs sur ${results.processed} lignes`,
+    )
 
     return NextResponse.json({
       success: true,
-      message: `${result.insertedCount} luminaires importés avec succès`,
-      imported: result.insertedCount,
-      errors: errors,
-      details: {
-        processed,
-        errors,
-        headers,
-      },
+      message: `Import terminé: ${results.success} luminaires importés sur ${results.processed} lignes traitées`,
+      imported: results.success,
+      processed: results.processed,
+      errors: results.errors.slice(0, 10), // Limiter les erreurs affichées
+      totalErrors: results.errors.length,
+      results,
     })
   } catch (error: any) {
-    console.error("❌ Erreur dans POST /api/upload/csv:", error)
+    console.error("❌ Erreur critique lors de l'import CSV:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'import CSV",
+        error: "Erreur serveur lors de l'import",
         details: error.message,
       },
       { status: 500 },
