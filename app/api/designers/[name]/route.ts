@@ -7,6 +7,16 @@ const getDesignerNameOnly = (str = ""): string => {
   return str.split("(")[0].trim()
 }
 
+// Fonction pour créer un slug à partir d'un nom
+const createSlug = (name: string): string => {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+}
+
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
     console.log("🔍 API /api/designers/[name] GET - Name:", params.name)
@@ -15,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     const db = client.db()
 
     const designerSlug = decodeURIComponent(params.name)
-    console.log("🔍 Designer slug:", designerSlug)
+    console.log("🔍 Designer slug recherché:", designerSlug)
 
     // Récupérer tous les luminaires
     const luminaires = await db.collection("luminaires").find({}).toArray()
@@ -24,16 +34,21 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     // Filtrer les luminaires pour ce designer
     const designerLuminaires = luminaires.filter((luminaire) => {
       const designerName = getDesignerNameOnly(luminaire.designer)
-      const slug = designerName
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "")
-      return slug === designerSlug
+      const slug = createSlug(designerName)
+
+      console.log(`🔍 Comparaison: "${slug}" === "${designerSlug}"`)
+
+      return (
+        slug === designerSlug ||
+        designerName.toLowerCase() === designerSlug.toLowerCase() ||
+        luminaire.designer.toLowerCase() === designerSlug.toLowerCase()
+      )
     })
 
     console.log("📊 Luminaires pour ce designer:", designerLuminaires.length)
 
     if (designerLuminaires.length === 0) {
+      console.log("❌ Aucun luminaire trouvé pour:", designerSlug)
       return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
     }
 

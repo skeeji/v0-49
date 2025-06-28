@@ -1,210 +1,204 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { TimelineBlock } from "@/components/TimelineBlock"
-
-const periods = [
-  {
-    name: "Moyen-Age",
-    start: 1000,
-    end: 1499,
-    defaultDescription:
-      "Période médiévale caractérisée par l'artisanat monastique et les premières innovations en éclairage avec les chandelles et lampes à huile ornementées.",
-  },
-  {
-    name: "XVIe siècle",
-    start: 1500,
-    end: 1599,
-    defaultDescription:
-      "Renaissance européenne marquée par le raffinement des arts décoratifs et l'émergence de nouveaux styles d'éclairage palatial.",
-  },
-  {
-    name: "XVIIe siècle",
-    start: 1600,
-    end: 1699,
-    defaultDescription:
-      "Siècle du baroque et du classicisme français, avec le développement des lustres en cristal et des luminaires de cour.",
-  },
-  {
-    name: "XVIIIe siècle",
-    start: 1700,
-    end: 1799,
-    defaultDescription:
-      "Siècle des Lumières et du rococo, âge d'or de l'ébénisterie française et des luminaires précieux en bronze doré.",
-  },
-  {
-    name: "XIXe siècle",
-    start: 1800,
-    end: 1899,
-    defaultDescription:
-      "Révolution industrielle et éclectisme stylistique, avec l'avènement du gaz puis de l'électricité transformant l'art de l'éclairage.",
-  },
-  {
-    name: "Art Nouveau",
-    start: 1890,
-    end: 1910,
-    defaultDescription:
-      "Mouvement artistique privilégiant les formes organiques et la nature, avec des créateurs comme Gallé, Daum et Tiffany révolutionnant l'art verrier.",
-  },
-  {
-    name: "Art Déco",
-    start: 1920,
-    end: 1940,
-    defaultDescription:
-      "Style géométrique et luxueux des années folles, caractérisé par l'utilisation de matériaux nobles et de formes stylisées.",
-  },
-  {
-    name: "1940 - 1949",
-    start: 1940,
-    end: 1949,
-    defaultDescription:
-      "Période de guerre et de reconstruction, marquée par la sobriété et l'innovation dans l'utilisation de nouveaux matériaux.",
-  },
-  {
-    name: "1950 - 1959",
-    start: 1950,
-    end: 1959,
-    defaultDescription:
-      "Renouveau créatif d'après-guerre avec l'émergence du design moderne et l'exploration de nouvelles formes fonctionnalistes.",
-  },
-  {
-    name: "1960 - 1969",
-    start: 1960,
-    end: 1969,
-    defaultDescription:
-      "Révolution culturelle et design pop, avec l'introduction du plastique et de couleurs vives dans le mobilier d'éclairage.",
-  },
-  {
-    name: "1970 - 1979",
-    start: 1970,
-    end: 1979,
-    defaultDescription:
-      "Décennie de l'expérimentation avec de nouveaux matériaux et l'influence du design scandinave et italien.",
-  },
-  {
-    name: "1980 - 1989",
-    start: 1980,
-    end: 1989,
-    defaultDescription:
-      "Postmodernisme et retour aux références historiques, avec des créateurs comme Philippe Starck révolutionnant le design français.",
-  },
-  {
-    name: "1990 - 1999",
-    start: 1990,
-    end: 1999,
-    defaultDescription:
-      "Minimalisme et high-tech, intégration des nouvelles technologies et recherche de simplicité dans les formes.",
-  },
-  {
-    name: "Contemporain",
-    start: 2000,
-    end: 2025,
-    defaultDescription:
-      "Ère numérique et développement durable, avec l'LED révolutionnant l'éclairage et l'émergence de l'éco-design.",
-  },
-]
+import { GalleryGrid } from "@/components/GalleryGrid"
+import { SearchBar } from "@/components/SearchBar"
+import { DropdownFilter } from "@/components/DropdownFilter"
+import { RangeSlider } from "@/components/RangeSlider"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function ChronologiePage() {
-  const [timelineData, setTimelineData] = useState<any[]>([])
-  const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
+  const [luminaires, setLuminaires] = useState<any[]>([])
+  const [filteredLuminaires, setFilteredLuminaires] = useState<any[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedDesigner, setSelectedDesigner] = useState("")
+  const [selectedMaterial, setSelectedMaterial] = useState("")
+  const [yearRange, setYearRange] = useState([1800, 2024])
   const [isLoading, setIsLoading] = useState(true)
+  const { userData } = useAuth()
 
   useEffect(() => {
-    const savedDescriptions = JSON.parse(localStorage.getItem("timeline-descriptions") || "{}")
-    setDescriptions(savedDescriptions)
-
-    async function fetchAndProcessData() {
+    async function fetchLuminaires() {
       setIsLoading(true)
       try {
-        const response = await fetch("/api/luminaires")
+        const response = await fetch("/api/luminaires?limit=1000")
         const data = await response.json()
 
-        if (data.success && data.luminaires) {
-          // CORRECTION: Adapter les données et ne pas mettre 2025 par défaut
-          const adaptedLuminaires = data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            image: lum.images?.[0],
-            year: lum.annee && !isNaN(Number(lum.annee)) ? Number(lum.annee) : null, // Ne pas mettre 2025 par défaut
-            artist: lum.designer,
-          }))
-
-          const grouped = periods.map((period) => {
-            const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
-              // CORRECTION: Ignorer les luminaires sans année valide
-              if (!luminaire.year || luminaire.year === null) return false
-              return luminaire.year >= period.start && luminaire.year <= period.end
-            })
-
-            const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => (a.year || 0) - (b.year || 0))
-
-            return {
-              ...period,
-              description: savedDescriptions[period.name] || period.defaultDescription,
-              luminaires: sortedLuminaires,
-            }
+        if (data.success) {
+          // CORRECTION: Filtrer seulement les luminaires avec une année valide
+          const luminairesWithYear = data.luminaires.filter((luminaire: any) => {
+            return luminaire.annee && luminaire.annee !== null && !isNaN(luminaire.annee) && luminaire.annee > 0
           })
 
-          setTimelineData(grouped.sort((a, b) => a.start - b.start))
+          console.log(`📊 Luminaires avec année valide: ${luminairesWithYear.length}/${data.luminaires.length}`)
+
+          // Trier par année (du plus ancien au plus récent)
+          const sortedLuminaires = luminairesWithYear.sort((a: any, b: any) => {
+            return (a.annee || 0) - (b.annee || 0)
+          })
+
+          // Transformer les données pour l'affichage
+          const transformedLuminaires = sortedLuminaires.map((luminaire: any) => ({
+            ...luminaire,
+            id: luminaire._id,
+            name: luminaire.nom,
+            artist: luminaire.designer,
+            year: luminaire.annee,
+            image: luminaire["Nom du fichier"]
+              ? `/api/images/filename/${luminaire["Nom du fichier"]}`
+              : "/placeholder.svg",
+            materials: Array.isArray(luminaire.materiaux) ? luminaire.materiaux : [],
+          }))
+
+          // Calculer la plage d'années réelle
+          if (transformedLuminaires.length > 0) {
+            const years = transformedLuminaires.map((l: any) => l.year).filter(Boolean)
+            const minYear = Math.min(...years)
+            const maxYear = Math.max(...years)
+            setYearRange([minYear, maxYear])
+          }
+
+          setLuminaires(transformedLuminaires)
+          setFilteredLuminaires(transformedLuminaires)
         }
       } catch (error) {
-        console.error("Impossible de charger la chronologie", error)
+        console.error("❌ Erreur chargement luminaires:", error)
       } finally {
         setIsLoading(false)
       }
     }
-    fetchAndProcessData()
+
+    fetchLuminaires()
   }, [])
 
   useEffect(() => {
-    if (isLoading) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("revealed")
-          }
-        })
-      },
-      { threshold: 0.1 },
-    )
-    const elements = document.querySelectorAll(".scroll-reveal")
-    elements.forEach((el) => observer.observe(el))
-    return () => observer.disconnect()
-  }, [timelineData, isLoading])
+    let filtered = [...luminaires]
 
-  const updateDescription = (periodName: string, newDescription: string) => {
-    const updatedDescriptions = { ...descriptions, [periodName]: newDescription }
-    setDescriptions(updatedDescriptions)
-    localStorage.setItem("timeline-descriptions", JSON.stringify(updatedDescriptions))
-    setTimelineData((prev) =>
-      prev.map((period) => (period.name === periodName ? { ...period, description: newDescription } : period)),
-    )
-  }
+    // Filtrage par recherche
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (luminaire) =>
+          luminaire.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          luminaire.artist?.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    }
+
+    // Filtrage par designer
+    if (selectedDesigner) {
+      filtered = filtered.filter((luminaire) => luminaire.artist === selectedDesigner)
+    }
+
+    // Filtrage par matériau
+    if (selectedMaterial) {
+      filtered = filtered.filter((luminaire) =>
+        luminaire.materials?.some((material: string) =>
+          material.toLowerCase().includes(selectedMaterial.toLowerCase()),
+        ),
+      )
+    }
+
+    // Filtrage par plage d'années
+    filtered = filtered.filter((luminaire) => luminaire.year >= yearRange[0] && luminaire.year <= yearRange[1])
+
+    // Pour les utilisateurs "free", limiter à 10%
+    if (userData?.role === "free") {
+      filtered = filtered.slice(0, Math.max(Math.floor(filtered.length * 0.1), 10))
+    }
+
+    setFilteredLuminaires(filtered)
+  }, [luminaires, searchTerm, selectedDesigner, selectedMaterial, yearRange, userData])
+
+  // Extraire les options uniques pour les filtres
+  const designers = [...new Set(luminaires.map((l) => l.artist).filter(Boolean))].sort()
+  const materials = [
+    ...new Set(
+      luminaires
+        .flatMap((l) => l.materials || [])
+        .filter(Boolean)
+        .map((m) => m.trim()),
+    ),
+  ].sort()
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <p>Chargement...</p>
-      </div>
-    )
+    return <div className="text-center py-8">Chargement de la chronologie...</div>
   }
 
   return (
     <div className="container-responsive py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-playfair text-dark mb-12 text-center">Chronologie des Périodes Artistiques</h1>
-        <div className="space-y-16">
-          {timelineData.map((period, index) => (
-            <TimelineBlock
-              key={period.name}
-              period={period}
-              isLeft={index % 2 === 0}
-              className="scroll-reveal"
-              onDescriptionUpdate={updateDescription}
+        <h1 className="text-4xl font-playfair text-dark mb-8">Chronologie ({filteredLuminaires.length} luminaires)</h1>
+
+        {/* Message pour les utilisateurs "free" */}
+        {userData?.role === "free" && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
+            <p className="flex items-center">
+              <span className="mr-2">ℹ️</span>
+              <span>Vous utilisez un compte gratuit. Seuls 10% des luminaires sont affichés.</span>
+            </p>
+          </div>
+        )}
+
+        {/* Filtres */}
+        <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher..." />
+
+            <DropdownFilter
+              label="Designer"
+              value={selectedDesigner}
+              onChange={setSelectedDesigner}
+              options={designers}
+              placeholder="Tous les designers"
             />
-          ))}
+
+            <DropdownFilter
+              label="Matériau"
+              value={selectedMaterial}
+              onChange={setSelectedMaterial}
+              options={materials}
+              placeholder="Tous les matériaux"
+            />
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  setSearchTerm("")
+                  setSelectedDesigner("")
+                  setSelectedMaterial("")
+                  if (luminaires.length > 0) {
+                    const years = luminaires.map((l) => l.year).filter(Boolean)
+                    setYearRange([Math.min(...years), Math.max(...years)])
+                  }
+                }}
+                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Réinitialiser
+              </button>
+            </div>
+          </div>
+
+          {/* Slider pour les années */}
+          <div className="mt-4">
+            <RangeSlider
+              label="Période"
+              min={Math.min(...luminaires.map((l) => l.year).filter(Boolean)) || 1800}
+              max={Math.max(...luminaires.map((l) => l.year).filter(Boolean)) || 2024}
+              value={yearRange}
+              onChange={setYearRange}
+              formatValue={(value) => value.toString()}
+            />
+          </div>
         </div>
+
+        {/* Grille des luminaires */}
+        {filteredLuminaires.length > 0 ? (
+          <GalleryGrid items={filteredLuminaires} viewMode="grid" onItemUpdate={() => {}} columns={4} />
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">Aucun luminaire trouvé pour cette période</p>
+            <p className="text-gray-400 text-sm mt-2">Ajustez les filtres ou importez plus de données</p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -7,6 +7,22 @@ import { SearchBar } from "@/components/SearchBar"
 import { SortSelector } from "@/components/SortSelector"
 import { useAuth } from "@/contexts/AuthContext"
 
+// Fonction pour extraire le nom du designer
+const getDesignerNameOnly = (str = ""): string => {
+  if (!str) return ""
+  return str.split("(")[0].trim()
+}
+
+// Fonction pour créer un slug à partir d'un nom
+const createSlug = (name: string): string => {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+}
+
 export default function DesignersPage() {
   const [designers, setDesigners] = useState([])
   const [filteredDesigners, setFilteredDesigners] = useState([])
@@ -19,33 +35,47 @@ export default function DesignersPage() {
     async function fetchData() {
       setIsLoading(true)
       try {
+        console.log("🔄 Chargement des données designers...")
+
         // Charger tous les luminaires depuis l'API MongoDB
-        const luminairesResponse = await fetch("/api/luminaires")
+        const luminairesResponse = await fetch("/api/luminaires?limit=1000")
         const luminairesData = await luminairesResponse.json()
 
         if (luminairesData.success) {
+          console.log("📊 Luminaires chargés:", luminairesData.luminaires.length)
+
           // Grouper les luminaires par designer
           const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
-            const designerName = luminaire.designer
+            const fullDesignerName = luminaire.designer || "Designer inconnu"
+            const designerName = getDesignerNameOnly(fullDesignerName)
+
+            if (!designerName || designerName === "Designer inconnu") return acc
+
             if (!acc[designerName]) {
               acc[designerName] = {
                 name: designerName,
+                fullName: fullDesignerName,
                 count: 0,
                 luminaires: [],
                 image: "",
-                slug: encodeURIComponent(designerName),
+                slug: createSlug(designerName),
               }
             }
+
             acc[designerName].count++
             acc[designerName].luminaires.push({
               ...luminaire,
+              id: luminaire._id,
               image: luminaire["Nom du fichier"]
                 ? `/api/images/filename/${luminaire["Nom du fichier"]}`
                 : "/placeholder.svg",
               name: luminaire.nom,
+              year: luminaire.annee,
             })
             return acc
           }, {})
+
+          console.log("👥 Designers groupés:", Object.keys(designerGroups).length)
 
           // Charger les données des designers (images) depuis l'API
           try {
@@ -53,14 +83,19 @@ export default function DesignersPage() {
             const designersResult = await designersResponse.json()
 
             if (designersResult.success && designersResult.designers) {
+              console.log("🖼️ Images designers chargées:", designersResult.designers.length)
+
               // Associer les images aux designers
               Object.keys(designerGroups).forEach((designerName) => {
-                const designerInfo = designersResult.designers.find(
-                  (d: any) => d.Nom && d.Nom.toLowerCase().trim() === designerName.toLowerCase().trim(),
-                )
+                const designerInfo = designersResult.designers.find((d: any) => {
+                  if (!d.Nom) return false
+                  const cleanDesignerName = getDesignerNameOnly(d.Nom)
+                  return cleanDesignerName.toLowerCase().trim() === designerName.toLowerCase().trim()
+                })
 
                 if (designerInfo && designerInfo.imagedesigner) {
                   designerGroups[designerName].image = `/api/images/filename/${designerInfo.imagedesigner}`
+                  console.log("🖼️ Image associée pour:", designerName, "->", designerInfo.imagedesigner)
                 }
               })
             }
@@ -69,6 +104,7 @@ export default function DesignersPage() {
           }
 
           const designersArray = Object.values(designerGroups).sort((a: any, b: any) => a.name.localeCompare(b.name))
+          console.log("✅ Designers finaux:", designersArray.length)
 
           // Pour les utilisateurs "free", limiter à 10% des designers
           if (userData?.role === "free") {
@@ -169,15 +205,24 @@ export default function DesignersPage() {
                         alt={designer.name}
                         fill
                         className="object-cover rounded-full"
+                        onError={(e) => {
+                          console.log("❌ Erreur chargement image designer:", designer.image)
+                          e.currentTarget.style.display = "none"
+                          const fallback = e.currentTarget.parentElement?.querySelector(".fallback-icon")
+                          if (fallback) {
+                            ;(fallback as HTMLElement).style.display = "block"
+                          }
+                        }}
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
-                        <div className="text-center">
-                          <div className="text-2xl text-gray-400 mb-1">👤</div>
-                          <span className="text-xs text-gray-500">Image manquante</span>
-                        </div>
+                    ) : null}
+                    <div
+                      className={`w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 fallback-icon ${designer.image ? "hidden" : ""}`}
+                    >
+                      <div className="text-center">
+                        <div className="text-2xl text-gray-400 mb-1">👤</div>
+                        <span className="text-xs text-gray-500">Image manquante</span>
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <h3 className="text-xl font-playfair text-dark mb-2">{designer.name}</h3>
@@ -195,6 +240,10 @@ export default function DesignersPage() {
                           alt={luminaire.name}
                           fill
                           className="object-cover"
+                          onError={(e) => {
+                            console.log("❌ Erreur chargement image luminaire:", luminaire.image)
+                            e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                          }}
                         />
                       </div>
                     ))}
