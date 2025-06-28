@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     const luminaireData = {
       nom: body.nom || "",
       designer: body.designer || "",
-      annee: Number.parseInt(body.annee) || new Date().getFullYear(),
+      annee: body.annee && !isNaN(Number(body.annee)) ? Number(body.annee) : null, // CORRECTION: null si pas d'année
       periode: body.periode || "",
       description: body.description || "",
       materiaux: Array.isArray(body.materiaux) ? body.materiaux : [],

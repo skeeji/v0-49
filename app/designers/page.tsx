@@ -37,8 +37,8 @@ export default function DesignersPage() {
       try {
         console.log("🔄 Chargement des données designers...")
 
-        // Charger tous les luminaires depuis l'API MongoDB
-        const luminairesResponse = await fetch("/api/luminaires?limit=1000")
+        // Charger TOUS les luminaires depuis l'API MongoDB (sans limite)
+        const luminairesResponse = await fetch("/api/luminaires?limit=10000")
         const luminairesData = await luminairesResponse.json()
 
         if (luminairesData.success) {
@@ -106,15 +106,9 @@ export default function DesignersPage() {
           const designersArray = Object.values(designerGroups).sort((a: any, b: any) => a.name.localeCompare(b.name))
           console.log("✅ Designers finaux:", designersArray.length)
 
-          // Pour les utilisateurs "free", limiter à 10% des designers
-          if (userData?.role === "free") {
-            const limitedDesigners = designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
-            setDesigners(limitedDesigners)
-            setFilteredDesigners(limitedDesigners)
-          } else {
-            setDesigners(designersArray)
-            setFilteredDesigners(designersArray)
-          }
+          // CORRECTION: Afficher TOUS les designers, pas de limitation
+          setDesigners(designersArray)
+          setFilteredDesigners(designersArray)
         }
       } catch (error) {
         console.error("❌ Erreur chargement données:", error)
@@ -157,22 +151,6 @@ export default function DesignersPage() {
     <div className="container-responsive py-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-playfair text-dark mb-8">Designers ({filteredDesigners.length})</h1>
-
-        {/* Message pour les utilisateurs "free" */}
-        {userData?.role === "free" && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-            <p className="flex items-center">
-              <span className="mr-2">ℹ️</span>
-              <span>
-                Vous utilisez un compte gratuit. Seuls 10% des designers sont affichés.
-                <Link href="#" className="ml-1 underline font-medium">
-                  Passez à Premium
-                </Link>{" "}
-                pour voir tous les designers.
-              </span>
-            </p>
-          </div>
-        )}
 
         {/* Filtres */}
         <div className="bg-white rounded-xl p-6 shadow-lg mb-8">

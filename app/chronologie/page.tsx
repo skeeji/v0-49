@@ -21,13 +21,20 @@ export default function ChronologiePage() {
     async function fetchLuminaires() {
       setIsLoading(true)
       try {
-        const response = await fetch("/api/luminaires?limit=1000")
+        // CORRECTION: Charger TOUS les luminaires
+        const response = await fetch("/api/luminaires?limit=10000")
         const data = await response.json()
 
         if (data.success) {
-          // CORRECTION: Filtrer seulement les luminaires avec une année valide
+          // CORRECTION: Filtrer seulement les luminaires avec une année valide (pas null, pas 2025 automatique)
           const luminairesWithYear = data.luminaires.filter((luminaire: any) => {
-            return luminaire.annee && luminaire.annee !== null && !isNaN(luminaire.annee) && luminaire.annee > 0
+            return (
+              luminaire.annee &&
+              luminaire.annee !== null &&
+              !isNaN(luminaire.annee) &&
+              luminaire.annee > 0 &&
+              luminaire.annee <= new Date().getFullYear()
+            )
           })
 
           console.log(`📊 Luminaires avec année valide: ${luminairesWithYear.length}/${data.luminaires.length}`)
@@ -100,11 +107,6 @@ export default function ChronologiePage() {
     // Filtrage par plage d'années
     filtered = filtered.filter((luminaire) => luminaire.year >= yearRange[0] && luminaire.year <= yearRange[1])
 
-    // Pour les utilisateurs "free", limiter à 10%
-    if (userData?.role === "free") {
-      filtered = filtered.slice(0, Math.max(Math.floor(filtered.length * 0.1), 10))
-    }
-
     setFilteredLuminaires(filtered)
   }, [luminaires, searchTerm, selectedDesigner, selectedMaterial, yearRange, userData])
 
@@ -127,16 +129,6 @@ export default function ChronologiePage() {
     <div className="container-responsive py-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-playfair text-dark mb-8">Chronologie ({filteredLuminaires.length} luminaires)</h1>
-
-        {/* Message pour les utilisateurs "free" */}
-        {userData?.role === "free" && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-            <p className="flex items-center">
-              <span className="mr-2">ℹ️</span>
-              <span>Vous utilisez un compte gratuit. Seuls 10% des luminaires sont affichés.</span>
-            </p>
-          </div>
-        )}
 
         {/* Filtres */}
         <div className="bg-white rounded-xl p-6 shadow-lg mb-8">

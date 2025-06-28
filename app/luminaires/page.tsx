@@ -34,7 +34,7 @@ export default function LuminairesPage() {
 
   const { showToast } = useToast()
 
-  // CORRECTION: Fonction pour charger les luminaires avec scroll infini
+  // CORRECTION: Fonction pour charger TOUS les luminaires
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -47,7 +47,7 @@ export default function LuminairesPage() {
 
         const params = new URLSearchParams({
           page: page.toString(),
-          limit: "50", // Réduire pour de meilleures performances
+          limit: "10000", // CORRECTION: Charger tous les luminaires
           search: searchTerm,
           designer: selectedDesigner,
           periode: selectedPeriode,
@@ -65,19 +65,30 @@ export default function LuminairesPage() {
         console.log("📊 Données reçues:", data)
 
         if (data.success) {
+          // Transformer les données pour l'affichage
+          const transformedLuminaires = data.luminaires.map((luminaire: any) => ({
+            ...luminaire,
+            id: luminaire._id,
+            name: luminaire.nom,
+            artist: luminaire.designer,
+            year: luminaire.annee,
+            image: luminaire["Nom du fichier"]
+              ? `/api/images/filename/${luminaire["Nom du fichier"]}`
+              : "/placeholder.svg",
+            filename: luminaire["Nom du fichier"] || "",
+          }))
+
           if (append && page > 1) {
-            // CORRECTION: Ajouter les nouveaux luminaires à la liste existante
-            setLuminaires((prev) => [...prev, ...data.luminaires])
+            setLuminaires((prev) => [...prev, ...transformedLuminaires])
           } else {
-            // Première page ou reset
-            setLuminaires(data.luminaires)
+            setLuminaires(transformedLuminaires)
             setCurrentPage(1)
           }
 
           setTotalItems(data.pagination.total)
           setHasMore(data.pagination.hasMore)
 
-          console.log(`📊 ${data.luminaires.length} luminaires chargés depuis MongoDB (page ${page})`)
+          console.log(`📊 ${transformedLuminaires.length} luminaires chargés depuis MongoDB (page ${page})`)
           console.log(`📊 Total dans la base: ${data.pagination.total}`)
         } else {
           throw new Error(data.error || "Erreur lors du chargement")
@@ -103,48 +114,11 @@ export default function LuminairesPage() {
     ],
   )
 
-  // CORRECTION: Charger les luminaires au montage et lors des changements de filtres
+  // Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
   }, [searchTerm, selectedDesigner, selectedPeriode, selectedMateriaux, selectedCouleurs, sortField, sortDirection])
-
-  // CORRECTION: Fonction pour charger plus de luminaires (scroll infini)
-  const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading) {
-      const nextPage = currentPage + 1
-      console.log(`📄 Chargement page suivante: ${nextPage}`)
-      setCurrentPage(nextPage)
-      loadLuminaires(nextPage, true)
-    }
-  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
-
-  // CORRECTION: Scroll infini optimisé
-  useEffect(() => {
-    const handleScroll = () => {
-      // Vérifier si on est proche du bas de la page
-      const scrollTop = document.documentElement.scrollTop
-      const scrollHeight = document.documentElement.scrollHeight
-      const clientHeight = document.documentElement.clientHeight
-
-      if (scrollTop + clientHeight >= scrollHeight - 1000) {
-        loadMore()
-      }
-    }
-
-    // Throttle pour éviter trop d'appels
-    let timeoutId: NodeJS.Timeout
-    const throttledHandleScroll = () => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(handleScroll, 200)
-    }
-
-    window.addEventListener("scroll", throttledHandleScroll, { passive: true })
-    return () => {
-      window.removeEventListener("scroll", throttledHandleScroll)
-      clearTimeout(timeoutId)
-    }
-  }, [loadMore])
 
   // Fonction pour mettre à jour un luminaire
   const handleItemUpdate = useCallback(
@@ -241,8 +215,7 @@ export default function LuminairesPage() {
         <div>
           <h1 className="text-3xl font-playfair text-dark mb-2">Luminaires</h1>
           <p className="text-gray-600">
-            {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
-            {hasMore && ` (scroll pour charger plus)`}
+            {totalItems > 0 ? `${luminaires.length} luminaires` : "Aucun luminaire trouvé"}
           </p>
         </div>
 
@@ -324,25 +297,6 @@ export default function LuminairesPage() {
 
       {/* Grille des luminaires */}
       <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
-
-      {/* Indicateur de chargement pour le scroll infini */}
-      {loadingMore && (
-        <div className="text-center mt-8">
-          <div className="inline-flex items-center px-4 py-2 bg-orange/10 rounded-lg">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange mr-2"></div>
-            <span className="text-orange">Chargement de plus de luminaires...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Message fin de liste */}
-      {!hasMore && luminaires.length > 0 && (
-        <div className="text-center mt-8 py-4">
-          <p className="text-gray-500">
-            ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
-          </p>
-        </div>
-      )}
 
       {/* Message aucun résultat */}
       {luminaires.length === 0 && !loading && (
