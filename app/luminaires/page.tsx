@@ -41,8 +41,9 @@ export default function LuminairesPage() {
   const [hasMore, setHasMore] = useState(true)
   const [filtersActive, setFiltersActive] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [totalCount, setTotalCount] = useState(0)
   const searchParams = useSearchParams()
-  const itemsPerPage = 50
+  const itemsPerPage = 100 // Augmenté à 100
   const [favorites, setFavorites] = useState<string[]>([])
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const { user, userData } = useAuth()
@@ -91,13 +92,16 @@ export default function LuminairesPage() {
               specialty: l.specialite || "",
               collaboration: l.collaboration || "",
               signed: l.signe || "",
-              image: l.images?.[0] ? `/api/images/${l.images[0]}` : null,
+              image: l.images?.[0] ? l.images[0] : null, // Garder l'ObjectId brut
               filename: l.filename || "",
               dimensions: l.dimensions || "",
               estimation: l.estimation || "",
               materials: Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux || "",
               description: l.description || "",
             }))
+
+            // Mettre à jour le total
+            setTotalCount(data.pagination.total)
 
             if (resetPage || currentPage === 1) {
               setAllLuminaires(adaptedLuminaires)
@@ -107,6 +111,8 @@ export default function LuminairesPage() {
             } else {
               // Ajouter les nouveaux luminaires à la liste existante
               setDisplayedLuminaires((prev) => [...prev, ...adaptedLuminaires])
+              setAllLuminaires((prev) => [...prev, ...adaptedLuminaires])
+              setFilteredLuminaires((prev) => [...prev, ...adaptedLuminaires])
             }
 
             // Mettre à jour la pagination
@@ -114,7 +120,7 @@ export default function LuminairesPage() {
 
             // Extraire les designers uniques
             const uniqueDesigners = [...new Set(adaptedLuminaires.map((item: any) => item.artist))].filter(Boolean)
-            setDesigners(uniqueDesigners)
+            setDesigners((prev) => [...new Set([...prev, ...uniqueDesigners])])
 
             // Déterminer la plage d'années
             const years = adaptedLuminaires
@@ -131,6 +137,7 @@ export default function LuminairesPage() {
             }
 
             console.log(`📊 ${adaptedLuminaires.length} luminaires chargés depuis MongoDB (page ${currentPage})`)
+            console.log(`📊 Total dans la base: ${data.pagination.total}`)
           }
         } else {
           console.error("Erreur lors du chargement des luminaires:", await response.text())
@@ -324,7 +331,7 @@ export default function LuminairesPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
           <h1 className="text-4xl font-playfair text-dark mb-4 lg:mb-0">
             Luminaires ({displayedLuminaires.length}
-            {hasMore && displayedLuminaires.length > 0 ? "+" : ""})
+            {hasMore && displayedLuminaires.length > 0 ? `/${totalCount}` : ` sur ${totalCount}`})
           </h1>
 
           <div className="flex items-center gap-4">
@@ -411,7 +418,7 @@ export default function LuminairesPage() {
 
           {filtersActive && (
             <div className="mt-4 p-2 bg-orange/10 rounded-lg text-sm text-orange">
-              ⚠️ Filtres actifs - {displayedLuminaires.length} luminaires affichés
+              ⚠️ Filtres actifs - {displayedLuminaires.length} luminaires affichés sur {totalCount} total
               {userData?.role === "free" && <span className="ml-2">(limité à 10% des résultats)</span>}
             </div>
           )}
@@ -430,7 +437,7 @@ export default function LuminairesPage() {
                     className="w-16 h-16 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
                   >
                     <Image
-                      src={item.image || "/placeholder.svg?height=100&width=100"}
+                      src={item.image ? `/api/images/${item.image}` : "/placeholder.svg?height=100&width=100"}
                       alt={item.name || "Luminaire"}
                       fill
                       className="object-cover"
@@ -453,7 +460,7 @@ export default function LuminairesPage() {
                       onClick={() => toggleFavorite(item.id)}
                     />
                     <Button
-                      onClick={() => setLightboxImage(item.image)}
+                      onClick={() => setLightboxImage(item.image ? `/api/images/${item.image}` : null)}
                       variant="ghost"
                       size="sm"
                       className="p-1 h-auto"
@@ -494,14 +501,16 @@ export default function LuminairesPage() {
             <p className="text-gray-500">
               {userData?.role === "free" ? (
                 <>
-                  ⚠️ Affichage limité à {displayedLuminaires.length} luminaires
+                  ⚠️ Affichage limité à {displayedLuminaires.length} luminaires sur {totalCount} total
                   <Link href="#" className="ml-1 text-orange hover:underline">
                     Passez à Premium
                   </Link>{" "}
                   pour voir tous les luminaires.
                 </>
               ) : (
-                <>✅ Tous les luminaires ont été chargés ({displayedLuminaires.length} au total)</>
+                <>
+                  ✅ Tous les luminaires ont été chargés ({displayedLuminaires.length} sur {totalCount} total)
+                </>
               )}
             </p>
           </div>

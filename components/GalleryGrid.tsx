@@ -36,19 +36,23 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
     localStorage.setItem("favorites", JSON.stringify(newFavorites))
   }
 
-  // Fonction pour obtenir l'URL de l'image - CORRECTION
+  // Fonction pour obtenir l'URL de l'image - CORRECTION MAJEURE
   const getImageUrl = (item: any) => {
     if (item.image) {
       // Si l'image commence déjà par /api/images/, l'utiliser directement
       if (item.image.startsWith("/api/images/")) {
         return item.image
       }
-      // Si c'est un ObjectId MongoDB, construire l'URL
-      if (typeof item.image === "string" && item.image.length === 24) {
+      // Si c'est un ObjectId MongoDB (24 caractères hexadécimaux), construire l'URL
+      if (typeof item.image === "string" && /^[0-9a-fA-F]{24}$/.test(item.image)) {
         return `/api/images/${item.image}`
       }
-      // Sinon, utiliser l'image telle quelle
-      return item.image
+      // Si c'est une URL complète, l'utiliser directement
+      if (item.image.startsWith("http")) {
+        return item.image
+      }
+      // Sinon, essayer de construire l'URL
+      return `/api/images/${item.image}`
     }
     return "/placeholder.svg?height=300&width=300"
   }
