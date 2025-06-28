@@ -36,15 +36,19 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
     localStorage.setItem("favorites", JSON.stringify(newFavorites))
   }
 
-  // Fonction pour obtenir l'URL de l'image
+  // Fonction pour obtenir l'URL de l'image - CORRECTION
   const getImageUrl = (item: any) => {
     if (item.image) {
       // Si l'image commence déjà par /api/images/, l'utiliser directement
       if (item.image.startsWith("/api/images/")) {
         return item.image
       }
-      // Sinon, construire l'URL
-      return `/api/images/${item.image}`
+      // Si c'est un ObjectId MongoDB, construire l'URL
+      if (typeof item.image === "string" && item.image.length === 24) {
+        return `/api/images/${item.image}`
+      }
+      // Sinon, utiliser l'image telle quelle
+      return item.image
     }
     return "/placeholder.svg?height=300&width=300"
   }
@@ -68,6 +72,10 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                   alt={item.name || item.nom || "Luminaire"}
                   fill
                   className="object-cover"
+                  onError={(e) => {
+                    console.log("❌ Erreur chargement image:", getImageUrl(item))
+                    e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+                  }}
                 />
               </Link>
 
@@ -159,6 +167,7 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
       4: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5",
       5: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6",
       6: "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8",
+      8: "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10",
     }[columns] || "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
 
   return (
@@ -176,6 +185,10 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                 alt={item.name || item.nom || "Luminaire"}
                 fill
                 className="object-cover"
+                onError={(e) => {
+                  console.log("❌ Erreur chargement image:", getImageUrl(item))
+                  e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+                }}
               />
 
               <div className="absolute top-2 right-2">

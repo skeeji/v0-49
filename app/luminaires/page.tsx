@@ -105,6 +105,7 @@ export default function LuminairesPage() {
               setDisplayedLuminaires(adaptedLuminaires)
               setPage(1)
             } else {
+              // Ajouter les nouveaux luminaires à la liste existante
               setDisplayedLuminaires((prev) => [...prev, ...adaptedLuminaires])
             }
 
@@ -198,12 +199,11 @@ export default function LuminairesPage() {
 
   // Fonction de chargement de plus d'éléments (scroll infini)
   const loadMore = useCallback(() => {
-    if (userData?.role === "free") return
     if (isLoading || !hasMore) return
 
     console.log(`📄 Chargement de la page suivante: ${page + 1}`)
     setPage((prev) => prev + 1)
-  }, [isLoading, hasMore, userData, page])
+  }, [isLoading, hasMore, page])
 
   // Charger plus quand la page change
   useEffect(() => {
@@ -212,10 +212,8 @@ export default function LuminairesPage() {
     }
   }, [page])
 
-  // Scroll infini
+  // Scroll infini - CORRECTION
   useEffect(() => {
-    if (userData?.role === "free") return
-
     const handleScroll = () => {
       if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 1000) {
         loadMore()
@@ -224,7 +222,7 @@ export default function LuminairesPage() {
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [loadMore, userData])
+  }, [loadMore])
 
   const addLuminaire = async (newLuminaire: any) => {
     if (userData?.role !== "admin") {
@@ -324,7 +322,10 @@ export default function LuminairesPage() {
     <div className="container-responsive py-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
-          <h1 className="text-4xl font-playfair text-dark mb-4 lg:mb-0">Luminaires ({filteredLuminaires.length})</h1>
+          <h1 className="text-4xl font-playfair text-dark mb-4 lg:mb-0">
+            Luminaires ({displayedLuminaires.length}
+            {hasMore && displayedLuminaires.length > 0 ? "+" : ""})
+          </h1>
 
           <div className="flex items-center gap-4">
             {userData?.role === "admin" && (
@@ -410,7 +411,7 @@ export default function LuminairesPage() {
 
           {filtersActive && (
             <div className="mt-4 p-2 bg-orange/10 rounded-lg text-sm text-orange">
-              ⚠️ Filtres actifs - {filteredLuminaires.length} luminaires affichés
+              ⚠️ Filtres actifs - {displayedLuminaires.length} luminaires affichés
               {userData?.role === "free" && <span className="ml-2">(limité à 10% des résultats)</span>}
             </div>
           )}
@@ -478,6 +479,15 @@ export default function LuminairesPage() {
           </div>
         )}
 
+        {/* Bouton "Charger plus" pour les utilisateurs free */}
+        {userData?.role === "free" && hasMore && !isLoading && (
+          <div className="text-center mt-8">
+            <Button onClick={loadMore} className="bg-orange hover:bg-orange/90">
+              Charger plus de luminaires
+            </Button>
+          </div>
+        )}
+
         {/* Message fin de liste */}
         {!hasMore && displayedLuminaires.length > 0 && (
           <div className="text-center mt-8 py-4">
@@ -498,7 +508,7 @@ export default function LuminairesPage() {
         )}
 
         {/* Message aucun résultat */}
-        {filteredLuminaires.length === 0 && !isLoading && (
+        {displayedLuminaires.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">Aucun luminaire trouvé</p>
             <p className="text-gray-400 text-sm mt-2">Essayez de modifier vos critères de recherche</p>

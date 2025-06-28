@@ -74,3 +74,54 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log("➕ API POST /api/designers appelée")
+
+    const body = await request.json()
+    console.log("📥 Données reçues:", JSON.stringify(body, null, 2))
+
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    // Préparer les données du designer
+    const designer = {
+      nom: body.nom || "",
+      slug: body.slug || createSlug(body.nom || ""),
+      biographie: body.biographie || "",
+      dateNaissance: body.dateNaissance || "",
+      dateDeces: body.dateDeces || "",
+      nationalite: body.nationalite || "",
+      image: body.image || "",
+      luminairesCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    console.log("💾 Designer à insérer:", JSON.stringify(designer, null, 2))
+
+    const result = await db.collection("designers").insertOne(designer)
+    console.log(`✅ Designer inséré avec l'ID: ${result.insertedId}`)
+
+    return NextResponse.json({
+      success: true,
+      message: "Designer créé avec succès",
+      id: result.insertedId.toString(),
+      designer: {
+        ...designer,
+        _id: result.insertedId.toString(),
+      },
+    })
+  } catch (error: any) {
+    console.error("❌ Erreur dans POST /api/designers:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la création du designer",
+        details: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}
