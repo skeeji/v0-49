@@ -17,7 +17,7 @@ interface Designer {
 }
 
 export default function DesignersPage() {
-  const [designers, setDesigners] = useState<Designer[]>([])
+  const [allDesigners, setAllDesigners] = useState<Designer[]>([])
   const [filteredDesigners, setFilteredDesigners] = useState<Designer[]>([])
   const [displayedDesigners, setDisplayedDesigners] = useState<Designer[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -33,21 +33,24 @@ export default function DesignersPage() {
     rootMargin: "100px",
   })
 
-  // Charger les designers
+  // Charger tous les designers
   useEffect(() => {
     async function fetchDesigners() {
       setIsLoading(true)
       try {
+        console.log("👨‍🎨 Chargement des designers...")
         const response = await fetch("/api/designers-data")
         const data = await response.json()
 
         if (data.success && data.designers) {
-          console.log(`👨‍🎨 ${data.designers.length} designers chargés`)
-          setDesigners(data.designers)
+          console.log(`✅ ${data.designers.length} designers chargés`)
+          setAllDesigners(data.designers)
           setFilteredDesigners(data.designers)
+        } else {
+          console.error("❌ Erreur chargement designers:", data.error)
         }
       } catch (error) {
-        console.error("❌ Erreur chargement designers:", error)
+        console.error("❌ Erreur critique chargement designers:", error)
       } finally {
         setIsLoading(false)
       }
@@ -58,15 +61,17 @@ export default function DesignersPage() {
 
   // Filtrer par recherche
   useEffect(() => {
-    if (!searchTerm) {
-      setFilteredDesigners(designers)
+    if (!searchTerm.trim()) {
+      setFilteredDesigners(allDesigners)
     } else {
-      const filtered = designers.filter((designer) => designer.nom.toLowerCase().includes(searchTerm.toLowerCase()))
+      const filtered = allDesigners.filter((designer) => designer.nom.toLowerCase().includes(searchTerm.toLowerCase()))
       setFilteredDesigners(filtered)
     }
+    // Reset pagination
     setPage(0)
+    setDisplayedDesigners([])
     setHasMore(true)
-  }, [searchTerm, designers])
+  }, [searchTerm, allDesigners])
 
   // Charger plus d'éléments
   const loadMore = useCallback(() => {
@@ -74,6 +79,7 @@ export default function DesignersPage() {
 
     setIsLoadingMore(true)
 
+    // Simuler un délai pour l'UX
     setTimeout(() => {
       const startIndex = page * ITEMS_PER_PAGE
       const endIndex = startIndex + ITEMS_PER_PAGE
@@ -88,28 +94,30 @@ export default function DesignersPage() {
       setPage((prev) => prev + 1)
       setHasMore(endIndex < filteredDesigners.length)
       setIsLoadingMore(false)
+
+      console.log(`📄 Page ${page + 1} chargée: ${newItems.length} designers`)
     }, 300)
   }, [page, filteredDesigners, isLoadingMore, hasMore])
 
   // Charger plus quand on arrive en bas
   useEffect(() => {
-    if (inView && !isLoadingMore && hasMore) {
+    if (inView && !isLoadingMore && hasMore && filteredDesigners.length > 0) {
       loadMore()
     }
-  }, [inView, loadMore, isLoadingMore, hasMore])
+  }, [inView, loadMore, isLoadingMore, hasMore, filteredDesigners.length])
 
-  // Charger la première page
+  // Charger la première page quand les données changent
   useEffect(() => {
-    if (filteredDesigners.length > 0 && displayedDesigners.length === 0) {
+    if (filteredDesigners.length > 0 && displayedDesigners.length === 0 && !isLoadingMore) {
       loadMore()
     }
-  }, [filteredDesigners, displayedDesigners.length, loadMore])
+  }, [filteredDesigners, displayedDesigners.length, isLoadingMore, loadMore])
 
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center py-16">
-          <Loader2 className="w-12 h-12 mx-auto animate-spin text-gray-400 mb-4" />
+          <Loader2 className="w-12 h-12 mx-auto animate-spin text-orange-500 mb-4" />
           <p className="text-lg text-gray-600">Chargement des designers...</p>
         </div>
       </div>
@@ -122,9 +130,7 @@ export default function DesignersPage() {
         {/* En-tête */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-serif text-gray-900 mb-4">Designers & Artistes</h1>
-          <p className="text-lg text-gray-600 mb-6">
-            Découvrez les créateurs derrière nos {designers.length} luminaires d'exception
-          </p>
+          <p className="text-lg text-gray-600 mb-6">Découvrez les créateurs derrière nos luminaires d'exception</p>
 
           <div className="max-w-md mx-auto mb-6">
             <SearchBar
@@ -142,22 +148,32 @@ export default function DesignersPage() {
             </div>
             <div className="flex items-center gap-2">
               <Palette className="w-4 h-4" />
-              <span>{designers.reduce((sum, d) => sum + d.count, 0)} œuvres</span>
+              <span>{allDesigners.reduce((sum, d) => sum + d.count, 0)} œuvres</span>
             </div>
           </div>
         </div>
 
         {/* Grille des designers */}
-        {displayedDesigners.length === 0 ? (
+        {filteredDesigners.length === 0 ? (
           <div className="text-center py-16">
             <User className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-lg text-gray-600">Aucun designer trouvé</p>
+            <p className="text-lg text-gray-600">
+              {searchTerm ? "Aucun designer trouvé pour cette recherche" : "Aucun designer disponible"}
+            </p>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="mt-2 text-orange-600 hover:text-orange-700 underline"
+              >
+                Effacer la recherche
+              </button>
+            )}
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {displayedDesigners.map((designer) => (
-                <Link key={designer.slug} href={`/designers/${encodeURIComponent(designer.slug)}`}>
+              {displayedDesigners.map((designer, index) => (
+                <Link key={`${designer.slug}-${index}`} href={`/designers/${encodeURIComponent(designer.nom)}`}>
                   <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer h-full">
                     <CardContent className="p-6">
                       <div className="text-center">
@@ -173,12 +189,16 @@ export default function DesignersPage() {
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement
                                   target.style.display = "none"
-                                  target.nextElementSibling?.classList.remove("hidden")
+                                  const parent = target.parentElement
+                                  if (parent) {
+                                    const fallback = parent.querySelector(".fallback-icon") as HTMLElement
+                                    if (fallback) fallback.style.display = "flex"
+                                  }
                                 }}
                               />
                             ) : null}
                             <div
-                              className={`w-full h-full flex items-center justify-center ${designer.image ? "hidden" : ""}`}
+                              className={`fallback-icon w-full h-full flex items-center justify-center ${designer.image ? "hidden" : ""}`}
                             >
                               <User className="w-8 h-8 text-gray-400" />
                             </div>
@@ -186,7 +206,7 @@ export default function DesignersPage() {
                         </div>
 
                         {/* Nom du designer */}
-                        <h3 className="font-serif text-lg text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">
+                        <h3 className="font-serif text-lg text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
                           {designer.nom}
                         </h3>
 
@@ -206,7 +226,7 @@ export default function DesignersPage() {
               <div ref={ref} className="text-center py-8">
                 {isLoadingMore && (
                   <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
                     <span className="text-gray-600">Chargement...</span>
                   </div>
                 )}
@@ -215,7 +235,7 @@ export default function DesignersPage() {
 
             {!hasMore && displayedDesigners.length > 0 && (
               <div className="text-center py-8 text-gray-500">
-                <p>Tous les designers ont été chargés</p>
+                <p>Tous les designers ont été chargés ({displayedDesigners.length} au total)</p>
               </div>
             )}
           </>

@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
 
     let deletedItems = 0
 
-    // 1. Supprimer toutes les collections
-    const collections = ["luminaires", "designers", "users", "favorites"]
+    // Supprimer toutes les collections
+    const collections = ["luminaires", "designers", "timeline"]
     for (const collectionName of collections) {
       try {
         const result = await db.collection(collectionName).deleteMany({})
@@ -25,28 +25,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. Supprimer tous les fichiers GridFS
+    // Supprimer tous les fichiers GridFS
     try {
       const bucket = new GridFSBucket(db, { bucketName: "uploads" })
       const files = await bucket.find({}).toArray()
 
       for (const file of files) {
         await bucket.delete(file._id)
+        deletedItems++
       }
 
       console.log(`🗑️ GridFS: ${files.length} fichiers supprimés`)
-      deletedItems += files.length
     } catch (error) {
       console.log("⚠️ Aucun fichier GridFS à supprimer")
     }
 
-    // 3. Supprimer les collections GridFS
+    // Supprimer les collections GridFS
     try {
-      await db.collection("uploads.files").drop()
-      await db.collection("uploads.chunks").drop()
-      console.log("🗑️ Collections GridFS supprimées")
+      await db.collection("uploads.files").deleteMany({})
+      await db.collection("uploads.chunks").deleteMany({})
+      console.log("🗑️ Collections GridFS vidées")
     } catch (error) {
-      console.log("⚠️ Collections GridFS déjà supprimées")
+      console.log("⚠️ Collections GridFS déjà vides")
     }
 
     console.log(`✅ Reset terminé: ${deletedItems} éléments supprimés au total`)
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       deletedItems,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors du reset:", error)
+    console.error("❌ Erreur critique reset:", error)
     return NextResponse.json(
       {
         success: false,

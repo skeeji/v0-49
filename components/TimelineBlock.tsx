@@ -47,12 +47,12 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
 
       {/* Contenu */}
       <div className={`flex items-start ${isLeft ? "justify-start" : "justify-end"}`}>
-        <div className={`w-full max-w-4xl ${isLeft ? "pr-16" : "pl-16"}`}>
+        <div className={`w-full max-w-5xl ${isLeft ? "pr-16" : "pl-16"}`}>
           <Card className="overflow-hidden shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
             <CardContent className="p-0">
-              <div className={`flex ${isLeft ? "flex-row" : "flex-row-reverse"} h-full`}>
+              <div className={`flex ${isLeft ? "flex-row" : "flex-row-reverse"} h-full min-h-[500px]`}>
                 {/* Contenu textuel */}
-                <div className="flex-1 p-8">
+                <div className="flex-1 p-8 flex flex-col justify-between">
                   {/* En-tête */}
                   <div className="flex items-start justify-between mb-6">
                     <div>
@@ -80,7 +80,7 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                   </div>
 
                   {/* Description */}
-                  <div className="mb-8">
+                  <div className="mb-8 flex-grow">
                     {isEditing ? (
                       <div className="space-y-4">
                         <Textarea
@@ -137,12 +137,12 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                                 )}
                               </div>
                               <div className="space-y-1">
-                                <h5 className="font-medium text-gray-900 text-sm leading-tight group-hover:text-orange-600 transition-colors">
+                                <h5 className="font-medium text-gray-900 text-sm leading-tight group-hover:text-orange-600 transition-colors line-clamp-2">
                                   {luminaire.name}
                                 </h5>
                                 {luminaire.artist && (
-                                  <p className="text-gray-600 text-xs flex items-center gap-1">
-                                    <User className="w-3 h-3" />
+                                  <p className="text-gray-600 text-xs flex items-center gap-1 line-clamp-1">
+                                    <User className="w-3 h-3 flex-shrink-0" />
                                     {luminaire.artist}
                                   </p>
                                 )}
@@ -183,8 +183,8 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                 </div>
 
                 {/* Image de la période */}
-                <div className="w-80 flex-shrink-0">
-                  <div className="h-full min-h-[400px] relative bg-gradient-to-br from-orange-100 to-amber-100">
+                <div className="w-96 flex-shrink-0">
+                  <div className="h-full min-h-[500px] relative bg-gradient-to-br from-orange-100 to-amber-100">
                     {period.image && (
                       <Image
                         src={period.image || "/placeholder.svg"}
@@ -197,9 +197,12 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                         }}
                       />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h4 className="text-white font-serif text-lg drop-shadow-lg">{period.name}</h4>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                    <div className="absolute bottom-6 left-6 right-6">
+                      <h4 className="text-white font-serif text-2xl drop-shadow-lg mb-2">{period.name}</h4>
+                      <p className="text-white/90 text-sm drop-shadow">
+                        {period.start} - {period.end}
+                      </p>
                     </div>
                   </div>
                 </div>

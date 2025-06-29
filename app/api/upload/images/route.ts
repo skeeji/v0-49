@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll("images") as File[]
 
     if (files.length === 0) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
+      return NextResponse.json({ error: "Aucun fichier image fourni" }, { status: 400 })
     }
 
     console.log(`📁 ${files.length} fichiers images reçus`)
@@ -23,82 +23,68 @@ export async function POST(request: NextRequest) {
 
     let uploaded = 0
     let associated = 0
-    const errors: string[] = []
+    const errors = []
 
-    // Traiter les fichiers par petits batches
-    const BATCH_SIZE = 10
-    for (let i = 0; i < files.length; i += BATCH_SIZE) {
-      const batch = files.slice(i, i + BATCH_SIZE)
-      console.log(`📦 Traitement batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(files.length / BATCH_SIZE)}`)
+    // Traiter chaque fichier
+    for (const file of files) {
+      try {
+        console.log(`📤 Upload de ${file.name} (${file.size} bytes)`)
 
-      for (const file of batch) {
-        try {
-          // Vérifier si le fichier existe déjà
-          const existingFile = await bucket.find({ filename: file.name }).toArray()
-          if (existingFile.length > 0) {
-            console.log(`⚠️ Fichier déjà existant: ${file.name}`)
-            continue
-          }
-
-          // Upload du fichier
-          const uploadStream = bucket.openUploadStream(file.name, {
-            metadata: {
-              originalName: file.name,
-              contentType: file.type,
-              uploadDate: new Date(),
-            },
-          })
-
-          const buffer = await file.arrayBuffer()
-          const uint8Array = new Uint8Array(buffer)
-
-          await new Promise<void>((resolve, reject) => {
-            uploadStream.end(uint8Array, (error) => {
-              if (error) {
-                reject(error)
-              } else {
-                resolve()
-              }
-            })
-          })
-
-          uploaded++
-
-          // Vérifier si ce fichier correspond à un luminaire
-          const luminaire = await db.collection("luminaires").findOne({
-            "Nom du fichier": file.name,
-          })
-
-          if (luminaire) {
-            associated++
-            console.log(`🔗 Image associée: ${file.name} -> ${luminaire["Nom luminaire"] || "Sans nom"}`)
-          }
-
-          if (uploaded % 50 === 0) {
-            console.log(`📊 ${uploaded} images uploadées...`)
-          }
-        } catch (error: any) {
-          const errorMsg = `${file.name}: ${error.message}`
-          errors.push(errorMsg)
-          console.error(`❌ ${errorMsg}`)
+        // Vérifier si le fichier existe déjà
+        const existingFile = await bucket.find({ filename: file.name }).toArray()
+        if (existingFile.length > 0) {
+          console.log(`⚠️ Fichier ${file.name} existe déjà, suppression de l'ancien`)
+          await bucket.delete(existingFile[0]._id)
         }
-      }
 
-      // Pause entre les batches
-      if (i + BATCH_SIZE < files.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Upload du fichier
+        const uploadStream = bucket.openUploadStream(file.name, {
+          metadata: {
+            originalName: file.name,
+            uploadDate: new Date(),
+            type: "luminaire-image",
+          },
+        })
+
+        const buffer = await file.arrayBuffer()
+        const uint8Array = new Uint8Array(buffer)
+
+        await new Promise((resolve, reject) => {
+          uploadStream.end(uint8Array, (error) => {
+            if (error) {
+              reject(error)
+            } else {
+              resolve(uploadStream.id)
+            }
+          })
+        })
+
+        uploaded++
+
+        // Vérifier si ce fichier correspond à un luminaire
+        const luminaire = await db.collection("luminaires").findOne({
+          "Nom du fichier": file.name,
+        })
+
+        if (luminaire) {
+          associated++
+          console.log(`🔗 Image ${file.name} associée au luminaire ${luminaire["Nom luminaire"] || "sans nom"}`)
+        }
+      } catch (error: any) {
+        console.error(`❌ Erreur upload ${file.name}:`, error)
+        errors.push(`${file.name}: ${error.message}`)
       }
     }
 
-    console.log(`✅ Upload terminé: ${uploaded} images uploadées, ${associated} associées`)
+    console.log(`✅ Upload terminé: ${uploaded} fichiers uploadés, ${associated} associés`)
 
     return NextResponse.json({
       success: true,
-      message: `${uploaded} images uploadées avec succès, ${associated} associées à des luminaires`,
+      message: `Upload terminé: ${uploaded} images uploadées, ${associated} associées aux luminaires`,
       uploaded,
       associated,
-      processed: files.length,
-      errors: errors.slice(0, 50),
+      total: files.length,
+      errors: errors.slice(0, 10),
       totalErrors: errors.length,
     })
   } catch (error: any) {

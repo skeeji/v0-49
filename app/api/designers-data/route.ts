@@ -5,75 +5,54 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("👨‍🎨 API /api/designers-data - Extraction des designers")
+    console.log("👨‍🎨 API /api/designers-data - Chargement des données designers")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Extraire tous les designers uniques depuis la collection luminaires
-    const pipeline = [
-      {
-        $match: {
-          "Artiste / Dates": { $exists: true, $ne: "", $ne: null },
-        },
-      },
-      {
-        $group: {
-          _id: "$Artiste / Dates",
-          count: { $sum: 1 },
-          firstLuminaire: { $first: "$$ROOT" },
-        },
-      },
-      {
-        $sort: { count: -1 },
-      },
-    ]
+    // Récupérer tous les luminaires pour calculer les designers
+    const luminaires = await db.collection("luminaires").find({}).toArray()
+    console.log(`📊 ${luminaires.length} luminaires trouvés`)
 
-    const designersData = await db.collection("luminaires").aggregate(pipeline).toArray()
+    // Grouper par designer
+    const designerGroups: { [key: string]: any } = {}
 
-    console.log(`📊 ${designersData.length} designers uniques trouvés`)
+    luminaires.forEach((luminaire) => {
+      const designerName = luminaire["Artiste / Dates"] || "Designer inconnu"
 
-    // Charger les images des designers depuis la collection designers
-    const designersCollection = await db.collection("designers").find({}).toArray()
-    const designerImages = new Map()
-
-    designersCollection.forEach((designer) => {
-      if (designer.Nom && designer.imagedesigner) {
-        designerImages.set(designer.Nom.toLowerCase(), designer.imagedesigner)
-      }
-    })
-
-    // Créer la liste des designers avec leurs images
-    const designers = designersData.map((item) => {
-      const designerName = item._id
-      const slug = designerName
-
-      // Chercher l'image correspondante
-      let image = null
-      const nameLower = designerName.toLowerCase()
-
-      // Recherche exacte
-      if (designerImages.has(nameLower)) {
-        image = `/api/images/filename/${designerImages.get(nameLower)}`
-      } else {
-        // Recherche partielle
-        for (const [key, value] of designerImages.entries()) {
-          if (key.includes(nameLower.split(" ")[0]) || nameLower.includes(key.split(" ")[0])) {
-            image = `/api/images/filename/${value}`
-            break
-          }
+      if (!designerGroups[designerName]) {
+        designerGroups[designerName] = {
+          nom: designerName,
+          count: 0,
+          slug: encodeURIComponent(designerName),
+          image: null,
         }
       }
 
-      return {
-        nom: designerName,
-        count: item.count,
-        image,
-        slug,
-      }
+      designerGroups[designerName].count++
     })
 
-    console.log(`✅ ${designers.length} designers avec ${designers.filter((d) => d.image).length} images`)
+    // Récupérer les images des designers
+    try {
+      const designersWithImages = await db.collection("designers").find({}).toArray()
+      console.log(`🖼️ ${designersWithImages.length} designers avec images trouvés`)
+
+      designersWithImages.forEach((designerDoc) => {
+        if (designerDoc.Nom && designerDoc.imagedesigner) {
+          const designerName = designerDoc.Nom
+          if (designerGroups[designerName]) {
+            designerGroups[designerName].image = `/api/images/filename/${designerDoc.imagedesigner}`
+            console.log(`🔗 Image associée pour ${designerName}`)
+          }
+        }
+      })
+    } catch (error) {
+      console.log("⚠️ Pas d'images de designers disponibles")
+    }
+
+    const designers = Object.values(designerGroups).sort((a: any, b: any) => a.nom.localeCompare(b.nom))
+
+    console.log(`✅ ${designers.length} designers uniques trouvés`)
 
     return NextResponse.json({
       success: true,
@@ -85,7 +64,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors du chargement des designers",
+        error: "Erreur serveur",
         details: error.message,
       },
       { status: 500 },
