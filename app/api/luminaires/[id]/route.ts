@@ -1,38 +1,34 @@
 import { type NextRequest, NextResponse } from "next/server"
+import clientPromise from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
-// Simulation d'une base de données
-const luminaires: any[] = []
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("🔍 Chargement luminaire ID:", params.id)
+    const { id } = params
+    console.log("🔍 API /api/luminaires/[id] GET - ID:", id)
 
-    const luminaire = luminaires.find((l) => l._id === params.id)
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID manquant" }, { status: 400 })
+    }
+
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    // Rechercher le luminaire par ID
+    const luminaire = await db.collection("luminaires").findOne({ _id: new ObjectId(id) })
 
     if (!luminaire) {
-      return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
+      console.log("❌ Luminaire non trouvé:", id)
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    // Transformer les données pour le frontend
-    const transformedLuminaire = {
-      ...luminaire,
-      // CORRECTION: Convertir l'objet dimensions en string pour éviter l'erreur React #31
-      dimensions:
-        typeof luminaire.dimensions === "object" && luminaire.dimensions !== null
-          ? `${luminaire.dimensions.hauteur || ""}x${luminaire.dimensions.largeur || ""}x${luminaire.dimensions.profondeur || ""}`.replace(
-              /^x+|x+$/g,
-              "",
-            ) || ""
-          : luminaire.dimensions || "",
-      // Garder "Nom du fichier" tel quel
-      "Nom du fichier": luminaire["Nom du fichier"] || luminaire.filename || "",
-    }
-
-    console.log("📊 Réponse API luminaire:", { success: true, data: transformedLuminaire })
+    console.log("✅ Luminaire trouvé:", luminaire.nom)
 
     return NextResponse.json({
       success: true,
-      data: transformedLuminaire,
+      data: luminaire,
     })
   } catch (error: any) {
     console.error("❌ Erreur dans GET /api/luminaires/[id]:", error)
@@ -49,82 +45,44 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("✏️ Mise à jour luminaire ID:", params.id)
-
+    const { id } = params
     const body = await request.json()
-    console.log("📥 Données de mise à jour:", JSON.stringify(body, null, 2))
+    console.log("📝 API /api/luminaires/[id] PUT - ID:", id, "Data:", body)
 
-    const index = luminaires.findIndex((l) => l._id === params.id)
-
-    if (index === -1) {
-      return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID manquant" }, { status: 400 })
     }
 
-    // Préparer les données de mise à jour
-    const updateData = {
-      nom: body.nom || "",
-      designer: body.designer || "",
-      annee: Number.parseInt(body.annee) || new Date().getFullYear(),
-      periode: body.periode || "",
-      description: body.description || "",
-      materiaux: Array.isArray(body.materiaux) ? body.materiaux : [],
-      couleurs: Array.isArray(body.couleurs) ? body.couleurs : [],
-      dimensions: body.dimensions || {},
-      images: Array.isArray(body.images) ? body.images : [],
-      "Nom du fichier": body["Nom du fichier"] || body.filename || "",
-      specialite: body.specialite || "",
-      collaboration: body.collaboration || "",
-      signe: body.signe || "",
-      estimation: body.estimation || "",
-      updatedAt: new Date(),
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    // Mettre à jour le luminaire
+    const result = await db.collection("luminaires").updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          ...body,
+          updatedAt: new Date(),
+        },
+      },
+    )
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    luminaires[index] = { ...luminaires[index], ...updateData }
-
-    console.log(`✅ Luminaire mis à jour: ${params.id}`)
+    console.log("✅ Luminaire mis à jour:", id)
 
     return NextResponse.json({
       success: true,
       message: "Luminaire mis à jour avec succès",
-      id: params.id,
     })
   } catch (error: any) {
     console.error("❌ Erreur dans PUT /api/luminaires/[id]:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la mise à jour du luminaire",
-        details: error.message,
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    console.log("🗑️ Suppression luminaire ID:", params.id)
-
-    const index = luminaires.findIndex((l) => l._id === params.id)
-
-    if (index === -1) {
-      return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
-    }
-
-    luminaires.splice(index, 1)
-
-    console.log(`✅ Luminaire supprimé: ${params.id}`)
-
-    return NextResponse.json({
-      success: true,
-      message: "Luminaire supprimé avec succès",
-    })
-  } catch (error: any) {
-    console.error("❌ Erreur dans DELETE /api/luminaires/[id]:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erreur lors de la suppression du luminaire",
+        error: "Erreur serveur",
         details: error.message,
       },
       { status: 500 },

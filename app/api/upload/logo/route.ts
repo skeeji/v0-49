@@ -1,67 +1,62 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
 import { uploadToGridFS } from "@/lib/gridfs"
-
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📥 API /api/upload/logo - Début du traitement")
+    console.log("🏷️ API /api/upload/logo - Début du traitement")
 
     const formData = await request.formData()
-    const file = formData.get("logo") as File
 
-    if (!file) {
+    // Essayer différents noms de champs
+    let logoFile = formData.get("logo") as File
+    if (!logoFile) {
+      logoFile = formData.get("file") as File
+    }
+    if (!logoFile) {
+      logoFile = formData.get("image") as File
+    }
+
+    console.log("📁 Fichier logo reçu:", logoFile?.name, logoFile?.size)
+
+    if (!logoFile) {
+      console.log("❌ Aucun fichier logo fourni")
       return NextResponse.json({ error: "Aucun fichier logo fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Logo reçu: ${file.name}, taille: ${file.size} bytes`)
+    // Vérifier le type de fichier
+    if (!logoFile.type.startsWith("image/")) {
+      console.log("❌ Type de fichier invalide:", logoFile.type)
+      return NextResponse.json({ error: "Le fichier doit être une image" }, { status: 400 })
+    }
+
+    console.log(`📁 Upload logo: ${logoFile.name} (${logoFile.size} bytes)`)
 
     // Convertir le fichier en buffer
-    const buffer = Buffer.from(await file.arrayBuffer())
+    const buffer = Buffer.from(await logoFile.arrayBuffer())
 
     // Upload vers GridFS
-    const fileId = await uploadToGridFS(buffer, file.name, {
-      contentType: file.type,
-      originalName: file.name,
-      size: file.size,
-      type: "logo",
+    const fileId = await uploadToGridFS(buffer, logoFile.name, {
+      contentType: logoFile.type,
+      originalName: logoFile.name,
+      size: logoFile.size,
+      category: "logo",
     })
 
-    // Sauvegarder les métadonnées dans settings
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    await db.collection("settings").updateOne(
-      { key: "logo" },
-      {
-        $set: {
-          key: "logo",
-          value: {
-            fileId: fileId.toString(),
-            filename: file.name,
-            url: `/api/logo`,
-            uploadDate: new Date(),
-          },
-        },
-      },
-      { upsert: true },
-    )
-
-    console.log(`✅ Logo sauvegardé: ${file.name}`)
+    console.log(`✅ Logo uploadé avec l'ID: ${fileId}`)
 
     return NextResponse.json({
       success: true,
       message: "Logo uploadé avec succès",
-      filename: file.name,
+      filename: logoFile.name,
       fileId: fileId.toString(),
+      url: `/api/images/${fileId}`,
     })
   } catch (error: any) {
-    console.error("❌ Erreur upload logo:", error)
+    console.error("❌ Erreur critique lors de l'upload logo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'upload du logo",
+        error: "Erreur serveur lors de l'upload logo",
         details: error.message,
       },
       { status: 500 },

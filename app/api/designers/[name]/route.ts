@@ -1,4 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
+import clientPromise from "@/lib/mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 // Fonction pour extraire le nom du designer
 const getDesignerNameOnly = (str = ""): string => {
@@ -6,57 +9,55 @@ const getDesignerNameOnly = (str = ""): string => {
   return str.split("(")[0].trim()
 }
 
-// Simulation d'une base de données
-const luminaires: any[] = []
-
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
-    console.log("🔍 API /api/designers/[name] GET - Name:", params.name)
-
     const designerSlug = decodeURIComponent(params.name)
-    console.log("🔍 Designer slug:", designerSlug)
+    console.log("🔍 API /api/designers/[name] GET - Slug:", designerSlug)
 
-    console.log("📊 Total luminaires:", luminaires.length)
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    // Filtrer les luminaires pour ce designer
-    const designerLuminaires = luminaires.filter((luminaire) => {
-      const designerName = getDesignerNameOnly(luminaire.designer)
-      const slug = designerName
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "")
+    // Rechercher les luminaires de ce designer
+    const luminaires = await db
+      .collection("luminaires")
+      .find({
+        designer: { $regex: designerSlug, $options: "i" },
+      })
+      .toArray()
 
-      return slug === designerSlug
-    })
-
-    console.log("📊 Luminaires pour ce designer:", designerLuminaires.length)
-
-    if (designerLuminaires.length === 0) {
+    if (!luminaires || luminaires.length === 0) {
+      console.log("❌ Aucun luminaire trouvé pour le designer:", designerSlug)
       return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
     }
 
-    // Créer l'objet designer
-    const firstLuminaire = designerLuminaires[0]
+    // Créer les informations du designer à partir du premier luminaire
+    const firstLuminaire = luminaires[0]
     const designerName = getDesignerNameOnly(firstLuminaire.designer)
 
     const designer = {
       nom: designerName,
-      slug: designerSlug,
-      image: null, // À implémenter si vous avez des images de designers
-      count: designerLuminaires.length,
+      count: luminaires.length,
+      imagedesigner: firstLuminaire.imagedesigner || "",
     }
 
-    console.log("✅ Designer trouvé:", designer.nom)
+    console.log(`✅ Designer trouvé: ${designerName} avec ${luminaires.length} luminaires`)
 
     return NextResponse.json({
       success: true,
       data: {
         designer,
-        luminaires: designerLuminaires,
+        luminaires,
       },
     })
-  } catch (error) {
-    console.error("❌ Erreur API /api/designers/[name] GET:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+  } catch (error: any) {
+    console.error("❌ Erreur dans GET /api/designers/[name]:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

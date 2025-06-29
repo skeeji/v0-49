@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { parse } from "csv-parse/sync"
+import Papa from "papaparse"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📥 API /api/upload/csv-designers - Début du traitement")
+    console.log("👨‍🎨 API /api/upload/csv-designers - Début du traitement")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -15,116 +15,91 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Fichier CSV designers reçu: ${file.name}, taille: ${file.size} bytes`)
+    console.log(`📁 Fichier CSV designers reçu: ${file.name} (${file.size} bytes)`)
 
     // Lire le contenu du fichier
-    const fileContent = await file.text()
-    console.log(`📄 Contenu lu: ${fileContent.length} caractères`)
+    const text = await file.text()
+    console.log(`📊 Contenu CSV: ${text.length} caractères`)
 
-    // Parser le CSV avec différents délimiteurs
-    let records: any[] = []
-    try {
-      // Essayer avec point-virgule d'abord
-      records = parse(fileContent, {
-        columns: true,
-        skip_empty_lines: true,
-        delimiter: ";",
-        trim: true,
-        relax_quotes: true,
-        relax_column_count: true,
-      })
-      console.log(`✅ Parsing avec ';' réussi: ${records.length} lignes`)
-    } catch (error) {
-      try {
-        // Essayer avec virgule
-        records = parse(fileContent, {
-          columns: true,
-          skip_empty_lines: true,
-          delimiter: ",",
-          trim: true,
-          relax_quotes: true,
-          relax_column_count: true,
-        })
-        console.log(`✅ Parsing avec ',' réussi: ${records.length} lignes`)
-      } catch (error2) {
-        console.error("❌ Erreur parsing CSV designers:", error2)
-        return NextResponse.json({ error: "Impossible de parser le fichier CSV des designers" }, { status: 400 })
-      }
+    // Parser le CSV avec Papa Parse
+    const parseResult = Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: ";", // Utiliser point-virgule comme délimiteur
+      quoteChar: '"',
+      escapeChar: '"',
+      transformHeader: (header) => header.trim(),
+    })
+
+    if (parseResult.errors.length > 0) {
+      console.log("⚠️ Erreurs de parsing:", parseResult.errors.slice(0, 5))
     }
 
-    if (records.length === 0) {
-      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV des designers" }, { status: 400 })
+    const data = parseResult.data as any[]
+    console.log(`📊 ${data.length} lignes parsées`)
+
+    if (data.length === 0) {
+      return NextResponse.json({ error: "Aucune donnée trouvée dans le CSV" }, { status: 400 })
     }
 
-    console.log(`📊 ${records.length} designers à traiter`)
-    console.log("📋 Colonnes détectées:", Object.keys(records[0]))
-
+    // Connexion à MongoDB
     const client = await clientPromise
     const db = client.db(DBNAME)
+    const collection = db.collection("designers")
 
-    // Vider la collection designers avant import
-    console.log("🗑️ Suppression des anciens designers...")
-    await db.collection("designers").deleteMany({})
+    // Traitement par batch
+    const BATCH_SIZE = 500
+    let imported = 0
+    const errors: string[] = []
 
-    const results = {
-      success: 0,
-      errors: [] as string[],
-      processed: 0,
-    }
+    for (let i = 0; i < data.length; i += BATCH_SIZE) {
+      const batch = data.slice(i, i + BATCH_SIZE)
+      console.log(`📦 Traitement batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)}`)
 
-    // Traiter chaque ligne
-    for (let i = 0; i < records.length; i++) {
-      const record = records[i]
-      results.processed++
+      const designersToInsert = batch
+        .map((row, index) => {
+          try {
+            return {
+              nom: row.nom || row.Nom || "",
+              biographie: row.biographie || row.Biographie || "",
+              dateNaissance: row.dateNaissance || row.DateNaissance || "",
+              dateDeces: row.dateDeces || row.DateDeces || "",
+              nationalite: row.nationalite || row.Nationalite || "",
+              imagedesigner: row.imagedesigner || row.ImageDesigner || "",
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }
+          } catch (error: any) {
+            errors.push(`Ligne ${i + index + 1}: ${error.message}`)
+            return null
+          }
+        })
+        .filter(Boolean)
 
-      try {
-        // Mapping des colonnes
-        const nom = (record["Nom"] || record["nom"] || record["Name"] || record["name"] || "").toString().trim()
-        const imagedesigner = (record["imagedesigner"] || record["image"] || record["Image"] || "").toString().trim()
-
-        if (!nom) {
-          results.errors.push(`Ligne ${i + 2}: nom manquant`)
-          continue
+      if (designersToInsert.length > 0) {
+        try {
+          await collection.insertMany(designersToInsert)
+          imported += designersToInsert.length
+          console.log(`✅ Batch inséré: ${designersToInsert.length} designers`)
+        } catch (error: any) {
+          console.error(`❌ Erreur insertion batch:`, error)
+          errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
         }
-
-        // Créer l'objet designer
-        const designer = {
-          nom: nom,
-          imagedesigner: imagedesigner,
-          description: "",
-          specialite: "",
-          periode: "",
-          oeuvres: [],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
-
-        await db.collection("designers").insertOne(designer)
-        results.success++
-
-        if (results.success % 50 === 0) {
-          console.log(`📊 Progression designers: ${results.success}/${records.length}`)
-        }
-      } catch (error: any) {
-        results.errors.push(`Ligne ${i + 2}: ${error.message}`)
-        console.error(`❌ Erreur ligne ${i + 2}:`, error.message)
       }
     }
 
-    console.log(
-      `✅ Import designers terminé: ${results.success} succès, ${results.errors.length} erreurs sur ${results.processed} lignes`,
-    )
+    console.log(`✅ Import terminé: ${imported} designers importés`)
 
     return NextResponse.json({
       success: true,
-      message: `Import terminé: ${results.success} designers importés sur ${results.processed} lignes traitées`,
-      imported: results.success,
-      processed: results.processed,
-      errors: results.errors.slice(0, 10),
-      totalErrors: results.errors.length,
+      message: `Import terminé: ${imported} designers importés sur ${data.length} lignes traitées`,
+      imported,
+      processed: data.length,
+      errors: errors.slice(0, 10),
+      totalErrors: errors.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors de l'import CSV designers:", error)
+    console.error("❌ Erreur critique lors de l'import designers:", error)
     return NextResponse.json(
       {
         success: false,
