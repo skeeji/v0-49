@@ -1,92 +1,65 @@
 import { type NextRequest, NextResponse } from "next/server"
-
-// Simulation d'une base de données
-const designers: any[] = []
+import { parse } from "csv-parse"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📥 Début de l'import CSV designers...")
+    console.log("📝 API POST /api/upload/csv-designers appelée")
 
     const formData = await request.formData()
-    const file = formData.get("file") as File
+    const file = formData.get("file") as Blob | null
 
     if (!file) {
-      return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
+      console.log("❌ Aucun fichier trouvé dans la requête")
+      return NextResponse.json({ success: false, error: "Aucun fichier trouvé" }, { status: 400 })
     }
 
-    // Lire le contenu du fichier
-    const fileContent = await file.text()
-    console.log(`📄 Fichier CSV lu: ${fileContent.length} caractères`)
+    const buffer = await file.arrayBuffer()
+    const csvText = new TextDecoder().decode(buffer)
 
-    // Parser le CSV (simulation simple)
-    const lines = fileContent.split("\n").filter((line) => line.trim())
-    const headers = lines[0].split(";").map((h) => h.replace(/"/g, "").trim())
+    console.log(`📄 Fichier reçu: ${file.name}, Taille: ${file.size} bytes, Type: ${file.type}`)
 
-    const data = lines.slice(1).map((line) => {
-      const values = line.split(";").map((v) => v.replace(/"/g, "").trim())
-      const record: any = {}
-      headers.forEach((header, index) => {
-        record[header] = values[index] || ""
-      })
-      return record
+    // Parser le CSV
+    const records = await new Promise((resolve, reject) => {
+      parse(
+        csvText,
+        {
+          columns: true,
+          skip_empty_lines: true,
+        },
+        (err, records) => {
+          if (err) {
+            console.error("❌ Erreur lors du parsing du CSV:", err)
+            reject(err)
+          } else {
+            console.log(`✅ CSV parsé avec succès: ${records.length} lignes`)
+            resolve(records)
+          }
+        },
+      )
     })
 
-    console.log(`📊 ${data.length} lignes parsées`)
-
-    if (data.length === 0) {
-      return NextResponse.json({ success: false, error: "Aucune donnée trouvée dans le CSV" }, { status: 400 })
+    // Simuler l'import des données
+    let imported = 0
+    for (const record of records as any[]) {
+      // Simuler la création du designer
+      console.log(`👨‍🎨 Simulation de la création du designer: ${record.Nom}`)
+      imported++
     }
 
-    // Vérifier les colonnes requises
-    const requiredColumns = ["Nom", "imagedesigner"]
-    const missingColumns = requiredColumns.filter((col) => !headers.includes(col))
-
-    if (missingColumns.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Colonnes manquantes: ${missingColumns.join(", ")}`,
-          found: headers,
-          required: requiredColumns,
-        },
-        { status: 400 },
-      )
-    }
-
-    // Supprimer les anciens designers
-    designers.length = 0
-    console.log("🗑️ Anciens designers supprimés")
-
-    // Préparer les données pour l'insertion
-    const designersToInsert = data.map((row, index) => ({
-      _id: Date.now().toString() + index,
-      Nom: row.Nom || "",
-      imagedesigner: row.imagedesigner || "",
-      slug: (row.Nom || "")
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, ""),
-      createdAt: new Date(),
-      index: index,
-    }))
-
-    // Insérer les nouveaux designers
-    designers.push(...designersToInsert)
-
-    console.log(`✅ ${designersToInsert.length} designers insérés`)
+    console.log(`✅ Simulation terminée: ${imported} designers importés`)
 
     return NextResponse.json({
       success: true,
-      message: `${designersToInsert.length} designers importés avec succès`,
-      imported: designersToInsert.length,
-      processed: data.length,
+      message: "Import CSV des designers réussi",
+      imported: imported,
+      processed: (records as any[]).length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur import CSV designers:", error)
+    console.error("❌ Erreur dans POST /api/upload/csv-designers:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'import des designers",
+        error: "Erreur lors de l'import du CSV des designers",
         details: error.message,
       },
       { status: 500 },

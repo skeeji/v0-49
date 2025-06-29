@@ -1,5 +1,4 @@
 #!/bin/bash
-
 echo "🔧 Génération du package-lock.json..."
 
 # Supprimer node_modules et package-lock.json existants

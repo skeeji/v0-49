@@ -1,19 +1,44 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getBucket } from "@/lib/gridfs"
 
 export async function GET(request: NextRequest, { params }: { params: { filename: string } }) {
   try {
-    console.log("🖼️ API /api/images/filename/[filename] GET - Filename:", params.filename)
+    const filename = params.filename
+    console.log("🔍 API /api/images/filename/[filename] GET - Filename:", filename)
 
-    // Simulation de récupération d'image par nom de fichier
-    // Dans une vraie implémentation, vous chercheriez le fichier dans GridFS
+    if (!filename) {
+      console.log("❌ Nom de fichier manquant")
+      return new NextResponse("Nom de fichier manquant", { status: 400 })
+    }
 
-    // Pour la démo, retourner une image placeholder
-    const placeholderUrl = `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(params.filename)}`
+    const bucket = await getBucket()
 
-    // Rediriger vers l'image placeholder
-    return NextResponse.redirect(new URL(placeholderUrl, request.url))
-  } catch (error) {
-    console.error("❌ Erreur API /api/images/filename/[filename]:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+    // Rechercher le fichier par nom
+    const files = await bucket.find({ filename: filename }).toArray()
+
+    if (!files || files.length === 0) {
+      console.log("❌ Fichier non trouvé:", filename)
+      return new NextResponse("Fichier non trouvé", { status: 404 })
+    }
+
+    // Utiliser le premier fichier trouvé (devrait être unique)
+    const file = files[0]
+    console.log("✅ Fichier trouvé:", file.filename, file._id)
+
+    const downloadStream = bucket.openDownloadStream(file._id)
+
+    console.log("✅ Stream ouvert pour le fichier:", file.filename)
+
+    return new NextResponse(downloadStream as any)
+  } catch (error: any) {
+    console.error("❌ Erreur dans GET /api/images/filename/[filename]:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

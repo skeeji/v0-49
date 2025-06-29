@@ -1,32 +1,30 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import "./globals.css"
-import { AuthProvider } from "@/contexts/AuthContext"
-import { Toaster } from "sonner"
+import { ThemeProvider } from "@/components/theme-provider"
 import { Header } from "@/components/Header"
+import { Toast } from "@/components/ui/toast"
+import { DrawerNav } from "@/components/DrawerNav"
+import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Galerie de Luminaires",
-  description: "Collection de luminaires du Moyen Âge à nos jours",
+  title: "Luminaires Gallery",
+  description: "Découvrez des luminaires de toutes époques et styles",
     generator: 'v0.dev'
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
       <body className={inter.className}>
-        <AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <DrawerNav />
           <Header />
-          <main>{children}</main>
-          <Toaster position="top-right" />
-        </AuthProvider>
+          {children}
+          <Toast />
+        </ThemeProvider>
       </body>
     </html>
   )

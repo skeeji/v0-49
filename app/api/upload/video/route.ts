@@ -1,65 +1,77 @@
 import { type NextRequest, NextResponse } from "next/server"
+import clientPromise from "@/lib/mongodb"
+import { getBucket } from "@/lib/gridfs"
+import { Readable } from "stream"
+import { finished } from "stream/promises"
 
-// Simulation d'une base de données
-const welcomeVideos: any[] = []
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🎥 API POST /api/upload/video appelée")
+
     const formData = await request.formData()
-    const file = formData.get("file") as File
-    const title = formData.get("title") as string
-    const description = formData.get("description") as string
+    const file = formData.get("file") as Blob | null
+    const title = formData.get("title") as string | null
+    const description = formData.get("description") as string | null
 
     if (!file) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
+      console.log("❌ Aucun fichier trouvé dans la requête")
+      return NextResponse.json({ success: false, error: "Aucun fichier trouvé" }, { status: 400 })
     }
 
-    // Vérifier le type de fichier
-    if (!file.type.startsWith("video/")) {
-      return NextResponse.json({ error: "Type de fichier vidéo non supporté" }, { status: 400 })
-    }
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const filename = file.name
+    const bucket = await getBucket()
 
-    // Simulation de sauvegarde du fichier
-    const filePath = `/uploads/videos/${Date.now()}-${file.name}`
+    console.log(`📁 Fichier reçu: ${filename}, Taille: ${file.size} bytes, Type: ${file.type}`)
 
-    // Désactiver les autres vidéos
-    welcomeVideos.forEach((video) => (video.isActive = false))
+    // Upload vers GridFS
+    const uploadStream = bucket.openUploadStream(filename, {
+      metadata: {
+        title: title || "Vidéo",
+        description: description || "",
+      },
+    })
+    const readableStream = new Readable()
 
-    // Créer la nouvelle vidéo
-    const welcomeVideo = {
-      _id: Date.now().toString(),
-      title: title || "Vidéo de bienvenue",
+    readableStream.push(buffer)
+    readableStream.push(null)
+
+    console.log(`🚀 Upload vers GridFS: ${filename}`)
+    await finished(readableStream.pipe(uploadStream))
+
+    console.log(`✅ Upload réussi vers GridFS: ${filename}, ID: ${uploadStream.id}`)
+
+    // Sauvegarder les informations de la vidéo dans MongoDB
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    const videoData = {
+      _id: uploadStream.id,
+      filename: filename,
+      title: title || "Vidéo",
       description: description || "",
-      videoPath: filePath,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      uploadDate: new Date(),
     }
 
-    welcomeVideos.push(welcomeVideo)
+    await db.collection("welcomeVideos").insertOne(videoData)
+    console.log("✅ Informations de la vidéo sauvegardées dans MongoDB")
 
     return NextResponse.json({
-      _id: welcomeVideo._id,
-      ...welcomeVideo,
+      success: true,
       message: "Vidéo uploadée avec succès",
+      filename: filename,
     })
-  } catch (error) {
-    console.error("Erreur lors de l'upload de vidéo:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
-  }
-}
-
-export async function GET() {
-  try {
-    const welcomeVideo = welcomeVideos.find((video) => video.isActive)
-
-    if (!welcomeVideo) {
-      return NextResponse.json({ videoUrl: null })
-    }
-
-    return NextResponse.json({ videoUrl: welcomeVideo.videoPath })
-  } catch (error) {
-    console.error("Erreur lors de la récupération de la vidéo:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+  } catch (error: any) {
+    console.error("❌ Erreur dans POST /api/upload/video:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de l'upload de la vidéo",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

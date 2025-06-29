@@ -1,73 +1,59 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getBucket } from "@/lib/gridfs"
+import { Readable } from "stream"
+import { finished } from "stream/promises"
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🖼️ API POST /api/upload/images appelée")
+
     const formData = await request.formData()
     const files = formData.getAll("images") as File[]
 
     if (!files || files.length === 0) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
+      console.log("❌ Aucun fichier trouvé dans la requête")
+      return NextResponse.json({ success: false, error: "Aucun fichier trouvé" }, { status: 400 })
     }
 
-    console.log(`🖼️ ${files.length} images reçues pour upload`)
-
-    const uploadedFiles = []
-    const errors = []
-
-    // 1. Simulation d'upload des fichiers
-    for (const file of files) {
-      try {
-        console.log(`📤 Upload de ${file.name}...`)
-
-        const fileId = Date.now().toString() + Math.random().toString(36).substr(2, 9)
-
-        uploadedFiles.push({
-          name: file.name,
-          id: fileId,
-          path: `/api/images/${fileId}`,
-          size: file.size,
-        })
-
-        console.log(`✅ ${file.name} uploadé avec l'ID: ${fileId}`)
-      } catch (error: any) {
-        errors.push(`${file.name}: ${error.message}`)
-        console.error(`❌ Erreur upload ${file.name}:`, error)
-      }
-    }
-
-    // 2. Simulation d'association avec les luminaires
+    let uploadedCount = 0
     let associatedCount = 0
+    const bucket = await getBucket()
 
-    for (const uploadedFile of uploadedFiles) {
-      try {
-        const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, "")
-        console.log(`🔗 Recherche luminaire pour: ${fileNameWithoutExt}`)
+    for (const file of files) {
+      const buffer = Buffer.from(await file.arrayBuffer())
+      const filename = file.name
 
-        // Simulation de recherche dans la base de données
-        // Dans une vraie implémentation, vous chercheriez dans MongoDB
-        associatedCount++
-        console.log(`✅ Image ${uploadedFile.name} associée à un luminaire`)
-      } catch (error: any) {
-        console.error(`❌ Erreur association ${uploadedFile.name}:`, error)
-      }
+      console.log(`📁 Traitement du fichier: ${filename}, Taille: ${file.size} bytes`)
+
+      // Upload vers GridFS
+      const uploadStream = bucket.openUploadStream(filename)
+      const readableStream = new Readable()
+
+      readableStream.push(buffer)
+      readableStream.push(null)
+
+      console.log(`🚀 Upload vers GridFS: ${filename}`)
+      await finished(readableStream.pipe(uploadStream))
+
+      console.log(`✅ Upload réussi vers GridFS: ${filename}, ID: ${uploadStream.id}`)
+      uploadedCount++
+      associatedCount++ // Simuler l'association
     }
 
-    console.log(`✅ Upload terminé: ${uploadedFiles.length} images, ${associatedCount} associations`)
+    console.log(`✅ Upload terminé: ${uploadedCount} fichiers uploadés, ${associatedCount} associés`)
 
     return NextResponse.json({
       success: true,
-      message: `${uploadedFiles.length} images uploadées, ${associatedCount} associées`,
-      uploaded: uploadedFiles.length,
+      message: "Upload réussi",
+      uploaded: uploadedCount,
       associated: associatedCount,
-      uploadedFiles,
-      errors,
     })
   } catch (error: any) {
-    console.error("❌ Erreur upload images:", error)
+    console.error("❌ Erreur dans POST /api/upload/images:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur upload",
+        error: "Erreur lors de l'upload des images",
         details: error.message,
       },
       { status: 500 },

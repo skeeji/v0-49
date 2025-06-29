@@ -1,5 +1,4 @@
 #!/bin/bash
-
 echo "🚀 Démarrage de l'application Luminaires..."
 
 # Créer le dossier uploads s'il n'existe pas

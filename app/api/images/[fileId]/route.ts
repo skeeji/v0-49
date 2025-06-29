@@ -1,19 +1,32 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { ObjectId } from "mongodb"
+import { getBucket } from "@/lib/gridfs"
 
 export async function GET(request: NextRequest, { params }: { params: { fileId: string } }) {
   try {
-    console.log("🖼️ API /api/images/[fileId] GET - FileId:", params.fileId)
+    const fileId = params.fileId
+    console.log("🔍 API /api/images/[fileId] GET - ID:", fileId)
 
-    // Simulation de récupération d'image
-    // Dans une vraie implémentation, vous récupéreriez l'image depuis GridFS
+    if (!ObjectId.isValid(fileId)) {
+      console.log("❌ ID invalide:", fileId)
+      return new NextResponse("ID invalide", { status: 400 })
+    }
 
-    // Pour la démo, retourner une image placeholder
-    const placeholderUrl = `/placeholder.svg?height=400&width=400&text=${encodeURIComponent("Image " + params.fileId)}`
+    const bucket = await getBucket()
+    const downloadStream = bucket.openDownloadStream(new ObjectId(fileId))
 
-    // Rediriger vers l'image placeholder
-    return NextResponse.redirect(new URL(placeholderUrl, request.url))
-  } catch (error) {
-    console.error("❌ Erreur API /api/images/[fileId]:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+    console.log("✅ Stream ouvert pour l'ID:", fileId)
+
+    return new NextResponse(downloadStream as any)
+  } catch (error: any) {
+    console.error("❌ Erreur dans GET /api/images/[fileId]:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

@@ -1,5 +1,5 @@
 // Script d'initialisation MongoDB
-const db = db.getSiblingDB("luminaires-gallery")
+const db = db.getSiblingDB("luminaires")
 
 // Créer les collections
 db.createCollection("luminaires")
