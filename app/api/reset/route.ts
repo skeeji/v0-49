@@ -12,23 +12,45 @@ export async function DELETE(request: NextRequest) {
     const db = client.db(DBNAME)
 
     // 1. Supprimer toutes les collections MongoDB
-    const collections = await db.listCollections().toArray()
-    console.log(`📋 ${collections.length} collections trouvées`)
+    const collections = ["luminaires", "designers", "videos", "logos", "settings"]
 
-    for (const collection of collections) {
-      await db.collection(collection.name).drop()
-      console.log(`🗑️ Collection ${collection.name} supprimée`)
+    for (const collectionName of collections) {
+      try {
+        const collection = db.collection(collectionName)
+        const deleteResult = await collection.deleteMany({})
+        console.log(`🗑️ Collection ${collectionName}: ${deleteResult.deletedCount} documents supprimés`)
+      } catch (error) {
+        console.warn(`⚠️ Erreur suppression collection ${collectionName}:`, error)
+      }
     }
 
     // 2. Réinitialiser GridFS
-    await resetGridFS()
+    try {
+      await resetGridFS()
+      console.log("🗑️ GridFS réinitialisé")
+    } catch (error) {
+      console.warn("⚠️ Erreur réinitialisation GridFS:", error)
+    }
+
+    // 3. Supprimer les index (optionnel)
+    try {
+      await db.collection("luminaires").dropIndexes()
+      await db.collection("designers").dropIndexes()
+      console.log("🗑️ Index supprimés")
+    } catch (error) {
+      console.warn("⚠️ Erreur suppression index:", error)
+    }
 
     console.log("✅ Réinitialisation complète terminée")
 
     return NextResponse.json({
       success: true,
       message: "Serveur réinitialisé avec succès",
-      deletedCollections: collections.length,
+      details: {
+        collections: collections.length,
+        gridfs: "réinitialisé",
+        indexes: "supprimés",
+      },
     })
   } catch (error: any) {
     console.error("❌ Erreur lors de la réinitialisation:", error)

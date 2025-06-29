@@ -1,9 +1,10 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Upload, FileText, ImageIcon, Video, FileImage } from "lucide-react"
+import { Upload, FileText, ImageIcon, Video, Database } from "lucide-react"
 import Papa from "papaparse"
 
 interface UploadFormProps {
@@ -19,36 +20,6 @@ export function UploadForm({ accept, onUpload, type, multiple = false, expectedC
   const [isProcessing, setIsProcessing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const getIcon = () => {
-    switch (type) {
-      case "csv":
-        return <FileText className="w-8 h-8 text-gray-400" />
-      case "images":
-        return <ImageIcon className="w-8 h-8 text-gray-400" />
-      case "video":
-        return <Video className="w-8 h-8 text-gray-400" />
-      case "logo":
-        return <FileImage className="w-8 h-8 text-gray-400" />
-      default:
-        return <Upload className="w-8 h-8 text-gray-400" />
-    }
-  }
-
-  const getAcceptedFormats = () => {
-    switch (type) {
-      case "csv":
-        return "Fichiers CSV (.csv)"
-      case "images":
-        return "Images (JPG, PNG, GIF, WebP)"
-      case "video":
-        return "Vidéos MP4"
-      case "logo":
-        return "Images (JPG, PNG, SVG)"
-      default:
-        return "Tous fichiers"
-    }
-  }
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(true)
@@ -62,7 +33,6 @@ export function UploadForm({ accept, onUpload, type, multiple = false, expectedC
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-
     const files = Array.from(e.dataTransfer.files)
     handleFiles(files)
   }
@@ -79,106 +49,191 @@ export function UploadForm({ accept, onUpload, type, multiple = false, expectedC
 
     try {
       if (type === "csv") {
-        // Traitement CSV
+        // Traiter le fichier CSV
         const file = files[0]
-        const text = await file.text()
+        console.log(`📄 Traitement du fichier CSV: ${file.name}`)
 
-        Papa.parse(text, {
+        const text = await file.text()
+        console.log(`📄 Contenu lu: ${text.length} caractères`)
+
+        // Parser avec Papa Parse
+        const parseResult = Papa.parse(text, {
           header: true,
           skipEmptyLines: true,
-          delimiter: ";",
-          complete: (results) => {
-            if (results.errors.length > 0) {
-              console.error("Erreurs parsing CSV:", results.errors)
-            }
-
-            const data = results.data as any[]
-            console.log("CSV parsé:", data.length, "lignes")
-
-            // Vérifier les colonnes attendues
-            if (expectedColumns.length > 0 && data.length > 0) {
-              const headers = Object.keys(data[0])
-              const missingColumns = expectedColumns.filter((col) => !headers.includes(col))
-
-              if (missingColumns.length > 0) {
-                alert(`Colonnes manquantes: ${missingColumns.join(", ")}`)
-                return
-              }
-            }
-
-            onUpload(data)
-          },
+          delimiter: ";", // Essayer d'abord avec point-virgule
+          encoding: "UTF-8",
+          transformHeader: (header: string) => header.trim(),
         })
-      } else {
-        // Traitement fichiers (images, vidéo, logo)
-        if (multiple) {
-          onUpload(files)
-        } else {
-          onUpload(files[0])
+
+        let data = parseResult.data as any[]
+
+        // Si pas de données avec point-virgule, essayer avec virgule
+        if (data.length === 0 || parseResult.errors.length > 0) {
+          console.log("🔄 Tentative avec délimiteur virgule...")
+          const parseResult2 = Papa.parse(text, {
+            header: true,
+            skipEmptyLines: true,
+            delimiter: ",",
+            encoding: "UTF-8",
+            transformHeader: (header: string) => header.trim(),
+          })
+          data = parseResult2.data as any[]
         }
+
+        console.log(`📊 CSV parsé: ${data.length} lignes`)
+        console.log("📋 Colonnes détectées:", Object.keys(data[0] || {}))
+
+        if (data.length === 0) {
+          throw new Error("Aucune donnée trouvée dans le fichier CSV")
+        }
+
+        // Nettoyer les données
+        const cleanedData = data
+          .filter((row) => {
+            // Filtrer les lignes vides
+            const values = Object.values(row).filter((val) => val && val.toString().trim() !== "")
+            return values.length > 0
+          })
+          .map((row) => {
+            // Nettoyer chaque cellule
+            const cleanedRow: any = {}
+            for (const [key, value] of Object.entries(row)) {
+              cleanedRow[key.trim()] = value ? value.toString().trim() : ""
+            }
+            return cleanedRow
+          })
+
+        console.log(`✅ Données nettoyées: ${cleanedData.length} lignes valides`)
+
+        onUpload(cleanedData)
+      } else {
+        // Traiter les fichiers images/vidéo/logo
+        onUpload(multiple ? files : files[0])
       }
-    } catch (error) {
-      console.error("Erreur traitement fichier:", error)
-      alert("Erreur lors du traitement du fichier")
+    } catch (error: any) {
+      console.error("❌ Erreur traitement fichier:", error)
+      alert(`Erreur: ${error.message}`)
     } finally {
       setIsProcessing(false)
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
+
+  const getIcon = () => {
+    switch (type) {
+      case "csv":
+        return <FileText className="h-8 w-8" />
+      case "images":
+        return <ImageIcon className="h-8 w-8" />
+      case "video":
+        return <Video className="h-8 w-8" />
+      case "logo":
+        return <Database className="h-8 w-8" />
+      default:
+        return <Upload className="h-8 w-8" />
+    }
+  }
+
+  const getTitle = () => {
+    switch (type) {
+      case "csv":
+        return "Glissez votre fichier CSV ici"
+      case "images":
+        return multiple ? "Glissez vos images ici" : "Glissez votre image ici"
+      case "video":
+        return "Glissez votre vidéo ici"
+      case "logo":
+        return "Glissez votre logo ici"
+      default:
+        return "Glissez vos fichiers ici"
+    }
+  }
+
+  const getDescription = () => {
+    switch (type) {
+      case "csv":
+        return "Fichier CSV avec délimiteur point-virgule (;) ou virgule (,)"
+      case "images":
+        return "Images JPG, PNG, WebP"
+      case "video":
+        return "Vidéo MP4"
+      case "logo":
+        return "Image PNG, JPG, SVG"
+      default:
+        return "Fichiers supportés"
     }
   }
 
   return (
-    <div className="space-y-4">
-      {/* Zone de drop */}
+    <div className="w-full">
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          isDragging ? "border-orange-500 bg-orange-50" : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-        }`}
+        className={`
+          relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300
+          ${
+            isDragging
+              ? "border-blue-400 bg-blue-50 scale-105"
+              : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
+          }
+          ${isProcessing ? "opacity-50 pointer-events-none" : "cursor-pointer"}
+        `}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          multiple={multiple}
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
         <div className="flex flex-col items-center space-y-4">
-          {getIcon()}
+          <div
+            className={`
+            p-4 rounded-full transition-colors duration-300
+            ${isDragging ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-600"}
+          `}
+          >
+            {getIcon()}
+          </div>
 
           <div>
-            <p className="text-lg font-medium text-gray-900">
-              {isDragging ? "Déposez les fichiers ici" : "Glissez-déposez vos fichiers"}
-            </p>
-            <p className="text-sm text-gray-500">{getAcceptedFormats()}</p>
-          </div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">{getTitle()}</h3>
+            <p className="text-sm text-slate-600 mb-4">{getDescription()}</p>
 
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isProcessing}
-            className="bg-orange-500 hover:bg-orange-600"
-          >
-            {isProcessing ? "Traitement..." : "Choisir des fichiers"}
-          </Button>
+            {isProcessing ? (
+              <div className="flex items-center justify-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-blue-600">Traitement en cours...</span>
+              </div>
+            ) : (
+              <Button variant="outline" className="bg-white hover:bg-slate-50">
+                <Upload className="h-4 w-4 mr-2" />
+                Choisir {multiple ? "des fichiers" : "un fichier"}
+              </Button>
+            )}
+          </div>
         </div>
+
+        {expectedColumns.length > 0 && (
+          <div className="mt-6 p-4 bg-white rounded-lg border border-slate-200">
+            <h4 className="text-sm font-medium text-slate-800 mb-2">Colonnes attendues :</h4>
+            <div className="flex flex-wrap gap-2">
+              {expectedColumns.map((col, index) => (
+                <span key={index} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md border">
+                  {col}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Input file caché */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={accept}
-        multiple={multiple}
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-
-      {/* Colonnes attendues pour CSV */}
-      {type === "csv" && expectedColumns.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Colonnes attendues :</h4>
-          <div className="flex flex-wrap gap-2">
-            {expectedColumns.map((col) => (
-              <span key={col} className="px-2 py-1 bg-white rounded text-xs text-gray-600 border">
-                {col}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

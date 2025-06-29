@@ -5,12 +5,16 @@ import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-function fileToStream(file: File) {
+function fileToStream(file: File): Readable {
   const reader = file.stream().getReader()
   return new Readable({
     async read() {
-      const { done, value } = await reader.read()
-      this.push(done ? null : Buffer.from(value))
+      try {
+        const { done, value } = await reader.read()
+        this.push(done ? null : Buffer.from(value))
+      } catch (error) {
+        this.destroy(error as Error)
+      }
     },
   })
 }
@@ -27,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`🖼️ ${files.length} images reçues pour upload`)
+    console.log(`📤 ${files.length} images reçues pour upload`)
 
     const uploadedFiles = []
     const errors = []
@@ -40,13 +44,24 @@ export async function POST(request: NextRequest) {
         const stream = fileToStream(file)
         const uploadStream = bucket.openUploadStream(file.name, {
           contentType: file.type,
+          metadata: {
+            originalName: file.name,
+            size: file.size,
+            uploadDate: new Date(),
+          },
         })
 
         await new Promise<void>((resolve, reject) => {
           stream
             .pipe(uploadStream)
-            .on("error", reject)
-            .on("finish", () => resolve())
+            .on("error", (error) => {
+              console.error(`❌ Erreur upload stream ${file.name}:`, error)
+              reject(error)
+            })
+            .on("finish", () => {
+              console.log(`✅ Upload stream terminé pour ${file.name}`)
+              resolve()
+            })
         })
 
         const fileId = uploadStream.id.toString()
@@ -76,12 +91,13 @@ export async function POST(request: NextRequest) {
         const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, "")
         console.log(`🔗 Recherche luminaire pour: ${fileNameWithoutExt}`)
 
-        // Chercher le luminaire correspondant
+        // Chercher le luminaire correspondant avec plusieurs critères
         const luminaire = await db.collection("luminaires").findOne({
           $or: [
             { filename: uploadedFile.name },
             { filename: fileNameWithoutExt },
             { nom: { $regex: fileNameWithoutExt, $options: "i" } },
+            { nom: { $regex: uploadedFile.name.replace(/\.[^/.]+$/, ""), $options: "i" } },
           ],
         })
 
