@@ -116,27 +116,40 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true)
       try {
-        const response = await fetch("/api/luminaires")
+        // CORRECTION: Charger TOUS les luminaires pour la chronologie
+        const response = await fetch("/api/luminaires?limit=10000") // Augmenter la limite
         const data = await response.json()
 
         if (data.success && data.luminaires) {
-          // CORRECTION: Adapter les données et ne pas mettre 2025 par défaut
+          console.log(`📊 Chronologie: ${data.luminaires.length} luminaires chargés`)
+
+          // Adapter les données avec les bons champs
           const adaptedLuminaires = data.luminaires.map((lum: any) => ({
             ...lum,
             id: lum._id,
-            image: lum.images?.[0],
-            year: lum.annee && !isNaN(Number(lum.annee)) ? Number(lum.annee) : null, // Ne pas mettre 2025 par défaut
-            artist: lum.designer,
+            image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
+            year: lum.annee, // Utiliser directement l'année parsée
+            artist: lum["Artiste / Dates"] || lum.designer || "",
+            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
           }))
 
+          console.log(`📊 Luminaires avec année:`, adaptedLuminaires.filter((l) => l.year).length)
+
           const grouped = periods.map((period) => {
+            // CORRECTION: Filtrer par année et trier correctement
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
-              // CORRECTION: Ignorer les luminaires sans année valide
               if (!luminaire.year || luminaire.year === null) return false
               return luminaire.year >= period.start && luminaire.year <= period.end
             })
 
-            const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => (a.year || 0) - (b.year || 0))
+            // CORRECTION: Trier par année croissante
+            const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => {
+              const yearA = a.year || 0
+              const yearB = b.year || 0
+              return yearA - yearB
+            })
+
+            console.log(`📅 Période ${period.name}: ${sortedLuminaires.length} luminaires`)
 
             return {
               ...period,
@@ -145,10 +158,11 @@ export default function ChronologiePage() {
             }
           })
 
+          // Trier les périodes par date de début
           setTimelineData(grouped.sort((a, b) => a.start - b.start))
         }
       } catch (error) {
-        console.error("Impossible de charger la chronologie", error)
+        console.error("❌ Impossible de charger la chronologie", error)
       } finally {
         setIsLoading(false)
       }
@@ -190,15 +204,21 @@ export default function ChronologiePage() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <p>Chargement...</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p>Chargement de la chronologie...</p>
+        </div>
       </div>
     )
   }
 
+  const totalLuminaires = timelineData.reduce((sum, period) => sum + period.luminaires.length, 0)
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-12 text-center">Chronologie des Périodes Artistiques</h1>
+        <h1 className="text-4xl font-serif text-gray-900 mb-4 text-center">Chronologie des Périodes Artistiques</h1>
+        <p className="text-center text-gray-600 mb-12">{totalLuminaires} luminaires classés par période historique</p>
 
         <div className="space-y-16">
           {timelineData.map((period, index) => (

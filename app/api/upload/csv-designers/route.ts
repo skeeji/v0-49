@@ -16,21 +16,44 @@ export async function POST(request: NextRequest) {
 
     console.log(`📁 Fichier CSV designers reçu: ${file.name} (${file.size} bytes)`)
 
-    // Lire le contenu du fichier
-    const text = await file.text()
-    console.log(`📊 Contenu CSV: ${text.length} caractères`)
+    // Lire le contenu du fichier avec un encoding correct
+    const arrayBuffer = await file.arrayBuffer()
+    const decoder = new TextDecoder("utf-8")
+    const text = decoder.decode(arrayBuffer)
 
-    // Compter les lignes réelles
-    const lines = text.split("\n").filter((line) => line.trim().length > 0)
-    console.log(`📊 Nombre de lignes dans le fichier: ${lines.length}`)
+    console.log(`📊 Contenu CSV designers: ${text.length} caractères`)
 
-    // Parser le CSV manuellement
-    const headers = lines[0].split(";").map((h) => h.trim().replace(/"/g, ""))
-    console.log(`📋 En-têtes détectés:`, headers)
+    // Parser le CSV
+    const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0)
+    console.log(`📊 Nombre de lignes designers: ${lines.length}`)
 
+    if (lines.length < 2) {
+      return NextResponse.json({ error: "Fichier CSV vide ou invalide" }, { status: 400 })
+    }
+
+    // Parser les en-têtes
+    const headerLine = lines[0]
+    console.log(`📋 En-têtes designers: "${headerLine}"`)
+
+    let delimiter = ";"
+    let headers = headerLine.split(delimiter)
+
+    if (headers.length < 2) {
+      delimiter = ","
+      headers = headerLine.split(delimiter)
+    }
+
+    headers = headers.map((h) => h.trim().replace(/^["']|["']$/g, ""))
+    console.log(`📋 En-têtes designers détectés:`, headers)
+
+    // Parser les données
     const data = []
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(";").map((v) => v.trim().replace(/"/g, ""))
+      const line = lines[i].trim()
+      if (!line) continue
+
+      const values = line.split(delimiter).map((v) => v.trim().replace(/^["']|["']$/g, ""))
+
       if (values.length >= headers.length) {
         const row: any = {}
         headers.forEach((header, index) => {
@@ -40,14 +63,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`📊 ${data.length} lignes parsées du CSV designers`)
+    console.log(`📊 ${data.length} designers parsés du CSV`)
+    console.log("📋 Premier designer:", JSON.stringify(data[0], null, 2))
 
     if (data.length === 0) {
-      return NextResponse.json({ error: "Aucune donnée trouvée dans le CSV" }, { status: 400 })
+      return NextResponse.json({ error: "Aucune donnée trouvée dans le CSV designers" }, { status: 400 })
     }
-
-    // Afficher un échantillon des données
-    console.log("📋 Premier enregistrement designers:", data[0])
 
     // Connexion à MongoDB
     const client = await clientPromise
@@ -59,20 +80,21 @@ export async function POST(request: NextRequest) {
     await collection.deleteMany({})
 
     // Traitement par batch
-    const BATCH_SIZE = 500
+    const BATCH_SIZE = 50
     let imported = 0
     const errors: string[] = []
 
     for (let i = 0; i < data.length; i += BATCH_SIZE) {
       const batch = data.slice(i, i + BATCH_SIZE)
-      console.log(`📦 Traitement batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)}`)
+      console.log(
+        `📦 Traitement batch designers ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(data.length / BATCH_SIZE)}`,
+      )
 
       const designersToInsert = batch
         .map((row, index) => {
           try {
-            // Mapping selon le schéma designers (Nom, imagedesigner)
-            const nom = (row["Nom"] || row["nom"] || row["name"] || "").toString().trim()
-            const imagedesigner = (row["imagedesigner"] || row["image"] || row["Image"] || "").toString().trim()
+            const nom = (row["Nom"] || row["nom"] || "").toString().trim()
+            const imagedesigner = (row["imagedesigner"] || row["image"] || "").toString().trim()
 
             if (!nom) {
               errors.push(`Ligne ${i + index + 2}: nom manquant`)
@@ -82,16 +104,17 @@ export async function POST(request: NextRequest) {
             return {
               nom: nom,
               imagedesigner: imagedesigner,
-              slug: nom.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-              description: "",
               biographie: "",
-              specialites: [],
-              images: [],
+              dateNaissance: "",
+              dateDeces: "",
+              nationalite: "",
               createdAt: new Date(),
               updatedAt: new Date(),
             }
           } catch (error: any) {
-            errors.push(`Ligne ${i + index + 2}: ${error.message}`)
+            const errorMsg = `Ligne ${i + index + 2}: ${error.message}`
+            errors.push(errorMsg)
+            console.error("❌", errorMsg)
             return null
           }
         })
@@ -99,9 +122,9 @@ export async function POST(request: NextRequest) {
 
       if (designersToInsert.length > 0) {
         try {
-          await collection.insertMany(designersToInsert, { ordered: false })
-          imported += designersToInsert.length
-          console.log(`✅ Batch designers inséré: ${designersToInsert.length} designers (Total: ${imported})`)
+          const result = await collection.insertMany(designersToInsert, { ordered: false })
+          imported += result.insertedCount
+          console.log(`✅ Batch designers inséré: ${result.insertedCount} (Total: ${imported})`)
         } catch (error: any) {
           console.error(`❌ Erreur insertion batch designers:`, error)
           errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
@@ -124,7 +147,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'import des designers",
+        error: "Erreur serveur lors de l'import designers",
         details: error.message,
       },
       { status: 500 },

@@ -3,10 +3,10 @@ import { getBucket } from "@/lib/gridfs"
 
 export async function GET(request: NextRequest, { params }: { params: { filename: string } }) {
   try {
-    const bucket = await getBucket()
     const filename = decodeURIComponent(params.filename)
-
     console.log(`🖼️ Recherche image: ${filename}`)
+
+    const bucket = await getBucket()
 
     // Chercher le fichier par nom
     const files = await bucket.find({ filename }).toArray()
@@ -17,15 +17,15 @@ export async function GET(request: NextRequest, { params }: { params: { filename
     }
 
     const file = files[0]
-    console.log(`✅ Image trouvée: ${file.filename} (${file.length} bytes)`)
+    console.log(`✅ Image trouvée: ${filename}, ID: ${file._id}`)
 
-    // Créer le stream de téléchargement
+    // Créer un stream de téléchargement
     const downloadStream = bucket.openDownloadStream(file._id)
 
     // Convertir le stream en buffer
     const chunks: Buffer[] = []
 
-    return new Promise<NextResponse>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       downloadStream.on("data", (chunk) => {
         chunks.push(chunk)
       })
@@ -34,6 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: { filename
         const buffer = Buffer.concat(chunks)
 
         const response = new NextResponse(buffer, {
+          status: 200,
           headers: {
             "Content-Type": file.contentType || "image/jpeg",
             "Content-Length": buffer.length.toString(),

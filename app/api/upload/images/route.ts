@@ -30,104 +30,116 @@ export async function POST(request: NextRequest) {
     const uploadedFiles = []
     const errors = []
 
-    // 1. Upload des fichiers vers GridFS
-    for (const file of files) {
-      try {
-        console.log(`📤 Upload de ${file.name}...`)
+    // CORRECTION: Traiter par petits batches pour éviter les timeouts
+    const BATCH_SIZE = 10 // Réduire drastiquement pour éviter les erreurs de connexion
+    let totalUploaded = 0
+    let totalAssociated = 0
 
-        const stream = fileToStream(file)
-        const uploadStream = bucket.openUploadStream(file.name, {
-          contentType: file.type,
-        })
+    for (let batchIndex = 0; batchIndex < files.length; batchIndex += BATCH_SIZE) {
+      const batch = files.slice(batchIndex, batchIndex + BATCH_SIZE)
+      console.log(
+        `📦 Batch ${Math.floor(batchIndex / BATCH_SIZE) + 1}/${Math.ceil(files.length / BATCH_SIZE)}: ${batch.length} fichiers`,
+      )
 
-        await new Promise<void>((resolve, reject) => {
-          stream
-            .pipe(uploadStream)
-            .on("error", reject)
-            .on("finish", () => resolve())
-        })
+      // 1. Upload des fichiers vers GridFS
+      for (const file of batch) {
+        try {
+          console.log(`📤 Upload de ${file.name}...`)
 
-        const fileId = uploadStream.id.toString()
+          const stream = fileToStream(file)
+          const uploadStream = bucket.openUploadStream(file.name, {
+            contentType: file.type,
+          })
 
-        uploadedFiles.push({
-          name: file.name,
-          id: fileId,
-          path: `/api/images/${fileId}`,
-          size: file.size,
-        })
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error("Timeout upload"))
+            }, 30000) // 30 secondes timeout
 
-        console.log(`✅ ${file.name} uploadé avec l'ID: ${fileId}`)
-      } catch (error: any) {
-        errors.push(`${file.name}: ${error.message}`)
-        console.error(`❌ Erreur upload ${file.name}:`, error)
-      }
-    }
+            stream
+              .pipe(uploadStream)
+              .on("error", (err) => {
+                clearTimeout(timeout)
+                reject(err)
+              })
+              .on("finish", () => {
+                clearTimeout(timeout)
+                resolve()
+              })
+          })
 
-    // 2. Association avec les luminaires
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    let associatedCount = 0
+          const fileId = uploadStream.id.toString()
 
-    for (const uploadedFile of uploadedFiles) {
-      try {
-        const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, "")
-        console.log(`🔗 Recherche luminaire pour: ${fileNameWithoutExt}`)
+          uploadedFiles.push({
+            name: file.name,
+            id: fileId,
+            path: `/api/images/${fileId}`,
+            size: file.size,
+          })
 
-        // Chercher le luminaire correspondant avec plusieurs stratégies
-        const luminaire = await db.collection("luminaires").findOne({
-          $or: [
-            // Par nom de fichier exact
-            { filename: uploadedFile.name },
-            { "Nom du fichier": uploadedFile.name },
-
-            // Par nom de fichier sans extension
-            { filename: fileNameWithoutExt },
-            { "Nom du fichier": fileNameWithoutExt },
-
-            // Par nom du luminaire
-            { nom: { $regex: fileNameWithoutExt.replace(/^luminaire_/, ""), $options: "i" } },
-            { "Nom luminaire": { $regex: fileNameWithoutExt.replace(/^luminaire_/, ""), $options: "i" } },
-
-            // Par numéro si c'est luminaire_XXXX
-            ...(fileNameWithoutExt.match(/luminaire_(\d+)/)
-              ? [{ nom: { $regex: fileNameWithoutExt.match(/luminaire_(\d+)/)?.[1] || "", $options: "i" } }]
-              : []),
-          ],
-        })
-
-        if (luminaire) {
-          // Ajouter l'ID de l'image au luminaire
-          const updatedImages = [...(luminaire.images || []), uploadedFile.id]
-
-          await db.collection("luminaires").updateOne(
-            { _id: luminaire._id },
-            {
-              $set: {
-                images: updatedImages,
-                updatedAt: new Date(),
-              },
-            },
-          )
-
-          associatedCount++
-          console.log(
-            `✅ Image ${uploadedFile.name} associée au luminaire: ${luminaire.nom || luminaire["Nom luminaire"]}`,
-          )
-        } else {
-          console.warn(`⚠️ Aucun luminaire trouvé pour: ${uploadedFile.name}`)
+          totalUploaded++
+          console.log(`✅ ${file.name} uploadé avec l'ID: ${fileId}`)
+        } catch (error: any) {
+          errors.push(`${file.name}: ${error.message}`)
+          console.error(`❌ Erreur upload ${file.name}:`, error)
         }
-      } catch (error: any) {
-        console.error(`❌ Erreur association ${uploadedFile.name}:`, error)
+      }
+
+      // 2. Association avec les luminaires pour ce batch
+      const client = await clientPromise
+      const db = client.db(DBNAME)
+
+      for (const uploadedFile of uploadedFiles.slice(-batch.length)) {
+        try {
+          console.log(`🔗 Recherche luminaire pour: ${uploadedFile.name}`)
+
+          // Chercher le luminaire correspondant
+          const luminaire = await db.collection("luminaires").findOne({
+            $or: [{ "Nom du fichier": uploadedFile.name }, { filename: uploadedFile.name }],
+          })
+
+          if (luminaire) {
+            // Ajouter l'ID de l'image au luminaire
+            const updatedImages = [...(luminaire.images || []), uploadedFile.id]
+
+            await db.collection("luminaires").updateOne(
+              { _id: luminaire._id },
+              {
+                $set: {
+                  images: updatedImages,
+                  updatedAt: new Date(),
+                },
+              },
+            )
+
+            totalAssociated++
+            console.log(
+              `✅ Image ${uploadedFile.name} associée au luminaire: ${luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}`,
+            )
+          } else {
+            console.warn(`⚠️ Aucun luminaire trouvé pour: ${uploadedFile.name}`)
+          }
+        } catch (error: any) {
+          console.error(`❌ Erreur association ${uploadedFile.name}:`, error)
+        }
+      }
+
+      // Log de progression
+      console.log(`📊 Progression: ${totalUploaded}/${files.length} images uploadées, ${totalAssociated} associées`)
+
+      // Petite pause entre les batches
+      if (batchIndex + BATCH_SIZE < files.length) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
       }
     }
 
-    console.log(`✅ Upload terminé: ${uploadedFiles.length} images, ${associatedCount} associations`)
+    console.log(`✅ Upload terminé: ${totalUploaded} images, ${totalAssociated} associations`)
 
     return NextResponse.json({
       success: true,
-      message: `${uploadedFiles.length} images uploadées, ${associatedCount} associées`,
-      uploaded: uploadedFiles.length,
-      associated: associatedCount,
+      message: `${totalUploaded} images uploadées, ${totalAssociated} associées`,
+      uploaded: totalUploaded,
+      associated: totalAssociated,
       uploadedFiles,
       errors,
     })

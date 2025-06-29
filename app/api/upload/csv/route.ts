@@ -16,23 +16,35 @@ export async function POST(request: NextRequest) {
 
     console.log(`📁 Fichier CSV reçu: ${file.name} (${file.size} bytes)`)
 
-    // Lire le contenu du fichier
-    const text = await file.text()
+    // Lire le contenu du fichier avec un encoding correct
+    const arrayBuffer = await file.arrayBuffer()
+    const decoder = new TextDecoder("utf-8")
+    const text = decoder.decode(arrayBuffer)
+
     console.log(`📊 Contenu CSV: ${text.length} caractères`)
 
-    // Nettoyer et parser le CSV ligne par ligne
-    const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0)
-    console.log(`📊 Nombre de lignes: ${lines.length}`)
+    // Nettoyer et parser le CSV ligne par ligne - CORRECTION: meilleur parsing
+    const lines = text.split(/\r?\n/)
+    console.log(`📊 Nombre total de lignes brutes: ${lines.length}`)
 
-    if (lines.length < 2) {
+    // Filtrer les lignes vides mais garder celles avec des données partielles
+    const validLines = lines.filter((line, index) => {
+      if (index === 0) return true // Garder l'en-tête
+      const trimmed = line.trim()
+      return trimmed.length > 0 && trimmed !== ";;;;;;;;" // Éviter les lignes complètement vides
+    })
+
+    console.log(`📊 Nombre de lignes valides: ${validLines.length}`)
+
+    if (validLines.length < 2) {
       return NextResponse.json({ error: "Fichier CSV vide ou invalide" }, { status: 400 })
     }
 
     // Parser la première ligne pour les en-têtes
-    const headerLine = lines[0]
+    const headerLine = validLines[0]
     console.log(`📋 Ligne d'en-tête brute: "${headerLine}"`)
 
-    // Essayer différents délimiteurs
+    // Détecter le délimiteur
     let delimiter = ";"
     let headers = headerLine.split(delimiter)
 
@@ -41,22 +53,17 @@ export async function POST(request: NextRequest) {
       headers = headerLine.split(delimiter)
     }
 
-    if (headers.length < 3) {
-      delimiter = "\t"
-      headers = headerLine.split(delimiter)
-    }
-
     // Nettoyer les en-têtes
     headers = headers.map((h) => h.trim().replace(/^["']|["']$/g, ""))
     console.log(`📋 En-têtes détectés (délimiteur: "${delimiter}"):`, headers)
 
-    // Parser les données
+    // Parser toutes les données - CORRECTION: parser plus robuste
     const data = []
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim()
+    for (let i = 1; i < validLines.length; i++) {
+      const line = validLines[i].trim()
       if (!line) continue
 
-      // Parser la ligne avec le délimiteur détecté
+      // Parser avec gestion des guillemets
       const values = []
       let currentValue = ""
       let inQuotes = false
@@ -86,10 +93,11 @@ export async function POST(request: NextRequest) {
 
       values.push(currentValue.trim())
 
-      if (values.length >= headers.length) {
+      // Créer l'objet même si certaines valeurs manquent
+      if (values.length > 0) {
         const row: any = {}
         headers.forEach((header, index) => {
-          row[header] = values[index] || ""
+          row[header] = (values[index] || "").replace(/^["']|["']$/g, "")
         })
         data.push(row)
       }
@@ -102,6 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("📋 Premier enregistrement:", JSON.stringify(data[0], null, 2))
+    console.log("📋 Dernier enregistrement:", JSON.stringify(data[data.length - 1], null, 2))
 
     // Connexion à MongoDB
     const client = await clientPromise
@@ -112,8 +121,8 @@ export async function POST(request: NextRequest) {
     console.log("🗑️ Suppression des anciens luminaires...")
     await collection.deleteMany({})
 
-    // Traitement par batch
-    const BATCH_SIZE = 100
+    // Traitement par batch plus petit pour éviter les timeouts
+    const BATCH_SIZE = 50
     let imported = 0
     const errors: string[] = []
 
@@ -134,27 +143,30 @@ export async function POST(request: NextRequest) {
             const nomFichier = (row["Nom du fichier"] || "").toString().trim()
 
             // CORRECTION: Ne pas générer de nom automatique, laisser vide si pas de nom
-            const finalNom = nomLuminaire || "" // Laisser vide si pas de nom
+            const finalNom = nomLuminaire || ""
 
-            // Parser l'année
+            // Parser l'année - CORRECTION: plus flexible
             let annee = null
             if (anneeStr && anneeStr !== "") {
-              const anneeNum = Number.parseInt(anneeStr.replace(/[^\d]/g, ""))
-              if (!isNaN(anneeNum) && anneeNum > 1800 && anneeNum <= 2025) {
-                annee = anneeNum
+              const anneeMatch = anneeStr.match(/(\d{4})/)
+              if (anneeMatch) {
+                const anneeNum = Number.parseInt(anneeMatch[1])
+                if (!isNaN(anneeNum) && anneeNum > 1800 && anneeNum <= 2025) {
+                  annee = anneeNum
+                }
               }
             }
 
             // Créer l'objet luminaire avec TOUS les champs du CSV
             const luminaire = {
               // Champs principaux (peuvent être vides)
-              nom: finalNom, // PEUT ÊTRE VIDE
-              designer: artisteDates, // PEUT ÊTRE VIDE
-              annee: annee, // PEUT ÊTRE NULL
-              periode: specialite, // PEUT ÊTRE VIDE
-              description: collaboration, // PEUT ÊTRE VIDE
-              signe: signe, // PEUT ÊTRE VIDE
-              filename: nomFichier, // Nom du fichier image
+              nom: finalNom,
+              designer: artisteDates,
+              annee: annee,
+              periode: specialite,
+              description: collaboration,
+              signe: signe,
+              filename: nomFichier,
 
               // Champs originaux du CSV (pour compatibilité)
               "Artiste / Dates": artisteDates,
@@ -194,6 +206,13 @@ export async function POST(request: NextRequest) {
           console.error(`❌ Erreur insertion batch:`, error)
           errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
         }
+      }
+
+      // Log de progression
+      if ((Math.floor(i / BATCH_SIZE) + 1) % 20 === 0) {
+        console.log(
+          `📊 Progression: ${imported}/${data.length} luminaires (${Math.round((imported / data.length) * 100)}%)`,
+        )
       }
     }
 
