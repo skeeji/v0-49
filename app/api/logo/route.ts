@@ -1,27 +1,45 @@
-import { NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import { type NextRequest, NextResponse } from "next/server"
+import clientPromise from "@/lib/mongodb"
+import { downloadFromGridFS } from "@/lib/gridfs"
 
-export async function GET() {
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+
+export async function GET(request: NextRequest) {
   try {
-    const { db } = await connectToDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    // Chercher le logo principal
-    const logoFile = await db.collection("logos.files").findOne({ "metadata.type": "main" })
+    // Récupérer les métadonnées du logo
+    const logoSetting = await db.collection("settings").findOne({ key: "logo" })
 
-    if (!logoFile) {
-      return NextResponse.json({ success: false, error: "Aucun logo trouvé" }, { status: 404 })
+    if (!logoSetting || !logoSetting.value?.fileId) {
+      return new NextResponse("Logo non trouvé", { status: 404 })
     }
 
-    return NextResponse.json({
-      success: true,
-      logo: {
-        _id: logoFile._id,
-        filename: logoFile.filename,
-        contentType: logoFile.metadata?.contentType || "image/png",
+    // Télécharger le fichier depuis GridFS
+    const buffer = await downloadFromGridFS(logoSetting.value.fileId)
+
+    // Déterminer le type de contenu
+    const filename = logoSetting.value.filename || "logo"
+    let contentType = "image/png"
+    if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
+      contentType = "image/jpeg"
+    } else if (filename.endsWith(".svg")) {
+      contentType = "image/svg+xml"
+    } else if (filename.endsWith(".gif")) {
+      contentType = "image/gif"
+    }
+
+    // Retourner le fichier avec les headers appropriés
+    return new NextResponse(buffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": buffer.length.toString(),
+        "Cache-Control": "public, max-age=31536000",
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Erreur récupération logo:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    return new NextResponse("Erreur serveur", { status: 500 })
   }
 }

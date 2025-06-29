@@ -1,124 +1,124 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { SearchBar } from "@/components/SearchBar"
-import { SortSelector } from "@/components/SortSelector"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Loader2, User } from "lucide-react"
+import { useInView } from "react-intersection-observer"
 import Link from "next/link"
 import Image from "next/image"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { SearchBar } from "@/components/SearchBar"
+import { User, Palette, Loader2 } from "lucide-react"
 
 interface Designer {
   nom: string
   count: number
   imagedesigner?: string
+  slug: string
 }
 
 export default function DesignersPage() {
-  const [designers, setDesigners] = useState<Designer[]>([])
+  const [allDesigners, setAllDesigners] = useState<Designer[]>([])
   const [filteredDesigners, setFilteredDesigners] = useState<Designer[]>([])
+  const [displayedDesigners, setDisplayedDesigners] = useState<Designer[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [sortBy, setSortBy] = useState("nom")
   const [isLoading, setIsLoading] = useState(true)
-  const [page, setPage] = useState(1)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const [page, setPage] = useState(0)
 
   const ITEMS_PER_PAGE = 20
 
-  // Charger les designers avec pagination
-  const loadDesigners = useCallback(async (pageNum = 1, reset = false) => {
-    if (pageNum === 1) {
+  const { ref, inView } = useInView({
+    threshold: 0,
+    rootMargin: "100px",
+  })
+
+  // Charger tous les designers
+  useEffect(() => {
+    async function fetchDesigners() {
       setIsLoading(true)
-    } else {
-      setLoadingMore(true)
-    }
+      try {
+        console.log("👨‍🎨 Chargement des designers...")
+        const response = await fetch("/api/designers-data")
+        const data = await response.json()
 
-    try {
-      const response = await fetch(`/api/designers-data?page=${pageNum}&limit=${ITEMS_PER_PAGE}`)
-      const data = await response.json()
-
-      if (data.success) {
-        const newDesigners = data.designers || []
-
-        if (reset || pageNum === 1) {
-          setDesigners(newDesigners)
-          setFilteredDesigners(newDesigners)
+        if (data.success && data.designers) {
+          console.log(`✅ ${data.designers.length} designers chargés`)
+          setAllDesigners(data.designers)
+          setFilteredDesigners(data.designers)
         } else {
-          setDesigners((prev) => [...prev, ...newDesigners])
-          setFilteredDesigners((prev) => [...prev, ...newDesigners])
+          console.error("❌ Erreur chargement designers:", data.error)
         }
-
-        setHasMore(newDesigners.length === ITEMS_PER_PAGE)
-        console.log(`📊 Page ${pageNum}: ${newDesigners.length} designers chargés`)
+      } catch (error) {
+        console.error("❌ Erreur critique chargement designers:", error)
+      } finally {
+        setIsLoading(false)
       }
-    } catch (error) {
-      console.error("❌ Erreur chargement designers:", error)
-    } finally {
-      setIsLoading(false)
-      setLoadingMore(false)
     }
+
+    fetchDesigners()
   }, [])
 
-  // Charger plus de designers
+  // Filtrer par recherche
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredDesigners(allDesigners)
+    } else {
+      const filtered = allDesigners.filter((designer) => designer.nom.toLowerCase().includes(searchTerm.toLowerCase()))
+      setFilteredDesigners(filtered)
+    }
+    // Reset pagination
+    setPage(0)
+    setDisplayedDesigners([])
+    setHasMore(true)
+  }, [searchTerm, allDesigners])
+
+  // Charger plus d'éléments
   const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore) {
-      const nextPage = page + 1
-      setPage(nextPage)
-      loadDesigners(nextPage, false)
-    }
-  }, [page, loadingMore, hasMore, loadDesigners])
+    if (isLoadingMore || !hasMore) return
 
-  // Scroll infini
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 1000) {
-        loadMore()
+    setIsLoadingMore(true)
+
+    // Simuler un délai pour l'UX
+    setTimeout(() => {
+      const startIndex = page * ITEMS_PER_PAGE
+      const endIndex = startIndex + ITEMS_PER_PAGE
+      const newItems = filteredDesigners.slice(startIndex, endIndex)
+
+      if (page === 0) {
+        setDisplayedDesigners(newItems)
+      } else {
+        setDisplayedDesigners((prev) => [...prev, ...newItems])
       }
+
+      setPage((prev) => prev + 1)
+      setHasMore(endIndex < filteredDesigners.length)
+      setIsLoadingMore(false)
+
+      console.log(`📄 Page ${page + 1} chargée: ${newItems.length} designers`)
+    }, 300)
+  }, [page, filteredDesigners, isLoadingMore, hasMore])
+
+  // Charger plus quand on arrive en bas
+  useEffect(() => {
+    if (inView && !isLoadingMore && hasMore && filteredDesigners.length > 0) {
+      loadMore()
     }
+  }, [inView, loadMore, isLoadingMore, hasMore, filteredDesigners.length])
 
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [loadMore])
-
-  // Chargement initial
+  // Charger la première page quand les données changent
   useEffect(() => {
-    loadDesigners(1, true)
-  }, [loadDesigners])
-
-  // Filtrage et tri
-  useEffect(() => {
-    const filtered = designers.filter((designer) => designer.nom.toLowerCase().includes(searchTerm.toLowerCase()))
-
-    // Tri
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "nom":
-          return a.nom.localeCompare(b.nom)
-        case "count":
-          return b.count - a.count
-        default:
-          return 0
-      }
-    })
-
-    setFilteredDesigners(filtered)
-  }, [designers, searchTerm, sortBy])
-
-  const sortOptions = [
-    { value: "nom", label: "Nom (A-Z)" },
-    { value: "count", label: "Nombre de luminaires" },
-  ]
+    if (filteredDesigners.length > 0 && displayedDesigners.length === 0 && !isLoadingMore) {
+      loadMore()
+    }
+  }, [filteredDesigners, displayedDesigners.length, isLoadingMore, loadMore])
 
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 mx-auto animate-spin text-amber-600 mb-4" />
-            <p className="text-gray-600">Chargement des designers...</p>
-          </div>
+        <div className="text-center py-16">
+          <Loader2 className="w-12 h-12 mx-auto animate-spin text-orange-500 mb-4" />
+          <p className="text-lg text-gray-600">Chargement des designers...</p>
         </div>
       </div>
     )
@@ -128,100 +128,118 @@ export default function DesignersPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
         {/* En-tête */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-4xl font-serif text-gray-900 mb-4">Designers & Artistes</h1>
-          <p className="text-gray-600 text-lg">
-            Découvrez les créateurs de notre collection de {designers.length} designers
-          </p>
-        </div>
+          <p className="text-lg text-gray-600 mb-6">Découvrez les créateurs derrière nos luminaires d'exception</p>
 
-        {/* Contrôles */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="flex-1">
-            <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un designer..." />
+          <div className="max-w-md mx-auto mb-6">
+            <SearchBar
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Rechercher un designer..."
+              className="w-full"
+            />
           </div>
-          <div className="md:w-64">
-            <SortSelector value={sortBy} onChange={setSortBy} options={sortOptions} />
+
+          <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              <span>{filteredDesigners.length} designers</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              <span>{allDesigners.reduce((sum, d) => sum + d.count, 0)} œuvres</span>
+            </div>
           </div>
         </div>
 
         {/* Grille des designers */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredDesigners.map((designer) => {
-            const designerSlug = encodeURIComponent(designer.nom)
-
-            return (
-              <Link key={designer.nom} href={`/designers/${designerSlug}`}>
-                <Card className="group hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                  <CardContent className="p-6">
-                    {/* Image du designer */}
-                    <div className="w-24 h-24 mx-auto mb-4 relative">
-                      <div className="w-full h-full flex items-center justify-center bg-amber-50 rounded-full border-2 border-amber-200 overflow-hidden group-hover:border-amber-400 transition-colors">
-                        {designer.imagedesigner ? (
-                          <Image
-                            src={`/api/images/filename/${designer.imagedesigner}`}
-                            alt={designer.nom}
-                            fill
-                            className="object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none"
-                              e.currentTarget.nextElementSibling?.classList.remove("hidden")
-                            }}
-                          />
-                        ) : null}
-
-                        <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
-                          <User className="w-8 h-8 text-amber-600 mx-auto mb-1" />
-                          <span className="text-xs text-amber-600">Designer</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Nom du designer */}
-                    <h3 className="text-lg font-serif text-gray-900 text-center mb-3 group-hover:text-amber-700 transition-colors line-clamp-2">
-                      {designer.nom}
-                    </h3>
-
-                    {/* Badge nombre de luminaires */}
-                    <div className="text-center">
-                      <Badge
-                        variant="secondary"
-                        className="bg-amber-100 text-amber-800 group-hover:bg-amber-200 transition-colors"
-                      >
-                        {designer.count} luminaire{designer.count > 1 ? "s" : ""}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            )
-          })}
-        </div>
-
-        {/* Indicateur de chargement */}
-        {loadingMore && (
-          <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 mx-auto animate-spin text-amber-600 mb-2" />
-            <p className="text-gray-600">Chargement de plus de designers...</p>
-          </div>
-        )}
-
-        {/* Message fin de liste */}
-        {!hasMore && filteredDesigners.length > 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-500">Tous les designers ont été chargés</p>
-          </div>
-        )}
-
-        {/* Message aucun résultat */}
-        {filteredDesigners.length === 0 && !isLoading && (
-          <div className="text-center py-12">
+        {filteredDesigners.length === 0 ? (
+          <div className="text-center py-16">
             <User className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-medium text-gray-900 mb-2">Aucun designer trouvé</h3>
-            <p className="text-gray-600">
-              {searchTerm ? `Aucun résultat pour "${searchTerm}"` : "Aucun designer disponible"}
+            <p className="text-lg text-gray-600">
+              {searchTerm ? "Aucun designer trouvé pour cette recherche" : "Aucun designer disponible"}
             </p>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="mt-2 text-orange-600 hover:text-orange-700 underline"
+              >
+                Effacer la recherche
+              </button>
+            )}
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {displayedDesigners.map((designer, index) => (
+                <Link key={`${designer.slug}-${index}`} href={`/designers/${encodeURIComponent(designer.nom)}`}>
+                  <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer h-full">
+                    <CardContent className="p-6">
+                      <div className="text-center">
+                        {/* Image du designer */}
+                        <div className="w-20 h-20 mx-auto mb-4 relative">
+                          <div className="w-full h-full rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 group-hover:border-orange-300 transition-colors">
+                            {designer.imagedesigner ? (
+                              <Image
+                                src={`/api/images/filename/${designer.imagedesigner}`}
+                                alt={designer.nom}
+                                fill
+                                className="object-cover"
+                                onError={(e) => {
+                                  console.log("❌ Erreur image designer:", designer.imagedesigner)
+                                  const target = e.target as HTMLImageElement
+                                  target.style.display = "none"
+                                  const parent = target.parentElement
+                                  if (parent) {
+                                    const fallback = parent.querySelector(".fallback-icon") as HTMLElement
+                                    if (fallback) fallback.style.display = "flex"
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`fallback-icon w-full h-full flex items-center justify-center ${designer.imagedesigner ? "hidden" : ""}`}
+                            >
+                              <User className="w-8 h-8 text-gray-400" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Nom du designer */}
+                        <h3 className="font-serif text-lg text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
+                          {designer.nom}
+                        </h3>
+
+                        {/* Nombre de luminaires */}
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                          {designer.count} luminaire{designer.count > 1 ? "s" : ""}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+
+            {/* Indicateur de chargement */}
+            {hasMore && (
+              <div ref={ref} className="text-center py-8">
+                {isLoadingMore && (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+                    <span className="text-gray-600">Chargement...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!hasMore && displayedDesigners.length > 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <p>Tous les designers ont été chargés ({displayedDesigners.length} au total)</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

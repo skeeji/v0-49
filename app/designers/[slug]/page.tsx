@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { GalleryGrid } from "@/components/GalleryGrid"
@@ -141,14 +141,19 @@ export default function DesignerDetailPage() {
                     className="object-cover"
                     onError={(e) => {
                       console.log("❌ Erreur chargement image designer:", designer.imagedesigner)
-                      e.currentTarget.style.display = "none"
-                      e.currentTarget.nextElementSibling?.classList.remove("hidden")
+                      const target = e.target as HTMLImageElement
+                      target.style.display = "none"
+                      const parent = target.parentElement
+                      if (parent) {
+                        const fallback = parent.querySelector(".fallback-designer") as HTMLElement
+                        if (fallback) fallback.classList.remove("hidden")
+                      }
                     }}
                   />
                 ) : null}
 
-                <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
-                  <div className="text-6xl text-gray-400 mb-2">👤</div>
+                <div className={`fallback-designer text-center ${designer.imagedesigner ? "hidden" : ""}`}>
+                  <User className="w-16 h-16 text-gray-400 mx-auto mb-2" />
                   <span className="text-sm text-gray-500">Image non disponible</span>
                 </div>
               </div>
@@ -181,7 +186,7 @@ export default function DesignerDetailPage() {
             <GalleryGrid items={designerLuminaires} viewMode="grid" onItemUpdate={updateLuminaire} />
           ) : (
             <div className="text-center py-12">
-              <p>Aucun luminaire trouvé.</p>
+              <p>Aucun luminaire trouvé pour ce designer.</p>
             </div>
           )}
         </div>

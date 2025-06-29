@@ -1,70 +1,92 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
 import { GridFSBucket } from "mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🏷️ === DÉBUT UPLOAD LOGO ===")
-
-    const { db } = await connectToDatabase()
-    const bucket = new GridFSBucket(db, { bucketName: "logos" })
+    console.log("🏷️ API /api/upload/logo - Début de l'upload logo")
 
     const formData = await request.formData()
-    const logoFile = formData.get("logo") as File
+    const file = formData.get("logo") as File
 
-    if (!logoFile) {
-      return NextResponse.json({ success: false, error: "Aucun fichier logo fourni" }, { status: 400 })
+    if (!file) {
+      return NextResponse.json({ error: "Aucun fichier logo fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Fichier logo reçu: ${logoFile.name}, taille: ${logoFile.size} bytes`)
+    console.log(`📁 Fichier logo reçu: ${file.name} (${file.size} bytes)`)
+
+    // Vérifier le type de fichier
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ error: "Le fichier doit être une image" }, { status: 400 })
+    }
+
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
     // Supprimer l'ancien logo s'il y en a un
     try {
-      const existingLogos = await db.collection("logos.files").find({ "metadata.type": "main" }).toArray()
+      const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+      const existingLogos = await bucket.find({ "metadata.type": "logo" }).toArray()
+
       for (const logo of existingLogos) {
         await bucket.delete(logo._id)
         console.log(`🗑️ Ancien logo supprimé: ${logo.filename}`)
       }
     } catch (error) {
-      console.log("ℹ️ Aucun ancien logo à supprimer")
+      console.log("⚠️ Aucun ancien logo à supprimer")
     }
 
-    // Convertir le fichier en buffer
-    const arrayBuffer = await logoFile.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-
-    // Upload vers GridFS
-    const uploadStream = bucket.openUploadStream(logoFile.name, {
+    // Upload du nouveau logo
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    const uploadStream = bucket.openUploadStream(file.name, {
       metadata: {
-        type: "main",
-        originalName: logoFile.name,
+        type: "logo",
+        originalName: file.name,
         uploadDate: new Date(),
-        contentType: logoFile.type,
       },
     })
 
+    const buffer = await file.arrayBuffer()
+    const uint8Array = new Uint8Array(buffer)
+
     return new Promise((resolve) => {
-      uploadStream.on("finish", () => {
-        console.log(`✅ Logo uploadé avec succès: ${logoFile.name}, ID: ${uploadStream.id}`)
-        resolve(
-          NextResponse.json({
-            success: true,
-            message: `Logo uploadé avec succès: ${logoFile.name}`,
-            fileId: uploadStream.id.toString(),
-            filename: logoFile.name,
-          }),
-        )
+      uploadStream.end(uint8Array, (error) => {
+        if (error) {
+          console.error("❌ Erreur upload logo:", error)
+          resolve(
+            NextResponse.json(
+              {
+                success: false,
+                error: "Erreur lors de l'upload du logo",
+                details: error.message,
+              },
+              { status: 500 },
+            ),
+          )
+        } else {
+          console.log(`✅ Logo uploadé avec succès: ${file.name}`)
+          resolve(
+            NextResponse.json({
+              success: true,
+              message: `Logo uploadé avec succès: ${file.name}`,
+              fileId: uploadStream.id,
+              filename: file.name,
+            }),
+          )
+        }
       })
-
-      uploadStream.on("error", (error) => {
-        console.error("❌ Erreur upload logo:", error)
-        resolve(NextResponse.json({ success: false, error: "Erreur lors de l'upload du logo" }, { status: 500 }))
-      })
-
-      uploadStream.end(buffer)
     })
-  } catch (error) {
-    console.error("❌ Erreur générale upload logo:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur lors de l'upload logo" }, { status: 500 })
+  } catch (error: any) {
+    console.error("❌ Erreur critique upload logo:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur lors de l'upload logo",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }
