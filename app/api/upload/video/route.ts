@@ -17,22 +17,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier vidéo fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Vidéo reçue: ${file.name} (${file.size} bytes)`)
+    console.log(`📁 Vidéo reçue: ${file.name}, taille: ${file.size} bytes`)
 
-    // Convertir en buffer
-    const buffer = Buffer.from(await file.arrayBuffer())
+    // Convertir le fichier en buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
     // Upload vers GridFS
     const fileId = await uploadFile(buffer, file.name, {
       contentType: file.type,
-      originalName: file.name,
       size: file.size,
-      type: "video",
+      category: "video",
       title: title || "Vidéo d'accueil",
       description: description || "",
     })
 
-    // Sauvegarder les métadonnées dans settings
+    // Sauvegarder les métadonnées de la vidéo dans settings
     const client = await clientPromise
     const db = client.db(DBNAME)
 
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
           value: {
             fileId: fileId.toString(),
             filename: file.name,
+            url: `/api/videos/${fileId}`,
             contentType: file.type,
             size: file.size,
             title: title || "Vidéo d'accueil",
@@ -56,13 +57,14 @@ export async function POST(request: NextRequest) {
       { upsert: true },
     )
 
-    console.log(`✅ Vidéo sauvegardée: ${file.name}`)
+    console.log(`✅ Vidéo sauvegardée: ${file.name} (ID: ${fileId})`)
 
     return NextResponse.json({
       success: true,
       message: "Vidéo uploadée avec succès",
       filename: file.name,
       fileId: fileId.toString(),
+      url: `/api/videos/${fileId}`,
     })
   } catch (error: any) {
     console.error("❌ Erreur upload vidéo:", error)

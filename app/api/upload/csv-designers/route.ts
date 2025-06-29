@@ -27,34 +27,38 @@ export async function POST(request: NextRequest) {
       records = parse(fileContent, {
         columns: true,
         skip_empty_lines: true,
-        delimiter: ";",
+        delimiter: ",",
         trim: true,
       })
-      console.log(`✅ Parsing avec ';' réussi: ${records.length} lignes`)
+      console.log(`✅ Parsing réussi: ${records.length} lignes`)
     } catch (error) {
       try {
         records = parse(fileContent, {
           columns: true,
           skip_empty_lines: true,
-          delimiter: ",",
+          delimiter: ";",
           trim: true,
         })
-        console.log(`✅ Parsing avec ',' réussi: ${records.length} lignes`)
+        console.log(`✅ Parsing avec ';' réussi: ${records.length} lignes`)
       } catch (error2) {
         console.error("❌ Erreur parsing CSV designers:", error2)
-        return NextResponse.json({ error: "Impossible de parser le fichier CSV designers" }, { status: 400 })
+        return NextResponse.json({ error: "Impossible de parser le fichier CSV des designers" }, { status: 400 })
       }
     }
 
     if (records.length === 0) {
-      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV designers" }, { status: 400 })
+      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV des designers" }, { status: 400 })
     }
 
-    console.log(`📊 ${records.length} lignes parsées du CSV designers`)
+    console.log(`📊 ${records.length} designers à traiter`)
     console.log("📋 Colonnes détectées:", Object.keys(records[0]))
 
     const client = await clientPromise
     const db = client.db(DBNAME)
+
+    // Vider la collection designers avant import
+    console.log("🗑️ Suppression des anciens designers...")
+    await db.collection("designers").deleteMany({})
 
     const results = {
       success: 0,
@@ -84,14 +88,17 @@ export async function POST(request: NextRequest) {
           description: "",
           specialite: "",
           periode: "",
+          oeuvres: [],
           createdAt: new Date(),
           updatedAt: new Date(),
         }
 
-        console.log(`💾 Insertion designer ${i + 1}/${records.length}: ${designer.nom}`)
-
         await db.collection("designers").insertOne(designer)
         results.success++
+
+        if (results.success % 100 === 0) {
+          console.log(`📊 Progression designers: ${results.success}/${records.length}`)
+        }
       } catch (error: any) {
         results.errors.push(`Ligne ${i + 2}: ${error.message}`)
         console.error(`❌ Erreur ligne ${i + 2}:`, error.message)
@@ -115,7 +122,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'import designers",
+        error: "Erreur serveur lors de l'import des designers",
         details: error.message,
       },
       { status: 500 },

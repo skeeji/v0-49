@@ -15,20 +15,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier logo fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Logo reçu: ${file.name} (${file.size} bytes)`)
+    console.log(`📁 Logo reçu: ${file.name}, taille: ${file.size} bytes`)
 
-    // Convertir en buffer
-    const buffer = Buffer.from(await file.arrayBuffer())
+    // Convertir le fichier en buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
     // Upload vers GridFS
     const fileId = await uploadFile(buffer, file.name, {
       contentType: file.type,
-      originalName: file.name,
       size: file.size,
-      type: "logo",
+      category: "logo",
     })
 
-    // Sauvegarder les métadonnées dans settings
+    // Sauvegarder les métadonnées du logo dans settings
     const client = await clientPromise
     const db = client.db(DBNAME)
 
@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
           value: {
             fileId: fileId.toString(),
             filename: file.name,
+            url: `/api/logo`,
             contentType: file.type,
             size: file.size,
             uploadDate: new Date(),
@@ -50,13 +51,14 @@ export async function POST(request: NextRequest) {
       { upsert: true },
     )
 
-    console.log(`✅ Logo sauvegardé: ${file.name}`)
+    console.log(`✅ Logo sauvegardé: ${file.name} (ID: ${fileId})`)
 
     return NextResponse.json({
       success: true,
       message: "Logo uploadé avec succès",
       filename: file.name,
       fileId: fileId.toString(),
+      url: `/api/logo`,
     })
   } catch (error: any) {
     console.error("❌ Erreur upload logo:", error)

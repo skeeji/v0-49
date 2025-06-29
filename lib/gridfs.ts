@@ -14,14 +14,15 @@ export async function getBucket(): Promise<GridFSBucket> {
     const client = await clientPromise
     const db = client.db(DBNAME)
     cachedBucket = new GridFSBucket(db, { bucketName: "uploads" })
+    console.log("✅ GridFS bucket initialisé")
     return cachedBucket
   } catch (error) {
-    console.error("❌ Erreur création GridFS bucket:", error)
+    console.error("❌ Erreur initialisation GridFS:", error)
     throw error
   }
 }
 
-export async function uploadFile(file: Buffer, filename: string, metadata: any = {}): Promise<ObjectId> {
+export async function uploadFile(file: Buffer | Uint8Array, filename: string, metadata: any = {}): Promise<ObjectId> {
   try {
     const bucket = await getBucket()
 
@@ -30,7 +31,7 @@ export async function uploadFile(file: Buffer, filename: string, metadata: any =
         metadata: {
           ...metadata,
           uploadDate: new Date(),
-          contentType: metadata.contentType || "application/octet-stream",
+          originalName: filename,
         },
       })
 
@@ -134,18 +135,19 @@ export async function findFileByName(filename: string) {
   }
 }
 
-export async function deleteAllFiles(): Promise<void> {
+export async function clearAllFiles(): Promise<void> {
   try {
+    const bucket = await getBucket()
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Supprimer tous les fichiers et chunks
+    // Supprimer tous les fichiers
     await db.collection("uploads.files").deleteMany({})
     await db.collection("uploads.chunks").deleteMany({})
 
     console.log("✅ Tous les fichiers GridFS supprimés")
   } catch (error) {
-    console.error("❌ Erreur deleteAllFiles:", error)
+    console.error("❌ Erreur clearAllFiles:", error)
     throw error
   }
 }

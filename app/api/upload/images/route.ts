@@ -27,19 +27,22 @@ export async function POST(request: NextRequest) {
       uploadedFiles: [] as any[],
     }
 
-    // Uploader chaque image
-    for (const file of files) {
-      try {
-        console.log(`📁 Traitement: ${file.name} (${file.size} bytes)`)
+    // Traiter chaque image
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
 
-        // Convertir en buffer
-        const buffer = Buffer.from(await file.arrayBuffer())
+      try {
+        console.log(`📁 Traitement image ${i + 1}/${files.length}: ${file.name}`)
+
+        // Convertir le fichier en buffer
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
 
         // Upload vers GridFS
         const fileId = await uploadFile(buffer, file.name, {
           contentType: file.type,
-          originalName: file.name,
           size: file.size,
+          category: "luminaire",
         })
 
         results.uploaded++
@@ -50,14 +53,17 @@ export async function POST(request: NextRequest) {
           contentType: file.type,
         })
 
-        // Essayer d'associer à un luminaire
-        const baseFilename = file.name.replace(/\.[^/.]+$/, "") // Sans extension
+        // Essayer d'associer l'image à un luminaire
+        const baseFilename = file.name.replace(/\.[^/.]+$/, "")
+
+        // Chercher un luminaire avec ce nom de fichier
         const luminaire = await db.collection("luminaires").findOne({
           $or: [
             { filename: file.name },
             { filename: baseFilename },
             { "Nom du fichier": file.name },
             { "Nom du fichier": baseFilename },
+            { nom: baseFilename },
           ],
         })
 
@@ -70,26 +76,33 @@ export async function POST(request: NextRequest) {
                 images: {
                   fileId: fileId.toString(),
                   filename: file.name,
+                  url: `/api/images/${fileId}`,
                   contentType: file.type,
                   size: file.size,
                 },
               },
-              $set: { updatedAt: new Date() },
             },
           )
 
           results.associated++
-          console.log(`✅ Image associée au luminaire: ${luminaire.nom}`)
+          console.log(`🔗 Image ${file.name} associée au luminaire: ${luminaire.nom}`)
         } else {
-          console.log(`⚠️ Aucun luminaire trouvé pour: ${file.name}`)
+          console.log(`⚠️ Aucun luminaire trouvé pour l'image: ${file.name}`)
+        }
+
+        // Log de progression tous les 50 fichiers
+        if (results.uploaded % 50 === 0) {
+          console.log(
+            `📊 Progression images: ${results.uploaded}/${files.length} uploadées, ${results.associated} associées`,
+          )
         }
       } catch (error: any) {
-        console.error(`❌ Erreur upload ${file.name}:`, error)
+        console.error(`❌ Erreur traitement image ${file.name}:`, error)
         results.errors.push(`${file.name}: ${error.message}`)
       }
     }
 
-    console.log(`✅ Upload terminé: ${results.uploaded} uploadées, ${results.associated} associées`)
+    console.log(`✅ Upload images terminé: ${results.uploaded} uploadées, ${results.associated} associées`)
 
     return NextResponse.json({
       success: true,
@@ -97,14 +110,15 @@ export async function POST(request: NextRequest) {
       uploaded: results.uploaded,
       associated: results.associated,
       uploadedFiles: results.uploadedFiles,
-      errors: results.errors,
+      errors: results.errors.slice(0, 10),
+      totalErrors: results.errors.length,
     })
   } catch (error: any) {
     console.error("❌ Erreur critique upload images:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload",
+        error: "Erreur serveur lors de l'upload des images",
         details: error.message,
       },
       { status: 500 },
