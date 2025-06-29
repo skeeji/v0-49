@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
         skip_empty_lines: true,
         delimiter: ";",
         trim: true,
+        relax_quotes: true,
+        relax_column_count: true,
       })
       console.log(`✅ Parsing avec ';' réussi: ${records.length} lignes`)
     } catch (error) {
@@ -40,23 +42,29 @@ export async function POST(request: NextRequest) {
           skip_empty_lines: true,
           delimiter: ",",
           trim: true,
+          relax_quotes: true,
+          relax_column_count: true,
         })
         console.log(`✅ Parsing avec ',' réussi: ${records.length} lignes`)
       } catch (error2) {
-        console.error("❌ Erreur parsing CSV:", error2)
-        return NextResponse.json({ error: "Impossible de parser le fichier CSV" }, { status: 400 })
+        console.error("❌ Erreur parsing CSV designers:", error2)
+        return NextResponse.json({ error: "Impossible de parser le fichier CSV des designers" }, { status: 400 })
       }
     }
 
     if (records.length === 0) {
-      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV" }, { status: 400 })
+      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV des designers" }, { status: 400 })
     }
 
-    console.log(`📊 ${records.length} lignes parsées du CSV designers`)
+    console.log(`📊 ${records.length} designers à traiter`)
     console.log("📋 Colonnes détectées:", Object.keys(records[0]))
 
     const client = await clientPromise
     const db = client.db(DBNAME)
+
+    // Vider la collection designers avant import
+    console.log("🗑️ Suppression des anciens designers...")
+    await db.collection("designers").deleteMany({})
 
     const results = {
       success: 0,
@@ -70,31 +78,32 @@ export async function POST(request: NextRequest) {
       results.processed++
 
       try {
-        // Mapping flexible des colonnes
-        const nom = record.Nom || record.nom || record.Name || record.name || ""
-        const imagedesigner = record.imagedesigner || record.image || record.Image || ""
+        // Mapping des colonnes
+        const nom = (record["Nom"] || record["nom"] || record["Name"] || record["name"] || "").toString().trim()
+        const imagedesigner = (record["imagedesigner"] || record["image"] || record["Image"] || "").toString().trim()
 
-        if (!nom || nom.trim() === "") {
+        if (!nom) {
           results.errors.push(`Ligne ${i + 2}: nom manquant`)
           continue
         }
 
-        // Préparer les données du designer
-        const designerData = {
-          Nom: nom.trim(),
-          imagedesigner: imagedesigner.trim(),
+        // Créer l'objet designer
+        const designer = {
+          nom: nom,
+          imagedesigner: imagedesigner,
+          description: "",
+          specialite: "",
+          periode: "",
+          oeuvres: [],
           createdAt: new Date(),
           updatedAt: new Date(),
         }
 
-        console.log(`💾 Insertion designer ${i + 1}/${records.length}: ${designerData.Nom}`)
-
-        await db.collection("designers").insertOne(designerData)
+        await db.collection("designers").insertOne(designer)
         results.success++
 
-        // Log de progression tous les 100 éléments
-        if (results.success % 100 === 0) {
-          console.log(`📊 Progression: ${results.success}/${records.length} designers insérés`)
+        if (results.success % 50 === 0) {
+          console.log(`📊 Progression designers: ${results.success}/${records.length}`)
         }
       } catch (error: any) {
         results.errors.push(`Ligne ${i + 2}: ${error.message}`)
@@ -103,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(
-      `✅ Import terminé: ${results.success} succès, ${results.errors.length} erreurs sur ${results.processed} lignes`,
+      `✅ Import designers terminé: ${results.success} succès, ${results.errors.length} erreurs sur ${results.processed} lignes`,
     )
 
     return NextResponse.json({
@@ -111,7 +120,7 @@ export async function POST(request: NextRequest) {
       message: `Import terminé: ${results.success} designers importés sur ${results.processed} lignes traitées`,
       imported: results.success,
       processed: results.processed,
-      errors: results.errors.slice(0, 10), // Limiter les erreurs affichées
+      errors: results.errors.slice(0, 10),
       totalErrors: results.errors.length,
     })
   } catch (error: any) {

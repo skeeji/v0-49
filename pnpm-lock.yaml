@@ -153,7 +153,7 @@ importers:
         specifier: latest
         version: 0.4.6(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       papaparse:
-        specifier: latest
+        specifier: ^5.5.3
         version: 5.5.3
       path:
         specifier: ^0.12.7

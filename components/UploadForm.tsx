@@ -4,7 +4,6 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, FileText, ImageIcon, Video, FileImage } from "lucide-react"
-import Papa from "papaparse"
 
 interface UploadFormProps {
   accept: string
@@ -79,47 +78,17 @@ export function UploadForm({ accept, onUpload, type, multiple = false, expectedC
 
     try {
       if (type === "csv") {
-        // Traitement CSV
+        // Pour CSV, on envoie le fichier brut au serveur
         const file = files[0]
+        console.log(`📁 Fichier CSV sélectionné: ${file.name}, taille: ${file.size} bytes`)
+
+        // Compter approximativement les lignes pour info
         const text = await file.text()
+        const lineCount = text.split("\n").length - 1 // -1 pour l'en-tête
+        console.log(`📊 Estimation: ~${lineCount} lignes dans le CSV`)
 
-        Papa.parse(text, {
-          header: true,
-          skipEmptyLines: true,
-          delimiter: ";",
-          transformHeader: (header: string) => {
-            return header.trim()
-          },
-          transform: (value: string) => {
-            return value ? value.toString().trim() : ""
-          },
-          complete: (results) => {
-            // Ne pas afficher les erreurs de parsing car elles sont normales
-            const data = results.data as any[]
-            console.log("CSV parsé:", data.length, "lignes")
-
-            // Filtrer les lignes vides
-            const cleanData = data.filter((row) => {
-              const values = Object.values(row).filter((val) => val && val.toString().trim() !== "")
-              return values.length > 0
-            })
-
-            console.log("Données nettoyées:", cleanData.length, "lignes valides")
-
-            // Vérifier les colonnes attendues
-            if (expectedColumns.length > 0 && cleanData.length > 0) {
-              const headers = Object.keys(cleanData[0])
-              const missingColumns = expectedColumns.filter((col) => !headers.includes(col))
-
-              if (missingColumns.length > 0) {
-                alert(`Colonnes manquantes: ${missingColumns.join(", ")}`)
-                return
-              }
-            }
-
-            onUpload(cleanData)
-          },
-        })
+        // Envoyer le fichier brut
+        onUpload(file)
       } else {
         // Traitement fichiers (images, vidéo, logo)
         if (multiple) {
