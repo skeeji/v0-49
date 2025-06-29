@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
         { description: { $regex: search, $options: "i" } },
         { "Nom luminaire": { $regex: search, $options: "i" } },
         { "Artiste / Dates": { $regex: search, $options: "i" } },
+        { Spécialité: { $regex: search, $options: "i" } },
+        { "Collaboration / Œuvre": { $regex: search, $options: "i" } },
       ]
     }
 
@@ -80,16 +82,48 @@ export async function GET(request: NextRequest) {
 
     // Formater les luminaires pour l'affichage
     const formattedLuminaires = luminaires.map((luminaire) => ({
-      ...luminaire,
+      _id: luminaire._id.toString(),
       id: luminaire._id.toString(),
+
+      // Champs principaux avec fallback sur les champs CSV
+      nom: luminaire.nom || luminaire["Nom luminaire"] || "",
+      name: luminaire.nom || luminaire["Nom luminaire"] || "",
+      designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
+      artist: luminaire.designer || luminaire["Artiste / Dates"] || "",
+      annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+      year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+      periode: luminaire.periode || luminaire["Spécialité"] || "",
+      specialty: luminaire.periode || luminaire["Spécialité"] || "",
+      description: luminaire.description || luminaire["Collaboration / Œuvre"] || "",
+      collaboration: luminaire.description || luminaire["Collaboration / Œuvre"] || "",
+      signe: luminaire.signe || luminaire["Signé"] || "",
+      signed: luminaire.signe || luminaire["Signé"] || "",
+      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
+
+      // Image
       image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
-      artist: luminaire.designer || luminaire["Artiste / Dates"],
-      year: luminaire.annee || luminaire["Année"],
-      name: luminaire.nom || luminaire["Nom luminaire"],
+
+      // Autres champs
+      materiaux: luminaire.materiaux || [],
+      couleurs: luminaire.couleurs || [],
+      dimensions: luminaire.dimensions || {},
+      images: luminaire.images || [],
+      isFavorite: luminaire.isFavorite || false,
+      createdAt: luminaire.createdAt,
+      updatedAt: luminaire.updatedAt,
+
+      // Champs CSV originaux
+      "Artiste / Dates": luminaire["Artiste / Dates"] || "",
+      Spécialité: luminaire["Spécialité"] || "",
+      "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
+      "Nom luminaire": luminaire["Nom luminaire"] || "",
+      Année: luminaire["Année"] || "",
+      Signé: luminaire["Signé"] || "",
+      "Nom du fichier": luminaire["Nom du fichier"] || "",
     }))
 
     // Calculer les options de filtres
-    const allLuminaires = await collection.find({}).toArray()
+    const allLuminaires = await collection.find({}).limit(1000).toArray()
     const designers = [...new Set(allLuminaires.map((l) => l.designer || l["Artiste / Dates"]).filter(Boolean))].sort()
     const periodes = [...new Set(allLuminaires.map((l) => l.periode || l["Spécialité"]).filter(Boolean))].sort()
     const allMateriaux = [...new Set(allLuminaires.flatMap((l) => l.materiaux || []).filter(Boolean))].sort()
