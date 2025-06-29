@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
+import clientPromise from "@/lib/mongodb"
 
-// Simulation d'une base de données MongoDB
-const luminaires: any[] = []
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,54 +23,57 @@ export async function GET(request: NextRequest) {
       limit: limit.toString(),
     })
 
-    // Filtrage
-    let filteredLuminaires = [...luminaires]
+    // Connexion à MongoDB
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
+    // Construction du filtre MongoDB
+    const filter: any = {}
 
     if (search) {
-      filteredLuminaires = filteredLuminaires.filter(
-        (l) =>
-          l.nom?.toLowerCase().includes(search.toLowerCase()) ||
-          l.designer?.toLowerCase().includes(search.toLowerCase()) ||
-          l.description?.toLowerCase().includes(search.toLowerCase()),
-      )
+      filter.$or = [
+        { nom: { $regex: search, $options: "i" } },
+        { designer: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ]
     }
 
     if (designer) {
-      filteredLuminaires = filteredLuminaires.filter((l) => l.designer?.toLowerCase().includes(designer.toLowerCase()))
+      filter.designer = { $regex: designer, $options: "i" }
     }
 
     if (periode) {
-      filteredLuminaires = filteredLuminaires.filter((l) => l.periode?.toLowerCase().includes(periode.toLowerCase()))
+      filter.periode = { $regex: periode, $options: "i" }
     }
 
     if (materiaux) {
-      filteredLuminaires = filteredLuminaires.filter((l) =>
-        l.materiaux?.some((m: string) => m.toLowerCase().includes(materiaux.toLowerCase())),
-      )
+      filter.materiaux = { $elemMatch: { $regex: materiaux, $options: "i" } }
     }
 
-    // Tri
-    filteredLuminaires.sort((a, b) => {
-      const aVal = a[sortField] || ""
-      const bVal = b[sortField] || ""
+    if (couleurs) {
+      filter.couleurs = { $elemMatch: { $regex: couleurs, $options: "i" } }
+    }
 
-      if (sortDirection === "desc") {
-        return bVal.toString().localeCompare(aVal.toString())
-      }
-      return aVal.toString().localeCompare(bVal.toString())
-    })
+    // Tri MongoDB
+    const sortOptions: any = {}
+    sortOptions[sortField] = sortDirection === "desc" ? -1 : 1
+
+    // Compter le total
+    const total = await collection.countDocuments(filter)
 
     // Pagination
-    const total = filteredLuminaires.length
     const skip = (page - 1) * limit
-    const paginatedLuminaires = filteredLuminaires.slice(skip, skip + limit)
 
-    console.log(`📊 ${paginatedLuminaires.length} luminaires chargés (page ${page})`)
+    // Récupération des données
+    const luminaires = await collection.find(filter).sort(sortOptions).skip(skip).limit(limit).toArray()
+
+    console.log(`📊 ${luminaires.length} luminaires chargés depuis MongoDB (page ${page})`)
     console.log(`📊 Total dans la base: ${total}`)
 
     return NextResponse.json({
       success: true,
-      luminaires: paginatedLuminaires,
+      luminaires,
       pagination: {
         page,
         limit,
@@ -98,9 +101,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log("📥 Données reçues:", JSON.stringify(body, null, 2))
 
+    // Connexion à MongoDB
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
     // Préparer les données du luminaire
     const luminaireData = {
-      _id: Date.now().toString(),
       nom: body.nom || "",
       designer: body.designer || "",
       annee: Number.parseInt(body.annee) || new Date().getFullYear(),
@@ -119,14 +126,15 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     }
 
-    luminaires.push(luminaireData)
+    // Insérer dans MongoDB
+    const result = await collection.insertOne(luminaireData)
 
-    console.log(`✅ Nouveau luminaire créé avec l'ID: ${luminaireData._id}`)
+    console.log(`✅ Nouveau luminaire créé avec l'ID: ${result.insertedId}`)
 
     return NextResponse.json({
       success: true,
       message: "Luminaire créé avec succès",
-      id: luminaireData._id,
+      id: result.insertedId.toString(),
     })
   } catch (error: any) {
     console.error("❌ Erreur dans POST /api/luminaires:", error)

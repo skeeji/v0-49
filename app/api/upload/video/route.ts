@@ -9,11 +9,13 @@ export async function POST(request: NextRequest) {
     console.log("📥 API /api/upload/video - Début du traitement")
 
     const formData = await request.formData()
-    const file = formData.get("file") as File
+    const file = (formData.get("video") as File) || (formData.get("file") as File)
     const title = formData.get("title") as string
     const description = formData.get("description") as string
 
     if (!file) {
+      console.log("❌ Aucun fichier vidéo trouvé dans FormData")
+      console.log("📋 Clés disponibles:", Array.from(formData.keys()))
       return NextResponse.json({ error: "Aucun fichier vidéo fourni" }, { status: 400 })
     }
 
