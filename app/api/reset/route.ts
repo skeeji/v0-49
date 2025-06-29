@@ -14,13 +14,11 @@ export async function POST(request: NextRequest) {
     const results = {
       luminaires: 0,
       designers: 0,
-      images: 0,
-      videos: 0,
-      logos: 0,
       gridfsFiles: 0,
+      gridfsChunks: 0,
     }
 
-    // Supprimer toutes les collections
+    // 1. Supprimer toutes les collections de données
     try {
       const luminairesResult = await db.collection("luminaires").deleteMany({})
       results.luminaires = luminairesResult.deletedCount
@@ -37,35 +35,69 @@ export async function POST(request: NextRequest) {
       console.log("⚠️ Collection designers vide ou inexistante")
     }
 
-    // Supprimer tous les fichiers GridFS (images, vidéos, logos)
+    // 2. Supprimer TOUS les fichiers GridFS (images, vidéos, logos)
     try {
       const bucket = new GridFSBucket(db, { bucketName: "uploads" })
-      const files = await bucket.find({}).toArray()
 
+      // Lister tous les fichiers
+      const files = await bucket.find({}).toArray()
+      console.log(`🗑️ ${files.length} fichiers GridFS trouvés`)
+
+      // Supprimer chaque fichier individuellement
       for (const file of files) {
-        await bucket.delete(file._id)
-        results.gridfsFiles++
+        try {
+          await bucket.delete(file._id)
+          results.gridfsFiles++
+        } catch (deleteError) {
+          console.log(`⚠️ Erreur suppression fichier ${file.filename}:`, deleteError)
+        }
       }
+
       console.log(`🗑️ ${results.gridfsFiles} fichiers GridFS supprimés`)
     } catch (error) {
-      console.log("⚠️ GridFS vide ou inexistant")
+      console.log("⚠️ Erreur GridFS:", error)
     }
 
-    // Supprimer les collections GridFS manuellement si nécessaire
+    // 3. Nettoyer manuellement les collections GridFS
     try {
-      await db.collection("uploads.files").deleteMany({})
-      await db.collection("uploads.chunks").deleteMany({})
-      console.log("🗑️ Collections GridFS nettoyées")
+      const filesResult = await db.collection("uploads.files").deleteMany({})
+      const chunksResult = await db.collection("uploads.chunks").deleteMany({})
+      results.gridfsChunks = chunksResult.deletedCount
+      console.log(
+        `🗑️ Collections GridFS nettoyées: ${filesResult.deletedCount} files, ${chunksResult.deletedCount} chunks`,
+      )
     } catch (error) {
       console.log("⚠️ Collections GridFS déjà vides")
     }
 
-    console.log("✅ Réinitialisation complète terminée - TOUS LES FICHIERS SUPPRIMÉS")
+    // 4. Vérification finale
+    const remainingLuminaires = await db.collection("luminaires").countDocuments()
+    const remainingDesigners = await db.collection("designers").countDocuments()
+    const remainingFiles = await db.collection("uploads.files").countDocuments()
+    const remainingChunks = await db.collection("uploads.chunks").countDocuments()
+
+    console.log("✅ Vérification finale:")
+    console.log(`   - Luminaires restants: ${remainingLuminaires}`)
+    console.log(`   - Designers restants: ${remainingDesigners}`)
+    console.log(`   - Fichiers GridFS restants: ${remainingFiles}`)
+    console.log(`   - Chunks GridFS restants: ${remainingChunks}`)
+
+    const isCompletelyClean =
+      remainingLuminaires === 0 && remainingDesigners === 0 && remainingFiles === 0 && remainingChunks === 0
 
     return NextResponse.json({
       success: true,
-      message: "Réinitialisation complète terminée avec succès - Toutes les données et fichiers ont été supprimés",
+      message: isCompletelyClean
+        ? "✅ Réinitialisation complète terminée - TOUTES les données et fichiers ont été supprimés"
+        : "⚠️ Réinitialisation terminée avec quelques résidus",
       deleted: results,
+      verification: {
+        remainingLuminaires,
+        remainingDesigners,
+        remainingFiles,
+        remainingChunks,
+        isCompletelyClean,
+      },
     })
   } catch (error: any) {
     console.error("❌ Erreur lors de la réinitialisation:", error)

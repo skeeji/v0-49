@@ -248,7 +248,11 @@ export default function ImportPage() {
   }
 
   const resetDatabase = async () => {
-    if (!confirm("Êtes-vous sûr de vouloir vider toute la base de données ?")) {
+    if (
+      !confirm(
+        "Êtes-vous sûr de vouloir vider toute la base de données ? Cette action supprimera TOUS les luminaires, designers, images, vidéos et logos.",
+      )
+    ) {
       return
     }
 

@@ -11,22 +11,26 @@ function parseCSVLine(line: string): string[] {
 
   while (i < line.length) {
     const char = line[i]
-    const nextChar = line[i + 1]
 
     if (char === '"') {
-      if (inQuotes && nextChar === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        // Double quote inside quoted field
         current += '"'
         i += 2
-        continue
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes
+        i++
       }
-      inQuotes = !inQuotes
     } else if (char === "," && !inQuotes) {
+      // Field separator
       result.push(current.trim())
       current = ""
+      i++
     } else {
       current += char
+      i++
     }
-    i++
   }
 
   result.push(current.trim())
@@ -35,6 +39,8 @@ function parseCSVLine(line: string): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("📥 API /api/upload/csv - Début de l'import")
+
     const formData = await request.formData()
     const file = formData.get("file") as File
 
@@ -42,14 +48,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Traitement du fichier CSV: ${file.name}`)
+    console.log(`📁 Fichier reçu: ${file.name} (${file.size} bytes)`)
 
-    // Lire le fichier avec encoding UTF-8
-    const buffer = await file.arrayBuffer()
-    const text = new TextDecoder("utf-8").decode(buffer)
-    const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0)
+    // Lire le fichier avec l'encoding UTF-8
+    const text = await file.text()
+    const lines = text.split("\n").filter((line) => line.trim())
 
-    console.log(`📊 ${lines.length} lignes détectées dans le CSV`)
+    console.log(`📊 ${lines.length} lignes trouvées dans le CSV`)
 
     if (lines.length === 0) {
       return NextResponse.json({ error: "Fichier CSV vide" }, { status: 400 })
@@ -57,65 +62,63 @@ export async function POST(request: NextRequest) {
 
     // Parser l'en-tête
     const headers = parseCSVLine(lines[0])
-    console.log(`📋 En-têtes CSV:`, headers)
+    console.log("📋 En-têtes détectés:", headers)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-
-    // Vider la collection existante
-    await db.collection("luminaires").deleteMany({})
-    console.log("🗑️ Collection luminaires vidée")
+    const collection = db.collection("luminaires")
 
     let imported = 0
     let processed = 0
     const errors: string[] = []
 
-    // Traiter chaque ligne de données
+    // Traiter chaque ligne
     for (let i = 1; i < lines.length; i++) {
-      processed++
-      const line = lines[i].trim()
-
-      if (!line) continue
-
       try {
+        processed++
+        const line = lines[i].trim()
+        if (!line) continue
+
         const values = parseCSVLine(line)
 
-        // Créer l'objet luminaire avec tous les champs
+        // Créer l'objet luminaire en gardant les valeurs exactes du CSV
         const luminaire: any = {
           createdAt: new Date(),
           updatedAt: new Date(),
         }
 
-        // Mapper chaque colonne
+        // Mapper chaque colonne SANS MODIFICATION
         headers.forEach((header, index) => {
-          const value = values[index]?.trim() || ""
-          if (value) {
-            luminaire[header] = value
-          }
+          const value = values[index] || ""
+          // CORRECTION: Garder les valeurs exactes, même vides
+          luminaire[header] = value.trim()
         })
 
-        // Champs spéciaux pour la compatibilité
+        // CORRECTION: Ne pas ajouter d'année automatiquement
+        // Garder la valeur exacte de la colonne "Année"
+        if (luminaire["Année"]) {
+          // Extraire seulement si une année est présente
+          const yearMatch = luminaire["Année"].toString().match(/\b(1[8-9]\d{2}|20\d{2})\b/)
+          if (yearMatch) {
+            luminaire.annee = Number.parseInt(yearMatch[0])
+          }
+          // Sinon, ne pas ajouter de champ annee
+        }
+
+        // Ajouter les champs de mapping pour compatibilité
         luminaire.nom = luminaire["Nom luminaire"] || ""
         luminaire.designer = luminaire["Artiste / Dates"] || ""
-        luminaire.annee = luminaire["Année"] || ""
         luminaire.filename = luminaire["Nom du fichier"] || ""
 
-        // Insérer en base
-        await db.collection("luminaires").insertOne(luminaire)
+        await collection.insertOne(luminaire)
         imported++
 
         if (imported % 1000 === 0) {
-          console.log(`📊 Progression: ${imported} luminaires importés`)
+          console.log(`📊 ${imported} luminaires importés...`)
         }
       } catch (error: any) {
-        const errorMsg = `Ligne ${i + 1}: ${error.message}`
-        errors.push(errorMsg)
-        console.error(`❌ ${errorMsg}`)
-
-        if (errors.length > 100) {
-          console.log("⚠️ Trop d'erreurs, arrêt de l'import")
-          break
-        }
+        errors.push(`Ligne ${i + 1}: ${error.message}`)
+        if (errors.length > 100) break // Limiter les erreurs
       }
     }
 
@@ -130,11 +133,11 @@ export async function POST(request: NextRequest) {
       totalErrors: errors.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur import CSV:", error)
+    console.error("❌ Erreur critique import CSV:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur",
+        error: "Erreur lors de l'import CSV",
         details: error.message,
       },
       { status: 500 },
