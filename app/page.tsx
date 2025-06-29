@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Camera, Upload, X } from "lucide-react"
+import { Camera, Upload, X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -282,6 +282,11 @@ export default function HomePage() {
       setSearchMode("camera")
       setIsCameraLoading(true)
 
+      // Vérifier la disponibilité de l'API
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("L'API caméra n'est pas disponible sur cet appareil ou navigateur")
+      }
+
       // Nettoyer tout flux existant
       cleanupCamera()
 
@@ -439,7 +444,7 @@ export default function HomePage() {
       cleanupCamera()
 
       console.log("✅ === CAPTURE TERMINÉE AVEC SUCCÈS ===")
-      toast.success("Photo capturée - Recherche en cours...")
+      toast.success("Photo capturée avec succès!")
 
       // Afficher les options d'arrière-plan
       setShowBackgroundOptions(true)
@@ -569,52 +574,52 @@ export default function HomePage() {
           <source src={welcomeVideo} type="video/mp4" />
         </video>
       ) : (
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-orange-400 to-yellow-500" />
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
       )}
 
-      {/* Overlay orangé */}
-      <div className="absolute inset-0 bg-orange-500 opacity-60" />
+      {/* Overlay élégant */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80" />
 
       {/* Contenu principal */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl font-serif text-white mb-4 leading-tight">
-            Luminaires du Moyen Âge
-            <br />à nos jours
+          <h1 className="text-4xl md:text-6xl font-serif text-white mb-6 leading-tight">
+            Luminaires d'Exception
+            <br />
+            <span className="text-2xl md:text-3xl text-slate-300 font-light">du Moyen Âge à nos jours</span>
           </h1>
-          <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Découvrez des luminaires de toutes époques et styles
+          <p className="text-xl text-slate-200 max-w-2xl mx-auto leading-relaxed">
+            Découvrez une collection unique de luminaires historiques grâce à l'intelligence artificielle
           </p>
         </div>
 
         {/* Zone de recherche par image */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 md:p-8 max-w-md w-full shadow-2xl">
-          <h2 className="text-xl md:text-2xl font-serif text-gray-900 mb-4 md:mb-6 text-center">
-            Recherche par image IA
-          </h2>
+        <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-10 max-w-lg w-full shadow-2xl border border-white/20">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mb-4">
+              <Sparkles className="w-8 h-8 text-slate-700 mr-3" />
+              <h2 className="text-2xl md:text-3xl font-serif text-slate-800">Recherche IA</h2>
+            </div>
+            <p className="text-slate-600 leading-relaxed">
+              Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
+            </p>
+          </div>
 
           {/* Message pour les utilisateurs "free" */}
           {userData?.role === "free" && (
-            <div className="mb-4 p-2 bg-blue-50 rounded-lg text-xs text-blue-800">
-              <p className="flex items-center">
-                <span className="mr-1">ℹ️</span>
+            <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <p className="flex items-center text-sm text-blue-800">
+                <span className="mr-2">ℹ️</span>
                 <span>Compte gratuit : {3 - (userData.searchCount || 0)}/3 recherches restantes aujourd'hui</span>
               </p>
             </div>
           )}
 
-          {/* Espace pour les instructions */}
-          <div className="mb-4 text-center">
-            <p className="text-xs md:text-sm text-gray-600">
-              Prenez une photo ou téléversez une image pour trouver des luminaires similaires
-            </p>
-          </div>
-
           {/* Affichage de l'image après recherche */}
           {capturedImage && !isSearching && searchResults.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-2 text-center">Image analysée :</h3>
-              <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden max-w-48 mx-auto">
+            <div className="mb-8">
+              <h3 className="text-lg font-medium text-slate-700 mb-4 text-center">Image analysée :</h3>
+              <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden max-w-64 mx-auto shadow-lg">
                 <Image src={capturedImage || "/placeholder.svg"} alt="Image analysée" fill className="object-contain" />
               </div>
             </div>
@@ -627,7 +632,7 @@ export default function HomePage() {
             playsInline
             muted
             onClick={capturePhoto}
-            className={`w-full rounded-lg bg-black cursor-pointer ${
+            className={`w-full rounded-2xl bg-slate-900 cursor-pointer shadow-lg ${
               searchMode === "camera" && isCameraActive && !capturedImage ? "block" : "hidden"
             }`}
             style={{ aspectRatio: "4/3" }}
@@ -637,61 +642,61 @@ export default function HomePage() {
 
           {/* Étape 1: Sélection de la méthode */}
           {!searchMode && !capturedImage && !isSearching && (
-            <div className="space-y-3 md:space-y-4">
+            <div className="space-y-4">
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 md:py-4 text-base md:text-lg"
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
                 disabled={isSearching || !canSearch}
               >
-                <Upload className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                <Upload className="w-5 h-5 mr-3" />
                 Téléverser une image
               </Button>
 
               <Button
                 onClick={startCamera}
                 variant="outline"
-                className="w-full border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white py-3 md:py-4 text-base md:text-lg bg-transparent"
+                className="w-full border-2 border-slate-300 text-slate-700 hover:bg-slate-50 py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl bg-transparent"
                 disabled={isSearching || isCameraLoading || !canSearch}
               >
                 {isCameraLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange-500 mr-2"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-700 mr-3"></div>
                     Activation caméra...
                   </>
                 ) : (
                   <>
-                    <Camera className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                    <Camera className="w-5 h-5 mr-3" />
                     Prendre une photo
                   </>
                 )}
               </Button>
 
               {!canSearch && userData?.role === "free" && (
-                <div className="text-center text-red-500 text-xs">
+                <div className="text-center text-red-600 text-sm bg-red-50 p-3 rounded-xl">
                   Limite de recherches quotidiennes atteinte (3/3).
-                  <Link href="#" className="ml-1 underline">
+                  <Link href="#" className="ml-1 underline font-medium">
                     Passez à Premium
                   </Link>{" "}
                   pour des recherches illimitées.
                 </div>
               )}
 
-              <p className="text-xs text-gray-600 text-center">
-                L'IA analyse votre image et trouve les 10 luminaires les plus similaires
+              <p className="text-xs text-slate-500 text-center leading-relaxed">
+                Notre IA analyse votre image et trouve les 10 luminaires les plus similaires dans notre collection
               </p>
             </div>
           )}
 
           {/* Étape 2a: Caméra en cours d'activation */}
           {searchMode === "camera" && isCameraLoading && (
-            <div className="space-y-4 text-center">
-              <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+            <div className="space-y-6 text-center">
+              <div className="w-full h-64 bg-slate-100 rounded-2xl flex items-center justify-center">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Activation de la caméra...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-slate-700 mx-auto mb-4"></div>
+                  <p className="text-slate-600 font-medium">Activation de la caméra...</p>
                 </div>
               </div>
-              <Button onClick={resetSearch} variant="outline" className="w-full bg-transparent">
+              <Button onClick={resetSearch} variant="outline" className="w-full rounded-xl bg-transparent">
                 <X className="w-4 h-4 mr-2" />
                 Annuler
               </Button>
@@ -700,22 +705,20 @@ export default function HomePage() {
 
           {/* Étape 2b: Caméra active */}
           {searchMode === "camera" && isCameraActive && !capturedImage && (
-            <div className="space-y-4">
-              {/* Le flux vidéo est maintenant rendu en haut avec une classe conditionnelle */}
+            <div className="space-y-6">
               {/* Overlay avec instructions */}
               <div className="relative -mt-4">
                 {/* Indicateur de statut */}
-                <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded z-10">
+                <div className="absolute bottom-3 left-3 bg-green-500 text-white text-sm px-3 py-2 rounded-lg z-10 shadow-lg">
                   🟢 Touchez l'écran pour capturer
                 </div>
-                {/* Pas d'indicateur supplémentaire */}
               </div>
 
               {/* Boutons de contrôle */}
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <Button
                   onClick={capturePhoto}
-                  className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-xl"
                   disabled={isCapturing}
                 >
                   {isCapturing ? (
@@ -729,12 +732,17 @@ export default function HomePage() {
                     </>
                   )}
                 </Button>
-                <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent" disabled={isCapturing}>
+                <Button
+                  onClick={resetSearch}
+                  variant="outline"
+                  className="px-6 rounded-xl bg-transparent"
+                  disabled={isCapturing}
+                >
                   <X className="w-4 h-4" />
                 </Button>
               </div>
 
-              <p className="text-xs text-gray-600 text-center">
+              <p className="text-xs text-slate-500 text-center">
                 Cadrez le luminaire et touchez l'écran ou le bouton pour capturer
               </p>
             </div>
@@ -742,9 +750,9 @@ export default function HomePage() {
 
           {/* Étape 3: Recherche en cours */}
           {isSearching && (
-            <div className="space-y-4 text-center">
+            <div className="space-y-6 text-center">
               {capturedImage && (
-                <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-4">
+                <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden mb-6 shadow-lg">
                   <Image
                     src={capturedImage || "/placeholder.svg"}
                     alt="Image en cours d'analyse"
@@ -754,26 +762,26 @@ export default function HomePage() {
                 </div>
               )}
               <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 mx-auto mb-2"></div>
-                <p className="text-sm font-medium text-gray-900">Analyse IA en cours...</p>
-                <p className="text-xs text-gray-500">Recherche des luminaires similaires</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-slate-700 mx-auto mb-4"></div>
+                <p className="text-lg font-medium text-slate-800 mb-2">Analyse IA en cours...</p>
+                <p className="text-sm text-slate-600">Recherche des luminaires similaires dans notre collection</p>
               </div>
             </div>
           )}
 
           {/* Étape 2.5: Options d'arrière-plan */}
           {showBackgroundOptions && !isSearching && (
-            <div className="space-y-4">
-              <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-4">
+            <div className="space-y-6">
+              <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden mb-6 shadow-lg">
                 <Image src={capturedImage || "/placeholder.svg"} alt="Image capturée" fill className="object-contain" />
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
                   <input
                     type="checkbox"
                     id="removeBackground"
-                    className="w-4 h-4 text-orange-500 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                    className="w-5 h-5 text-slate-700 bg-white border-slate-300 rounded focus:ring-slate-500 focus:ring-2"
                     onChange={async (e) => {
                       if (e.target.checked) {
                         // Supprimer l'arrière-plan et mettre à jour l'affichage
@@ -800,33 +808,33 @@ export default function HomePage() {
                     }}
                     disabled={isRemovingBackground}
                   />
-                  <label htmlFor="removeBackground" className="text-sm font-medium text-gray-700 cursor-pointer">
+                  <label htmlFor="removeBackground" className="text-sm font-medium text-slate-700 cursor-pointer">
                     Supprimer l'arrière-plan avant la recherche
                   </label>
                 </div>
 
                 {isRemovingBackground && (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600">Suppression de l'arrière-plan en cours...</p>
+                  <div className="text-center py-6">
+                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-slate-300 border-t-slate-700 mx-auto mb-3"></div>
+                    <p className="text-sm text-slate-600">Suppression de l'arrière-plan en cours...</p>
                   </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Button
                     onClick={searchWithOriginal}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600"
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-xl"
                     disabled={isRemovingBackground}
                   >
                     Rechercher maintenant
                   </Button>
-                  <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent">
+                  <Button onClick={resetSearch} variant="outline" className="px-6 rounded-xl bg-transparent">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
 
-              <p className="text-xs text-gray-600 text-center">
+              <p className="text-xs text-slate-500 text-center">
                 La suppression d'arrière-plan peut améliorer la précision de la recherche
               </p>
             </div>
@@ -837,15 +845,15 @@ export default function HomePage() {
 
         {/* Résultats de recherche */}
         {searchResults.length > 0 && (
-          <div className="mt-6 md:mt-8 bg-white/95 backdrop-blur-sm rounded-2xl p-4 md:p-6 max-w-6xl w-full">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-6 gap-3">
-              <h3 className="text-lg md:text-xl font-serif text-gray-900 text-center md:text-left">
-                🎯 Top {searchResults.length} luminaires similaires (IA)
+          <div className="mt-8 bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-8 max-w-7xl w-full shadow-2xl border border-white/20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+              <h3 className="text-2xl md:text-3xl font-serif text-slate-800 text-center md:text-left">
+                🎯 Top {searchResults.length} luminaires similaires
               </h3>
-              <div className="flex gap-2 justify-center md:justify-end">
+              <div className="flex gap-3 justify-center md:justify-end">
                 <Button
                   onClick={searchAgain}
-                  className="bg-orange-500 hover:bg-orange-600 text-sm md:text-base"
+                  className="bg-slate-800 hover:bg-slate-700 text-white rounded-xl shadow-lg"
                   size="sm"
                   disabled={isSearching || !canSearch}
                 >
@@ -859,7 +867,7 @@ export default function HomePage() {
                   onClick={resetSearch}
                   variant="outline"
                   size="sm"
-                  className="text-sm md:text-base bg-transparent"
+                  className="rounded-xl shadow-lg bg-transparent"
                 >
                   <X className="w-4 h-4 mr-2" />
                   Nouvelle image
@@ -867,18 +875,21 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
               {searchResults.map((result: any, index) => (
-                <div key={index} className="bg-white rounded-lg p-2 md:p-3 shadow-md border">
+                <div
+                  key={index}
+                  className="bg-white rounded-2xl p-4 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200"
+                >
                   {/* Image cliquable */}
                   {result.hasLocalMatch && result.luminaireUrl ? (
                     <Link href={result.luminaireUrl}>
-                      <div className="relative w-full h-24 md:h-32 mb-2 md:mb-3 cursor-pointer hover:scale-105 transition-transform">
+                      <div className="relative w-full h-32 md:h-40 mb-4 cursor-pointer hover:scale-105 transition-transform duration-200">
                         <Image
                           src={result.imageUrl || "/placeholder.svg"}
                           alt={result.imageId || `Résultat ${index + 1}`}
                           fill
-                          className="object-cover rounded-lg"
+                          className="object-cover rounded-xl"
                           onError={(e) => {
                             const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || `Image ${index + 1}`)}`
                             e.currentTarget.src = fallbackUrl
@@ -887,12 +898,12 @@ export default function HomePage() {
                       </div>
                     </Link>
                   ) : (
-                    <div className="relative w-full h-24 md:h-32 mb-2 md:mb-3">
+                    <div className="relative w-full h-32 md:h-40 mb-4">
                       <Image
                         src={result.imageUrl || "/placeholder.svg"}
                         alt={result.imageId || `Résultat ${index + 1}`}
                         fill
-                        className="object-cover rounded-lg"
+                        className="object-cover rounded-xl"
                         onError={(e) => {
                           const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || `Image ${index + 1}`)}`
                           e.currentTarget.src = fallbackUrl
@@ -901,22 +912,20 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  <p className="text-xs md:text-sm font-medium text-gray-900 truncate mb-1 md:mb-2">
+                  <p className="text-sm font-medium text-slate-800 truncate mb-2">
                     {result.localMatch?.nom || result.imageId || `Résultat ${index + 1}`}
                   </p>
 
-                  <p className="text-xs text-orange-500 mb-2 md:mb-3">
-                    Similarité: {Math.round(result.similarity * 100)}%
-                  </p>
+                  <p className="text-sm text-slate-600 mb-3">Similarité: {Math.round(result.similarity * 100)}%</p>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-500">
                     {result.hasLocalMatch ? "Fiche disponible" : "Image similaire"}
                   </p>
                 </div>
               ))}
             </div>
 
-            <div className="mt-3 md:mt-4 text-center text-xs md:text-sm text-gray-600">
+            <div className="mt-6 text-center text-sm text-slate-600">
               Cliquez sur une image pour voir la fiche détaillée
             </div>
           </div>

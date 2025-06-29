@@ -2,9 +2,9 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
-import { signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged, type User } from "firebase/auth"
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore"
-import { getFirebaseAuth, getFirebaseDb, getGoogleProvider, type UserData } from "@/lib/firebase"
+import { signInWithPopup, signOut, onAuthStateChanged, type User } from "firebase/auth"
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
+import { auth, db, googleProvider, isFirebaseConfigured, type UserData } from "@/lib/firebase"
 import { toast } from "sonner"
 
 interface AuthContextType {
@@ -12,68 +12,54 @@ interface AuthContextType {
   userData: UserData | null
   loading: boolean
   signInWithGoogle: () => Promise<void>
-  signOut: () => Promise<void>
+  logout: () => Promise<void>
   canSearch: boolean
   incrementSearchCount: () => Promise<boolean>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  userData: null,
+  loading: true,
+  signInWithGoogle: async () => {},
+  logout: async () => {},
+  canSearch: true,
+  incrementSearchCount: async () => true,
+})
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [userData, setUserData] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const auth = getFirebaseAuth()
-  const db = getFirebaseDb()
-  const googleProvider = getGoogleProvider()
-
   // Vérifier si l'utilisateur peut effectuer une recherche
-  const canSearch = userData?.role === "admin" || userData?.role === "premium" || (userData?.searchCount || 0) < 3
+  const canSearch = !user || userData?.role !== "free" || (userData?.searchCount || 0) < 3
 
   useEffect(() => {
-    if (!auth) {
+    if (!isFirebaseConfigured || !auth) {
+      console.warn("⚠️ Firebase not configured, skipping auth state listener")
       setLoading(false)
       return
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("🔐 Auth state changed:", user?.email || "No user")
+      console.log("🔄 Auth state changed:", user ? `User: ${user.email}` : "No user")
+
       setUser(user)
 
-      if (user && db) {
+      if (user) {
         try {
-          // Charger les données utilisateur depuis Firestore
-          const userDocRef = doc(db, "users", user.uid)
-          const userDoc = await getDoc(userDocRef)
-
-          if (userDoc.exists()) {
-            const data = userDoc.data() as UserData
-            console.log("👤 User data loaded:", data)
-            setUserData(data)
-          } else {
-            // Créer un nouveau document utilisateur
-            const newUserData: UserData = {
-              email: user.email || "",
-              role: "free",
-              searchCount: 0,
-              lastSearchDate: new Date().toISOString().split("T")[0],
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            }
-
-            await setDoc(userDocRef, {
-              ...newUserData,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            })
-
-            console.log("✅ New user created:", newUserData)
-            setUserData(newUserData)
-          }
+          await loadUserData(user.uid)
         } catch (error) {
           console.error("❌ Error loading user data:", error)
-          toast.error("Erreur lors du chargement des données utilisateur")
         }
       } else {
         setUserData(null)
@@ -83,111 +69,156 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => unsubscribe()
-  }, [auth, db])
+  }, [])
+
+  const loadUserData = async (uid: string) => {
+    if (!db) {
+      console.warn("⚠️ Firestore not available")
+      return
+    }
+
+    try {
+      const userDocRef = doc(db, "users", uid)
+      const userDoc = await getDoc(userDocRef)
+
+      if (userDoc.exists()) {
+        const data = userDoc.data() as UserData
+        console.log("📊 User data loaded:", data)
+        setUserData(data)
+      } else {
+        console.log("👤 Creating new user document")
+        // Créer un nouveau document utilisateur
+        const newUserData: UserData = {
+          email: user?.email || "",
+          role: "free",
+          searchCount: 0,
+          lastSearchDate: new Date().toISOString().split("T")[0],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+
+        await setDoc(userDocRef, newUserData)
+        setUserData(newUserData)
+        console.log("✅ New user document created")
+      }
+    } catch (error) {
+      console.error("❌ Error in loadUserData:", error)
+      toast.error("Erreur lors du chargement des données utilisateur")
+    }
+  }
 
   const signInWithGoogle = async () => {
-    if (!auth || !googleProvider) {
-      toast.error("Firebase non configuré")
+    if (!isFirebaseConfigured || !auth || !googleProvider) {
+      toast.error("Authentification non configurée")
       return
     }
 
     try {
       console.log("🚀 Starting Google sign in...")
+
       const result = await signInWithPopup(auth, googleProvider)
-      console.log("✅ Google sign in successful:", result.user.email)
-      toast.success(`Connecté en tant que ${result.user.email}`)
+      const user = result.user
+
+      console.log("✅ Google sign in successful:", user.email)
+      toast.success(`Connexion réussie ! Bienvenue ${user.displayName || user.email}`)
+
+      // Les données utilisateur seront chargées automatiquement par onAuthStateChanged
     } catch (error: any) {
       console.error("❌ Google sign in error:", error)
 
-      // Messages d'erreur plus spécifiques
+      let errorMessage = "Erreur lors de la connexion"
+
       if (error.code === "auth/popup-closed-by-user") {
-        toast.error("Connexion annulée")
+        errorMessage = "Connexion annulée par l'utilisateur"
       } else if (error.code === "auth/popup-blocked") {
-        toast.error("Popup bloquée par le navigateur")
+        errorMessage = "Popup bloquée par le navigateur. Veuillez autoriser les popups."
       } else if (error.code === "auth/cancelled-popup-request") {
-        toast.error("Demande de connexion annulée")
-      } else {
-        toast.error(`Erreur de connexion: ${error.message}`)
+        errorMessage = "Demande de connexion annulée"
+      } else if (error.code === "auth/network-request-failed") {
+        errorMessage = "Erreur réseau. Vérifiez votre connexion internet."
+      } else if (error.message) {
+        errorMessage = error.message
       }
+
+      toast.error(errorMessage)
     }
   }
 
-  const signOut = async () => {
-    if (!auth) return
+  const logout = async () => {
+    if (!auth) {
+      console.warn("⚠️ Auth not available")
+      return
+    }
 
     try {
-      await firebaseSignOut(auth)
-      console.log("👋 User signed out")
-      toast.success("Déconnecté avec succès")
-    } catch (error: any) {
+      await signOut(auth)
+      console.log("✅ User signed out")
+      toast.success("Déconnexion réussie")
+    } catch (error) {
       console.error("❌ Sign out error:", error)
       toast.error("Erreur lors de la déconnexion")
     }
   }
 
   const incrementSearchCount = async (): Promise<boolean> => {
-    if (!user || !db || !userData) return false
-
-    // Les admins et premium ont des recherches illimitées
-    if (userData.role === "admin" || userData.role === "premium") {
-      return true
+    if (!user || !userData || !db) {
+      return false
     }
 
+    // Vérifier si c'est un nouvel jour
     const today = new Date().toISOString().split("T")[0]
-    const currentCount = userData.lastSearchDate === today ? userData.searchCount || 0 : 0
+    const lastSearchDate = userData.lastSearchDate || ""
 
-    if (currentCount >= 3) {
-      toast.error("Limite de recherches quotidiennes atteinte (3/3)")
+    let currentSearchCount = userData.searchCount || 0
+
+    // Réinitialiser le compteur si c'est un nouveau jour
+    if (lastSearchDate !== today) {
+      currentSearchCount = 0
+    }
+
+    // Vérifier la limite pour les utilisateurs gratuits
+    if (userData.role === "free" && currentSearchCount >= 3) {
+      toast.error("Limite de 3 recherches par jour atteinte. Passez à Premium pour des recherches illimitées.")
       return false
     }
 
     try {
+      // Incrémenter le compteur
+      const newSearchCount = currentSearchCount + 1
       const userDocRef = doc(db, "users", user.uid)
-      const newCount = currentCount + 1
 
       await updateDoc(userDocRef, {
-        searchCount: newCount,
+        searchCount: newSearchCount,
         lastSearchDate: today,
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date(),
       })
 
       // Mettre à jour l'état local
-      setUserData((prev) =>
-        prev
-          ? {
-              ...prev,
-              searchCount: newCount,
-              lastSearchDate: today,
-            }
-          : null,
-      )
+      setUserData({
+        ...userData,
+        searchCount: newSearchCount,
+        lastSearchDate: today,
+        updatedAt: new Date(),
+      })
 
-      console.log(`🔍 Search count updated: ${newCount}/3`)
+      console.log(`📊 Search count updated: ${newSearchCount}/3 for ${userData.role} user`)
       return true
     } catch (error) {
       console.error("❌ Error updating search count:", error)
-      toast.error("Erreur lors de la mise à jour du compteur")
+      toast.error("Erreur lors de la mise à jour du compteur de recherches")
       return false
     }
   }
 
-  const value: AuthContextType = {
+  const value = {
     user,
     userData,
     loading,
     signInWithGoogle,
-    signOut,
+    logout,
     canSearch,
     incrementSearchCount,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
 }
