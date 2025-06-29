@@ -1,22 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+// Simulation d'une base de données
+const luminaires: any[] = []
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log("🔍 Chargement luminaire ID:", params.id)
 
-    if (!ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "ID invalide" }, { status: 400 })
-    }
-
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
-
-    const luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
+    const luminaire = luminaires.find((l) => l._id === params.id)
 
     if (!luminaire) {
       return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
@@ -25,10 +16,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Transformer les données pour le frontend
     const transformedLuminaire = {
       ...luminaire,
-      _id: luminaire._id.toString(),
-      images: luminaire.images || [],
-      materiaux: luminaire.materiaux || [],
-      couleurs: luminaire.couleurs || [],
       // CORRECTION: Convertir l'objet dimensions en string pour éviter l'erreur React #31
       dimensions:
         typeof luminaire.dimensions === "object" && luminaire.dimensions !== null
@@ -64,16 +51,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   try {
     console.log("✏️ Mise à jour luminaire ID:", params.id)
 
-    if (!ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "ID invalide" }, { status: 400 })
-    }
-
     const body = await request.json()
     console.log("📥 Données de mise à jour:", JSON.stringify(body, null, 2))
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
+    const index = luminaires.findIndex((l) => l._id === params.id)
+
+    if (index === -1) {
+      return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
+    }
 
     // Préparer les données de mise à jour
     const updateData = {
@@ -94,11 +79,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       updatedAt: new Date(),
     }
 
-    const result = await collection.updateOne({ _id: new ObjectId(params.id) }, { $set: updateData })
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
-    }
+    luminaires[index] = { ...luminaires[index], ...updateData }
 
     console.log(`✅ Luminaire mis à jour: ${params.id}`)
 
@@ -124,19 +105,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   try {
     console.log("🗑️ Suppression luminaire ID:", params.id)
 
-    if (!ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "ID invalide" }, { status: 400 })
-    }
+    const index = luminaires.findIndex((l) => l._id === params.id)
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
-
-    const result = await collection.deleteOne({ _id: new ObjectId(params.id) })
-
-    if (result.deletedCount === 0) {
+    if (index === -1) {
       return NextResponse.json({ error: "Luminaire non trouvé" }, { status: 404 })
     }
+
+    luminaires.splice(index, 1)
 
     console.log(`✅ Luminaire supprimé: ${params.id}`)
 

@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { parse } from "csv-parse/sync"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+// Simulation d'une base de données
+const luminaires: any[] = []
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,44 +20,22 @@ export async function POST(request: NextRequest) {
     const fileContent = await file.text()
     console.log(`📄 Contenu lu: ${fileContent.length} caractères`)
 
-    // Parser le CSV avec différents délimiteurs
-    let records: any[] = []
+    // Parser le CSV (simulation simple)
+    const lines = fileContent.split("\n").filter((line) => line.trim())
+    const headers = lines[0].split(";").map((h) => h.replace(/"/g, "").trim())
 
-    try {
-      // Essayer avec point-virgule d'abord
-      records = parse(fileContent, {
-        columns: true,
-        skip_empty_lines: true,
-        delimiter: ";",
-        trim: true,
+    console.log("📋 Colonnes détectées:", headers)
+
+    const records = lines.slice(1).map((line) => {
+      const values = line.split(";").map((v) => v.replace(/"/g, "").trim())
+      const record: any = {}
+      headers.forEach((header, index) => {
+        record[header] = values[index] || ""
       })
-      console.log(`✅ Parsing avec ';' réussi: ${records.length} lignes`)
-    } catch (error) {
-      try {
-        // Essayer avec virgule
-        records = parse(fileContent, {
-          columns: true,
-          skip_empty_lines: true,
-          delimiter: ",",
-          trim: true,
-        })
-        console.log(`✅ Parsing avec ',' réussi: ${records.length} lignes`)
-      } catch (error2) {
-        console.error("❌ Erreur parsing CSV:", error2)
-        return NextResponse.json({ error: "Impossible de parser le fichier CSV" }, { status: 400 })
-      }
-    }
-
-    if (records.length === 0) {
-      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV" }, { status: 400 })
-    }
+      return record
+    })
 
     console.log(`📊 ${records.length} lignes parsées du CSV`)
-    console.log("📋 Colonnes détectées:", Object.keys(records[0]))
-    console.log("📋 Premier enregistrement:", records[0])
-
-    const client = await clientPromise
-    const db = client.db(DBNAME)
 
     const results = {
       success: 0,
@@ -74,14 +51,10 @@ export async function POST(request: NextRequest) {
       try {
         // Mapping des colonnes (flexible)
         const nomLuminaire = record["Nom luminaire"] || record["nom"] || record["Nom"] || record["name"] || ""
-
         const filename = record["Nom du fichier"] || record["filename"] || record["Filename"] || record["image"] || ""
-
         const designer =
           record["Artiste / Dates"] || record["designer"] || record["Designer"] || record["artiste"] || ""
-
         const anneeStr = record["Année"] || record["annee"] || record["year"] || record["Year"] || ""
-
         const specialite = record["Spécialité"] || record["specialite"] || record["specialty"] || ""
 
         // Déterminer le nom final
@@ -106,6 +79,7 @@ export async function POST(request: NextRequest) {
 
         // Créer l'objet luminaire
         const luminaire = {
+          _id: Date.now().toString() + i,
           nom: finalNom,
           designer: designer.trim(),
           annee: annee,
@@ -125,6 +99,7 @@ export async function POST(request: NextRequest) {
           },
           images: [],
           filename: filename.trim(),
+          "Nom du fichier": filename.trim(),
           specialite: specialite.trim(),
           collaboration: (record["Collaboration / Œuvre"] || record["collaboration"] || "").trim(),
           signe: (record["Signé"] || record["signe"] || "").trim(),
@@ -136,11 +111,11 @@ export async function POST(request: NextRequest) {
 
         console.log(`💾 Insertion luminaire ${i + 1}/${records.length}: ${luminaire.nom}`)
 
-        await db.collection("luminaires").insertOne(luminaire)
+        luminaires.push(luminaire)
         results.success++
 
-        // Log de progression tous les 1000 éléments
-        if (results.success % 1000 === 0) {
+        // Log de progression tous les 100 éléments
+        if (results.success % 100 === 0) {
           console.log(`📊 Progression: ${results.success}/${records.length} luminaires insérés`)
         }
       } catch (error: any) {

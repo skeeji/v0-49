@@ -1,8 +1,8 @@
 "use client"
 
 import { X } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import { useEffect } from "react"
 
 interface LightboxProps {
   src: string
@@ -10,19 +10,36 @@ interface LightboxProps {
 }
 
 export function Lightbox({ src, onClose }: LightboxProps) {
-  return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
-      <div className="relative max-w-4xl max-h-full">
-        <Button onClick={onClose} variant="ghost" className="absolute -top-12 right-0 text-white hover:text-gray-300">
-          <X className="w-6 h-6" />
-        </Button>
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose()
+      }
+    }
 
-        <div className="relative w-full h-full max-h-[80vh] max-w-[80vw]">
+    document.addEventListener("keydown", handleEscape)
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape)
+      document.body.style.overflow = "unset"
+    }
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+      <div className="relative max-w-4xl max-h-full">
+        <button onClick={onClose} className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 hover:bg-gray-100">
+          <X className="w-6 h-6" />
+        </button>
+
+        <div className="relative w-full h-full">
           <Image
-            src={src || "/placeholder.svg?height=600&width=600"}
-            alt="Luminaire en grand"
-            fill
-            className="object-contain"
+            src={src || "/placeholder.svg"}
+            alt="Image agrandie"
+            width={800}
+            height={600}
+            className="object-contain max-w-full max-h-[80vh]"
           />
         </div>
       </div>

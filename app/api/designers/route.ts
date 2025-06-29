@@ -1,7 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 // Fonction pour extraire le nom du designer
 const getDesignerNameOnly = (str = ""): string => {
@@ -21,16 +18,12 @@ const createSlug = (name: string): string => {
     .trim()
 }
 
+// Simulation d'une base de données
+const luminaires: any[] = []
+
 export async function GET(request: NextRequest) {
   try {
     console.log("🔍 API GET /api/designers appelée")
-
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    // Récupérer tous les luminaires pour extraire les designers
-    const luminaires = await db.collection("luminaires").find({}).toArray()
-    console.log(`📊 ${luminaires.length} luminaires trouvés`)
 
     // Extraire et compter les designers
     const designerCounts: { [key: string]: { name: string; count: number; slug: string } } = {}
@@ -78,15 +71,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     console.log("➕ API POST /api/designers appelée")
-
     const body = await request.json()
     console.log("📥 Données reçues:", JSON.stringify(body, null, 2))
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
     // Préparer les données du designer
     const designer = {
+      _id: Date.now().toString(),
       nom: body.nom || "",
       slug: body.slug || createSlug(body.nom || ""),
       biographie: body.biographie || "",
@@ -101,17 +91,17 @@ export async function POST(request: NextRequest) {
 
     console.log("💾 Designer à insérer:", JSON.stringify(designer, null, 2))
 
-    const result = await db.collection("designers").insertOne(designer)
-    console.log(`✅ Designer inséré avec l'ID: ${result.insertedId}`)
+    // Ajouter à la simulation de base de données
+    const designers: any[] = []
+    designers.push(designer)
+
+    console.log(`✅ Designer inséré avec l'ID: ${designer._id}`)
 
     return NextResponse.json({
       success: true,
       message: "Designer créé avec succès",
-      id: result.insertedId.toString(),
-      designer: {
-        ...designer,
-        _id: result.insertedId.toString(),
-      },
+      id: designer._id,
+      designer: designer,
     })
   } catch (error: any) {
     console.error("❌ Erreur dans POST /api/designers:", error)

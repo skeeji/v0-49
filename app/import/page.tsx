@@ -4,7 +4,7 @@ import { useState } from "react"
 import { UploadForm } from "@/components/UploadForm"
 import { Button } from "@/components/ui/button"
 import { Trash2, Database, Upload, CheckCircle } from "lucide-react"
-import { useToast } from "@/hooks/useToast"
+import { toast } from "sonner"
 import { RoleGuard } from "@/components/RoleGuard"
 
 export default function ImportPage() {
@@ -20,13 +20,12 @@ export default function ImportPage() {
     designers: { total: 0, success: 0, errors: 0 },
     images: { total: 0, success: 0, errors: 0 },
   })
-  const { showToast } = useToast()
 
   const handleCsvUpload = async (data: any[]) => {
     console.log("📥 Début de l'import CSV:", data.length, "lignes")
 
     if (data.length === 0) {
-      showToast("❌ Aucune donnée trouvée dans le fichier CSV", "error")
+      toast.error("❌ Aucune donnée trouvée dans le fichier CSV")
       return
     }
 
@@ -78,17 +77,17 @@ export default function ImportPage() {
           },
         }))
 
-        showToast(`✅ ${result.imported} luminaires importés sur ${result.processed} lignes`, "success")
+        toast.success(`✅ ${result.imported} luminaires importés sur ${result.processed} lignes`)
 
         if (result.totalErrors > 0) {
-          showToast(`⚠️ ${result.totalErrors} erreurs rencontrées`, "error")
+          toast.error(`⚠️ ${result.totalErrors} erreurs rencontrées`)
         }
       } else {
         throw new Error(result.error || "Erreur lors de l'import")
       }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'import CSV:", error)
-      showToast(`❌ Erreur: ${error.message}`, "error")
+      toast.error(`❌ Erreur: ${error.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -106,6 +105,7 @@ export default function ImportPage() {
       })
 
       console.log("📤 Envoi des fichiers vers /api/upload/images...")
+
       const response = await fetch("/api/upload/images", {
         method: "POST",
         body: formData,
@@ -125,13 +125,13 @@ export default function ImportPage() {
           },
         }))
 
-        showToast(`📤 ${result.uploaded} images uploadées, ${result.associated} associées`, "success")
+        toast.success(`📤 ${result.uploaded} images uploadées, ${result.associated} associées`)
       } else {
         throw new Error(result.error || "Erreur lors de l'upload")
       }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'upload d'images:", error)
-      showToast(`❌ Erreur: ${error.message}`, "error")
+      toast.error(`❌ Erreur: ${error.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -187,13 +187,13 @@ export default function ImportPage() {
           },
         }))
 
-        showToast(`✅ ${result.imported} designers importés sur ${result.processed} lignes`, "success")
+        toast.success(`✅ ${result.imported} designers importés sur ${result.processed} lignes`)
       } else {
         throw new Error(result.error || "Erreur lors de l'import des designers")
       }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'import designers:", error)
-      showToast(`❌ Erreur: ${error.message}`, "error")
+      toast.error(`❌ Erreur: ${error.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -214,13 +214,13 @@ export default function ImportPage() {
         console.log("✅ Upload images designers terminé:", result)
 
         setDesignerImages((prev) => [...prev, ...files])
-        showToast(`✅ ${result.uploaded || files.length} images de designers uploadées`, "success")
+        toast.success(`✅ ${result.uploaded || files.length} images de designers uploadées`)
       } else {
         throw new Error("Erreur lors de l'upload des images de designers")
       }
     } catch (error: any) {
       console.error("❌ Erreur upload images designers:", error)
-      showToast(`❌ Erreur: ${error.message}`, "error")
+      toast.error(`❌ Erreur: ${error.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -228,6 +228,7 @@ export default function ImportPage() {
 
   const handleVideoUpload = async (file: File) => {
     setIsUploading(true)
+
     try {
       const formData = new FormData()
       formData.append("file", file)
@@ -238,13 +239,13 @@ export default function ImportPage() {
 
       if (response.ok) {
         setVideo(file)
-        showToast("✅ Vidéo d'accueil uploadée", "success")
+        toast.success("✅ Vidéo d'accueil uploadée")
       } else {
         throw new Error("Erreur lors de l'upload de la vidéo")
       }
     } catch (error: any) {
       console.error("❌ Erreur upload vidéo:", error)
-      showToast(`❌ Erreur: ${error.message}`, "error")
+      toast.error(`❌ Erreur: ${error.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -252,6 +253,7 @@ export default function ImportPage() {
 
   const handleLogoUpload = async (file: File) => {
     setIsUploading(true)
+
     try {
       const formData = new FormData()
       formData.append("logo", file)
@@ -261,14 +263,14 @@ export default function ImportPage() {
       if (response.ok) {
         const result = await response.json()
         setLogo(file)
-        showToast("✅ Logo uploadé avec succès", "success")
+        toast.success("✅ Logo uploadé avec succès")
         console.log("🏷️ Logo sauvegardé:", result.filename)
       } else {
         throw new Error("Erreur lors de l'upload du logo")
       }
     } catch (error: any) {
       console.error("❌ Erreur upload logo:", error)
-      showToast(`❌ Erreur: ${error.message}`, "error")
+      toast.error(`❌ Erreur: ${error.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -281,7 +283,7 @@ export default function ImportPage() {
 
     if (isConfirmed) {
       setIsUploading(true)
-      showToast("🗑️ Réinitialisation du serveur en cours...", "info")
+      toast.info("🗑️ Réinitialisation du serveur en cours...")
 
       try {
         console.log("🗑️ Début de la réinitialisation complète...")
@@ -304,13 +306,13 @@ export default function ImportPage() {
           })
 
           console.log("✅ Réinitialisation terminée:", result)
-          showToast("✅ Serveur réinitialisé avec succès !", "success")
+          toast.success("✅ Serveur réinitialisé avec succès !")
         } else {
           throw new Error(result.error || "La réinitialisation a échoué")
         }
       } catch (error: any) {
         console.error("❌ Erreur lors de la réinitialisation:", error)
-        showToast(`❌ Erreur: ${error.message}`, "error")
+        toast.error(`❌ Erreur: ${error.message}`)
       } finally {
         setIsUploading(false)
       }
@@ -319,9 +321,9 @@ export default function ImportPage() {
 
   return (
     <RoleGuard requiredRole="admin">
-      <div className="container-responsive py-8">
+      <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-4xl font-playfair text-dark mb-8">Import des données</h1>
+          <h1 className="text-4xl font-serif text-gray-900 mb-8">Import des données</h1>
 
           {/* Indicateur de chargement */}
           {isUploading && (
@@ -350,6 +352,7 @@ export default function ImportPage() {
                   </div>
                 </div>
               </div>
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <Upload className="h-5 w-5 text-blue-600 mr-2" />
@@ -361,6 +364,7 @@ export default function ImportPage() {
                   </div>
                 </div>
               </div>
+
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <Database className="h-5 w-5 text-purple-600 mr-2" />
@@ -378,7 +382,7 @@ export default function ImportPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Import CSV Luminaires */}
             <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-playfair text-dark mb-4">📥 Import CSV Luminaires</h2>
+              <h2 className="text-2xl font-serif text-gray-900 mb-4">📥 Import CSV Luminaires</h2>
               <UploadForm
                 accept=".csv"
                 onUpload={handleCsvUpload}
@@ -398,8 +402,8 @@ export default function ImportPage() {
                 ]}
               />
               {csvData.length > 0 && (
-                <div className="mt-4 p-4 bg-cream rounded-lg">
-                  <p className="text-sm text-dark font-medium">{csvData.length} lignes CSV traitées</p>
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                  <p className="text-sm text-gray-900 font-medium">{csvData.length} lignes CSV traitées</p>
                   <p className="text-xs text-gray-600 mt-1">
                     ✅ {importStats.luminaires.success} réussis • ❌ {importStats.luminaires.errors} erreurs
                   </p>
@@ -409,11 +413,11 @@ export default function ImportPage() {
 
             {/* Import Images Luminaires */}
             <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-playfair text-dark mb-4">🖼️ Import Images Luminaires</h2>
+              <h2 className="text-2xl font-serif text-gray-900 mb-4">🖼️ Import Images Luminaires</h2>
               <UploadForm accept="image/*" multiple onUpload={handleImagesUpload} type="images" />
               {images.length > 0 && (
-                <div className="mt-4 p-4 bg-cream rounded-lg">
-                  <p className="text-sm text-dark font-medium">{images.length} images uploadées</p>
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                  <p className="text-sm text-gray-900 font-medium">{images.length} images uploadées</p>
                   <p className="text-xs text-gray-600 mt-1">
                     ✅ {importStats.images.success} associées • ❌ {importStats.images.errors} non associées
                   </p>
@@ -423,7 +427,7 @@ export default function ImportPage() {
 
             {/* Import CSV Designers */}
             <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-playfair text-dark mb-4">🧑‍🎨 Import CSV Designers</h2>
+              <h2 className="text-2xl font-serif text-gray-900 mb-4">🧑‍🎨 Import CSV Designers</h2>
               <UploadForm
                 accept=".csv"
                 onUpload={handleDesignersUpload}
@@ -431,8 +435,8 @@ export default function ImportPage() {
                 expectedColumns={["Nom", "imagedesigner"]}
               />
               {designers.length > 0 && (
-                <div className="mt-4 p-4 bg-cream rounded-lg">
-                  <p className="text-sm text-dark font-medium">{designers.length} designers traités</p>
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                  <p className="text-sm text-gray-900 font-medium">{designers.length} designers traités</p>
                   <p className="text-xs text-gray-600 mt-1">
                     ✅ {importStats.designers.success} réussis • ❌ {importStats.designers.errors} erreurs
                   </p>
@@ -442,11 +446,11 @@ export default function ImportPage() {
 
             {/* Import Images Designers */}
             <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-playfair text-dark mb-4">👤 Import Images Designers</h2>
+              <h2 className="text-2xl font-serif text-gray-900 mb-4">👤 Import Images Designers</h2>
               <UploadForm accept="image/*" multiple onUpload={handleDesignerImagesUpload} type="images" />
               {designerImages.length > 0 && (
-                <div className="mt-4 p-4 bg-cream rounded-lg">
-                  <p className="text-sm text-dark font-medium">{designerImages.length} portraits uploadés</p>
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                  <p className="text-sm text-gray-900 font-medium">{designerImages.length} portraits uploadés</p>
                   <p className="text-xs text-gray-600 mt-1">Images associées aux designers</p>
                 </div>
               )}
@@ -454,11 +458,11 @@ export default function ImportPage() {
 
             {/* Import Vidéo */}
             <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-playfair text-dark mb-4">🎥 Vidéo d'accueil</h2>
+              <h2 className="text-2xl font-serif text-gray-900 mb-4">🎥 Vidéo d'accueil</h2>
               <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" />
               {video && (
-                <div className="mt-4 p-4 bg-cream rounded-lg">
-                  <p className="text-sm text-dark font-medium">Vidéo: {video.name}</p>
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                  <p className="text-sm text-gray-900 font-medium">Vidéo: {video.name}</p>
                   <p className="text-xs text-gray-600 mt-1">Vidéo sauvegardée et disponible sur la page d'accueil</p>
                 </div>
               )}
@@ -466,11 +470,11 @@ export default function ImportPage() {
 
             {/* Import Logo */}
             <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-playfair text-dark mb-4">🏷️ Logo du Header</h2>
+              <h2 className="text-2xl font-serif text-gray-900 mb-4">🏷️ Logo du Header</h2>
               <UploadForm accept="image/*" onUpload={handleLogoUpload} type="logo" />
               {logo && (
-                <div className="mt-4 p-4 bg-cream rounded-lg">
-                  <p className="text-sm text-dark font-medium">Logo: {logo.name}</p>
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                  <p className="text-sm text-gray-900 font-medium">Logo: {logo.name}</p>
                   <p className="text-xs text-gray-600 mt-1">Logo sauvegardé et disponible dans le header</p>
                 </div>
               )}

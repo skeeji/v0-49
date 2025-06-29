@@ -80,14 +80,18 @@ export default function LuminaireDetailPage() {
 
   const findSimilarLuminaires = (current: any, all: any[]) => {
     const currentYear = Number.parseInt(current.annee) || 0
+
     return all
       .filter((item) => item._id !== current._id)
       .map((item) => {
         let score = 0
+
         if (item.designer && current.designer && item.designer === current.designer) score += 3
         if (item.specialite && current.specialite && item.specialite === current.specialite) score += 2
+
         const itemYear = Number.parseInt(item.annee) || 0
         if (currentYear > 0 && itemYear > 0 && Math.abs(currentYear - itemYear) <= 10) score += 1
+
         return {
           ...item,
           id: item._id,
@@ -132,10 +136,12 @@ export default function LuminaireDetailPage() {
 
   const toggleFavorite = () => {
     if (!luminaire) return
+
     const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
     const newFavorites = isFavorite
       ? favorites.filter((id: string) => id !== luminaire._id)
       : [...favorites, luminaire._id]
+
     localStorage.setItem("favorites", JSON.stringify(newFavorites))
     setIsFavorite(!isFavorite)
   }
@@ -144,6 +150,7 @@ export default function LuminaireDetailPage() {
     if (!luminaire) return
 
     setGeneratingPDF(true)
+
     try {
       const pdf = new jsPDF()
 
@@ -190,7 +197,7 @@ export default function LuminaireDetailPage() {
 
   if (!luminaire) {
     return (
-      <div className="container-responsive py-8 text-center">
+      <div className="container mx-auto px-4 py-8 text-center">
         <p>Luminaire non trouvé.</p>
         <Link href="/">
           <Button className="mt-4">Retour</Button>
@@ -200,7 +207,7 @@ export default function LuminaireDetailPage() {
   }
 
   return (
-    <div className="container-responsive py-8">
+    <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Link href="/">
@@ -209,11 +216,12 @@ export default function LuminaireDetailPage() {
               Retour
             </Button>
           </Link>
+
           <div className="flex items-center gap-4">
             {(userData?.role === "admin" || userData?.role === "premium") && (
               <Button
                 onClick={generatePDF}
-                className="bg-orange hover:bg-orange/90 text-white"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
                 disabled={generatingPDF}
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -245,7 +253,7 @@ export default function LuminaireDetailPage() {
               <EditableField
                 value={luminaire.name || ""}
                 onSave={(v) => handleUpdate("name", v)}
-                className="text-2xl font-playfair text-dark"
+                className="text-2xl font-serif text-gray-900"
                 placeholder="Nom du luminaire"
                 disabled={!canEdit}
               />
@@ -367,7 +375,7 @@ export default function LuminaireDetailPage() {
 
         {similarLuminaires.length > 0 && (
           <div className="bg-white rounded-xl p-8 shadow-lg">
-            <h2 className="text-2xl font-playfair text-dark mb-6">Luminaires similaires</h2>
+            <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires similaires</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {similarLuminaires.map((similar: any) => (
                 <Link key={similar.id} href={`/luminaires/${similar.id}`}>
@@ -381,7 +389,7 @@ export default function LuminaireDetailPage() {
                       />
                     </div>
                     <div className="p-4 space-y-2">
-                      <h3 className="font-playfair text-lg truncate">{similar.name}</h3>
+                      <h3 className="font-serif text-lg truncate">{similar.name}</h3>
                       <p className="text-sm">{similar.artist}</p>
                       <p className="text-xs">{similar.year}</p>
                     </div>

@@ -1,13 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+
+// Simulation d'une base de données de designers
+const designers: any[] = []
 
 export async function GET(request: NextRequest) {
   try {
     console.log("🔍 Récupération des données designers...")
-
-    const { db } = await connectToDatabase()
-    const designers = await db.collection("designers").find({}).toArray()
-
     console.log(`📊 ${designers.length} designers trouvés dans la base`)
 
     return NextResponse.json({

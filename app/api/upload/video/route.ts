@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { saveUploadedFile, isValidVideoType } from "@/lib/upload"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+// Simulation d'une base de données
+const welcomeVideos: any[] = []
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,22 +14,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    if (!isValidVideoType(file.name)) {
+    // Vérifier le type de fichier
+    if (!file.type.startsWith("video/")) {
       return NextResponse.json({ error: "Type de fichier vidéo non supporté" }, { status: 400 })
     }
 
-    // Sauvegarder le fichier
-    const filePath = await saveUploadedFile(file, "videos")
-
-    // Sauvegarder les informations en base
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    // Simulation de sauvegarde du fichier
+    const filePath = `/uploads/videos/${Date.now()}-${file.name}`
 
     // Désactiver les autres vidéos
-    await db.collection("welcomeVideos").updateMany({}, { $set: { isActive: false } })
+    welcomeVideos.forEach((video) => (video.isActive = false))
 
     // Créer la nouvelle vidéo
     const welcomeVideo = {
+      _id: Date.now().toString(),
       title: title || "Vidéo de bienvenue",
       description: description || "",
       videoPath: filePath,
@@ -39,10 +36,10 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     }
 
-    const result = await db.collection("welcomeVideos").insertOne(welcomeVideo)
+    welcomeVideos.push(welcomeVideo)
 
     return NextResponse.json({
-      _id: result.insertedId,
+      _id: welcomeVideo._id,
       ...welcomeVideo,
       message: "Vidéo uploadée avec succès",
     })
@@ -54,10 +51,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    const welcomeVideo = await db.collection("welcomeVideos").findOne({ isActive: true })
+    const welcomeVideo = welcomeVideos.find((video) => video.isActive)
 
     if (!welcomeVideo) {
       return NextResponse.json({ videoUrl: null })

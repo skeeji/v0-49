@@ -26,11 +26,9 @@ export function RangeSlider({ min, max, value, onChange, label }: RangeSliderPro
       isFirstRender.current = false
       return
     }
-
     const timer = setTimeout(() => {
       onChange(localValue)
     }, 200)
-
     return () => clearTimeout(timer)
   }, [localValue, onChange])
 
@@ -44,7 +42,6 @@ export function RangeSlider({ min, max, value, onChange, label }: RangeSliderPro
           <span className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-700">{localValue[1]}</span>
         </div>
       </div>
-
       <div className="relative pt-1">
         <Slider.Root
           className="relative flex items-center select-none touch-none w-full h-5"
@@ -66,7 +63,6 @@ export function RangeSlider({ min, max, value, onChange, label }: RangeSliderPro
             aria-label="Année maximum"
           />
         </Slider.Root>
-
         {/* Marqueurs d'années */}
         <div className="flex justify-between mt-2">
           <span className="text-xs text-gray-500">{min}</span>

@@ -2,74 +2,35 @@
 
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/useToast"
 
 interface CSVExportButtonProps {
   data: any[]
+  filename: string
 }
 
-export function CSVExportButton({ data }: CSVExportButtonProps) {
-  const { showToast } = useToast()
-
+export function CSVExportButton({ data, filename }: CSVExportButtonProps) {
   const exportToCSV = () => {
     if (data.length === 0) {
-      showToast("Aucune donnée à exporter", "error")
+      alert("Aucune donnée à exporter")
       return
     }
 
-    // Définir tous les champs possibles pour s'assurer que tous les luminaires ont les mêmes colonnes
-    const allFields = [
-      "id",
-      "name",
-      "artist",
-      "year",
-      "specialty",
-      "collaboration",
-      "signed",
-      "image",
-      "filename",
-      "dimensions",
-      "estimation",
-      "materials",
-      "description",
-      "url",
-    ]
+    // Créer les en-têtes
+    const headers = Object.keys(data[0])
 
-    // Créer les en-têtes avec des noms plus lisibles
-    const headers = {
-      id: "ID",
-      name: "Nom du luminaire",
-      artist: "Artiste / Dates",
-      year: "Année",
-      specialty: "Spécialité",
-      collaboration: "Collaboration / Œuvre",
-      signed: "Signé",
-      image: "URL Image",
-      filename: "Nom du fichier",
-      dimensions: "Dimensions",
-      estimation: "Estimation",
-      materials: "Matériaux",
-      description: "Description",
-      url: "Lien internet",
-    }
-
-    // Créer la ligne d'en-tête
-    const headerRow = allFields.map((field) => headers[field] || field).join(",")
-
-    // Créer les lignes de données
-    const rows = data.map((item) => {
-      return allFields
-        .map((field) => {
-          const value = item[field] || ""
-          // Échapper les virgules et les guillemets pour le format CSV
-          const escapedValue = String(value).replace(/"/g, '""')
-          return `"${escapedValue}"`
-        })
-        .join(",")
-    })
-
-    // Assembler le contenu CSV
-    const csvContent = [headerRow, ...rows].join("\n")
+    // Créer les lignes CSV
+    const csvContent = [
+      headers.join(","),
+      ...data.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header] || ""
+            // Échapper les guillemets et virgules
+            return `"${String(value).replace(/"/g, '""')}"`
+          })
+          .join(","),
+      ),
+    ].join("\n")
 
     // Créer et télécharger le fichier
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
@@ -77,19 +38,18 @@ export function CSVExportButton({ data }: CSVExportButtonProps) {
     const url = URL.createObjectURL(blob)
 
     link.setAttribute("href", url)
-    link.setAttribute("download", `luminaires_${new Date().toISOString().split("T")[0]}.csv`)
+    link.setAttribute("download", `${filename}.csv`)
     link.style.visibility = "hidden"
 
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-
-    showToast("Export CSV réussi", "success")
   }
 
   return (
-    <Button onClick={exportToCSV} disabled={data.length === 0} className="bg-orange hover:bg-orange/90">
-      <Download className="w-4 h-4 mr-2" />📤 Exporter (.csv)
+    <Button onClick={exportToCSV} variant="outline">
+      <Download className="w-4 h-4 mr-2" />
+      Export CSV
     </Button>
   )
 }

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Grid, List, Plus } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { CSVExportButton } from "@/components/CSVExportButton"
-import { useToast } from "@/hooks/useToast"
+import { toast } from "sonner"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -31,8 +31,6 @@ export default function LuminairesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
-
-  const { showToast } = useToast()
 
   // CORRECTION: Fonction pour charger les luminaires avec scroll infini
   const loadLuminaires = useCallback(
@@ -85,22 +83,13 @@ export default function LuminairesPage() {
       } catch (err: any) {
         console.error("❌ Erreur chargement:", err)
         setError(err.message)
-        showToast("Erreur lors du chargement des luminaires", "error")
+        toast.error("Erreur lors du chargement des luminaires")
       } finally {
         setLoading(false)
         setLoadingMore(false)
       }
     },
-    [
-      searchTerm,
-      selectedDesigner,
-      selectedPeriode,
-      selectedMateriaux,
-      selectedCouleurs,
-      sortField,
-      sortDirection,
-      showToast,
-    ],
+    [searchTerm, selectedDesigner, selectedPeriode, selectedMateriaux, selectedCouleurs, sortField, sortDirection],
   )
 
   // CORRECTION: Charger les luminaires au montage et lors des changements de filtres
@@ -134,12 +123,14 @@ export default function LuminairesPage() {
 
     // Throttle pour éviter trop d'appels
     let timeoutId: NodeJS.Timeout
+
     const throttledHandleScroll = () => {
       clearTimeout(timeoutId)
       timeoutId = setTimeout(handleScroll, 200)
     }
 
     window.addEventListener("scroll", throttledHandleScroll, { passive: true })
+
     return () => {
       window.removeEventListener("scroll", throttledHandleScroll)
       clearTimeout(timeoutId)
@@ -147,30 +138,27 @@ export default function LuminairesPage() {
   }, [loadMore])
 
   // Fonction pour mettre à jour un luminaire
-  const handleItemUpdate = useCallback(
-    async (id: string, updates: any) => {
-      try {
-        const response = await fetch(`/api/luminaires/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updates),
-        })
+  const handleItemUpdate = useCallback(async (id: string, updates: any) => {
+    try {
+      const response = await fetch(`/api/luminaires/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
 
-        const data = await response.json()
+      const data = await response.json()
 
-        if (data.success) {
-          setLuminaires((prev) => prev.map((item) => (item._id === id ? { ...item, ...updates } : item)))
-          showToast("Luminaire mis à jour avec succès", "success")
-        } else {
-          throw new Error(data.error)
-        }
-      } catch (err: any) {
-        console.error("❌ Erreur mise à jour:", err)
-        showToast("Erreur lors de la mise à jour", "error")
+      if (data.success) {
+        setLuminaires((prev) => prev.map((item) => (item._id === id ? { ...item, ...updates } : item)))
+        toast.success("Luminaire mis à jour avec succès")
+      } else {
+        throw new Error(data.error)
       }
-    },
-    [showToast],
-  )
+    } catch (err: any) {
+      console.error("❌ Erreur mise à jour:", err)
+      toast.error("Erreur lors de la mise à jour")
+    }
+  }, [])
 
   // Fonction pour créer un nouveau luminaire
   const handleCreateLuminaire = useCallback(
@@ -185,7 +173,7 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (data.success) {
-          showToast("Luminaire créé avec succès", "success")
+          toast.success("Luminaire créé avec succès")
           setIsModalOpen(false)
           // Recharger la première page
           loadLuminaires(1, false)
@@ -194,10 +182,10 @@ export default function LuminairesPage() {
         }
       } catch (err: any) {
         console.error("❌ Erreur création:", err)
-        showToast("Erreur lors de la création", "error")
+        toast.error("Erreur lors de la création")
       }
     },
-    [loadLuminaires, showToast],
+    [loadLuminaires],
   )
 
   // Options pour les filtres (calculées à partir des données)
@@ -215,7 +203,7 @@ export default function LuminairesPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
             <p className="text-gray-600">Chargement des luminaires...</p>
           </div>
         </div>
@@ -239,7 +227,7 @@ export default function LuminairesPage() {
       {/* En-tête */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-playfair text-dark mb-2">Luminaires</h1>
+          <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
             {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
             {hasMore && ` (scroll pour charger plus)`}
@@ -247,7 +235,7 @@ export default function LuminairesPage() {
         </div>
 
         <div className="flex items-center gap-4 mt-4 lg:mt-0">
-          <Button onClick={() => setIsModalOpen(true)} className="bg-orange hover:bg-orange/90">
+          <Button onClick={() => setIsModalOpen(true)} className="bg-orange-500 hover:bg-orange-600">
             <Plus className="w-4 h-4 mr-2" />
             Ajouter
           </Button>
@@ -328,9 +316,9 @@ export default function LuminairesPage() {
       {/* Indicateur de chargement pour le scroll infini */}
       {loadingMore && (
         <div className="text-center mt-8">
-          <div className="inline-flex items-center px-4 py-2 bg-orange/10 rounded-lg">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange mr-2"></div>
-            <span className="text-orange">Chargement de plus de luminaires...</span>
+          <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
+            <span className="text-orange-500">Chargement de plus de luminaires...</span>
           </div>
         </div>
       )}

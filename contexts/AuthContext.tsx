@@ -1,263 +1,171 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import {
-  type User,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-  browserLocalPersistence,
-  setPersistence,
-} from "firebase/auth"
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
-import { auth, db, googleProvider, isFirebaseConfigured, type UserData } from "@/lib/firebase"
-import { useToast } from "@/hooks/useToast"
+import { createContext, useState, useEffect, useContext, type ReactNode } from "react"
+import { getFirebaseAuth, getGoogleProvider, getFirebaseDb, type UserData } from "@/lib/firebase"
+import { signInWithPopup, signOut, onAuthStateChanged, type User as FirebaseUser } from "firebase/auth"
+import { doc, getDoc, setDoc } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
 
-interface AuthContextType {
-  user: User | null
+interface AuthContextProps {
+  user: FirebaseUser | null
   userData: UserData | null
-  isLoading: boolean
-  signInWithGoogle: () => Promise<void>
+  loading: boolean
+  login: () => Promise<void>
   logout: () => Promise<void>
-  incrementSearchCount: () => Promise<boolean>
-  canSearch: boolean
-  isFirebaseEnabled: boolean
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextProps>({
+  user: null,
+  userData: null,
+  loading: true,
+  login: async () => {},
+  logout: async () => {},
+})
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+interface AuthProviderProps {
+  children: ReactNode
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<FirebaseUser | null>(null)
   const [userData, setUserData] = useState<UserData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [canSearch, setCanSearch] = useState(true)
-  const { showToast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
 
   useEffect(() => {
-    // Si Firebase n'est pas configuré, utiliser un mode dégradé
-    if (!isFirebaseConfigured || !auth || !db) {
-      console.warn("⚠️ Firebase not available - using offline mode")
-      setIsLoading(false)
-      setCanSearch(true)
+    const auth = getFirebaseAuth()
+    const db = getFirebaseDb()
+
+    if (!auth || !db) {
+      setLoading(false)
       return
     }
 
-    // Configurer la persistance locale
-    setPersistence(auth, browserLocalPersistence).catch((error) => {
-      console.warn("⚠️ Could not set auth persistence:", error)
-    })
-
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log("🔄 Auth state changed:", currentUser?.email || "No user")
-      setUser(currentUser)
-
-      if (currentUser) {
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      if (authUser) {
         try {
-          const userDocRef = doc(db, "users", currentUser.uid)
-          const userDoc = await getDoc(userDocRef)
+          const userDocRef = doc(db, "users", authUser.uid)
+          const docSnap = await getDoc(userDocRef)
 
-          if (userDoc.exists()) {
-            const userData = userDoc.data() as UserData
-            setUserData(userData)
-            console.log("👤 User data loaded:", userData.email, userData.role)
-
-            // Vérifier les limites de recherche pour les utilisateurs gratuits
-            if (userData.role === "free") {
-              const today = new Date().toISOString().split("T")[0]
-              if (userData.lastSearchDate === today && (userData.searchCount || 0) >= 3) {
-                setCanSearch(false)
-              } else {
-                setCanSearch(true)
-              }
-            } else {
-              setCanSearch(true)
-            }
+          if (docSnap.exists()) {
+            // L'utilisateur existe déjà dans Firestore
+            const existingUserData = docSnap.data() as UserData
+            setUserData(existingUserData)
           } else {
-            // Créer un nouveau document utilisateur
-            const newUserData: UserData = {
-              email: currentUser.email || "",
+            // L'utilisateur n'existe pas, on le crée avec le rôle par défaut
+            const newUser: UserData = {
+              email: authUser.email || "",
               role: "free",
-              searchCount: 0,
-              createdAt: new Date(),
-              updatedAt: new Date(),
             }
-
-            await setDoc(userDocRef, {
-              ...newUserData,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            })
-
-            setUserData(newUserData)
-            setCanSearch(true)
-            console.log("✅ New user created:", newUserData.email)
-          }
-        } catch (error) {
-          console.error("❌ Error fetching user data:", error)
-
-          // Gestion spécifique des erreurs Firebase
-          if (error.code === "unavailable") {
-            showToast("Service temporairement indisponible. Veuillez réessayer.", "error")
-          } else if (error.code === "permission-denied") {
-            showToast("Permissions insuffisantes. Contactez l'administrateur.", "error")
-          } else {
-            showToast("Erreur lors de la récupération des données utilisateur", "error")
+            await setDoc(userDocRef, newUser)
+            setUserData(newUser)
           }
 
-          // Permettre l'utilisation basique même en cas d'erreur
-          setUserData({
-            email: currentUser.email || "",
-            role: "free",
-            searchCount: 0,
+          setUser(authUser)
+        } catch (error: any) {
+          console.error("Erreur lors de la récupération des données utilisateur:", error)
+          toast({
+            title: "Erreur",
+            description: "Erreur lors de la récupération des données utilisateur.",
+            type: "error",
           })
-          setCanSearch(true)
+        } finally {
+          setLoading(false)
         }
       } else {
+        setUser(null)
         setUserData(null)
-        setCanSearch(true)
+        setLoading(false)
       }
-
-      setIsLoading(false)
     })
 
     return () => unsubscribe()
-  }, [showToast])
+  }, [toast])
 
-  const signInWithGoogle = async () => {
-    if (!isFirebaseConfigured) {
-      showToast("Authentification non configurée. Contactez l'administrateur.", "error")
-      return
-    }
+  const login = async () => {
+    const auth = getFirebaseAuth()
+    const provider = getGoogleProvider()
+    const db = getFirebaseDb()
 
-    if (!auth || !googleProvider) {
-      showToast("Service d'authentification non disponible", "error")
+    if (!auth || !provider || !db) {
+      toast({
+        title: "Erreur",
+        description: "Firebase n'est pas correctement initialisé.",
+        type: "error",
+      })
       return
     }
 
     try {
-      setIsLoading(true)
-      console.log("🔄 Starting Google sign in...")
+      const result = await signInWithPopup(auth, provider)
+      const user = result.user
 
-      const result = await signInWithPopup(auth, googleProvider)
-      console.log("✅ Google sign in successful:", result.user.email)
+      // Vérifier si l'utilisateur existe dans Firestore
+      const userDocRef = doc(db, "users", user.uid)
+      const docSnap = await getDoc(userDocRef)
 
-      showToast("Connexion réussie", "success")
-    } catch (error) {
-      console.error("❌ Error signing in with Google:", error)
-
-      // Gestion détaillée des erreurs
-      if (error.code === "auth/unauthorized-domain") {
-        showToast("Domaine non autorisé. Veuillez configurer Firebase Console.", "error")
-      } else if (error.code === "auth/popup-blocked") {
-        showToast("Popup bloquée. Autorisez les popups pour ce site.", "error")
-      } else if (error.code === "auth/popup-closed-by-user") {
-        showToast("Connexion annulée", "info")
-      } else if (error.code === "auth/network-request-failed") {
-        showToast("Erreur réseau. Vérifiez votre connexion.", "error")
+      if (docSnap.exists()) {
+        // L'utilisateur existe déjà dans Firestore
+        const existingUserData = docSnap.data() as UserData
+        setUserData(existingUserData)
       } else {
-        showToast("Erreur lors de la connexion. Veuillez réessayer.", "error")
+        // L'utilisateur n'existe pas, on le crée avec le rôle par défaut
+        const newUser: UserData = {
+          email: user.email || "",
+          role: "free",
+        }
+        await setDoc(userDocRef, newUser)
+        setUserData(newUser)
       }
-    } finally {
-      setIsLoading(false)
+
+      setUser(user)
+      toast({
+        title: "Connexion réussie",
+        description: "Vous êtes connecté(e) !",
+        type: "success",
+      })
+    } catch (error: any) {
+      console.error("Erreur lors de la connexion:", error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la connexion.",
+        type: "error",
+      })
     }
   }
 
   const logout = async () => {
-    if (!isFirebaseConfigured || !auth) {
-      showToast("Service d'authentification non disponible", "error")
+    const auth = getFirebaseAuth()
+
+    if (!auth) {
+      toast({
+        title: "Erreur",
+        description: "Firebase n'est pas correctement initialisé.",
+        type: "error",
+      })
       return
     }
 
     try {
       await signOut(auth)
-      showToast("Déconnexion réussie", "success")
-      console.log("✅ User signed out")
-    } catch (error) {
-      console.error("❌ Error signing out:", error)
-      showToast("Erreur lors de la déconnexion", "error")
+      setUser(null)
+      setUserData(null)
+      toast({
+        title: "Déconnexion réussie",
+        description: "Vous êtes déconnecté(e).",
+        type: "success",
+      })
+    } catch (error: any) {
+      console.error("Erreur lors de la déconnexion:", error)
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la déconnexion.",
+        type: "error",
+      })
     }
   }
 
-  const incrementSearchCount = async (): Promise<boolean> => {
-    // Si Firebase n'est pas configuré, permettre les recherches illimitées
-    if (!isFirebaseConfigured) {
-      return true
-    }
-
-    if (!user || !userData || !db) return false
-
-    // Les utilisateurs admin et premium n'ont pas de limites
-    if (userData.role !== "free") return true
-
-    try {
-      const today = new Date().toISOString().split("T")[0]
-      const userDocRef = doc(db, "users", user.uid)
-
-      // Vérifier si l'utilisateur a atteint la limite quotidienne
-      if (userData.lastSearchDate === today && (userData.searchCount || 0) >= 3) {
-        showToast("Limite de recherches quotidiennes atteinte (3/3)", "error")
-        setCanSearch(false)
-        return false
-      }
-
-      // Mettre à jour le compteur de recherches
-      const newCount = userData.lastSearchDate === today ? (userData.searchCount || 0) + 1 : 1
-      const updatedUserData = {
-        ...userData,
-        searchCount: newCount,
-        lastSearchDate: today,
-        updatedAt: new Date(),
-      }
-
-      await setDoc(
-        userDocRef,
-        {
-          ...updatedUserData,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      )
-
-      setUserData(updatedUserData)
-
-      // Vérifier si c'était la dernière recherche autorisée
-      if (newCount >= 3) {
-        setCanSearch(false)
-        showToast(`Dernière recherche utilisée (3/3)`, "info")
-      } else {
-        showToast(`Recherche utilisée (${newCount}/3)`, "info")
-      }
-
-      return true
-    } catch (error) {
-      console.error("❌ Error updating search count:", error)
-      showToast("Erreur lors de la mise à jour du compteur de recherches", "error")
-      return false
-    }
-  }
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        userData,
-        isLoading,
-        signInWithGoogle,
-        logout,
-        incrementSearchCount,
-        canSearch,
-        isFirebaseEnabled: isFirebaseConfigured,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={{ user, userData, loading, login, logout }}>{children}</AuthContext.Provider>
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
-}
+export const useAuth = () => useContext(AuthContext)

@@ -31,7 +31,6 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
   const toggleFavorite = (id: string) => {
     const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
-
     setFavorites(newFavorites)
     localStorage.setItem("favorites", JSON.stringify(newFavorites))
   }
@@ -106,7 +105,7 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
               <div className="flex-1 space-y-4">
                 <div className="flex items-start justify-between">
                   <Link href={`/luminaires/${item.id || item._id}`}>
-                    <h3 className="text-xl font-playfair text-dark hover:text-orange cursor-pointer">
+                    <h3 className="text-xl font-serif text-gray-900 hover:text-orange-500 cursor-pointer">
                       {item.name || item.nom || "Nom du luminaire"}
                     </h3>
                   </Link>
@@ -127,7 +126,6 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                     <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
                     <p className="text-gray-900">{item.artist || item.designer || "Non renseigné"}</p>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
                     <p className="text-gray-900">{item.year || item.annee || "Non renseigné"}</p>
@@ -230,7 +228,7 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
           <div className="p-2 space-y-0.5">
             <Link href={`/luminaires/${item.id || item._id}`}>
-              <h3 className="font-playfair text-xs md:text-sm text-dark hover:text-orange cursor-pointer truncate">
+              <h3 className="font-serif text-xs md:text-sm text-gray-900 hover:text-orange-500 cursor-pointer truncate">
                 {item.name || item.nom || "Nom du luminaire"}
               </h3>
             </Link>
@@ -239,7 +237,6 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">{item.year || item.annee || "Année inconnue"}</span>
-
               <Button
                 onClick={() => setLightboxImage(getImageUrl(item))}
                 variant="ghost"

@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface SortOption {
@@ -8,22 +10,31 @@ interface SortOption {
 }
 
 interface SortSelectorProps {
-  value: string
-  onChange: (value: string) => void
+  sortField: string
+  sortDirection: "asc" | "desc"
+  onSortChange: (field: string, direction: "asc" | "desc") => void
   options: SortOption[]
 }
 
-export function SortSelector({ value, onChange, options }: SortSelectorProps) {
+export function SortSelector({ sortField, sortDirection, onSortChange, options }: SortSelectorProps) {
+  const handleSortChange = (value: string) => {
+    const [field, direction] = value.split("-")
+    onSortChange(field, direction as "asc" | "desc")
+  }
+
+  const currentValue = `${sortField}-${sortDirection}`
+
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={currentValue} onValueChange={handleSortChange}>
       <SelectTrigger>
         <SelectValue placeholder="Trier par..." />
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
+          <React.Fragment key={option.value}>
+            <SelectItem value={`${option.value}-asc`}>{option.label} (A → Z)</SelectItem>
+            <SelectItem value={`${option.value}-desc`}>{option.label} (Z → A)</SelectItem>
+          </React.Fragment>
         ))}
       </SelectContent>
     </Select>

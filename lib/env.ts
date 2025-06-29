@@ -2,7 +2,6 @@
 function getEnvVar(key: string, fallback?: string): string {
   // Essayer d'abord process.env (variables système ou .env.local)
   const value = process.env[key]
-
   if (value) {
     return value
   }
@@ -50,8 +49,8 @@ export const env = {
   // Variables Mongo Express
   ME_CONFIG_MONGODB_ADMINUSERNAME: getEnvVar("ME_CONFIG_MONGODB_ADMINUSERNAME", "admin"),
   ME_CONFIG_MONGODB_ADMINPASSWORD: getEnvVar("ME_CONFIG_MONGODB_ADMINPASSWORD", "admin123"),
-  ME_CONFIG_BASICAUTH_USERNAME: getEnvVar("ME_CONFIG_BASICAUTH_USERNAME", "admin"),
-  ME_CONFIG_BASICAUTH_PASSWORD: getEnvVar("ME_CONFIG_BASICAUTH_PASSWORD", "admin123"),
+  ME_CONFIG_BASICAUTH_USERNAME: getEnvVar("ME_CONFIG_MONGODB_ADMINUSERNAME", "admin"),
+  ME_CONFIG_BASICAUTH_PASSWORD: getEnvVar("ME_CONFIG_MONGODB_ADMINPASSWORD", "admin123"),
 } as const
 
 // Validation simple au démarrage (côté serveur uniquement)

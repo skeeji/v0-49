@@ -9,8 +9,8 @@ interface TimelineBlockProps {
     name: string
     start: number
     end: number
-    luminaires: any[]
     description: string
+    luminaires: any[]
   }
   isLeft: boolean
   className?: string
@@ -18,99 +18,60 @@ interface TimelineBlockProps {
 }
 
 export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpdate }: TimelineBlockProps) {
-  // Supprimer les doublons basés sur l'ID
-  const uniqueLuminaires = period.luminaires.filter(
-    (luminaire, index, self) => index === self.findIndex((l) => l.id === luminaire.id),
-  )
-
   return (
     <div className={`relative ${className}`}>
-      {/* Timeline line */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-orange hidden lg:block" />
+      {/* Ligne de temps centrale */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-orange-300"></div>
 
-      {/* Timeline dot */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-orange rounded-full border-4 border-white shadow-lg hidden lg:block" />
+      {/* Point sur la ligne de temps */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-orange-500 rounded-full border-4 border-white shadow-lg z-10"></div>
 
-      <div className={`lg:w-1/2 ${isLeft ? "lg:pr-12" : "lg:ml-auto lg:pl-12"}`}>
-        <div className="bg-white rounded-xl p-8 shadow-lg">
-          <div className="mb-6">
-            <h3 className="text-2xl font-playfair text-dark mb-2">{period.name}</h3>
-            <p className="text-orange font-medium">
-              {period.start} - {period.end}
-            </p>
-            <p className="text-gray-600 mt-2">
-              {uniqueLuminaires.length} luminaire{uniqueLuminaires.length > 1 ? "s" : ""}
-            </p>
-          </div>
+      <div className={`flex ${isLeft ? "flex-row" : "flex-row-reverse"} items-center gap-8`}>
+        {/* Contenu */}
+        <div className="w-1/2">
+          <div className="bg-white rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-serif text-gray-900">{period.name}</h2>
+              <span className="text-sm text-gray-500">
+                {period.start} - {period.end}
+              </span>
+            </div>
 
-          {/* Description éditable */}
-          <div className="mb-6 p-4 bg-cream rounded-lg">
-            <EditableField
-              value={period.description}
-              onSave={(value) => onDescriptionUpdate(period.name, value)}
-              placeholder="Description de la période..."
-              multiline
-              className="text-sm text-gray-700 leading-relaxed"
-            />
-          </div>
+            <div className="mb-4">
+              <EditableField
+                value={period.description}
+                onSave={(newDescription) => onDescriptionUpdate(period.name, newDescription)}
+                multiline
+                placeholder="Description de la période..."
+              />
+            </div>
 
-          {uniqueLuminaires.length > 0 && (
-            <>
-              <h4 className="font-medium text-gray-700 mb-4">Luminaires de la période</h4>
+            <div className="text-sm text-gray-600 mb-4">
+              {period.luminaires.length} luminaire{period.luminaires.length > 1 ? "s" : ""} dans cette période
+            </div>
 
-              {/* Desktop: Carousel avec 3 éléments */}
-              <div className="hidden md:block">
-                <div className="grid grid-cols-3 gap-4">
-                  {uniqueLuminaires.slice(0, 3).map((luminaire, index) => (
-                    <Link key={luminaire.id} href={`/luminaires/${luminaire.id}`}>
-                      <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform">
-                        <Image
-                          src={luminaire.image || "/placeholder.svg?height=150&width=150"}
-                          alt={luminaire.name || "Luminaire"}
-                          fill
-                          className="object-cover"
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2">
-                          <p className="text-xs font-medium truncate">{luminaire.name || "Sans nom"}</p>
-                          <p className="text-xs text-gray-300 truncate">{luminaire.artist || ""}</p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-
-                {uniqueLuminaires.length > 3 && (
-                  <div className="mt-4 text-center">
-                    <Link href={`/luminaires?period=${encodeURIComponent(period.name)}`}>
-                      <span className="text-orange hover:text-orange/80 text-sm font-medium">
-                        Voir tous les luminaires de cette période ({uniqueLuminaires.length}) →
-                      </span>
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              {/* Mobile: 2 colonnes */}
-              <div className="md:hidden grid grid-cols-2 gap-4">
-                {uniqueLuminaires.slice(0, 4).map((luminaire, index) => (
-                  <Link key={luminaire.id} href={`/luminaires/${luminaire.id}`}>
-                    <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden cursor-pointer">
+            {/* Aperçu des luminaires */}
+            {period.luminaires.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {period.luminaires.slice(0, 3).map((luminaire, idx) => (
+                  <Link key={idx} href={`/luminaires/${luminaire.id}`}>
+                    <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden hover:scale-105 transition-transform">
                       <Image
-                        src={luminaire.image || "/placeholder.svg?height=150&width=150"}
-                        alt={luminaire.name || "Luminaire"}
+                        src={luminaire.image || "/placeholder.svg"}
+                        alt={luminaire.nom || "Luminaire"}
                         fill
                         className="object-cover"
                       />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2">
-                        <p className="text-xs font-medium truncate">{luminaire.name || "Sans nom"}</p>
-                      </div>
                     </div>
                   </Link>
                 ))}
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
+
+        {/* Espace vide de l'autre côté */}
+        <div className="w-1/2"></div>
       </div>
     </div>
   )

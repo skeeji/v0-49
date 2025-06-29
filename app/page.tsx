@@ -31,9 +31,11 @@ export default function HomePage() {
   const [showBackgroundOptions, setShowBackgroundOptions] = useState(false)
   const [selectedImageForSearch, setSelectedImageForSearch] = useState<File | null>(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
   const { user, userData, incrementSearchCount, canSearch } = useAuth()
 
   const callImageSimilarityAPI = async (file: File) => {
@@ -93,10 +95,8 @@ export default function HomePage() {
 
       // Construire l'URL complète
       let finalImageUrl = "/placeholder.svg?height=200&width=200&text=Image+non+disponible"
-
       if (imageUrl && String(imageUrl).trim()) {
         const urlString = String(imageUrl).trim()
-
         if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
           finalImageUrl = urlString.split("#")[0]
         } else if (urlString.startsWith("/")) {
@@ -111,7 +111,6 @@ export default function HomePage() {
       const localMatch = luminaires.find((luminaire: any) => {
         const localFilename = (luminaire.filename || luminaire["Nom du fichier"] || "").toLowerCase()
         const searchFilename = cleanImageId.toLowerCase()
-
         // Correspondance exacte par filename
         return localFilename === searchFilename || localFilename.includes(searchFilename.replace(/\.[^/.]+$/, ""))
       })
@@ -137,7 +136,6 @@ export default function HomePage() {
 
   const removeBackground = async (file: File) => {
     setIsRemovingBackground(true)
-
     try {
       console.log("🎨 Début suppression arrière-plan...")
       console.log(`📁 Fichier: ${file.name}, Taille: ${file.size} bytes`)
@@ -218,7 +216,6 @@ export default function HomePage() {
 
       if (apiResponse.success && apiResponse.data && apiResponse.data.length > 0) {
         console.log(`🎉 API réussie! ${apiResponse.data.length} résultats`)
-
         const processedResults = processApiResults(apiResponse.data)
 
         if (processedResults.length > 0) {
@@ -260,7 +257,6 @@ export default function HomePage() {
 
   const cleanupCamera = () => {
     console.log("🧹 Nettoyage complet de la caméra...")
-
     if (stream) {
       stream.getTracks().forEach((track) => {
         console.log(`🔌 Arrêt du track: ${track.kind}, état avant: ${track.readyState}`)
@@ -269,14 +265,12 @@ export default function HomePage() {
       })
       setStream(null)
     }
-
     if (videoRef.current) {
       videoRef.current.srcObject = null
       videoRef.current.pause()
       videoRef.current.load()
       console.log("📺 Élément vidéo nettoyé")
     }
-
     setIsCameraActive(false)
     setIsCameraLoading(false)
     console.log("✅ Nettoyage caméra terminé")
@@ -326,7 +320,6 @@ export default function HomePage() {
       }, 100)
     } catch (error) {
       console.error("❌ === ERREUR CAMÉRA ===", error)
-
       let errorMessage = "Impossible d'accéder à la caméra"
 
       if (error.name === "NotAllowedError") {
@@ -356,7 +349,6 @@ export default function HomePage() {
     }
 
     setIsCapturing(true)
-
     try {
       console.log("📸 === DÉBUT CAPTURE PHOTO ===")
 
@@ -505,7 +497,6 @@ export default function HomePage() {
       console.log("🔄 Nouvelle recherche avec la même image")
       setIsSearching(true)
       setSearchResults([])
-
       setTimeout(() => {
         handleImageSearch(selectedFile)
       }, 500)
@@ -578,16 +569,16 @@ export default function HomePage() {
           <source src={welcomeVideo} type="video/mp4" />
         </video>
       ) : (
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-orange to-gold" />
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-orange-400 to-yellow-500" />
       )}
 
       {/* Overlay orangé */}
-      <div className="absolute inset-0 bg-orange opacity-60" />
+      <div className="absolute inset-0 bg-orange-500 opacity-60" />
 
       {/* Contenu principal */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen container-responsive">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl font-playfair text-white mb-4 leading-tight">
+          <h1 className="text-3xl md:text-4xl font-serif text-white mb-4 leading-tight">
             Luminaires du Moyen Âge
             <br />à nos jours
           </h1>
@@ -598,7 +589,7 @@ export default function HomePage() {
 
         {/* Zone de recherche par image */}
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 md:p-8 max-w-md w-full shadow-2xl">
-          <h2 className="text-xl md:text-2xl font-playfair text-dark mb-4 md:mb-6 text-center">
+          <h2 className="text-xl md:text-2xl font-serif text-gray-900 mb-4 md:mb-6 text-center">
             Recherche par image IA
           </h2>
 
@@ -641,6 +632,7 @@ export default function HomePage() {
             }`}
             style={{ aspectRatio: "4/3" }}
           />
+
           <canvas ref={canvasRef} className="hidden" />
 
           {/* Étape 1: Sélection de la méthode */}
@@ -648,7 +640,7 @@ export default function HomePage() {
             <div className="space-y-3 md:space-y-4">
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-orange hover:bg-orange/90 text-white py-3 md:py-4 text-base md:text-lg"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 md:py-4 text-base md:text-lg"
                 disabled={isSearching || !canSearch}
               >
                 <Upload className="w-4 h-4 md:w-5 md:h-5 mr-2" />
@@ -658,12 +650,12 @@ export default function HomePage() {
               <Button
                 onClick={startCamera}
                 variant="outline"
-                className="w-full border-orange text-orange hover:bg-orange hover:text-white py-3 md:py-4 text-base md:text-lg bg-transparent"
+                className="w-full border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white py-3 md:py-4 text-base md:text-lg bg-transparent"
                 disabled={isSearching || isCameraLoading || !canSearch}
               >
                 {isCameraLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange-500 mr-2"></div>
                     Activation caméra...
                   </>
                 ) : (
@@ -695,11 +687,10 @@ export default function HomePage() {
             <div className="space-y-4 text-center">
               <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange mx-auto mb-2"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 mx-auto mb-2"></div>
                   <p className="text-sm text-gray-600">Activation de la caméra...</p>
                 </div>
               </div>
-
               <Button onClick={resetSearch} variant="outline" className="w-full bg-transparent">
                 <X className="w-4 h-4 mr-2" />
                 Annuler
@@ -711,20 +702,22 @@ export default function HomePage() {
           {searchMode === "camera" && isCameraActive && !capturedImage && (
             <div className="space-y-4">
               {/* Le flux vidéo est maintenant rendu en haut avec une classe conditionnelle */}
-
               {/* Overlay avec instructions */}
               <div className="relative -mt-4">
                 {/* Indicateur de statut */}
                 <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded z-10">
                   🟢 Touchez l'écran pour capturer
                 </div>
-
                 {/* Pas d'indicateur supplémentaire */}
               </div>
 
               {/* Boutons de contrôle */}
               <div className="flex gap-2">
-                <Button onClick={capturePhoto} className="flex-1 bg-orange hover:bg-orange/90" disabled={isCapturing}>
+                <Button
+                  onClick={capturePhoto}
+                  className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  disabled={isCapturing}
+                >
                   {isCapturing ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>
@@ -736,7 +729,6 @@ export default function HomePage() {
                     </>
                   )}
                 </Button>
-
                 <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent" disabled={isCapturing}>
                   <X className="w-4 h-4" />
                 </Button>
@@ -761,10 +753,9 @@ export default function HomePage() {
                   />
                 </div>
               )}
-
               <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange mx-auto mb-2"></div>
-                <p className="text-sm font-medium text-dark">Analyse IA en cours...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 mx-auto mb-2"></div>
+                <p className="text-sm font-medium text-gray-900">Analyse IA en cours...</p>
                 <p className="text-xs text-gray-500">Recherche des luminaires similaires</p>
               </div>
             </div>
@@ -782,7 +773,7 @@ export default function HomePage() {
                   <input
                     type="checkbox"
                     id="removeBackground"
-                    className="w-4 h-4 text-orange bg-gray-100 border-gray-300 rounded focus:ring-orange focus:ring-2"
+                    className="w-4 h-4 text-orange-500 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
                     onChange={async (e) => {
                       if (e.target.checked) {
                         // Supprimer l'arrière-plan et mettre à jour l'affichage
@@ -816,7 +807,7 @@ export default function HomePage() {
 
                 {isRemovingBackground && (
                   <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange mx-auto mb-2"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 mx-auto mb-2"></div>
                     <p className="text-sm text-gray-600">Suppression de l'arrière-plan en cours...</p>
                   </div>
                 )}
@@ -824,7 +815,7 @@ export default function HomePage() {
                 <div className="flex gap-2">
                   <Button
                     onClick={searchWithOriginal}
-                    className="flex-1 bg-orange hover:bg-orange/90"
+                    className="flex-1 bg-orange-500 hover:bg-orange-600"
                     disabled={isRemovingBackground}
                   >
                     Rechercher maintenant
@@ -848,13 +839,13 @@ export default function HomePage() {
         {searchResults.length > 0 && (
           <div className="mt-6 md:mt-8 bg-white/95 backdrop-blur-sm rounded-2xl p-4 md:p-6 max-w-6xl w-full">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-6 gap-3">
-              <h3 className="text-lg md:text-xl font-playfair text-dark text-center md:text-left">
+              <h3 className="text-lg md:text-xl font-serif text-gray-900 text-center md:text-left">
                 🎯 Top {searchResults.length} luminaires similaires (IA)
               </h3>
               <div className="flex gap-2 justify-center md:justify-end">
                 <Button
                   onClick={searchAgain}
-                  className="bg-orange hover:bg-orange/90 text-sm md:text-base"
+                  className="bg-orange-500 hover:bg-orange-600 text-sm md:text-base"
                   size="sm"
                   disabled={isSearching || !canSearch}
                 >
@@ -910,10 +901,13 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  <p className="text-xs md:text-sm font-medium text-dark truncate mb-1 md:mb-2">
+                  <p className="text-xs md:text-sm font-medium text-gray-900 truncate mb-1 md:mb-2">
                     {result.localMatch?.nom || result.imageId || `Résultat ${index + 1}`}
                   </p>
-                  <p className="text-xs text-orange mb-2 md:mb-3">Similarité: {Math.round(result.similarity * 100)}%</p>
+
+                  <p className="text-xs text-orange-500 mb-2 md:mb-3">
+                    Similarité: {Math.round(result.similarity * 100)}%
+                  </p>
 
                   <p className="text-xs text-gray-500">
                     {result.hasLocalMatch ? "Fiche disponible" : "Image similaire"}

@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import Papa from "papaparse"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+// Simulation d'une base de données
+const designers: any[] = []
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,23 +18,19 @@ export async function POST(request: NextRequest) {
     const fileContent = await file.text()
     console.log(`📄 Fichier CSV lu: ${fileContent.length} caractères`)
 
-    // Parser le CSV
-    const parseResult = Papa.parse(fileContent, {
-      header: true,
-      skipEmptyLines: true,
-      delimiter: ";",
-      encoding: "UTF-8",
+    // Parser le CSV (simulation simple)
+    const lines = fileContent.split("\n").filter((line) => line.trim())
+    const headers = lines[0].split(";").map((h) => h.replace(/"/g, "").trim())
+
+    const data = lines.slice(1).map((line) => {
+      const values = line.split(";").map((v) => v.replace(/"/g, "").trim())
+      const record: any = {}
+      headers.forEach((header, index) => {
+        record[header] = values[index] || ""
+      })
+      return record
     })
 
-    if (parseResult.errors.length > 0) {
-      console.error("❌ Erreurs parsing CSV:", parseResult.errors)
-      return NextResponse.json(
-        { success: false, error: "Erreur lors du parsing du CSV", details: parseResult.errors },
-        { status: 400 },
-      )
-    }
-
-    const data = parseResult.data as any[]
     console.log(`📊 ${data.length} lignes parsées`)
 
     if (data.length === 0) {
@@ -44,7 +39,6 @@ export async function POST(request: NextRequest) {
 
     // Vérifier les colonnes requises
     const requiredColumns = ["Nom", "imagedesigner"]
-    const headers = Object.keys(data[0])
     const missingColumns = requiredColumns.filter((col) => !headers.includes(col))
 
     if (missingColumns.length > 0) {
@@ -59,17 +53,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Connexion à MongoDB
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("designers")
-
     // Supprimer les anciens designers
-    await collection.deleteMany({})
+    designers.length = 0
     console.log("🗑️ Anciens designers supprimés")
 
     // Préparer les données pour l'insertion
     const designersToInsert = data.map((row, index) => ({
+      _id: Date.now().toString() + index,
       Nom: row.Nom || "",
       imagedesigner: row.imagedesigner || "",
       slug: (row.Nom || "")
@@ -81,13 +71,14 @@ export async function POST(request: NextRequest) {
     }))
 
     // Insérer les nouveaux designers
-    const insertResult = await collection.insertMany(designersToInsert)
-    console.log(`✅ ${insertResult.insertedCount} designers insérés`)
+    designers.push(...designersToInsert)
+
+    console.log(`✅ ${designersToInsert.length} designers insérés`)
 
     return NextResponse.json({
       success: true,
-      message: `${insertResult.insertedCount} designers importés avec succès`,
-      imported: insertResult.insertedCount,
+      message: `${designersToInsert.length} designers importés avec succès`,
+      imported: designersToInsert.length,
       processed: data.length,
     })
   } catch (error: any) {

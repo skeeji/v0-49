@@ -1,7 +1,7 @@
-import { initializeApp, getApps } from "firebase/app"
-import { getAuth, GoogleAuthProvider } from "firebase/auth"
-import { getFirestore } from "firebase/firestore"
-import { getStorage } from "firebase/storage"
+import { initializeApp, getApps, type FirebaseApp } from "firebase/app"
+import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth"
+import { getFirestore, type Firestore } from "firebase/firestore"
+import { getStorage, type FirebaseStorage } from "firebase/storage"
 
 // Configuration Firebase avec vos vraies valeurs
 const firebaseConfig = {
@@ -24,43 +24,100 @@ const isFirebaseConfigured = !!(
   firebaseConfig.projectId !== "undefined"
 )
 
-// Initialiser Firebase seulement si configuré
-let app: any = null
-let auth: any = null
-let db: any = null
-let storage: any = null
-let googleProvider: any = null
+// Variables pour les services Firebase
+let app: FirebaseApp | null = null
+let auth: Auth | null = null
+let db: Firestore | null = null
+let storage: FirebaseStorage | null = null
+let googleProvider: GoogleAuthProvider | null = null
 
-if (isFirebaseConfigured) {
+// Fonction pour initialiser Firebase de manière sécurisée
+const initializeFirebase = () => {
+  if (!isFirebaseConfigured) {
+    console.warn("⚠️ Firebase not configured - authentication will be disabled")
+    console.log("To enable Firebase, set these environment variables:")
+    console.log("- NEXT_PUBLIC_FIREBASE_API_KEY")
+    console.log("- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN")
+    console.log("- NEXT_PUBLIC_FIREBASE_PROJECT_ID")
+    return false
+  }
+
   try {
-    // Initialiser l'app Firebase
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+    // Initialiser l'app Firebase seulement si elle n'existe pas déjà
+    if (!app) {
+      app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+    }
 
-    // Initialiser les services
-    auth = getAuth(app)
-    db = getFirestore(app)
-    storage = getStorage(app)
-    googleProvider = new GoogleAuthProvider()
+    // Initialiser les services seulement après que l'app soit prête
+    if (app && !auth) {
+      auth = getAuth(app)
+    }
 
-    // Configuration du provider Google
-    googleProvider.setCustomParameters({
-      prompt: "select_account",
-    })
+    if (app && !db) {
+      db = getFirestore(app)
+    }
+
+    if (app && !storage) {
+      storage = getStorage(app)
+    }
+
+    if (!googleProvider) {
+      googleProvider = new GoogleAuthProvider()
+      googleProvider.setCustomParameters({
+        prompt: "select_account",
+      })
+    }
 
     console.log("🔥 Firebase initialized successfully")
     console.log("📊 Project ID:", firebaseConfig.projectId)
+    return true
   } catch (error) {
     console.error("❌ Firebase initialization failed:", error)
+    return false
   }
-} else {
-  console.warn("⚠️ Firebase not configured - authentication will be disabled")
-  console.log("To enable Firebase, set these environment variables:")
-  console.log("- NEXT_PUBLIC_FIREBASE_API_KEY")
-  console.log("- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN")
-  console.log("- NEXT_PUBLIC_FIREBASE_PROJECT_ID")
 }
 
+// Initialiser côté client uniquement
+if (typeof window !== "undefined") {
+  initializeFirebase()
+}
+
+// Fonctions getter sécurisées
+export const getFirebaseAuth = () => {
+  if (typeof window === "undefined") return null
+  if (!auth && isFirebaseConfigured) {
+    initializeFirebase()
+  }
+  return auth
+}
+
+export const getFirebaseDb = () => {
+  if (typeof window === "undefined") return null
+  if (!db && isFirebaseConfigured) {
+    initializeFirebase()
+  }
+  return db
+}
+
+export const getFirebaseStorage = () => {
+  if (typeof window === "undefined") return null
+  if (!storage && isFirebaseConfigured) {
+    initializeFirebase()
+  }
+  return storage
+}
+
+export const getGoogleProvider = () => {
+  if (typeof window === "undefined") return null
+  if (!googleProvider && isFirebaseConfigured) {
+    initializeFirebase()
+  }
+  return googleProvider
+}
+
+// Exports pour compatibilité
 export { auth, db, storage, googleProvider, isFirebaseConfigured }
+
 export type UserRole = "admin" | "premium" | "free"
 
 export interface UserData {

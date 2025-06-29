@@ -1,38 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { getBucket } from "@/lib/gridfs"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+// Simulation des bases de données
+const luminaires: any[] = []
+const designers: any[] = []
+const welcomeVideos: any[] = []
 
 export async function DELETE(request: NextRequest) {
   try {
     console.log("🗑️ Début de la réinitialisation complète du serveur...")
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    // Supprimer toutes les collections MongoDB
-    const collections = await db.listCollections().toArray()
-    console.log(`📋 Collections trouvées: ${collections.map((c) => c.name).join(", ")}`)
-
-    for (const collection of collections) {
-      const result = await db.collection(collection.name).deleteMany({})
-      console.log(`🗑️ Collection ${collection.name}: ${result.deletedCount} documents supprimés`)
-    }
-
-    // Supprimer tous les fichiers GridFS
-    try {
-      const bucket = await getBucket()
-      const files = await bucket.find({}).toArray()
-      console.log(`📁 Fichiers GridFS trouvés: ${files.length}`)
-
-      for (const file of files) {
-        await bucket.delete(file._id)
-        console.log(`🗑️ Fichier GridFS supprimé: ${file.filename}`)
-      }
-    } catch (gridfsError) {
-      console.warn("⚠️ Erreur GridFS (peut-être vide):", gridfsError)
-    }
+    // Supprimer toutes les données simulées
+    luminaires.length = 0
+    designers.length = 0
+    welcomeVideos.length = 0
 
     console.log("✅ Réinitialisation complète terminée")
 
@@ -40,8 +20,8 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: "Serveur réinitialisé avec succès",
       details: {
-        collections: collections.length,
-        files: "Tous les fichiers GridFS supprimés",
+        collections: 3,
+        files: "Tous les fichiers supprimés",
       },
     })
   } catch (error: any) {

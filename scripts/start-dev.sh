@@ -31,7 +31,6 @@ fi
 # Construire et démarrer les services en mode développement
 echo "🔨 Construction des images Docker..."
 docker-compose -f docker-compose.dev.yml build
-
 echo "🚀 Démarrage des services en mode développement..."
 docker-compose -f docker-compose.dev.yml up -d
 

@@ -33,12 +33,10 @@ export function DrawerNav() {
       <nav className="hidden lg:block fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-40">
         <div className="p-6">
           <h2 className="text-2xl font-playfair text-dark mb-8">Galerie Luminaires</h2>
-
           <ul className="space-y-2">
             {navigation.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
-
               return (
                 <li key={item.name}>
                   <Link
@@ -61,7 +59,6 @@ export function DrawerNav() {
       {isOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setIsOpen(false)} />
-
           <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl">
             <div className="p-6">
               <div className="flex items-center justify-between mb-8">
@@ -70,12 +67,10 @@ export function DrawerNav() {
                   <X className="w-5 h-5" />
                 </Button>
               </div>
-
               <ul className="space-y-2">
                 {navigation.map((item) => {
                   const Icon = item.icon
                   const isActive = pathname === item.href
-
                   return (
                     <li key={item.name}>
                       <Link

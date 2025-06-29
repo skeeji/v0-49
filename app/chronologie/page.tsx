@@ -153,11 +153,13 @@ export default function ChronologiePage() {
         setIsLoading(false)
       }
     }
+
     fetchAndProcessData()
   }, [])
 
   useEffect(() => {
     if (isLoading) return
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -168,8 +170,10 @@ export default function ChronologiePage() {
       },
       { threshold: 0.1 },
     )
+
     const elements = document.querySelectorAll(".scroll-reveal")
     elements.forEach((el) => observer.observe(el))
+
     return () => observer.disconnect()
   }, [timelineData, isLoading])
 
@@ -177,6 +181,7 @@ export default function ChronologiePage() {
     const updatedDescriptions = { ...descriptions, [periodName]: newDescription }
     setDescriptions(updatedDescriptions)
     localStorage.setItem("timeline-descriptions", JSON.stringify(updatedDescriptions))
+
     setTimelineData((prev) =>
       prev.map((period) => (period.name === periodName ? { ...period, description: newDescription } : period)),
     )
@@ -191,9 +196,10 @@ export default function ChronologiePage() {
   }
 
   return (
-    <div className="container-responsive py-8">
+    <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-playfair text-dark mb-12 text-center">Chronologie des Périodes Artistiques</h1>
+        <h1 className="text-4xl font-serif text-gray-900 mb-12 text-center">Chronologie des Périodes Artistiques</h1>
+
         <div className="space-y-16">
           {timelineData.map((period, index) => (
             <TimelineBlock

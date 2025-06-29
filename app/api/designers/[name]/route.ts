@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
 
 // Fonction pour extraire le nom du designer
 const getDesignerNameOnly = (str = ""): string => {
@@ -7,18 +6,16 @@ const getDesignerNameOnly = (str = ""): string => {
   return str.split("(")[0].trim()
 }
 
+// Simulation d'une base de données
+const luminaires: any[] = []
+
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
     console.log("🔍 API /api/designers/[name] GET - Name:", params.name)
 
-    const client = await clientPromise
-    const db = client.db()
-
     const designerSlug = decodeURIComponent(params.name)
     console.log("🔍 Designer slug:", designerSlug)
 
-    // Récupérer tous les luminaires
-    const luminaires = await db.collection("luminaires").find({}).toArray()
     console.log("📊 Total luminaires:", luminaires.length)
 
     // Filtrer les luminaires pour ce designer
@@ -28,6 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
         .toLowerCase()
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9-]/g, "")
+
       return slug === designerSlug
     })
 

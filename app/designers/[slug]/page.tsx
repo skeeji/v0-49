@@ -113,7 +113,7 @@ export default function DesignerDetailPage() {
 
   if (!designer) {
     return (
-      <div className="container-responsive py-8 text-center">
+      <div className="container mx-auto px-4 py-8 text-center">
         <p>Designer non trouvé.</p>
         <Link href="/designers">
           <Button className="mt-4">Retour</Button>
@@ -123,7 +123,7 @@ export default function DesignerDetailPage() {
   }
 
   return (
-    <div className="container-responsive py-8">
+    <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <Link href="/designers">
@@ -152,23 +152,28 @@ export default function DesignerDetailPage() {
                     }}
                   />
                 ) : null}
+
                 <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
                   <div className="text-6xl text-gray-400 mb-2">👤</div>
                   <span className="text-sm text-gray-500">Image non disponible</span>
                 </div>
               </div>
             </div>
+
             <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl font-playfair text-dark mb-4">{designer.nom}</h1>
+              <h1 className="text-4xl font-serif text-gray-900 mb-4">{designer.nom}</h1>
+
               <p className="text-lg text-gray-600 mb-6">
                 {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
               </p>
-              <div className="bg-cream rounded-lg p-4">
-                <h3 className="text-lg font-medium text-dark mb-2">Spécialité</h3>
+
+              <div className="bg-orange-50 rounded-lg p-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Spécialité</h3>
                 <EditableField value={description} onSave={updateDescription} multiline />
               </div>
-              <div className="bg-cream rounded-lg p-4 mt-4">
-                <h3 className="text-lg font-medium text-dark mb-2">Collaboration / Œuvre</h3>
+
+              <div className="bg-orange-50 rounded-lg p-4 mt-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Collaboration / Œuvre</h3>
                 <EditableField value={collaboration} onSave={updateCollaboration} multiline />
               </div>
             </div>
@@ -176,7 +181,8 @@ export default function DesignerDetailPage() {
         </div>
 
         <div className="bg-white rounded-xl p-8 shadow-lg">
-          <h2 className="text-2xl font-playfair text-dark mb-6">Luminaires de {designer.nom}</h2>
+          <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires de {designer.nom}</h2>
+
           {designerLuminaires.length > 0 ? (
             <GalleryGrid items={designerLuminaires} viewMode="grid" onItemUpdate={updateLuminaire} />
           ) : (

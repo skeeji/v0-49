@@ -15,10 +15,8 @@ db.luminaires.createIndex({ periode: 1 })
 db.luminaires.createIndex({ materiaux: 1 })
 db.luminaires.createIndex({ couleurs: 1 })
 db.luminaires.createIndex({ createdAt: -1 })
-
 db.designers.createIndex({ nom: 1 }, { unique: true })
 db.designers.createIndex({ slug: 1 }, { unique: true })
-
 db.timelineDescriptions.createIndex({ periode: 1 }, { unique: true })
 
 print("Base de données initialisée avec succès !")

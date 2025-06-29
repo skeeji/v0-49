@@ -27,6 +27,7 @@ export default function DesignersPage() {
           // Grouper les luminaires par designer
           const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
             const designerName = luminaire.designer
+
             if (!acc[designerName]) {
               acc[designerName] = {
                 name: designerName,
@@ -36,6 +37,7 @@ export default function DesignersPage() {
                 slug: encodeURIComponent(designerName),
               }
             }
+
             acc[designerName].count++
             acc[designerName].luminaires.push({
               ...luminaire,
@@ -44,6 +46,7 @@ export default function DesignersPage() {
                 : "/placeholder.svg",
               name: luminaire.nom,
             })
+
             return acc
           }, {})
 
@@ -118,9 +121,9 @@ export default function DesignersPage() {
   }
 
   return (
-    <div className="container-responsive py-8">
+    <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-playfair text-dark mb-8">Designers ({filteredDesigners.length})</h1>
+        <h1 className="text-4xl font-serif text-gray-900 mb-8">Designers ({filteredDesigners.length})</h1>
 
         {/* Message pour les utilisateurs "free" */}
         {userData?.role === "free" && (
@@ -180,7 +183,7 @@ export default function DesignersPage() {
                     )}
                   </div>
 
-                  <h3 className="text-xl font-playfair text-dark mb-2">{designer.name}</h3>
+                  <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
 
                   <p className="text-gray-600 mb-4">
                     {designer.count} luminaire{designer.count > 1 ? "s" : ""}
@@ -200,7 +203,7 @@ export default function DesignersPage() {
                     ))}
                   </div>
 
-                  <span className="text-orange hover:text-orange/80 font-medium">Voir le profil →</span>
+                  <span className="text-orange-500 hover:text-orange-600 font-medium">Voir le profil →</span>
                 </div>
               </div>
             </Link>
