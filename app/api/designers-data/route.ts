@@ -1,67 +1,71 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
-    const { db } = await connectToDatabase()
+    console.log("👨‍🎨 API /api/designers-data - Chargement des données designers")
 
-    console.log("🔍 Récupération des données designers...")
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    // Agrégation pour obtenir les designers avec leur nombre de luminaires et image
-    const designersData = await db
-      .collection("luminaires")
-      .aggregate([
-        {
-          $match: {
-            $or: [
-              { "Artiste / Dates": { $exists: true, $ne: "", $ne: null } },
-              { designer: { $exists: true, $ne: "", $ne: null } },
-            ],
-          },
-        },
-        {
-          $group: {
-            _id: {
-              $ifNull: ["$Artiste / Dates", "$designer"],
-            },
-            count: { $sum: 1 },
-            // Récupérer la première image de designer trouvée
-            imagedesigner: { $first: "$imagedesigner" },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            nom: "$_id",
-            count: 1,
-            imagedesigner: 1,
-            slug: {
-              $replaceAll: {
-                input: { $toLower: "$_id" },
-                find: " ",
-                replacement: "-",
-              },
-            },
-          },
-        },
-        {
-          $sort: { nom: 1 },
-        },
-      ])
-      .toArray()
+    // Récupérer tous les luminaires pour calculer les designers
+    const luminaires = await db.collection("luminaires").find({}).toArray()
+    console.log(`📊 ${luminaires.length} luminaires trouvés`)
 
-    console.log(`✅ ${designersData.length} designers trouvés`)
+    // Grouper par designer
+    const designerGroups: { [key: string]: any } = {}
+
+    luminaires.forEach((luminaire) => {
+      const designerName = luminaire["Artiste / Dates"] || "Designer inconnu"
+
+      if (!designerGroups[designerName]) {
+        designerGroups[designerName] = {
+          nom: designerName,
+          count: 0,
+          slug: encodeURIComponent(designerName),
+          image: null,
+        }
+      }
+
+      designerGroups[designerName].count++
+    })
+
+    // Récupérer les images des designers
+    try {
+      const designersWithImages = await db.collection("designers").find({}).toArray()
+      console.log(`🖼️ ${designersWithImages.length} designers avec images trouvés`)
+
+      designersWithImages.forEach((designerDoc) => {
+        if (designerDoc.Nom && designerDoc.imagedesigner) {
+          const designerName = designerDoc.Nom
+          if (designerGroups[designerName]) {
+            designerGroups[designerName].image = `/api/images/filename/${designerDoc.imagedesigner}`
+            console.log(`🔗 Image associée pour ${designerName}`)
+          }
+        }
+      })
+    } catch (error) {
+      console.log("⚠️ Pas d'images de designers disponibles")
+    }
+
+    const designers = Object.values(designerGroups).sort((a: any, b: any) => a.nom.localeCompare(b.nom))
+
+    console.log(`✅ ${designers.length} designers uniques trouvés`)
 
     return NextResponse.json({
       success: true,
-      designers: designersData,
+      designers,
+      total: designers.length,
     })
-  } catch (error) {
-    console.error("❌ Erreur récupération designers:", error)
+  } catch (error: any) {
+    console.error("❌ Erreur API designers-data:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la récupération des designers",
+        error: "Erreur serveur",
+        details: error.message,
       },
       { status: 500 },
     )

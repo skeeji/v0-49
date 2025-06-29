@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { TimelineBlock } from "@/components/TimelineBlock"
-import { Loader2 } from "lucide-react"
 
 const periods = [
   {
@@ -131,7 +130,6 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true)
       try {
-        console.log("📅 Chargement des données chronologie...")
         const response = await fetch("/api/luminaires?limit=10000")
         const data = await response.json()
 
@@ -176,7 +174,7 @@ export default function ChronologiePage() {
           setTimelineData(grouped.sort((a, b) => a.start - b.start))
         }
       } catch (error) {
-        console.error("❌ Impossible de charger la chronologie", error)
+        console.error("Impossible de charger la chronologie", error)
       } finally {
         setIsLoading(false)
       }
@@ -220,7 +218,7 @@ export default function ChronologiePage() {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
         <div className="flex justify-center items-center h-screen">
           <div className="text-center">
-            <Loader2 className="w-16 h-16 mx-auto animate-spin text-orange-500 mb-6" />
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-500 border-t-transparent mx-auto mb-6"></div>
             <h2 className="text-2xl font-serif text-gray-800 mb-2">Chargement de la chronologie</h2>
             <p className="text-gray-600">Préparation des périodes artistiques...</p>
           </div>

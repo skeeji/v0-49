@@ -3,6 +3,37 @@ import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
+function parseCSVLine(line: string): string[] {
+  const result: string[] = []
+  let current = ""
+  let inQuotes = false
+  let i = 0
+
+  while (i < line.length) {
+    const char = line[i]
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"'
+        i += 2
+      } else {
+        inQuotes = !inQuotes
+        i++
+      }
+    } else if (char === "," && !inQuotes) {
+      result.push(current.trim())
+      current = ""
+      i++
+    } else {
+      current += char
+      i++
+    }
+  }
+
+  result.push(current.trim())
+  return result
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log("👨‍🎨 API /api/upload/csv-designers - Début de l'import designers")
@@ -14,38 +45,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Fichier designers CSV reçu: ${file.name} (${file.size} bytes)`)
+    console.log(`📁 Fichier CSV designers reçu: ${file.name} (${file.size} bytes)`)
 
     const text = await file.text()
-    const lines = text.split("\n").filter((line) => line.trim())
+    const lines = text.split(/\r?\n/).filter((line) => line.trim())
+
+    console.log(`📊 ${lines.length} lignes trouvées dans le CSV designers`)
 
     if (lines.length === 0) {
-      return NextResponse.json({ error: "Fichier CSV vide" }, { status: 400 })
+      return NextResponse.json({ error: "Le fichier CSV est vide" }, { status: 400 })
     }
 
-    console.log(`📊 ${lines.length} lignes détectées dans le CSV designers`)
-
     // Parser l'en-tête
-    const headers = lines[0].split(";").map((h) => h.trim().replace(/"/g, ""))
+    const headers = parseCSVLine(lines[0])
     console.log("📋 En-têtes designers détectés:", headers)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-
-    // Vider la collection existante
-    await db.collection("designers").deleteMany({})
-    console.log("🗑️ Collection designers vidée")
+    const collection = db.collection("designers")
 
     const designers = []
-    const errors = []
+    const errors: string[] = []
 
     // Parser chaque ligne
     for (let i = 1; i < lines.length; i++) {
       try {
-        const values = lines[i].split(";").map((v) => v.trim().replace(/"/g, ""))
+        const values = parseCSVLine(lines[i])
 
         if (values.length !== headers.length) {
-          errors.push(`Ligne ${i + 1}: Nombre de colonnes incorrect (${values.length} vs ${headers.length})`)
+          errors.push(`Ligne ${i + 1}: Nombre de colonnes incorrect`)
           continue
         }
 
@@ -53,15 +81,18 @@ export async function POST(request: NextRequest) {
 
         // Mapper chaque valeur avec son en-tête
         headers.forEach((header, index) => {
-          const value = values[index]
-          designer[header] = value === "" ? null : value
+          const value = values[index]?.trim() || ""
+          designer[header] = value === "" ? "" : value
         })
 
-        // Ajouter des champs calculés
-        if (designer.Nom) {
-          designer.slug = encodeURIComponent(designer.Nom)
-          designer.count = 0 // Sera calculé plus tard
+        // Vérifier que le nom n'est pas vide
+        if (!designer.Nom || designer.Nom.trim() === "") {
+          errors.push(`Ligne ${i + 1}: Nom du designer manquant`)
+          continue
         }
+
+        designer.createdAt = new Date()
+        designer.updatedAt = new Date()
 
         designers.push(designer)
       } catch (error: any) {
@@ -69,30 +100,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`✅ ${designers.length} designers parsés, ${errors.length} erreurs`)
+    console.log(`📊 ${designers.length} designers à importer`)
 
-    // Insérer en base
-    let imported = 0
-    if (designers.length > 0) {
-      const result = await db.collection("designers").insertMany(designers)
-      imported = result.insertedCount
-      console.log(`💾 ${imported} designers insérés en base`)
+    if (designers.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: "Aucun designer valide trouvé",
+        errors,
+      })
     }
+
+    // Supprimer les anciens designers
+    await collection.deleteMany({})
+
+    // Insérer les nouveaux
+    const result = await collection.insertMany(designers, { ordered: false })
+    console.log(`✅ ${result.insertedCount} designers importés`)
 
     return NextResponse.json({
       success: true,
-      message: `Import designers terminé: ${imported} designers importés sur ${lines.length - 1} lignes traitées`,
-      imported,
+      message: `Import terminé: ${result.insertedCount} designers importés sur ${lines.length - 1} lignes traitées`,
+      imported: result.insertedCount,
       processed: lines.length - 1,
-      errors: errors.slice(0, 10),
+      errors,
       totalErrors: errors.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique import designers:", error)
+    console.error("❌ Erreur import CSV designers:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'import designers",
+        error: "Erreur lors de l'import CSV designers",
         details: error.message,
       },
       { status: 500 },

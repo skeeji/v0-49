@@ -63,7 +63,6 @@
     "react-day-picker": "latest",
     "react-dom": "^19",
     "react-hook-form": "latest",
-    "react-intersection-observer": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
     "snappy": "^7.2.2",
