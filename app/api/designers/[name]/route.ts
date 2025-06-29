@@ -11,13 +11,18 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Rechercher les luminaires de ce designer dans la colonne "Artiste / Dates"
-    const luminaires = await db
-      .collection("luminaires")
-      .find({
-        "Artiste / Dates": { $regex: designerName, $options: "i" },
-      })
-      .toArray()
+    // Rechercher les luminaires de ce designer avec une recherche flexible
+    const searchQueries = [
+      { "Artiste / Dates": { $regex: designerName, $options: "i" } },
+      { "Artiste / Dates": { $regex: designerName.replace(/\s+/g, ".*"), $options: "i" } },
+      { "Artiste / Dates": { $regex: designerName.split(" ")[0], $options: "i" } },
+    ]
+
+    let luminaires = []
+    for (const query of searchQueries) {
+      luminaires = await db.collection("luminaires").find(query).toArray()
+      if (luminaires.length > 0) break
+    }
 
     console.log(`📊 ${luminaires.length} luminaires trouvés pour ${designerName}`)
 
@@ -34,13 +39,19 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     // Chercher l'image du designer dans la collection designers
     let designerImage = null
     try {
-      const designerDoc = await db.collection("designers").findOne({
-        Nom: { $regex: designerName, $options: "i" },
-      })
+      const designerQueries = [
+        { Nom: { $regex: designerName, $options: "i" } },
+        { Nom: { $regex: designerName.replace(/\s+/g, ".*"), $options: "i" } },
+        { Nom: { $regex: designerName.split(" ")[0], $options: "i" } },
+      ]
 
-      if (designerDoc && designerDoc.imagedesigner) {
-        designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
-        console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
+      for (const query of designerQueries) {
+        const designerDoc = await db.collection("designers").findOne(query)
+        if (designerDoc && designerDoc.imagedesigner) {
+          designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
+          console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
+          break
+        }
       }
     } catch (error) {
       console.log("⚠️ Pas d'image trouvée pour ce designer")
