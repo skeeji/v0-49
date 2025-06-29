@@ -21,7 +21,7 @@ function getEnvVar(key: string, fallback?: string): string {
 
 export const env = {
   // Variables MongoDB
-  MONGODB_URI: getEnvVar("MONGODB_URI", "mongodb://admin:admin123@localhost:27017/luminaires?authSource=admin"),
+  MONGODB_URI: process.env.MONGODB_URI || "mongodb://admin:admin123@localhost:27017/luminaires?authSource=admin",
 
   // Variables Firebase (critiques - pas de fallback)
   NEXT_PUBLIC_FIREBASE_API_KEY: getEnvVar("NEXT_PUBLIC_FIREBASE_API_KEY"),
@@ -32,11 +32,11 @@ export const env = {
   NEXT_PUBLIC_FIREBASE_APP_ID: getEnvVar("NEXT_PUBLIC_FIREBASE_APP_ID"),
 
   // Variables NextAuth
-  NEXTAUTH_URL: getEnvVar("NEXTAUTH_URL", "http://localhost:3000"),
-  NEXTAUTH_SECRET: getEnvVar("NEXTAUTH_SECRET", "development-secret-change-in-production"),
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
+  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || "dev-secret",
 
   // Variables application
-  NODE_ENV: getEnvVar("NODE_ENV", "development"),
+  NODE_ENV: process.env.NODE_ENV || "development",
   PORT: getEnvVar("PORT", "3000"),
   MAX_FILE_SIZE: getEnvVar("MAX_FILE_SIZE", "10485760"), // 10MB
   UPLOAD_DIR: getEnvVar("UPLOAD_DIR", "./uploads"),

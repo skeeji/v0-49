@@ -1,171 +1,65 @@
 "use client"
 
-import { createContext, useState, useEffect, useContext, type ReactNode } from "react"
-import { getFirebaseAuth, getGoogleProvider, getFirebaseDb, type UserData } from "@/lib/firebase"
-import { signInWithPopup, signOut, onAuthStateChanged, type User as FirebaseUser } from "firebase/auth"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { useToast } from "@/hooks/use-toast"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 
-interface AuthContextProps {
-  user: FirebaseUser | null
-  userData: UserData | null
-  loading: boolean
-  login: () => Promise<void>
-  logout: () => Promise<void>
+interface User {
+  id: string
+  email: string
+  role: "admin" | "user"
+  name?: string
 }
 
-const AuthContext = createContext<AuthContextProps>({
-  user: null,
-  userData: null,
-  loading: true,
-  login: async () => {},
-  logout: async () => {},
-})
-
-interface AuthProviderProps {
-  children: ReactNode
+interface AuthContextType {
+  user: User | null
+  login: (email: string, password: string) => Promise<boolean>
+  logout: () => void
+  isLoading: boolean
 }
 
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<FirebaseUser | null>(null)
-  const [userData, setUserData] = useState<UserData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const auth = getFirebaseAuth()
-    const db = getFirebaseDb()
-
-    if (!auth || !db) {
-      setLoading(false)
-      return
+    // Check if user is logged in from localStorage
+    const savedUser = localStorage.getItem("user")
+    if (savedUser) {
+      setUser(JSON.parse(savedUser))
     }
+    setIsLoading(false)
+  }, [])
 
-    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-      if (authUser) {
-        try {
-          const userDocRef = doc(db, "users", authUser.uid)
-          const docSnap = await getDoc(userDocRef)
-
-          if (docSnap.exists()) {
-            // L'utilisateur existe déjà dans Firestore
-            const existingUserData = docSnap.data() as UserData
-            setUserData(existingUserData)
-          } else {
-            // L'utilisateur n'existe pas, on le crée avec le rôle par défaut
-            const newUser: UserData = {
-              email: authUser.email || "",
-              role: "free",
-            }
-            await setDoc(userDocRef, newUser)
-            setUserData(newUser)
-          }
-
-          setUser(authUser)
-        } catch (error: any) {
-          console.error("Erreur lors de la récupération des données utilisateur:", error)
-          toast({
-            title: "Erreur",
-            description: "Erreur lors de la récupération des données utilisateur.",
-            type: "error",
-          })
-        } finally {
-          setLoading(false)
-        }
-      } else {
-        setUser(null)
-        setUserData(null)
-        setLoading(false)
+  const login = async (email: string, password: string): Promise<boolean> => {
+    // Simple mock authentication
+    if (email === "admin@example.com" && password === "admin") {
+      const adminUser: User = {
+        id: "1",
+        email: "admin@example.com",
+        role: "admin",
+        name: "Admin",
       }
-    })
-
-    return () => unsubscribe()
-  }, [toast])
-
-  const login = async () => {
-    const auth = getFirebaseAuth()
-    const provider = getGoogleProvider()
-    const db = getFirebaseDb()
-
-    if (!auth || !provider || !db) {
-      toast({
-        title: "Erreur",
-        description: "Firebase n'est pas correctement initialisé.",
-        type: "error",
-      })
-      return
+      setUser(adminUser)
+      localStorage.setItem("user", JSON.stringify(adminUser))
+      return true
     }
-
-    try {
-      const result = await signInWithPopup(auth, provider)
-      const user = result.user
-
-      // Vérifier si l'utilisateur existe dans Firestore
-      const userDocRef = doc(db, "users", user.uid)
-      const docSnap = await getDoc(userDocRef)
-
-      if (docSnap.exists()) {
-        // L'utilisateur existe déjà dans Firestore
-        const existingUserData = docSnap.data() as UserData
-        setUserData(existingUserData)
-      } else {
-        // L'utilisateur n'existe pas, on le crée avec le rôle par défaut
-        const newUser: UserData = {
-          email: user.email || "",
-          role: "free",
-        }
-        await setDoc(userDocRef, newUser)
-        setUserData(newUser)
-      }
-
-      setUser(user)
-      toast({
-        title: "Connexion réussie",
-        description: "Vous êtes connecté(e) !",
-        type: "success",
-      })
-    } catch (error: any) {
-      console.error("Erreur lors de la connexion:", error)
-      toast({
-        title: "Erreur",
-        description: "Erreur lors de la connexion.",
-        type: "error",
-      })
-    }
+    return false
   }
 
-  const logout = async () => {
-    const auth = getFirebaseAuth()
-
-    if (!auth) {
-      toast({
-        title: "Erreur",
-        description: "Firebase n'est pas correctement initialisé.",
-        type: "error",
-      })
-      return
-    }
-
-    try {
-      await signOut(auth)
-      setUser(null)
-      setUserData(null)
-      toast({
-        title: "Déconnexion réussie",
-        description: "Vous êtes déconnecté(e).",
-        type: "success",
-      })
-    } catch (error: any) {
-      console.error("Erreur lors de la déconnexion:", error)
-      toast({
-        title: "Erreur",
-        description: "Erreur lors de la déconnexion.",
-        type: "error",
-      })
-    }
+  const logout = () => {
+    setUser(null)
+    localStorage.removeItem("user")
   }
 
-  return <AuthContext.Provider value={{ user, userData, loading, login, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => useContext(AuthContext)
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}

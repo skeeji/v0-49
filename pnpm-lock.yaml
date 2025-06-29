@@ -9,13 +9,13 @@ importers:
   .:
     dependencies:
       '@aws-sdk/credential-providers':
-        specifier: latest
+        specifier: ^3.839.0
         version: 3.839.0
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.9.1(react-hook-form@7.59.0(react@19.0.0))
       '@mongodb-js/zstd':
-        specifier: latest
+        specifier: ^2.0.1
         version: 2.0.1
       '@radix-ui/react-accordion':
         specifier: latest
@@ -114,7 +114,7 @@ importers:
         specifier: latest
         version: 5.6.0
       date-fns:
-        specifier: 4.1.0
+        specifier: ^4.1.0
         version: 4.1.0
       embla-carousel-react:
         specifier: latest
@@ -126,7 +126,7 @@ importers:
         specifier: latest
         version: 0.0.1-security
       gcp-metadata:
-        specifier: latest
+        specifier: ^7.0.1
         version: 7.0.1
       input-otp:
         specifier: latest
@@ -135,7 +135,7 @@ importers:
         specifier: latest
         version: 3.0.1
       kerberos:
-        specifier: latest
+        specifier: ^2.2.2
         version: 2.2.2
       lucide-react:
         specifier: ^0.454.0
@@ -144,7 +144,7 @@ importers:
         specifier: latest
         version: 6.17.0(@aws-sdk/credential-providers@3.839.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@7.0.1)(kerberos@2.2.2)(mongodb-client-encryption@6.4.0)(snappy@7.2.2)(socks@2.8.5)
       mongodb-client-encryption:
-        specifier: latest
+        specifier: ^6.4.0
         version: 6.4.0
       next:
         specifier: 15.2.4
@@ -177,10 +177,10 @@ importers:
         specifier: latest
         version: 3.0.2(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react-is@19.1.0)(react@19.0.0)(redux@5.0.1)
       snappy:
-        specifier: latest
+        specifier: ^7.2.2
         version: 7.2.2
       socks:
-        specifier: latest
+        specifier: ^2.8.5
         version: 2.8.5
       sonner:
         specifier: latest
