@@ -16,19 +16,20 @@ export async function getBucket(): Promise<GridFSBucket> {
   return cachedBucket
 }
 
-export async function uploadToGridFS(file: Buffer, filename: string, contentType: string): Promise<ObjectId> {
+export async function uploadFile(file: Buffer, filename: string, metadata: any = {}): Promise<ObjectId> {
   const bucket = await getBucket()
 
   return new Promise((resolve, reject) => {
     const uploadStream = bucket.openUploadStream(filename, {
       metadata: {
-        contentType,
+        ...metadata,
         uploadDate: new Date(),
       },
     })
 
     uploadStream.on("error", reject)
     uploadStream.on("finish", () => {
+      console.log(`✅ Fichier uploadé: ${filename} (ID: ${uploadStream.id})`)
       resolve(uploadStream.id as ObjectId)
     })
 
@@ -36,45 +37,67 @@ export async function uploadToGridFS(file: Buffer, filename: string, contentType
   })
 }
 
-export async function downloadFromGridFS(id: string): Promise<{ stream: any; metadata: any }> {
+export async function downloadFile(id: string | ObjectId): Promise<Buffer> {
   const bucket = await getBucket()
-  const objectId = new ObjectId(id)
+  const objectId = typeof id === "string" ? new ObjectId(id) : id
 
-  // Vérifier que le fichier existe
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    const downloadStream = bucket.openDownloadStream(objectId)
+
+    downloadStream.on("data", (chunk) => chunks.push(chunk))
+    downloadStream.on("error", reject)
+    downloadStream.on("end", () => {
+      resolve(Buffer.concat(chunks))
+    })
+  })
+}
+
+export async function deleteFile(id: string | ObjectId): Promise<void> {
+  const bucket = await getBucket()
+  const objectId = typeof id === "string" ? new ObjectId(id) : id
+
+  try {
+    await bucket.delete(objectId)
+    console.log(`🗑️ Fichier supprimé: ${objectId}`)
+  } catch (error) {
+    console.error(`❌ Erreur suppression fichier ${objectId}:`, error)
+    throw error
+  }
+}
+
+export async function getFileInfo(id: string | ObjectId) {
+  const bucket = await getBucket()
+  const objectId = typeof id === "string" ? new ObjectId(id) : id
+
   const files = await bucket.find({ _id: objectId }).toArray()
-  if (files.length === 0) {
-    throw new Error("Fichier non trouvé")
-  }
-
-  const file = files[0]
-  const downloadStream = bucket.openDownloadStream(objectId)
-
-  return {
-    stream: downloadStream,
-    metadata: {
-      filename: file.filename,
-      contentType: file.metadata?.contentType || "application/octet-stream",
-      length: file.length,
-    },
-  }
+  return files[0] || null
 }
 
-export async function deleteFromGridFS(id: string): Promise<void> {
+export async function findFileByName(filename: string) {
   const bucket = await getBucket()
-  const objectId = new ObjectId(id)
-  await bucket.delete(objectId)
+  const files = await bucket.find({ filename }).toArray()
+  return files[0] || null
 }
 
-export async function listGridFSFiles(): Promise<any[]> {
+export async function streamFile(id: string | ObjectId) {
   const bucket = await getBucket()
-  return await bucket.find({}).toArray()
+  const objectId = typeof id === "string" ? new ObjectId(id) : id
+  return bucket.openDownloadStream(objectId)
 }
 
-export async function clearGridFS(): Promise<void> {
+export async function deleteAllFiles(): Promise<void> {
   const bucket = await getBucket()
   const files = await bucket.find({}).toArray()
 
   for (const file of files) {
-    await bucket.delete(file._id)
+    try {
+      await bucket.delete(file._id)
+      console.log(`🗑️ Fichier supprimé: ${file.filename}`)
+    } catch (error) {
+      console.error(`❌ Erreur suppression ${file.filename}:`, error)
+    }
   }
+
+  console.log(`✅ ${files.length} fichiers supprimés de GridFS`)
 }

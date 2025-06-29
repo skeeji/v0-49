@@ -1,28 +1,43 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { downloadFromGridFS } from "@/lib/gridfs"
+import { streamFile, getFileInfo } from "@/lib/gridfs"
+import { ObjectId } from "mongodb"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params
 
-    if (!id) {
-      return NextResponse.json({ error: "ID manquant" }, { status: 400 })
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "ID invalide" }, { status: 400 })
     }
 
-    const { stream, metadata } = await downloadFromGridFS(id)
+    // Récupérer les infos du fichier
+    const fileInfo = await getFileInfo(id)
+    if (!fileInfo) {
+      return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 })
+    }
 
-    // Créer une réponse avec le stream
-    const response = new NextResponse(stream, {
+    // Créer le stream
+    const downloadStream = await streamFile(id)
+
+    // Créer une réponse avec stream
+    const response = new Response(downloadStream as any, {
       headers: {
-        "Content-Type": metadata.contentType,
-        "Content-Length": metadata.length.toString(),
+        "Content-Type": fileInfo.metadata?.contentType || "video/mp4",
+        "Content-Length": fileInfo.length.toString(),
         "Cache-Control": "public, max-age=31536000",
+        "Accept-Ranges": "bytes",
       },
     })
 
     return response
   } catch (error: any) {
-    console.error("❌ Erreur récupération vidéo:", error)
-    return NextResponse.json({ error: "Vidéo non trouvée" }, { status: 404 })
+    console.error("❌ Erreur streaming vidéo:", error)
+    return NextResponse.json(
+      {
+        error: "Erreur serveur lors du streaming",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

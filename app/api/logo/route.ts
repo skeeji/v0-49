@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { downloadFromGridFS } from "@/lib/gridfs"
+import { streamFile, getFileInfo } from "@/lib/gridfs"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
@@ -10,20 +10,28 @@ export async function GET(request: NextRequest) {
     const db = client.db(DBNAME)
 
     // Récupérer les métadonnées du logo
-    const logoSettings = await db.collection("settings").findOne({ type: "logo" })
+    const logoSetting = await db.collection("settings").findOne({ key: "logo" })
 
-    if (!logoSettings || !logoSettings.fileId) {
+    if (!logoSetting || !logoSetting.value?.fileId) {
       return NextResponse.json({ error: "Logo non trouvé" }, { status: 404 })
     }
 
-    // Télécharger le fichier depuis GridFS
-    const { stream, metadata } = await downloadFromGridFS(logoSettings.fileId)
+    const fileId = logoSetting.value.fileId
 
-    // Créer une réponse avec le stream
-    const response = new NextResponse(stream, {
+    // Récupérer les infos du fichier
+    const fileInfo = await getFileInfo(fileId)
+    if (!fileInfo) {
+      return NextResponse.json({ error: "Fichier logo non trouvé" }, { status: 404 })
+    }
+
+    // Créer le stream
+    const downloadStream = await streamFile(fileId)
+
+    // Créer une réponse avec stream
+    const response = new Response(downloadStream as any, {
       headers: {
-        "Content-Type": metadata.contentType,
-        "Content-Length": metadata.length.toString(),
+        "Content-Type": fileInfo.metadata?.contentType || "image/png",
+        "Content-Length": fileInfo.length.toString(),
         "Cache-Control": "public, max-age=31536000",
       },
     })
@@ -31,6 +39,12 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error: any) {
     console.error("❌ Erreur récupération logo:", error)
-    return NextResponse.json({ error: "Logo non trouvé" }, { status: 404 })
+    return NextResponse.json(
+      {
+        error: "Erreur serveur lors de la récupération du logo",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }
