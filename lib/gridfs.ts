@@ -10,144 +10,67 @@ export async function getBucket(): Promise<GridFSBucket> {
     return cachedBucket
   }
 
-  try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    cachedBucket = new GridFSBucket(db, { bucketName: "uploads" })
-    console.log("✅ GridFS bucket initialisé")
-    return cachedBucket
-  } catch (error) {
-    console.error("❌ Erreur initialisation GridFS:", error)
-    throw error
-  }
+  const client = await clientPromise
+  const db = client.db(DBNAME)
+  cachedBucket = new GridFSBucket(db, { bucketName: "uploads" })
+  return cachedBucket
 }
 
-export async function uploadFile(file: Buffer | Uint8Array, filename: string, metadata: any = {}): Promise<ObjectId> {
-  try {
-    const bucket = await getBucket()
+export async function uploadToGridFS(file: Buffer, filename: string, metadata: any = {}): Promise<ObjectId> {
+  const bucket = await getBucket()
 
-    return new Promise((resolve, reject) => {
-      const uploadStream = bucket.openUploadStream(filename, {
-        metadata: {
-          ...metadata,
-          uploadDate: new Date(),
-          originalName: filename,
-        },
-      })
-
-      uploadStream.on("error", (error) => {
-        console.error("❌ Erreur upload GridFS:", error)
-        reject(error)
-      })
-
-      uploadStream.on("finish", () => {
-        console.log(`✅ Fichier uploadé: ${filename} (ID: ${uploadStream.id})`)
-        resolve(uploadStream.id as ObjectId)
-      })
-
-      uploadStream.end(file)
+  return new Promise((resolve, reject) => {
+    const uploadStream = bucket.openUploadStream(filename, {
+      metadata: {
+        ...metadata,
+        uploadDate: new Date(),
+      },
     })
-  } catch (error) {
-    console.error("❌ Erreur uploadFile:", error)
-    throw error
-  }
-}
 
-export async function downloadFile(fileId: string | ObjectId): Promise<Buffer> {
-  try {
-    const bucket = await getBucket()
-    const objectId = typeof fileId === "string" ? new ObjectId(fileId) : fileId
-
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = []
-      const downloadStream = bucket.openDownloadStream(objectId)
-
-      downloadStream.on("data", (chunk) => {
-        chunks.push(chunk)
-      })
-
-      downloadStream.on("error", (error) => {
-        console.error("❌ Erreur download GridFS:", error)
-        reject(error)
-      })
-
-      downloadStream.on("end", () => {
-        const buffer = Buffer.concat(chunks)
-        console.log(`✅ Fichier téléchargé: ${fileId} (${buffer.length} bytes)`)
-        resolve(buffer)
-      })
+    uploadStream.on("error", reject)
+    uploadStream.on("finish", () => {
+      resolve(uploadStream.id as ObjectId)
     })
-  } catch (error) {
-    console.error("❌ Erreur downloadFile:", error)
-    throw error
-  }
+
+    uploadStream.end(file)
+  })
 }
 
-export async function deleteFile(fileId: string | ObjectId): Promise<void> {
-  try {
-    const bucket = await getBucket()
-    const objectId = typeof fileId === "string" ? new ObjectId(fileId) : fileId
+export async function downloadFromGridFS(id: string): Promise<Buffer> {
+  const bucket = await getBucket()
+  const objectId = new ObjectId(id)
 
-    await bucket.delete(objectId)
-    console.log(`✅ Fichier supprimé: ${fileId}`)
-  } catch (error) {
-    console.error("❌ Erreur deleteFile:", error)
-    throw error
-  }
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    const downloadStream = bucket.openDownloadStream(objectId)
+
+    downloadStream.on("data", (chunk) => chunks.push(chunk))
+    downloadStream.on("error", reject)
+    downloadStream.on("end", () => {
+      resolve(Buffer.concat(chunks))
+    })
+  })
 }
 
-export async function getFileInfo(fileId: string | ObjectId) {
-  try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const objectId = typeof fileId === "string" ? new ObjectId(fileId) : fileId
-
-    const fileInfo = await db.collection("uploads.files").findOne({ _id: objectId })
-    return fileInfo
-  } catch (error) {
-    console.error("❌ Erreur getFileInfo:", error)
-    throw error
-  }
+export async function deleteFromGridFS(id: string): Promise<void> {
+  const bucket = await getBucket()
+  const objectId = new ObjectId(id)
+  await bucket.delete(objectId)
 }
 
-export async function streamFile(fileId: string | ObjectId) {
-  try {
-    const bucket = await getBucket()
-    const objectId = typeof fileId === "string" ? new ObjectId(fileId) : fileId
-
-    return bucket.openDownloadStream(objectId)
-  } catch (error) {
-    console.error("❌ Erreur streamFile:", error)
-    throw error
-  }
+export async function getFileInfo(id: string) {
+  const bucket = await getBucket()
+  const objectId = new ObjectId(id)
+  return await bucket.find({ _id: objectId }).next()
 }
 
-export async function findFileByName(filename: string) {
-  try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+export async function clearGridFS(): Promise<number> {
+  const bucket = await getBucket()
+  const files = await bucket.find({}).toArray()
 
-    const fileInfo = await db.collection("uploads.files").findOne({ filename })
-    return fileInfo
-  } catch (error) {
-    console.error("❌ Erreur findFileByName:", error)
-    throw error
+  for (const file of files) {
+    await bucket.delete(file._id)
   }
-}
 
-export async function clearAllFiles(): Promise<void> {
-  try {
-    const bucket = await getBucket()
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    // Supprimer tous les fichiers
-    await db.collection("uploads.files").deleteMany({})
-    await db.collection("uploads.chunks").deleteMany({})
-
-    console.log("✅ Tous les fichiers GridFS supprimés")
-  } catch (error) {
-    console.error("❌ Erreur clearAllFiles:", error)
-    throw error
-  }
+  return files.length
 }

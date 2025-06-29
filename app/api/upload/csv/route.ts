@@ -52,16 +52,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV" }, { status: 400 })
     }
 
-    console.log(`📊 ${records.length} lignes parsées du CSV (potentiellement ~9000 luminaires)`)
+    console.log(`📊 ${records.length} lignes parsées du CSV`)
     console.log("📋 Colonnes détectées:", Object.keys(records[0]))
     console.log("📋 Premier enregistrement:", records[0])
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-
-    // Vider la collection avant import pour éviter les doublons
-    console.log("🗑️ Suppression des anciens luminaires...")
-    await db.collection("luminaires").deleteMany({})
 
     const results = {
       success: 0,
@@ -69,111 +65,81 @@ export async function POST(request: NextRequest) {
       processed: 0,
     }
 
-    // Traitement par batch pour optimiser les performances
-    const BATCH_SIZE = 100
-    const batches = []
+    // Traiter chaque ligne
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i]
+      results.processed++
 
-    for (let i = 0; i < records.length; i += BATCH_SIZE) {
-      batches.push(records.slice(i, i + BATCH_SIZE))
-    }
+      try {
+        // Mapping des colonnes (flexible)
+        const nomLuminaire = record["Nom luminaire"] || record["nom"] || record["Nom"] || record["name"] || ""
+        const filename = record["Nom du fichier"] || record["filename"] || record["Filename"] || record["image"] || ""
+        const designer =
+          record["Artiste / Dates"] || record["designer"] || record["Designer"] || record["artiste"] || ""
+        const anneeStr = record["Année"] || record["annee"] || record["year"] || record["Year"] || ""
+        const specialite = record["Spécialité"] || record["specialite"] || record["specialty"] || ""
 
-    console.log(`📦 Traitement par batch: ${batches.length} batches de ${BATCH_SIZE} éléments`)
-
-    // Traiter chaque batch
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const batch = batches[batchIndex]
-      const luminairesToInsert = []
-
-      for (let i = 0; i < batch.length; i++) {
-        const record = batch[i]
-        const globalIndex = batchIndex * BATCH_SIZE + i
-        results.processed++
-
-        try {
-          // Mapping des colonnes selon le schéma fourni
-          const nomLuminaire = (record["Nom luminaire"] || "").toString().trim()
-          const artiste = (record["Artiste / Dates"] || "").toString().trim()
-          const specialite = (record["Spécialité"] || "").toString().trim()
-          const collaboration = (record["Collaboration / Œuvre"] || "").toString().trim()
-          const anneeStr = (record["Année"] || "").toString().trim()
-          const signe = (record["Signé"] || "").toString().trim()
-          const nomFichier = (record["Nom du fichier"] || "").toString().trim()
-
-          // Déterminer le nom final - CORRECTION: utiliser le nom du fichier si pas de nom luminaire
-          let finalNom = nomLuminaire
-          if (!finalNom && nomFichier) {
-            // Extraire le nom du fichier sans extension
-            finalNom = nomFichier
-              .replace(/\.[^/.]+$/, "")
-              .replace(/^luminaire_/, "")
-              .trim()
-          }
-          if (!finalNom && artiste) {
-            // En dernier recours, utiliser l'artiste
-            finalNom = `Luminaire ${artiste.split(" ")[0]}`
-          }
-          if (!finalNom) {
-            finalNom = `Luminaire ${globalIndex + 1}` // Nom par défaut avec index global
-          }
-
-          // Parser l'année
-          let annee = null
-          if (anneeStr) {
-            const anneeNum = Number.parseInt(anneeStr)
-            if (!isNaN(anneeNum) && anneeNum > 1000 && anneeNum <= 2025) {
-              annee = anneeNum
-            }
-          }
-
-          // Créer l'objet luminaire
-          const luminaire = {
-            nom: finalNom,
-            designer: artiste,
-            annee: annee,
-            periode: specialite,
-            description: collaboration,
-            materiaux: [],
-            couleurs: [],
-            dimensions: {},
-            images: [],
-            filename: nomFichier,
-            "Nom du fichier": nomFichier,
-            "Artiste / Dates": artiste,
-            Spécialité: specialite,
-            "Collaboration / Œuvre": collaboration,
-            Année: anneeStr,
-            Signé: signe,
-            isFavorite: false,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }
-
-          luminairesToInsert.push(luminaire)
-        } catch (error: any) {
-          results.errors.push(`Ligne ${globalIndex + 2}: ${error.message}`)
-          console.error(`❌ Erreur ligne ${globalIndex + 2}:`, error.message)
+        // Déterminer le nom final
+        let finalNom = nomLuminaire.trim()
+        if (!finalNom && filename) {
+          finalNom = filename.replace(/\.[^/.]+$/, "").trim()
         }
-      }
-
-      // Insérer le batch complet
-      if (luminairesToInsert.length > 0) {
-        try {
-          await db.collection("luminaires").insertMany(luminairesToInsert, { ordered: false })
-          results.success += luminairesToInsert.length
-          console.log(
-            `📦 Batch ${batchIndex + 1}/${batches.length}: ${luminairesToInsert.length} luminaires insérés (Total: ${results.success})`,
-          )
-        } catch (error: any) {
-          console.error(`❌ Erreur insertion batch ${batchIndex + 1}:`, error.message)
-          results.errors.push(`Batch ${batchIndex + 1}: ${error.message}`)
+        if (!finalNom) {
+          results.errors.push(`Ligne ${i + 2}: nom manquant`)
+          continue
         }
-      }
 
-      // Log de progression tous les 10 batches
-      if ((batchIndex + 1) % 10 === 0) {
-        console.log(
-          `📊 Progression: ${results.success}/${records.length} luminaires insérés (${Math.round((results.success / records.length) * 100)}%)`,
-        )
+        // Parser l'année
+        let annee = new Date().getFullYear()
+        if (anneeStr) {
+          const parsedYear = Number.parseInt(anneeStr.toString())
+          if (!isNaN(parsedYear) && parsedYear > 1000 && parsedYear <= 2025) {
+            annee = parsedYear
+          }
+        }
+
+        // Créer l'objet luminaire
+        const luminaire = {
+          nom: finalNom,
+          designer: designer.trim(),
+          annee: annee,
+          periode: specialite.trim() || "",
+          description: (record["Description"] || record["description"] || "").trim(),
+          materiaux: record["Matériaux"]
+            ? record["Matériaux"]
+                .split(",")
+                .map((m: string) => m.trim())
+                .filter(Boolean)
+            : [],
+          couleurs: [],
+          dimensions: {
+            hauteur: record["hauteur"] ? Number.parseFloat(record["hauteur"]) : undefined,
+            largeur: record["largeur"] ? Number.parseFloat(record["largeur"]) : undefined,
+            profondeur: record["profondeur"] ? Number.parseFloat(record["profondeur"]) : undefined,
+          },
+          images: [],
+          filename: filename.trim(),
+          specialite: specialite.trim(),
+          collaboration: (record["Collaboration / Œuvre"] || record["collaboration"] || "").trim(),
+          signe: (record["Signé"] || record["signe"] || "").trim(),
+          estimation: (record["Estimation"] || record["estimation"] || "").trim(),
+          isFavorite: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+
+        console.log(`💾 Insertion luminaire ${i + 1}/${records.length}: ${luminaire.nom}`)
+
+        await db.collection("luminaires").insertOne(luminaire)
+        results.success++
+
+        // Log de progression tous les 1000 éléments
+        if (results.success % 1000 === 0) {
+          console.log(`📊 Progression: ${results.success}/${records.length} luminaires insérés`)
+        }
+      } catch (error: any) {
+        results.errors.push(`Ligne ${i + 2}: ${error.message}`)
+        console.error(`❌ Erreur ligne ${i + 2}:`, error.message)
       }
     }
 
@@ -188,6 +154,7 @@ export async function POST(request: NextRequest) {
       processed: results.processed,
       errors: results.errors.slice(0, 10), // Limiter les erreurs affichées
       totalErrors: results.errors.length,
+      results,
     })
   } catch (error: any) {
     console.error("❌ Erreur critique lors de l'import CSV:", error)
