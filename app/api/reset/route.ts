@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       console.log("⚠️ Collection designers vide ou inexistante")
     }
 
-    // Supprimer tous les fichiers GridFS
+    // Supprimer tous les fichiers GridFS (images, vidéos, logos)
     try {
       const bucket = new GridFSBucket(db, { bucketName: "uploads" })
       const files = await bucket.find({}).toArray()
@@ -60,11 +60,11 @@ export async function POST(request: NextRequest) {
       console.log("⚠️ Collections GridFS déjà vides")
     }
 
-    console.log("✅ Réinitialisation complète terminée")
+    console.log("✅ Réinitialisation complète terminée - TOUS LES FICHIERS SUPPRIMÉS")
 
     return NextResponse.json({
       success: true,
-      message: "Réinitialisation complète terminée avec succès",
+      message: "Réinitialisation complète terminée avec succès - Toutes les données et fichiers ont été supprimés",
       deleted: results,
     })
   } catch (error: any) {

@@ -11,14 +11,11 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Rechercher les luminaires de ce designer
+    // Rechercher les luminaires de ce designer dans la colonne "Artiste / Dates"
     const luminaires = await db
       .collection("luminaires")
       .find({
-        $or: [
-          { "Artiste / Dates": { $regex: designerName, $options: "i" } },
-          { designer: { $regex: designerName, $options: "i" } },
-        ],
+        "Artiste / Dates": { $regex: designerName, $options: "i" },
       })
       .toArray()
 
@@ -34,33 +31,44 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       )
     }
 
-    // Créer l'objet designer à partir du premier luminaire
-    const firstLuminaire = luminaires[0]
+    // Chercher l'image du designer dans la collection designers
+    let designerImage = null
+    try {
+      const designerDoc = await db.collection("designers").findOne({
+        Nom: { $regex: designerName, $options: "i" },
+      })
+
+      if (designerDoc && designerDoc.imagedesigner) {
+        designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
+        console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
+      }
+    } catch (error) {
+      console.log("⚠️ Pas d'image trouvée pour ce designer")
+    }
+
+    // Créer l'objet designer
     const designer = {
       nom: designerName,
       count: luminaires.length,
-      imagedesigner: firstLuminaire.imagedesigner || null,
+      image: designerImage,
+      biographie: "",
+      specialites: [],
     }
 
-    // Chercher dans la collection designers si elle existe
-    try {
-      const designerDoc = await db.collection("designers").findOne({
-        $or: [{ nom: designerName }, { nom: { $regex: designerName, $options: "i" } }],
-      })
-
-      if (designerDoc) {
-        designer.imagedesigner = designerDoc.imagedesigner || designer.imagedesigner
-        console.log(`✅ Designer trouvé dans la collection designers: ${designerDoc.nom}`)
-      }
-    } catch (error) {
-      console.log("⚠️ Collection designers non trouvée, utilisation des données des luminaires")
-    }
+    // Adapter les luminaires pour l'affichage
+    const adaptedLuminaires = luminaires.map((lum: any) => ({
+      ...lum,
+      id: lum._id,
+      image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
+      name: lum["Nom luminaire"] || "Sans nom",
+      year: lum["Année"] || "",
+    }))
 
     return NextResponse.json({
       success: true,
       data: {
         designer,
-        luminaires,
+        luminaires: adaptedLuminaires,
       },
     })
   } catch (error: any) {

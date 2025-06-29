@@ -1,23 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getBucket } from "@/lib/gridfs"
-import { Readable } from "stream"
 import clientPromise from "@/lib/mongodb"
+import { GridFSBucket } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-function fileToStream(file: File) {
-  const reader = file.stream().getReader()
-  return new Readable({
-    async read() {
-      const { done, value } = await reader.read()
-      this.push(done ? null : Buffer.from(value))
-    },
-  })
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const bucket = await getBucket()
+    console.log("🖼️ API /api/upload/images - Début de l'upload")
+
     const formData = await request.formData()
     const files = formData.getAll("images") as File[]
 
@@ -25,132 +15,112 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`🖼️ ${files.length} images reçues pour upload`)
-
-    // CORRECTION: Traiter par batches de 50 avec gestion d'erreurs améliorée
-    const BATCH_SIZE = 50
-    const filesToProcess = files.slice(0, BATCH_SIZE)
-
-    console.log(`📦 Traitement de ${filesToProcess.length} images (batch limité)`)
-
-    const uploadedFiles = []
-    const errors = []
-    let totalAssociated = 0
+    console.log(`📁 ${files.length} fichiers reçus pour upload`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    // Traiter chaque fichier individuellement avec retry
-    for (let i = 0; i < filesToProcess.length; i++) {
-      const file = filesToProcess[i]
-      let retryCount = 0
-      const maxRetries = 2
+    let uploaded = 0
+    let associated = 0
+    const errors: string[] = []
 
-      while (retryCount <= maxRetries) {
+    // Traitement par batch de 50 fichiers
+    const BATCH_SIZE = 50
+    const batches = []
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      batches.push(files.slice(i, i + BATCH_SIZE))
+    }
+
+    console.log(`📦 Traitement en ${batches.length} batches de ${BATCH_SIZE} fichiers`)
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex]
+      console.log(`📦 Batch ${batchIndex + 1}/${batches.length}: ${batch.length} fichiers`)
+
+      for (const file of batch) {
         try {
-          console.log(`📤 Upload ${i + 1}/${filesToProcess.length}: ${file.name} (tentative ${retryCount + 1})`)
+          // Vérifier si le fichier existe déjà
+          const existingFile = await bucket.find({ filename: file.name }).toArray()
+          if (existingFile.length > 0) {
+            console.log(`⚠️ Fichier déjà existant: ${file.name}`)
+            associated++
+            continue
+          }
 
-          // 1. Upload vers GridFS avec timeout réduit
-          const stream = fileToStream(file)
+          // Upload du fichier
           const uploadStream = bucket.openUploadStream(file.name, {
-            contentType: file.type,
+            metadata: {
+              type: "luminaire-image",
+              originalName: file.name,
+              uploadDate: new Date(),
+            },
           })
+
+          const buffer = await file.arrayBuffer()
+          const uint8Array = new Uint8Array(buffer)
 
           await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error("Timeout upload (15s)"))
-            }, 15000) // Timeout réduit à 15 secondes
-
-            stream
-              .pipe(uploadStream)
-              .on("error", (err) => {
-                clearTimeout(timeout)
-                reject(err)
-              })
-              .on("finish", () => {
-                clearTimeout(timeout)
+            uploadStream.end(uint8Array, (error) => {
+              if (error) {
+                reject(error)
+              } else {
                 resolve()
-              })
-          })
-
-          const fileId = uploadStream.id.toString()
-
-          uploadedFiles.push({
-            name: file.name,
-            id: fileId,
-            path: `/api/images/${fileId}`,
-            size: file.size,
-          })
-
-          // 2. Association immédiate avec le luminaire
-          try {
-            const luminaire = await db.collection("luminaires").findOne({
-              $or: [{ "Nom du fichier": file.name }, { filename: file.name }],
+              }
             })
+          })
 
-            if (luminaire) {
-              await db.collection("luminaires").updateOne(
-                { _id: luminaire._id },
-                {
-                  $set: {
-                    imageId: fileId,
-                    imagePath: `/api/images/filename/${file.name}`,
-                    updatedAt: new Date(),
-                  },
+          uploaded++
+
+          // Associer l'image au luminaire correspondant
+          try {
+            const luminaireResult = await db.collection("luminaires").updateOne(
+              { "Nom du fichier": file.name },
+              {
+                $set: {
+                  imageUploaded: true,
+                  imageId: uploadStream.id,
+                  updatedAt: new Date(),
                 },
-              )
+              },
+            )
 
-              totalAssociated++
-              console.log(`✅ ${file.name} → ${luminaire["Nom luminaire"] || "Sans nom"}`)
+            if (luminaireResult.matchedCount > 0) {
+              associated++
             }
-          } catch (associationError: any) {
-            console.warn(`⚠️ Erreur association ${file.name}:`, associationError.message)
+          } catch (associationError) {
+            console.log(`⚠️ Impossible d'associer ${file.name} à un luminaire`)
           }
-
-          // Succès, sortir de la boucle de retry
-          break
         } catch (error: any) {
-          retryCount++
-          console.error(`❌ Erreur upload ${file.name} (tentative ${retryCount}):`, error.message)
-
-          if (retryCount > maxRetries) {
-            errors.push(`${file.name}: ${error.message} (après ${maxRetries} tentatives)`)
-          } else {
-            // Attendre avant de réessayer
-            await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount))
-          }
+          const errorMsg = `Erreur upload ${file.name}: ${error.message}`
+          errors.push(errorMsg)
+          console.error(`❌ ${errorMsg}`)
         }
       }
 
-      // Petite pause entre chaque fichier
-      if (i < filesToProcess.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 200))
+      // Pause entre les batches pour éviter la surcharge
+      if (batchIndex < batches.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
       }
     }
 
-    const remainingFiles = files.length - filesToProcess.length
-    const successRate = Math.round((uploadedFiles.length / filesToProcess.length) * 100)
-
-    console.log(
-      `✅ Batch terminé: ${uploadedFiles.length}/${filesToProcess.length} images uploadées (${successRate}%), ${totalAssociated} associées`,
-    )
+    console.log(`✅ Upload terminé: ${uploaded} uploadées, ${associated} associées`)
 
     return NextResponse.json({
       success: true,
-      message: `${uploadedFiles.length} images uploadées, ${totalAssociated} associées${remainingFiles > 0 ? ` (${remainingFiles} restantes)` : ""}`,
-      uploaded: uploadedFiles.length,
-      associated: totalAssociated,
-      remaining: remainingFiles,
-      successRate,
-      uploadedFiles,
-      errors,
+      message: `Upload terminé: ${uploaded} images uploadées, ${associated} associées aux luminaires`,
+      uploaded,
+      associated,
+      processed: files.length,
+      errors: errors.slice(0, 10),
+      totalErrors: errors.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur upload images:", error)
+    console.error("❌ Erreur critique upload images:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur upload",
+        error: "Erreur serveur lors de l'upload",
         details: error.message,
       },
       { status: 500 },

@@ -122,23 +122,41 @@ export default function ChronologiePage() {
         if (data.success && data.luminaires) {
           console.log(`📊 Chronologie: ${data.luminaires.length} luminaires chargés`)
 
-          // Adapter les données avec les bons champs
-          const adaptedLuminaires = data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
-            year: lum["Année"] ? Number.parseInt(lum["Année"].toString().match(/\d{4}/)?.[0] || "0") : null,
-            artist: lum["Artiste / Dates"] || lum.designer || "",
-            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
-          }))
+          // Adapter les données avec extraction correcte de l'année
+          const adaptedLuminaires = data.luminaires.map((lum: any) => {
+            // Extraire l'année depuis la colonne "Année" du CSV
+            let year = null
+            const anneeValue = lum["Année"] || lum.annee || ""
+
+            if (anneeValue) {
+              // Extraire les 4 chiffres de l'année (1800-2099)
+              const yearMatch = anneeValue.toString().match(/\b(1[8-9]\d{2}|20\d{2})\b/)
+              if (yearMatch) {
+                year = Number.parseInt(yearMatch[0])
+              }
+            }
+
+            return {
+              ...lum,
+              id: lum._id,
+              image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
+              year: year,
+              artist: lum["Artiste / Dates"] || lum.designer || "",
+              name: lum["Nom luminaire"] || lum.nom || "Sans nom",
+            }
+          })
+
+          console.log(`📅 Luminaires avec année valide: ${adaptedLuminaires.filter((l) => l.year).length}`)
 
           const grouped = periods.map((period) => {
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
-              if (!luminaire.year || luminaire.year === null) return false
+              if (!luminaire.year) return false
               return luminaire.year >= period.start && luminaire.year <= period.end
             })
 
             const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => (a.year || 0) - (b.year || 0))
+
+            console.log(`📅 Période ${period.name}: ${sortedLuminaires.length} luminaires`)
 
             return {
               ...period,
