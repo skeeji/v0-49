@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
@@ -12,15 +12,24 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Vérifier si l'ID est un ObjectId valide
-    if (!ObjectId.isValid(params.id)) {
-      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+    // Chercher par ObjectId
+    let luminaire = null
+    try {
+      luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
+    } catch (error) {
+      // Si l'ID n'est pas un ObjectId valide, chercher par string
+      luminaire = await collection.findOne({ _id: params.id })
     }
 
-    const luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
-
     if (!luminaire) {
-      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+      console.log(`❌ Luminaire non trouvé: ${params.id}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Luminaire non trouvé",
+        },
+        { status: 404 },
+      )
     }
 
     console.log(`✅ Luminaire trouvé: ${luminaire.nom}`)
@@ -30,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       _id: luminaire._id.toString(),
       nom: luminaire.nom || "",
       designer: luminaire.designer || "",
-      annee: luminaire.annee || new Date().getFullYear(),
+      annee: luminaire.annee, // Peut être null
       periode: luminaire.periode || "",
       description: luminaire.description || "",
       materiaux: luminaire.materiaux || [],
@@ -52,7 +61,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       luminaire: transformedLuminaire,
     })
   } catch (error: any) {
-    console.error(`❌ Erreur API luminaire ${params.id}:`, error)
+    console.error("❌ Erreur API luminaire:", error)
     return NextResponse.json(
       {
         success: false,

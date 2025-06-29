@@ -8,20 +8,26 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     console.log(`👨‍🎨 API /api/designers/${params.name} - Récupération du designer`)
 
     const decodedName = decodeURIComponent(params.name)
-    console.log(`🔍 Recherche designer: "${decodedName}"`)
+    console.log(`🔍 Recherche du designer: "${decodedName}"`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("designers")
 
-    // Rechercher le designer par nom (insensible à la casse)
+    // Chercher le designer par nom (insensible à la casse)
     const designer = await collection.findOne({
-      nom: { $regex: `^${decodedName}$`, $options: "i" },
+      nom: { $regex: new RegExp(`^${decodedName}$`, "i") },
     })
 
     if (!designer) {
-      console.log(`❌ Designer non trouvé: "${decodedName}"`)
-      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
+      console.log(`❌ Designer non trouvé: ${decodedName}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Designer non trouvé",
+        },
+        { status: 404 },
+      )
     }
 
     console.log(`✅ Designer trouvé: ${designer.nom}`)
@@ -30,11 +36,12 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     const luminairesCollection = db.collection("luminaires")
     const luminaires = await luminairesCollection
       .find({
-        designer: { $regex: designer.nom, $options: "i" },
+        designer: { $regex: new RegExp(decodedName, "i") },
       })
+      .limit(20)
       .toArray()
 
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour ${designer.nom}`)
+    console.log(`📊 ${luminaires.length} luminaires trouvés pour ce designer`)
 
     // Transformer les données pour le frontend
     const transformedDesigner = {
@@ -47,9 +54,9 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       imagedesigner: designer.imagedesigner || "",
       luminaires: luminaires.map((l) => ({
         _id: l._id.toString(),
-        nom: l.nom,
+        nom: l.nom || "",
         annee: l.annee,
-        filename: l["Nom du fichier"] || l.filename,
+        filename: l["Nom du fichier"] || l.filename || "",
       })),
       createdAt: designer.createdAt,
       updatedAt: designer.updatedAt,
@@ -60,7 +67,7 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       designer: transformedDesigner,
     })
   } catch (error: any) {
-    console.error(`❌ Erreur API designer ${params.name}:`, error)
+    console.error("❌ Erreur API designer:", error)
     return NextResponse.json(
       {
         success: false,

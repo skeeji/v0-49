@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { GridFSBucket } from "mongodb"
+import { uploadFileToGridFS } from "@/lib/gridfs"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
@@ -19,98 +19,78 @@ export async function POST(request: NextRequest) {
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    const luminairesCollection = db.collection("luminaires")
 
-    const results = {
-      uploaded: 0,
-      associated: 0,
-      errors: [] as string[],
-    }
+    let uploaded = 0
+    let associated = 0
+    const errors: string[] = []
 
-    // Traiter par batch de 10 pour éviter les timeouts
-    const BATCH_SIZE = 10
+    // Traiter par batch de 50 pour éviter les timeouts
+    const BATCH_SIZE = 50
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE)
       console.log(`📦 Traitement batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(files.length / BATCH_SIZE)}`)
 
       for (const file of batch) {
         try {
-          // Vérifier le type de fichier
           if (!file.type.startsWith("image/")) {
-            results.errors.push(`${file.name}: Type de fichier invalide`)
+            errors.push(`${file.name}: n'est pas une image`)
             continue
           }
 
-          // Convertir en buffer
-          const arrayBuffer = await file.arrayBuffer()
-          const buffer = Buffer.from(arrayBuffer)
-
           // Upload vers GridFS
-          const uploadStream = bucket.openUploadStream(file.name, {
-            metadata: {
-              contentType: file.type,
-              uploadDate: new Date(),
-              type: "image",
-              originalName: file.name,
-            },
+          const buffer = Buffer.from(await file.arrayBuffer())
+          const result = await uploadFileToGridFS(client, DBNAME, buffer, file.name, file.type, {
+            type: "luminaire-image",
+            originalName: file.name,
+            uploadDate: new Date(),
           })
 
-          await new Promise((resolve, reject) => {
-            uploadStream.on("error", reject)
-            uploadStream.on("finish", resolve)
-            uploadStream.end(buffer)
-          })
+          uploaded++
 
-          results.uploaded++
-
-          // Essayer d'associer l'image à un luminaire
-          const luminaireCollection = db.collection("luminaires")
-          const baseFilename = file.name.replace(/\.[^/.]+$/, "")
-
-          const luminaire = await luminaireCollection.findOne({
+          // Associer à un luminaire si possible
+          const luminaireName = file.name.replace(/\.[^/.]+$/, "").replace(/^luminaire_/, "")
+          const luminaire = await luminairesCollection.findOne({
             $or: [
-              { "Nom du fichier": file.name },
-              { "Nom du fichier": baseFilename },
               { filename: file.name },
-              { filename: baseFilename },
+              { "Nom du fichier": file.name },
+              { nom: { $regex: new RegExp(luminaireName, "i") } },
             ],
           })
 
           if (luminaire) {
-            await luminaireCollection.updateOne(
+            await luminairesCollection.updateOne(
               { _id: luminaire._id },
               {
                 $addToSet: { images: file.name },
                 $set: { updatedAt: new Date() },
               },
             )
-            results.associated++
+            associated++
             console.log(`🔗 Image associée: ${file.name} -> ${luminaire.nom}`)
           }
-
-          console.log(`✅ Image uploadée: ${file.name}`)
         } catch (error: any) {
+          errors.push(`${file.name}: ${error.message}`)
           console.error(`❌ Erreur upload ${file.name}:`, error)
-          results.errors.push(`${file.name}: ${error.message}`)
         }
       }
 
-      // Petite pause entre les batches
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      // Log de progression
+      console.log(`📊 Progression: ${uploaded}/${files.length} images uploadées`)
     }
 
-    console.log(`✅ Upload terminé: ${results.uploaded} images uploadées, ${results.associated} associées`)
+    console.log(`✅ Upload terminé: ${uploaded} images uploadées, ${associated} associées`)
 
     return NextResponse.json({
       success: true,
-      message: `${results.uploaded} images uploadées, ${results.associated} associées`,
-      uploaded: results.uploaded,
-      associated: results.associated,
-      errors: results.errors.slice(0, 10),
-      totalErrors: results.errors.length,
+      message: `${uploaded} images uploadées, ${associated} associées`,
+      uploaded,
+      associated,
+      errors: errors.slice(0, 10),
+      totalErrors: errors.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique upload images:", error)
+    console.error("❌ Erreur critique lors de l'upload images:", error)
     return NextResponse.json(
       {
         success: false,

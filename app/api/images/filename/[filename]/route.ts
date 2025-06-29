@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
+import { getFileFromGridFS } from "@/lib/gridfs"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
@@ -7,42 +8,26 @@ export async function GET(request: NextRequest, { params }: { params: { filename
   try {
     console.log(`🖼️ API /api/images/filename/${params.filename} - Récupération de l'image`)
 
+    const filename = decodeURIComponent(params.filename)
+    console.log(`🔍 Recherche de l'image: ${filename}`)
+
     const client = await clientPromise
-    const db = client.db(DBNAME)
+    const fileData = await getFileFromGridFS(client, DBNAME, filename)
 
-    // Rechercher le fichier dans GridFS
-    const file = await db.collection("uploads.files").findOne({
-      filename: params.filename,
-    })
-
-    if (!file) {
-      console.log(`❌ Image non trouvée: ${params.filename}`)
+    if (!fileData) {
+      console.log(`❌ Image non trouvée: ${filename}`)
       return NextResponse.json({ error: "Image non trouvée" }, { status: 404 })
     }
 
-    console.log(`✅ Image trouvée: ${params.filename}`)
+    console.log(`✅ Image trouvée: ${filename} (${fileData.buffer.length} bytes)`)
 
-    // Récupérer les chunks du fichier
-    const chunks = await db.collection("uploads.chunks").find({ files_id: file._id }).sort({ n: 1 }).toArray()
-
-    if (chunks.length === 0) {
-      return NextResponse.json({ error: "Données de l'image non trouvées" }, { status: 404 })
-    }
-
-    // Reconstituer le fichier
-    const buffers = chunks.map((chunk) => chunk.data.buffer)
-    const fileBuffer = Buffer.concat(buffers)
-
-    // Déterminer le type MIME
-    const contentType = file.metadata?.contentType || "image/jpeg"
-
-    console.log(`📤 Envoi de l'image: ${params.filename} (${fileBuffer.length} bytes)`)
-
-    return new NextResponse(fileBuffer, {
+    // Retourner l'image avec les bons headers
+    return new NextResponse(fileData.buffer, {
+      status: 200,
       headers: {
-        "Content-Type": contentType,
-        "Content-Length": fileBuffer.length.toString(),
-        "Cache-Control": "public, max-age=31536000",
+        "Content-Type": fileData.contentType,
+        "Content-Length": fileData.buffer.length.toString(),
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     })
   } catch (error: any) {

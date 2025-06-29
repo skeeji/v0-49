@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import Papa from "papaparse"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
@@ -21,31 +20,43 @@ export async function POST(request: NextRequest) {
     const text = await file.text()
     console.log(`📊 Contenu CSV: ${text.length} caractères`)
 
-    // Parser le CSV avec Papa Parse
-    const parseResult = Papa.parse(text, {
-      header: true,
-      skipEmptyLines: true,
-      delimiter: ";", // Utiliser point-virgule comme délimiteur
-      quoteChar: '"',
-      escapeChar: '"',
-      transformHeader: (header) => header.trim(),
-    })
+    // Compter les lignes réelles
+    const lines = text.split("\n").filter((line) => line.trim().length > 0)
+    console.log(`📊 Nombre de lignes dans le fichier: ${lines.length}`)
 
-    if (parseResult.errors.length > 0) {
-      console.log("⚠️ Erreurs de parsing:", parseResult.errors.slice(0, 5))
+    // Parser le CSV manuellement
+    const headers = lines[0].split(";").map((h) => h.trim().replace(/"/g, ""))
+    console.log(`📋 En-têtes détectés:`, headers)
+
+    const data = []
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(";").map((v) => v.trim().replace(/"/g, ""))
+      if (values.length >= headers.length) {
+        const row: any = {}
+        headers.forEach((header, index) => {
+          row[header] = values[index] || ""
+        })
+        data.push(row)
+      }
     }
 
-    const data = parseResult.data as any[]
-    console.log(`📊 ${data.length} lignes parsées`)
+    console.log(`📊 ${data.length} lignes parsées du CSV`)
 
     if (data.length === 0) {
       return NextResponse.json({ error: "Aucune donnée trouvée dans le CSV" }, { status: 400 })
     }
 
+    // Afficher un échantillon des données
+    console.log("📋 Premier enregistrement:", data[0])
+
     // Connexion à MongoDB
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("designers")
+
+    // Vider la collection avant import
+    console.log("🗑️ Suppression des anciens designers...")
+    await collection.deleteMany({})
 
     // Traitement par batch
     const BATCH_SIZE = 500
@@ -59,18 +70,26 @@ export async function POST(request: NextRequest) {
       const designersToInsert = batch
         .map((row, index) => {
           try {
+            const nom = (row["Nom"] || row["nom"] || "").toString().trim()
+            const imagedesigner = (row["imagedesigner"] || row["image"] || "").toString().trim()
+
+            if (!nom) {
+              errors.push(`Ligne ${i + index + 2}: nom manquant`)
+              return null
+            }
+
             return {
-              nom: row.nom || row.Nom || "",
-              biographie: row.biographie || row.Biographie || "",
-              dateNaissance: row.dateNaissance || row.DateNaissance || "",
-              dateDeces: row.dateDeces || row.DateDeces || "",
-              nationalite: row.nationalite || row.Nationalite || "",
-              imagedesigner: row.imagedesigner || row.ImageDesigner || "",
+              nom: nom,
+              imagedesigner: imagedesigner,
+              biographie: (row["biographie"] || row["Biographie"] || "").toString().trim(),
+              dateNaissance: (row["dateNaissance"] || row["DateNaissance"] || "").toString().trim(),
+              dateDeces: (row["dateDeces"] || row["DateDeces"] || "").toString().trim(),
+              nationalite: (row["nationalite"] || row["Nationalite"] || "").toString().trim(),
               createdAt: new Date(),
               updatedAt: new Date(),
             }
           } catch (error: any) {
-            errors.push(`Ligne ${i + index + 1}: ${error.message}`)
+            errors.push(`Ligne ${i + index + 2}: ${error.message}`)
             return null
           }
         })
@@ -78,9 +97,9 @@ export async function POST(request: NextRequest) {
 
       if (designersToInsert.length > 0) {
         try {
-          await collection.insertMany(designersToInsert)
+          await collection.insertMany(designersToInsert, { ordered: false })
           imported += designersToInsert.length
-          console.log(`✅ Batch inséré: ${designersToInsert.length} designers`)
+          console.log(`✅ Batch inséré: ${designersToInsert.length} designers (Total: ${imported})`)
         } catch (error: any) {
           console.error(`❌ Erreur insertion batch:`, error)
           errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
@@ -88,7 +107,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`✅ Import terminé: ${imported} designers importés`)
+    console.log(`✅ Import terminé: ${imported} designers importés sur ${data.length} lignes`)
 
     return NextResponse.json({
       success: true,
