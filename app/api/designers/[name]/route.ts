@@ -5,63 +5,66 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
+    console.log(`👨‍🎨 API /api/designers/${params.name} - Récupération du designer`)
+
     const decodedName = decodeURIComponent(params.name)
-    console.log(`🔍 API /api/designers/${decodedName} - Recherche designer`)
+    console.log(`🔍 Recherche designer: "${decodedName}"`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
+    const collection = db.collection("designers")
 
-    // Rechercher le designer par nom exact ou slug
-    const designer = await db.collection("designers").findOne({
-      $or: [
-        { nom: decodedName },
-        { name: decodedName },
-        { slug: decodedName },
-        { nom: { $regex: new RegExp(decodedName, "i") } },
-        { name: { $regex: new RegExp(decodedName, "i") } },
-      ],
+    // Rechercher le designer par nom (insensible à la casse)
+    const designer = await collection.findOne({
+      nom: { $regex: `^${decodedName}$`, $options: "i" },
     })
 
     if (!designer) {
-      console.log(`❌ Designer non trouvé: ${decodedName}`)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Designer non trouvé",
-        },
-        { status: 404 },
-      )
+      console.log(`❌ Designer non trouvé: "${decodedName}"`)
+      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
     }
 
-    console.log(`✅ Designer trouvé: ${designer.nom || designer.name}`)
+    console.log(`✅ Designer trouvé: ${designer.nom}`)
 
     // Récupérer les luminaires de ce designer
-    const luminaires = await db
-      .collection("luminaires")
+    const luminairesCollection = db.collection("luminaires")
+    const luminaires = await luminairesCollection
       .find({
-        $or: [
-          { designer: decodedName },
-          { designer: designer.nom },
-          { designer: designer.name },
-          { designer: { $regex: new RegExp(decodedName, "i") } },
-        ],
+        designer: { $regex: designer.nom, $options: "i" },
       })
       .toArray()
 
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour ce designer`)
+    console.log(`📊 ${luminaires.length} luminaires trouvés pour ${designer.nom}`)
+
+    // Transformer les données pour le frontend
+    const transformedDesigner = {
+      _id: designer._id.toString(),
+      nom: designer.nom || "",
+      biographie: designer.biographie || "",
+      dateNaissance: designer.dateNaissance || "",
+      dateDeces: designer.dateDeces || "",
+      nationalite: designer.nationalite || "",
+      imagedesigner: designer.imagedesigner || "",
+      luminaires: luminaires.map((l) => ({
+        _id: l._id.toString(),
+        nom: l.nom,
+        annee: l.annee,
+        filename: l["Nom du fichier"] || l.filename,
+      })),
+      createdAt: designer.createdAt,
+      updatedAt: designer.updatedAt,
+    }
 
     return NextResponse.json({
       success: true,
-      designer,
-      luminaires,
-      count: luminaires.length,
+      designer: transformedDesigner,
     })
   } catch (error: any) {
-    console.error("❌ Erreur API designers/[name]:", error)
+    console.error(`❌ Erreur API designer ${params.name}:`, error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de la récupération du designer",
+        error: "Erreur lors de la récupération du designer",
         details: error.message,
       },
       { status: 500 },

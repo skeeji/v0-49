@@ -1,46 +1,55 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { streamFile, findFileByName } from "@/lib/gridfs"
+import clientPromise from "@/lib/mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { filename: string } }) {
   try {
-    const filename = decodeURIComponent(params.filename)
-    console.log(`🖼️ API /api/images/filename/${filename} - Récupération image`)
+    console.log(`🖼️ API /api/images/filename/${params.filename} - Récupération de l'image`)
 
-    // Chercher le fichier par nom
-    const fileInfo = await findFileByName(filename)
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    if (!fileInfo) {
-      console.log(`❌ Image non trouvée: ${filename}`)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Image non trouvée",
-        },
-        { status: 404 },
-      )
+    // Rechercher le fichier dans GridFS
+    const file = await db.collection("uploads.files").findOne({
+      filename: params.filename,
+    })
+
+    if (!file) {
+      console.log(`❌ Image non trouvée: ${params.filename}`)
+      return NextResponse.json({ error: "Image non trouvée" }, { status: 404 })
     }
 
-    console.log(`✅ Image trouvée: ${filename} (${fileInfo.length} bytes)`)
+    console.log(`✅ Image trouvée: ${params.filename}`)
 
-    // Créer un stream pour le fichier
-    const downloadStream = await streamFile(fileInfo._id)
+    // Récupérer les chunks du fichier
+    const chunks = await db.collection("uploads.chunks").find({ files_id: file._id }).sort({ n: 1 }).toArray()
 
-    // Créer une réponse avec le stream
-    const response = new NextResponse(downloadStream as any, {
+    if (chunks.length === 0) {
+      return NextResponse.json({ error: "Données de l'image non trouvées" }, { status: 404 })
+    }
+
+    // Reconstituer le fichier
+    const buffers = chunks.map((chunk) => chunk.data.buffer)
+    const fileBuffer = Buffer.concat(buffers)
+
+    // Déterminer le type MIME
+    const contentType = file.metadata?.contentType || "image/jpeg"
+
+    console.log(`📤 Envoi de l'image: ${params.filename} (${fileBuffer.length} bytes)`)
+
+    return new NextResponse(fileBuffer, {
       headers: {
-        "Content-Type": fileInfo.contentType || "image/jpeg",
-        "Content-Length": fileInfo.length.toString(),
+        "Content-Type": contentType,
+        "Content-Length": fileBuffer.length.toString(),
         "Cache-Control": "public, max-age=31536000",
       },
     })
-
-    return response
   } catch (error: any) {
     console.error(`❌ Erreur récupération image ${params.filename}:`, error)
     return NextResponse.json(
       {
-        success: false,
-        error: "Erreur serveur lors de la récupération de l'image",
+        error: "Erreur lors de la récupération de l'image",
         details: error.message,
       },
       { status: 500 },

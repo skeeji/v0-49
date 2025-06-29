@@ -1,80 +1,61 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { uploadToGridFS } from "@/lib/gridfs"
 import clientPromise from "@/lib/mongodb"
+import { GridFSBucket } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🎥 API /api/upload/video - Début upload vidéo")
+    console.log("🎥 API /api/upload/video - Début de l'upload vidéo")
 
     const formData = await request.formData()
-    const file = (formData.get("video") as File) || (formData.get("file") as File)
+    const file = formData.get("video") as File
 
     if (!file) {
       console.log("❌ Aucun fichier vidéo fourni")
-      console.log("📊 FormData keys:", Array.from(formData.keys()))
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Aucun fichier vidéo fourni",
-          debug: {
-            formDataKeys: Array.from(formData.keys()),
-            expectedKeys: ["video", "file"],
-          },
-        },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: "Aucun fichier vidéo fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Fichier vidéo reçu: ${file.name} (${file.size} bytes, ${file.type})`)
+    console.log(`📁 Fichier vidéo reçu: ${file.name} (${file.size} bytes)`)
 
     // Vérifier le type de fichier
     if (!file.type.startsWith("video/")) {
-      console.log(`❌ Type de fichier invalide: ${file.type}`)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Le fichier doit être une vidéo",
-          receivedType: file.type,
-        },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: "Le fichier doit être une vidéo" }, { status: 400 })
     }
 
-    // Convertir en buffer
-    const buffer = Buffer.from(await file.arrayBuffer())
-    console.log(`📊 Buffer créé: ${buffer.length} bytes`)
-
-    // Upload vers GridFS
-    const fileId = await uploadToGridFS(buffer, file.name, {
-      contentType: file.type,
-      category: "video",
-      originalName: file.name,
-    })
-
-    console.log(`✅ Vidéo uploadée vers GridFS: ${fileId}`)
-
-    // Sauvegarder les métadonnées dans MongoDB
     const client = await clientPromise
     const db = client.db(DBNAME)
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    await db.collection("settings").updateOne(
-      { key: "welcome_video" },
-      {
-        $set: {
-          key: "welcome_video",
-          filename: file.name,
-          fileId: fileId.toString(),
-          contentType: file.type,
-          size: file.size,
-          uploadDate: new Date(),
-        },
+    // Convertir le fichier en buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    console.log(`📤 Upload vers GridFS: ${file.name}`)
+
+    // Upload vers GridFS
+    const uploadStream = bucket.openUploadStream(file.name, {
+      metadata: {
+        contentType: file.type,
+        uploadDate: new Date(),
+        type: "video",
+        originalName: file.name,
       },
-      { upsert: true },
-    )
+    })
 
-    console.log("✅ Métadonnées vidéo sauvegardées")
+    const fileId = await new Promise((resolve, reject) => {
+      uploadStream.on("error", (error) => {
+        console.error("❌ Erreur upload vidéo:", error)
+        reject(error)
+      })
+
+      uploadStream.on("finish", () => {
+        console.log(`✅ Vidéo uploadée: ${file.name} - ID: ${uploadStream.id}`)
+        resolve(uploadStream.id)
+      })
+
+      uploadStream.end(buffer)
+    })
 
     return NextResponse.json({
       success: true,
@@ -82,14 +63,14 @@ export async function POST(request: NextRequest) {
       filename: file.name,
       fileId: fileId.toString(),
       size: file.size,
-      contentType: file.type,
+      type: file.type,
     })
   } catch (error: any) {
     console.error("❌ Erreur critique upload vidéo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload de la vidéo",
+        error: "Erreur lors de l'upload de la vidéo",
         details: error.message,
       },
       { status: 500 },
