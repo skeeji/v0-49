@@ -1,8 +1,8 @@
 "use client"
 
-import React from "react"
-
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowUp, ArrowDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface SortOption {
   value: string
@@ -17,26 +17,28 @@ interface SortSelectorProps {
 }
 
 export function SortSelector({ sortField, sortDirection, onSortChange, options }: SortSelectorProps) {
-  const handleSortChange = (value: string) => {
-    const [field, direction] = value.split("-")
-    onSortChange(field, direction as "asc" | "desc")
+  const toggleDirection = () => {
+    onSortChange(sortField, sortDirection === "asc" ? "desc" : "asc")
   }
 
-  const currentValue = `${sortField}-${sortDirection}`
-
   return (
-    <Select value={currentValue} onValueChange={handleSortChange}>
-      <SelectTrigger>
-        <SelectValue placeholder="Trier par..." />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <React.Fragment key={option.value}>
-            <SelectItem value={`${option.value}-asc`}>{option.label} (A → Z)</SelectItem>
-            <SelectItem value={`${option.value}-desc`}>{option.label} (Z → A)</SelectItem>
-          </React.Fragment>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="flex gap-2">
+      <Select value={sortField} onValueChange={(value) => onSortChange(value, sortDirection)}>
+        <SelectTrigger className="flex-1">
+          <SelectValue placeholder="Trier par..." />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Button onClick={toggleDirection} variant="outline" size="sm" className="px-3 bg-transparent">
+        {sortDirection === "asc" ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+      </Button>
+    </div>
   )
 }
