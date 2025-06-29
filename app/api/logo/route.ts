@@ -6,8 +6,6 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🎨 API /api/logo - Récupération du logo")
-
     const client = await clientPromise
     const db = client.db(DBNAME)
 
@@ -18,13 +16,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Logo non trouvé" }, { status: 404 })
     }
 
-    console.log(`🎨 Logo trouvé: ${logoSettings.filename}`)
-
+    // Télécharger le fichier depuis GridFS
     const { stream, metadata } = await downloadFromGridFS(logoSettings.fileId)
 
     // Créer une réponse avec le stream
     const response = new NextResponse(stream, {
-      status: 200,
       headers: {
         "Content-Type": metadata.contentType,
         "Content-Length": metadata.length.toString(),

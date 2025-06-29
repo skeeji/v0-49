@@ -32,30 +32,56 @@ export async function POST(request: NextRequest) {
       results.processed++
 
       try {
-        // Préparer les données du luminaire
-        const luminaireData = {
-          _id: Date.now().toString() + "_" + i,
-          nom: record["Nom luminaire"] || record.nom || "",
-          designer: record["Artiste / Dates"] || record.designer || "",
-          annee: record["Année"] ? Number.parseInt(record["Année"]) : new Date().getFullYear(),
-          periode: record["Spécialité"] || record.periode || "",
-          description: record.description || "",
-          materiaux: record.materiaux ? record.materiaux.split(",").map((m: string) => m.trim()) : [],
-          couleurs: record.couleurs ? record.couleurs.split(",").map((c: string) => c.trim()) : [],
-          dimensions: record.dimensions || {},
-          images: record.images || [],
-          "Nom du fichier": record["Nom du fichier"] || record.filename || "",
-          specialite: record["Spécialité"] || record.specialite || "",
-          collaboration: record["Collaboration / Œuvre"] || record.collaboration || "",
-          signe: record["Signé"] || record.signe || "",
-          estimation: record["Estimation"] || record.estimation || "",
+        // Mapping des colonnes selon le schéma fourni
+        const nomLuminaire = (record["Nom luminaire"] || "").toString().trim()
+        const artiste = (record["Artiste / Dates"] || "").toString().trim()
+        const specialite = (record["Spécialité"] || "").toString().trim()
+        const collaboration = (record["Collaboration / Œuvre"] || "").toString().trim()
+        const anneeStr = (record["Année"] || "").toString().trim()
+        const signe = (record["Signé"] || "").toString().trim()
+        const nomFichier = (record["Nom du fichier"] || "").toString().trim()
+
+        // Validation du nom du luminaire
+        if (!nomLuminaire) {
+          results.errors.push(`Ligne ${i + 2}: nom du luminaire manquant`)
+          continue
+        }
+
+        // Parser l'année
+        let annee = null
+        if (anneeStr) {
+          const anneeNum = Number.parseInt(anneeStr)
+          if (!isNaN(anneeNum) && anneeNum > 1000 && anneeNum <= 2025) {
+            annee = anneeNum
+          }
+        }
+
+        // Créer l'objet luminaire
+        const luminaire = {
+          nom: nomLuminaire,
+          designer: artiste,
+          annee: annee,
+          periode: specialite,
+          description: collaboration,
+          materiaux: [],
+          couleurs: [],
+          dimensions: {},
+          images: [],
+          filename: nomFichier,
+          "Nom du fichier": nomFichier,
+          "Artiste / Dates": artiste,
+          Spécialité: specialite,
+          "Collaboration / Œuvre": collaboration,
+          Année: anneeStr,
+          Signé: signe,
+          isFavorite: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         }
 
-        console.log(`💾 Insertion luminaire ${i + 1}/${data.length}: ${luminaireData.nom}`)
+        console.log(`💾 Insertion luminaire ${i + 1}/${data.length}: ${luminaire.nom}`)
 
-        await db.collection("luminaires").insertOne(luminaireData)
+        await db.collection("luminaires").insertOne(luminaire)
         results.success++
 
         // Log de progression tous les 100 éléments

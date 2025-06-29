@@ -6,7 +6,7 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🎨 API /api/upload/logo - Début du traitement")
+    console.log("📥 API /api/upload/logo - Début du traitement")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`🎨 Logo à uploader: ${file.name} ${file.size} bytes`)
+    console.log(`🏷️ Logo à uploader: ${file.name} ${file.size} bytes`)
 
     // Convertir le fichier en buffer
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
       {
         $set: {
           type: "logo",
+          fileId: fileId.toString(),
           filename: file.name,
-          fileId: fileId,
           contentType: file.type,
           size: file.size,
           updatedAt: new Date(),
@@ -42,20 +42,20 @@ export async function POST(request: NextRequest) {
       { upsert: true },
     )
 
-    console.log(`🎨 Logo sauvegardé: ${file.name}`)
+    console.log(`🏷️ Logo sauvegardé: ${file.name}`)
 
     return NextResponse.json({
       success: true,
       message: "Logo uploadé avec succès",
+      fileId: fileId.toString(),
       filename: file.name,
-      fileId: fileId,
     })
   } catch (error: any) {
     console.error("❌ Erreur upload logo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload du logo",
+        error: "Erreur lors de l'upload du logo",
         details: error.message,
       },
       { status: 500 },

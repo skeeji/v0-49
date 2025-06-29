@@ -33,26 +33,45 @@ export async function POST(request: NextRequest) {
 
       try {
         // Mapping flexible des colonnes
-        const nom = record.Nom || record.nom || record.Name || record.name || ""
-        const imagedesigner = record.imagedesigner || record.image || record.Image || ""
+        const nom = (record.Nom || record.nom || record.Name || record.name || "").toString().trim()
+        const imagedesigner = (record.imagedesigner || record.image || record.Image || "").toString().trim()
+        const description = (record.Description || record.description || "").toString().trim()
+        const biographie = (record.Biographie || record.biographie || "").toString().trim()
+        const dateNaissance = (record.DateNaissance || record.dateNaissance || "").toString().trim()
+        const dateDeces = (record.DateDeces || record.dateDeces || "").toString().trim()
+        const nationalite = (record.Nationalite || record.nationalite || "").toString().trim()
+        const specialite = (record.Specialite || record.specialite || "").toString().trim()
 
-        if (!nom || nom.trim() === "") {
+        if (!nom) {
           results.errors.push(`Ligne ${i + 2}: nom manquant`)
           continue
         }
 
+        // Créer le slug
+        const slug = nom
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/g, "")
+
         // Préparer les données du designer
-        const designerData = {
-          _id: Date.now().toString() + "_designer_" + i,
-          Nom: nom.trim(),
-          imagedesigner: imagedesigner.trim(),
+        const designer = {
+          Nom: nom,
+          imagedesigner: imagedesigner,
+          description: description,
+          biographie: biographie,
+          dateNaissance: dateNaissance,
+          dateDeces: dateDeces,
+          nationalite: nationalite,
+          specialite: specialite,
+          slug: slug,
           createdAt: new Date(),
           updatedAt: new Date(),
+          index: i,
         }
 
-        console.log(`💾 Insertion designer ${i + 1}/${data.length}: ${designerData.Nom}`)
+        console.log(`💾 Insertion designer ${i + 1}/${data.length}: ${designer.Nom}`)
 
-        await db.collection("designers").insertOne(designerData)
+        await db.collection("designers").insertOne(designer)
         results.success++
 
         // Log de progression tous les 100 éléments
@@ -82,7 +101,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'import",
+        error: "Erreur serveur lors de l'import des designers",
         details: error.message,
       },
       { status: 500 },

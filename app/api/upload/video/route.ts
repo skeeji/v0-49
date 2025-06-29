@@ -6,7 +6,7 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🎬 API /api/upload/video - Début du traitement")
+    console.log("📥 API /api/upload/video - Début du traitement")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -15,11 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`🎬 Vidéo à uploader: ${file.name} ${file.size} bytes`)
+    console.log(`🎥 Vidéo à uploader: ${file.name} ${file.size} bytes`)
 
     // Vérifier que c'est bien une vidéo MP4
-    if (!file.type.includes("video/mp4")) {
-      return NextResponse.json({ success: false, error: "Seuls les fichiers MP4 sont acceptés" }, { status: 400 })
+    if (!file.type.startsWith("video/")) {
+      return NextResponse.json({ success: false, error: "Le fichier doit être une vidéo" }, { status: 400 })
     }
 
     // Convertir le fichier en buffer
@@ -33,12 +33,12 @@ export async function POST(request: NextRequest) {
     const db = client.db(DBNAME)
 
     await db.collection("settings").updateOne(
-      { type: "background-video" },
+      { type: "welcome-video" },
       {
         $set: {
-          type: "background-video",
+          type: "welcome-video",
+          fileId: fileId.toString(),
           filename: file.name,
-          fileId: fileId,
           contentType: file.type,
           size: file.size,
           updatedAt: new Date(),
@@ -47,20 +47,20 @@ export async function POST(request: NextRequest) {
       { upsert: true },
     )
 
-    console.log(`🎬 Vidéo sauvegardée: ${file.name}`)
+    console.log(`🎥 Vidéo sauvegardée: ${file.name}`)
 
     return NextResponse.json({
       success: true,
       message: "Vidéo uploadée avec succès",
+      fileId: fileId.toString(),
       filename: file.name,
-      fileId: fileId,
     })
   } catch (error: any) {
     console.error("❌ Erreur upload vidéo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload de la vidéo",
+        error: "Erreur lors de l'upload de la vidéo",
         details: error.message,
       },
       { status: 500 },

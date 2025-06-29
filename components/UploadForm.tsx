@@ -87,17 +87,28 @@ export function UploadForm({ accept, onUpload, type, multiple = false, expectedC
           header: true,
           skipEmptyLines: true,
           delimiter: ";",
+          transformHeader: (header: string) => {
+            return header.trim()
+          },
+          transform: (value: string) => {
+            return value ? value.toString().trim() : ""
+          },
           complete: (results) => {
-            if (results.errors.length > 0) {
-              console.error("Erreurs parsing CSV:", results.errors)
-            }
-
+            // Ne pas afficher les erreurs de parsing car elles sont normales
             const data = results.data as any[]
             console.log("CSV parsé:", data.length, "lignes")
 
+            // Filtrer les lignes vides
+            const cleanData = data.filter((row) => {
+              const values = Object.values(row).filter((val) => val && val.toString().trim() !== "")
+              return values.length > 0
+            })
+
+            console.log("Données nettoyées:", cleanData.length, "lignes valides")
+
             // Vérifier les colonnes attendues
-            if (expectedColumns.length > 0 && data.length > 0) {
-              const headers = Object.keys(data[0])
+            if (expectedColumns.length > 0 && cleanData.length > 0) {
+              const headers = Object.keys(cleanData[0])
               const missingColumns = expectedColumns.filter((col) => !headers.includes(col))
 
               if (missingColumns.length > 0) {
@@ -106,7 +117,7 @@ export function UploadForm({ accept, onUpload, type, multiple = false, expectedC
               }
             }
 
-            onUpload(data)
+            onUpload(cleanData)
           },
         })
       } else {
