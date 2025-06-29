@@ -1,70 +1,80 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
 import { getBucket } from "@/lib/gridfs"
 import { Readable } from "stream"
-import { finished } from "stream/promises"
+import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+
+function fileToStream(file: File) {
+  const reader = file.stream().getReader()
+  return new Readable({
+    async read() {
+      const { done, value } = await reader.read()
+      this.push(done ? null : Buffer.from(value))
+    },
+  })
+}
 
 export async function POST(request: NextRequest) {
   try {
     console.log("🎥 API POST /api/upload/video appelée")
 
     const formData = await request.formData()
-    const file = formData.get("file") as Blob | null
-    const title = formData.get("title") as string | null
-    const description = formData.get("description") as string | null
+    const file = formData.get("file") as File
+    const title = formData.get("title") as string
+    const description = formData.get("description") as string
 
     if (!file) {
-      console.log("❌ Aucun fichier trouvé dans la requête")
-      return NextResponse.json({ success: false, error: "Aucun fichier trouvé" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Aucun fichier vidéo fourni" }, { status: 400 })
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const filename = file.name
+    console.log(`📁 Vidéo reçue: ${file.name}, taille: ${file.size} bytes`)
+
     const bucket = await getBucket()
+    const stream = fileToStream(file)
+    const filename = `video_${Date.now()}_${file.name}`
 
-    console.log(`📁 Fichier reçu: ${filename}, Taille: ${file.size} bytes, Type: ${file.type}`)
-
-    // Upload vers GridFS
     const uploadStream = bucket.openUploadStream(filename, {
-      metadata: {
-        title: title || "Vidéo",
-        description: description || "",
-      },
+      contentType: file.type,
     })
-    const readableStream = new Readable()
 
-    readableStream.push(buffer)
-    readableStream.push(null)
+    await new Promise<void>((resolve, reject) => {
+      stream
+        .pipe(uploadStream)
+        .on("error", reject)
+        .on("finish", () => resolve())
+    })
 
-    console.log(`🚀 Upload vers GridFS: ${filename}`)
-    await finished(readableStream.pipe(uploadStream))
+    const fileId = uploadStream.id.toString()
 
-    console.log(`✅ Upload réussi vers GridFS: ${filename}, ID: ${uploadStream.id}`)
-
-    // Sauvegarder les informations de la vidéo dans MongoDB
+    // Sauvegarder les informations de la vidéo en base
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    const videoData = {
-      _id: uploadStream.id,
+    await db.collection("videos").deleteMany({}) // Supprimer l'ancienne vidéo
+    await db.collection("videos").insertOne({
       filename: filename,
-      title: title || "Vidéo",
-      description: description || "",
-      uploadDate: new Date(),
-    }
+      originalName: file.name,
+      fileId: fileId,
+      path: `/api/images/${fileId}`,
+      title: title || "Vidéo d'accueil",
+      description: description || "Vidéo de bienvenue",
+      contentType: file.type,
+      size: file.size,
+      createdAt: new Date(),
+    })
 
-    await db.collection("welcomeVideos").insertOne(videoData)
-    console.log("✅ Informations de la vidéo sauvegardées dans MongoDB")
+    console.log(`✅ Vidéo uploadée avec l'ID: ${fileId}`)
 
     return NextResponse.json({
       success: true,
       message: "Vidéo uploadée avec succès",
       filename: filename,
+      fileId: fileId,
+      path: `/api/images/${fileId}`,
     })
   } catch (error: any) {
-    console.error("❌ Erreur dans POST /api/upload/video:", error)
+    console.error("❌ Erreur upload vidéo:", error)
     return NextResponse.json(
       {
         success: false,

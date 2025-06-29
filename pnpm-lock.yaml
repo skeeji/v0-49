@@ -123,7 +123,7 @@ importers:
         specifier: latest
         version: 11.9.1
       fs:
-        specifier: latest
+        specifier: ^0.0.1-security
         version: 0.0.1-security
       gcp-metadata:
         specifier: ^7.0.1
@@ -156,7 +156,7 @@ importers:
         specifier: latest
         version: 5.5.3
       path:
-        specifier: latest
+        specifier: ^0.12.7
         version: 0.12.7
       react:
         specifier: ^19

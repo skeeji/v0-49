@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { UploadForm } from "@/components/UploadForm"
 import { Button } from "@/components/ui/button"
-import { Trash2, Database, Upload, CheckCircle } from "lucide-react"
+import { Trash2, Database, Upload, CheckCircle, AlertCircle, FileText, ImageIcon, Video, Palette } from "lucide-react"
 import { toast } from "sonner"
 import { RoleGuard } from "@/components/RoleGuard"
 
@@ -80,7 +80,7 @@ export default function ImportPage() {
         toast.success(`✅ ${result.imported} luminaires importés sur ${result.processed} lignes`)
 
         if (result.totalErrors > 0) {
-          toast.error(`⚠️ ${result.totalErrors} erreurs rencontrées`)
+          toast.warning(`⚠️ ${result.totalErrors} erreurs rencontrées`)
         }
       } else {
         throw new Error(result.error || "Erreur lors de l'import")
@@ -321,178 +321,231 @@ export default function ImportPage() {
 
   return (
     <RoleGuard requiredRole="admin">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-4xl font-serif text-gray-900 mb-8">Import des données</h1>
-
-          {/* Indicateur de chargement */}
-          {isUploading && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                <span className="text-blue-800">Traitement en cours...</span>
-              </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+        <div className="container mx-auto px-4 py-12">
+          <div className="max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-12">
+              <h1 className="text-5xl font-serif text-slate-900 mb-4 tracking-tight">Centre d'Administration</h1>
+              <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+                Gérez l'importation des données, images et contenus de votre galerie de luminaires
+              </p>
             </div>
-          )}
 
-          {/* Statistiques d'import */}
-          {(importStats.luminaires.total > 0 || importStats.designers.total > 0 || importStats.images.total > 0) && (
-            <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                  <div>
-                    <p className="text-sm font-medium text-green-800">Luminaires</p>
-                    <p className="text-lg font-bold text-green-900">
-                      {importStats.luminaires.success}/{importStats.luminaires.total}
-                    </p>
-                    {importStats.luminaires.errors > 0 && (
-                      <p className="text-xs text-red-600">{importStats.luminaires.errors} erreurs</p>
-                    )}
+            {/* Indicateur de chargement */}
+            {isUploading && (
+              <div className="mb-8 p-6 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg">
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-slate-600 mr-3"></div>
+                  <span className="text-slate-700 font-medium">Traitement en cours...</span>
+                </div>
+              </div>
+            )}
+
+            {/* Statistiques d'import */}
+            {(importStats.luminaires.total > 0 || importStats.designers.total > 0 || importStats.images.total > 0) && (
+              <div className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-6 shadow-lg">
+                  <div className="flex items-center">
+                    <div className="p-3 bg-emerald-500 rounded-xl mr-4">
+                      <CheckCircle className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-800 uppercase tracking-wide">Luminaires</p>
+                      <p className="text-2xl font-bold text-emerald-900">
+                        {importStats.luminaires.success}/{importStats.luminaires.total}
+                      </p>
+                      {importStats.luminaires.errors > 0 && (
+                        <p className="text-sm text-red-600 flex items-center mt-1">
+                          <AlertCircle className="h-4 w-4 mr-1" />
+                          {importStats.luminaires.errors} erreurs
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-6 shadow-lg">
+                  <div className="flex items-center">
+                    <div className="p-3 bg-blue-500 rounded-xl mr-4">
+                      <ImageIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-blue-800 uppercase tracking-wide">Images</p>
+                      <p className="text-2xl font-bold text-blue-900">
+                        {importStats.images.success}/{importStats.images.total}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-6 shadow-lg">
+                  <div className="flex items-center">
+                    <div className="p-3 bg-purple-500 rounded-xl mr-4">
+                      <Palette className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-purple-800 uppercase tracking-wide">Designers</p>
+                      <p className="text-2xl font-bold text-purple-900">
+                        {importStats.designers.success}/{importStats.designers.total}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <Upload className="h-5 w-5 text-blue-600 mr-2" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-800">Images</p>
-                    <p className="text-lg font-bold text-blue-900">
-                      {importStats.images.success}/{importStats.images.total}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Import CSV Luminaires */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200 hover:shadow-2xl transition-all duration-300">
+                <div className="flex items-center mb-6">
+                  <div className="p-3 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl mr-4">
+                    <FileText className="h-6 w-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-serif text-slate-900">Import CSV Luminaires</h2>
+                </div>
+                <UploadForm
+                  accept=".csv"
+                  onUpload={handleCsvUpload}
+                  type="csv"
+                  expectedColumns={[
+                    "Artiste / Dates",
+                    "Spécialité",
+                    "Collaboration / Œuvre",
+                    "Nom luminaire",
+                    "Année",
+                    "Signé",
+                    "Image",
+                    "Nom du fichier",
+                    "Dimensions",
+                    "Estimation",
+                    "Matériaux",
+                  ]}
+                />
+                {csvData.length > 0 && (
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-sm text-slate-900 font-semibold">{csvData.length} lignes CSV traitées</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      ✅ {importStats.luminaires.success} réussis • ❌ {importStats.luminaires.errors} erreurs
                     </p>
                   </div>
-                </div>
+                )}
               </div>
 
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <Database className="h-5 w-5 text-purple-600 mr-2" />
-                  <div>
-                    <p className="text-sm font-medium text-purple-800">Designers</p>
-                    <p className="text-lg font-bold text-purple-900">
-                      {importStats.designers.success}/{importStats.designers.total}
+              {/* Import Images Luminaires */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200 hover:shadow-2xl transition-all duration-300">
+                <div className="flex items-center mb-6">
+                  <div className="p-3 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl mr-4">
+                    <ImageIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-serif text-slate-900">Images Luminaires</h2>
+                </div>
+                <UploadForm accept="image/*" multiple onUpload={handleImagesUpload} type="images" />
+                {images.length > 0 && (
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-sm text-slate-900 font-semibold">{images.length} images uploadées</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      ✅ {importStats.images.success} associées • ❌ {importStats.images.errors} non associées
                     </p>
                   </div>
+                )}
+              </div>
+
+              {/* Import CSV Designers */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200 hover:shadow-2xl transition-all duration-300">
+                <div className="flex items-center mb-6">
+                  <div className="p-3 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl mr-4">
+                    <Palette className="h-6 w-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-serif text-slate-900">Import CSV Designers</h2>
                 </div>
+                <UploadForm
+                  accept=".csv"
+                  onUpload={handleDesignersUpload}
+                  type="csv"
+                  expectedColumns={["Nom", "imagedesigner"]}
+                />
+                {designers.length > 0 && (
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-sm text-slate-900 font-semibold">{designers.length} designers traités</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      ✅ {importStats.designers.success} réussis • ❌ {importStats.designers.errors} erreurs
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Import Images Designers */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200 hover:shadow-2xl transition-all duration-300">
+                <div className="flex items-center mb-6">
+                  <div className="p-3 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl mr-4">
+                    <Upload className="h-6 w-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-serif text-slate-900">Images Designers</h2>
+                </div>
+                <UploadForm accept="image/*" multiple onUpload={handleDesignerImagesUpload} type="images" />
+                {designerImages.length > 0 && (
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-sm text-slate-900 font-semibold">{designerImages.length} portraits uploadés</p>
+                    <p className="text-xs text-slate-600 mt-1">Images associées aux designers</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Import Vidéo */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200 hover:shadow-2xl transition-all duration-300">
+                <div className="flex items-center mb-6">
+                  <div className="p-3 bg-gradient-to-br from-red-600 to-red-700 rounded-xl mr-4">
+                    <Video className="h-6 w-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-serif text-slate-900">Vidéo d'accueil</h2>
+                </div>
+                <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" />
+                {video && (
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-sm text-slate-900 font-semibold">Vidéo: {video.name}</p>
+                    <p className="text-xs text-slate-600 mt-1">Vidéo sauvegardée et disponible sur la page d'accueil</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Import Logo */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200 hover:shadow-2xl transition-all duration-300">
+                <div className="flex items-center mb-6">
+                  <div className="p-3 bg-gradient-to-br from-amber-600 to-amber-700 rounded-xl mr-4">
+                    <Database className="h-6 w-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-serif text-slate-900">Logo du Header</h2>
+                </div>
+                <UploadForm accept="image/*" onUpload={handleLogoUpload} type="logo" />
+                {logo && (
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-sm text-slate-900 font-semibold">Logo: {logo.name}</p>
+                    <p className="text-xs text-slate-600 mt-1">Logo sauvegardé et disponible dans le header</p>
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Import CSV Luminaires */}
-            <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-serif text-gray-900 mb-4">📥 Import CSV Luminaires</h2>
-              <UploadForm
-                accept=".csv"
-                onUpload={handleCsvUpload}
-                type="csv"
-                expectedColumns={[
-                  "Artiste / Dates",
-                  "Spécialité",
-                  "Collaboration / Œuvre",
-                  "Nom luminaire",
-                  "Année",
-                  "Signé",
-                  "Image",
-                  "Nom du fichier",
-                  "Dimensions",
-                  "Estimation",
-                  "Matériaux",
-                ]}
-              />
-              {csvData.length > 0 && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-                  <p className="text-sm text-gray-900 font-medium">{csvData.length} lignes CSV traitées</p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    ✅ {importStats.luminaires.success} réussis • ❌ {importStats.luminaires.errors} erreurs
-                  </p>
+            {/* Bouton de réinitialisation */}
+            <div className="mt-12 text-center">
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-red-200">
+                <div className="mb-6">
+                  <h3 className="text-2xl font-serif text-slate-900 mb-2">Zone de Danger</h3>
+                  <p className="text-slate-600">Cette action supprimera définitivement toutes les données de la base</p>
                 </div>
-              )}
+                <Button
+                  onClick={handleResetDatabase}
+                  variant="destructive"
+                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                  disabled={isUploading}
+                >
+                  <Trash2 className="w-5 h-5 mr-2" />
+                  Réinitialiser le Serveur
+                </Button>
+                <p className="text-xs text-slate-500 mt-3">⚠️ Supprime TOUTES les données MongoDB et GridFS</p>
+              </div>
             </div>
-
-            {/* Import Images Luminaires */}
-            <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-serif text-gray-900 mb-4">🖼️ Import Images Luminaires</h2>
-              <UploadForm accept="image/*" multiple onUpload={handleImagesUpload} type="images" />
-              {images.length > 0 && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-                  <p className="text-sm text-gray-900 font-medium">{images.length} images uploadées</p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    ✅ {importStats.images.success} associées • ❌ {importStats.images.errors} non associées
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Import CSV Designers */}
-            <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-serif text-gray-900 mb-4">🧑‍🎨 Import CSV Designers</h2>
-              <UploadForm
-                accept=".csv"
-                onUpload={handleDesignersUpload}
-                type="csv"
-                expectedColumns={["Nom", "imagedesigner"]}
-              />
-              {designers.length > 0 && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-                  <p className="text-sm text-gray-900 font-medium">{designers.length} designers traités</p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    ✅ {importStats.designers.success} réussis • ❌ {importStats.designers.errors} erreurs
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Import Images Designers */}
-            <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-serif text-gray-900 mb-4">👤 Import Images Designers</h2>
-              <UploadForm accept="image/*" multiple onUpload={handleDesignerImagesUpload} type="images" />
-              {designerImages.length > 0 && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-                  <p className="text-sm text-gray-900 font-medium">{designerImages.length} portraits uploadés</p>
-                  <p className="text-xs text-gray-600 mt-1">Images associées aux designers</p>
-                </div>
-              )}
-            </div>
-
-            {/* Import Vidéo */}
-            <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-serif text-gray-900 mb-4">🎥 Vidéo d'accueil</h2>
-              <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" />
-              {video && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-                  <p className="text-sm text-gray-900 font-medium">Vidéo: {video.name}</p>
-                  <p className="text-xs text-gray-600 mt-1">Vidéo sauvegardée et disponible sur la page d'accueil</p>
-                </div>
-              )}
-            </div>
-
-            {/* Import Logo */}
-            <div className="bg-white rounded-xl p-6 shadow-lg">
-              <h2 className="text-2xl font-serif text-gray-900 mb-4">🏷️ Logo du Header</h2>
-              <UploadForm accept="image/*" onUpload={handleLogoUpload} type="logo" />
-              {logo && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-                  <p className="text-sm text-gray-900 font-medium">Logo: {logo.name}</p>
-                  <p className="text-xs text-gray-600 mt-1">Logo sauvegardé et disponible dans le header</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Bouton de réinitialisation */}
-          <div className="mt-8 text-center">
-            <Button
-              onClick={handleResetDatabase}
-              variant="destructive"
-              className="bg-red-500 hover:bg-red-600"
-              disabled={isUploading}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Réinitialiser le Serveur (DANGER)
-            </Button>
-            <p className="text-xs text-gray-500 mt-2">⚠️ Supprime TOUTES les données MongoDB et GridFS</p>
           </div>
         </div>
       </div>
