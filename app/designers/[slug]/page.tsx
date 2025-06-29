@@ -9,12 +9,6 @@ import { EditableField } from "@/components/EditableField"
 import { GalleryGrid } from "@/components/GalleryGrid"
 import Image from "next/image"
 
-// Fonction pour extraire le nom de l'artiste de la chaine de caractères
-const getDesignerNameOnly = (str = ""): string => {
-  if (!str) return ""
-  return str.split("(")[0].trim()
-}
-
 export default function DesignerDetailPage() {
   const params = useParams()
   const [designer, setDesigner] = useState<any>(null)
@@ -33,7 +27,7 @@ export default function DesignerDetailPage() {
       setIsLoading(true)
       try {
         // Utiliser l'API designer spécifique
-        const response = await fetch(`/api/designers/${designerSlug}`)
+        const response = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
         const result = await response.json()
 
         console.log("📊 Réponse API designer:", result)
@@ -41,16 +35,17 @@ export default function DesignerDetailPage() {
         if (result.success) {
           setDesigner(result.data.designer)
 
-          // CORRECTION: Adapter les données des luminaires pour GalleryGrid avec les bonnes images
+          // Adapter les données des luminaires pour GalleryGrid
           const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
             ...lum,
             id: lum._id,
-            // CORRECTION: Utiliser le champ "Nom du fichier" pour les images des luminaires
-            image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
-            filename: lum["Nom du fichier"] || lum.filename || "",
-            artist: lum.designer,
-            year: lum.annee,
-            name: lum.nom,
+            // CORRECTION: Utiliser le nom du fichier pour l'image
+            image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
+            artist: lum["Artiste / Dates"] || lum.designer || "",
+            year: lum.annee || lum["Année"] || "",
+            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
+            specialty: lum["Spécialité"] || lum.periode || "",
+            collaboration: lum["Collaboration / Œuvre"] || lum.description || "",
           }))
 
           setDesignerLuminaires(adaptedLuminaires)
@@ -58,14 +53,14 @@ export default function DesignerDetailPage() {
 
           // Charger les descriptions stockées localement
           if (adaptedLuminaires.length > 0) {
-            const fullDesignerField = adaptedLuminaires[0].designer
-            const defaultSpecialty = adaptedLuminaires[0].specialite || ""
+            const fullDesignerField = adaptedLuminaires[0].artist
+            const defaultSpecialty = adaptedLuminaires[0].specialty
 
             const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
             const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
 
             setDescription(storedDescriptions[fullDesignerField] || defaultSpecialty)
-            setCollaboration(storedCollaborations[fullDesignerField] || adaptedLuminaires[0].collaboration || "")
+            setCollaboration(storedCollaborations[fullDesignerField] || "")
           }
         } else {
           console.error("❌ Erreur API:", result.error)
@@ -86,7 +81,7 @@ export default function DesignerDetailPage() {
   const updateDescription = (newDescription: string) => {
     setDescription(newDescription)
     if (designerLuminaires.length > 0) {
-      const fullDesignerField = designerLuminaires[0].designer
+      const fullDesignerField = designerLuminaires[0].artist
       const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
       storedDescriptions[fullDesignerField] = newDescription
       localStorage.setItem("designer-descriptions", JSON.stringify(storedDescriptions))
@@ -96,7 +91,7 @@ export default function DesignerDetailPage() {
   const updateCollaboration = (newCollaboration: string) => {
     setCollaboration(newCollaboration)
     if (designerLuminaires.length > 0) {
-      const fullDesignerField = designerLuminaires[0].designer
+      const fullDesignerField = designerLuminaires[0].artist
       const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
       storedCollaborations[fullDesignerField] = newCollaboration
       localStorage.setItem("designer-collaborations", JSON.stringify(storedCollaborations))
@@ -138,7 +133,6 @@ export default function DesignerDetailPage() {
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             <div className="w-48 h-48 relative flex-shrink-0">
               <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 overflow-hidden">
-                {/* CORRECTION: Afficher l'image du designer depuis imagedesigner */}
                 {designer.imagedesigner ? (
                   <Image
                     src={`/api/images/filename/${designer.imagedesigner}`}
@@ -146,7 +140,7 @@ export default function DesignerDetailPage() {
                     fill
                     className="object-cover"
                     onError={(e) => {
-                      // Fallback vers l'icône par défaut
+                      console.log("❌ Erreur chargement image designer:", designer.imagedesigner)
                       e.currentTarget.style.display = "none"
                       e.currentTarget.nextElementSibling?.classList.remove("hidden")
                     }}

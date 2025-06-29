@@ -50,23 +50,6 @@ export async function POST(request: NextRequest) {
     headers = headers.map((h) => h.trim().replace(/^["']|["']$/g, ""))
     console.log(`📋 En-têtes détectés (délimiteur: "${delimiter}"):`, headers)
 
-    // Vérifier qu'on a les bonnes colonnes
-    const expectedColumns = [
-      "Artiste / Dates",
-      "Spécialité",
-      "Collaboration / Œuvre",
-      "Nom luminaire",
-      "Année",
-      "Signé",
-      "Nom du fichier",
-    ]
-    const missingColumns = expectedColumns.filter((col) => !headers.includes(col))
-
-    if (missingColumns.length > 0) {
-      console.log("⚠️ Colonnes manquantes:", missingColumns)
-      console.log("📋 Colonnes trouvées:", headers)
-    }
-
     // Parser les données
     const data = []
     for (let i = 1; i < lines.length; i++) {
@@ -86,10 +69,9 @@ export async function POST(request: NextRequest) {
           inQuotes = true
           quoteChar = char
         } else if (char === quoteChar && inQuotes) {
-          // Vérifier si c'est un échappement
           if (line[j + 1] === quoteChar) {
             currentValue += char
-            j++ // Skip next quote
+            j++
           } else {
             inQuotes = false
             quoteChar = ""
@@ -102,10 +84,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Ajouter la dernière valeur
       values.push(currentValue.trim())
 
-      // Créer l'objet avec les en-têtes
       if (values.length >= headers.length) {
         const row: any = {}
         headers.forEach((header, index) => {
@@ -121,11 +101,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucune donnée trouvée dans le CSV" }, { status: 400 })
     }
 
-    // Afficher les premiers enregistrements pour debug
     console.log("📋 Premier enregistrement:", JSON.stringify(data[0], null, 2))
-    if (data.length > 1) {
-      console.log("📋 Deuxième enregistrement:", JSON.stringify(data[1], null, 2))
-    }
 
     // Connexion à MongoDB
     const client = await clientPromise
@@ -157,27 +133,8 @@ export async function POST(request: NextRequest) {
             const signe = (row["Signé"] || "").toString().trim()
             const nomFichier = (row["Nom du fichier"] || "").toString().trim()
 
-            console.log(`📝 Ligne ${i + index + 1}:`, {
-              artisteDates,
-              specialite,
-              collaboration,
-              nomLuminaire,
-              anneeStr,
-              signe,
-              nomFichier,
-            })
-
-            // Déterminer le nom final
-            let finalNom = nomLuminaire
-            if (!finalNom && nomFichier) {
-              finalNom = nomFichier
-                .replace(/\.[^/.]+$/, "") // Enlever l'extension
-                .replace(/^luminaire_/, "") // Enlever le préfixe
-                .trim()
-            }
-            if (!finalNom) {
-              finalNom = `Luminaire ${i + index + 1}`
-            }
+            // CORRECTION: Ne pas générer de nom automatique, laisser vide si pas de nom
+            const finalNom = nomLuminaire || "" // Laisser vide si pas de nom
 
             // Parser l'année
             let annee = null
@@ -188,16 +145,16 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // Créer l'objet luminaire avec TOUS les champs
+            // Créer l'objet luminaire avec TOUS les champs du CSV
             const luminaire = {
-              // Champs principaux
-              nom: finalNom,
-              designer: artisteDates,
-              annee: annee,
-              periode: specialite,
-              description: collaboration,
-              signe: signe,
-              filename: nomFichier,
+              // Champs principaux (peuvent être vides)
+              nom: finalNom, // PEUT ÊTRE VIDE
+              designer: artisteDates, // PEUT ÊTRE VIDE
+              annee: annee, // PEUT ÊTRE NULL
+              periode: specialite, // PEUT ÊTRE VIDE
+              description: collaboration, // PEUT ÊTRE VIDE
+              signe: signe, // PEUT ÊTRE VIDE
+              filename: nomFichier, // Nom du fichier image
 
               // Champs originaux du CSV (pour compatibilité)
               "Artiste / Dates": artisteDates,
@@ -237,13 +194,6 @@ export async function POST(request: NextRequest) {
           console.error(`❌ Erreur insertion batch:`, error)
           errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
         }
-      }
-
-      // Log de progression
-      if ((Math.floor(i / BATCH_SIZE) + 1) % 10 === 0) {
-        console.log(
-          `📊 Progression: ${imported}/${data.length} luminaires (${Math.round((imported / data.length) * 100)}%)`,
-        )
       }
     }
 

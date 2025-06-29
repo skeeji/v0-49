@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, ExternalLink, Download } from "lucide-react"
+import { ArrowLeft, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
@@ -40,21 +40,22 @@ export default function LuminaireDetailPage() {
           const formattedLuminaire = {
             ...result.data,
             id: result.data._id,
-            image: result.data.images?.[0] ? `/api/images/${result.data.images[0]}` : null,
-            artist: result.data.designer,
-            year: result.data.annee,
-            materials: Array.isArray(result.data.materiaux)
-              ? result.data.materiaux.join(", ")
-              : result.data.materiaux || "",
-            signed: result.data.signe,
-            name: result.data.nom,
+            // CORRECTION: Utiliser le nom du fichier pour l'image
+            image: result.data.filename ? `/api/images/filename/${result.data.filename}` : null,
+            artist: result.data["Artiste / Dates"] || result.data.designer || "",
+            specialty: result.data["Spécialité"] || result.data.periode || "",
+            collaboration: result.data["Collaboration / Œuvre"] || result.data.description || "",
+            year: result.data.annee || result.data["Année"] || "",
+            signed: result.data["Signé"] || result.data.signe || "",
+            name: result.data["Nom luminaire"] || result.data.nom || "",
+            filename: result.data["Nom du fichier"] || result.data.filename || "",
           }
 
           setLuminaire(formattedLuminaire)
-          console.log("✅ Luminaire formaté:", formattedLuminaire.name)
+          console.log("✅ Luminaire formaté:", formattedLuminaire)
 
           // Charger les luminaires similaires
-          const allLuminairesResponse = await fetch("/api/luminaires")
+          const allLuminairesResponse = await fetch("/api/luminaires?limit=100")
           const allLuminairesData = await allLuminairesResponse.json()
 
           if (allLuminairesData.success) {
@@ -79,26 +80,29 @@ export default function LuminaireDetailPage() {
   }, [params.id])
 
   const findSimilarLuminaires = (current: any, all: any[]) => {
-    const currentYear = Number.parseInt(current.annee) || 0
+    const currentYear = Number.parseInt(current.year) || 0
 
     return all
       .filter((item) => item._id !== current._id)
       .map((item) => {
         let score = 0
 
-        if (item.designer && current.designer && item.designer === current.designer) score += 3
-        if (item.specialite && current.specialite && item.specialite === current.specialite) score += 2
+        const itemArtist = item["Artiste / Dates"] || item.designer || ""
+        if (itemArtist && current.artist && itemArtist === current.artist) score += 3
 
-        const itemYear = Number.parseInt(item.annee) || 0
+        const itemSpecialty = item["Spécialité"] || item.periode || ""
+        if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 2
+
+        const itemYear = Number.parseInt(item.annee || item["Année"]) || 0
         if (currentYear > 0 && itemYear > 0 && Math.abs(currentYear - itemYear) <= 10) score += 1
 
         return {
           ...item,
           id: item._id,
-          image: item.images?.[0] ? `/api/images/${item.images[0]}` : null,
-          artist: item.designer,
-          year: item.annee,
-          name: item.nom,
+          image: item.filename ? `/api/images/filename/${item.filename}` : null,
+          artist: itemArtist,
+          year: item.annee || item["Année"] || "",
+          name: item["Nom luminaire"] || item.nom || "Sans nom",
           similarityScore: score,
         }
       })
@@ -111,11 +115,12 @@ export default function LuminaireDetailPage() {
     if (!canEdit || !luminaire) return
 
     const keyMapping: { [key: string]: string } = {
-      artist: "designer",
-      year: "annee",
-      materials: "materiaux",
-      signed: "signe",
-      name: "nom",
+      artist: "Artiste / Dates",
+      specialty: "Spécialité",
+      collaboration: "Collaboration / Œuvre",
+      name: "Nom luminaire",
+      year: "Année",
+      signed: "Signé",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -156,7 +161,7 @@ export default function LuminaireDetailPage() {
 
       // Titre
       pdf.setFontSize(20)
-      pdf.text(luminaire.name || "Luminaire", 20, 30)
+      pdf.text(luminaire.name || "Luminaire sans nom", 20, 30)
 
       // Informations
       pdf.setFontSize(12)
@@ -169,15 +174,12 @@ export default function LuminaireDetailPage() {
         }
       }
 
-      addField("Artiste", luminaire.artist)
+      addField("Artiste / Dates", luminaire.artist)
       addField("Année", luminaire.year)
       addField("Spécialité", luminaire.specialty)
-      addField("Collaboration", luminaire.collaboration)
-      addField("Description", luminaire.description)
-      addField("Dimensions", luminaire.dimensions)
-      addField("Matériaux", luminaire.materials)
+      addField("Collaboration / Œuvre", luminaire.collaboration)
       addField("Signé", luminaire.signed)
-      addField("Estimation", luminaire.estimation)
+      addField("Nom du fichier", luminaire.filename)
 
       pdf.save(`${luminaire.name || "luminaire"}.pdf`)
     } catch (error) {
@@ -199,7 +201,7 @@ export default function LuminaireDetailPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <p>Luminaire non trouvé.</p>
-        <Link href="/">
+        <Link href="/luminaires">
           <Button className="mt-4">Retour</Button>
         </Link>
       </div>
@@ -210,7 +212,7 @@ export default function LuminaireDetailPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <Link href="/">
+          <Link href="/luminaires">
             <Button variant="outline" className="flex items-center gap-2 bg-transparent">
               <ArrowLeft className="w-4 h-4" />
               Retour
@@ -240,21 +242,35 @@ export default function LuminaireDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
           <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
-            <Image
-              src={luminaire.image || "/placeholder.svg"}
-              alt={luminaire.name || "Luminaire"}
-              fill
-              className="object-cover"
-            />
+            {luminaire.image ? (
+              <Image
+                src={luminaire.image || "/placeholder.svg"}
+                alt={luminaire.name || "Luminaire"}
+                fill
+                className="object-cover"
+                onError={(e) => {
+                  console.log("❌ Erreur chargement image:", luminaire.image)
+                  e.currentTarget.src = "/placeholder.svg"
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-6xl text-gray-400 mb-2">🏮</div>
+                  <span className="text-sm text-gray-500">Image non disponible</span>
+                  {luminaire.filename && <p className="text-xs text-gray-400 mt-1">Fichier: {luminaire.filename}</p>}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="aspect-square overflow-y-auto pr-2">
+          <div className="space-y-6">
             <div className="space-y-4 font-serif">
               <EditableField
                 value={luminaire.name || ""}
                 onSave={(v) => handleUpdate("name", v)}
                 className="text-2xl font-serif text-gray-900"
-                placeholder="Nom du luminaire"
+                placeholder="Nom du luminaire (peut être vide)"
                 disabled={!canEdit}
               />
 
@@ -264,7 +280,7 @@ export default function LuminaireDetailPage() {
                   <EditableField
                     value={luminaire.artist || ""}
                     onSave={(v) => handleUpdate("artist", v)}
-                    placeholder="Artiste"
+                    placeholder="Artiste / Dates"
                     disabled={!canEdit}
                   />
                 </div>
@@ -275,6 +291,7 @@ export default function LuminaireDetailPage() {
                     value={luminaire.specialty || ""}
                     onSave={(v) => handleUpdate("specialty", v)}
                     placeholder="Spécialité"
+                    multiline
                     disabled={!canEdit}
                   />
                 </div>
@@ -284,18 +301,7 @@ export default function LuminaireDetailPage() {
                   <EditableField
                     value={luminaire.collaboration || ""}
                     onSave={(v) => handleUpdate("collaboration", v)}
-                    placeholder="Collaboration"
-                    multiline
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                  <EditableField
-                    value={luminaire.description || ""}
-                    onSave={(v) => handleUpdate("description", v)}
-                    placeholder="Description"
+                    placeholder="Collaboration / Œuvre"
                     multiline
                     disabled={!canEdit}
                   />
@@ -312,60 +318,19 @@ export default function LuminaireDetailPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
-                  <EditableField
-                    value={luminaire.dimensions || ""}
-                    onSave={(v) => handleUpdate("dimensions", v)}
-                    placeholder="Dimensions"
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
-                  <EditableField
-                    value={luminaire.materials || ""}
-                    onSave={(v) => handleUpdate("materials", v)}
-                    placeholder="Matériaux"
-                    multiline
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
                   <EditableField
                     value={luminaire.signed || ""}
                     onSave={(v) => handleUpdate("signed", v)}
-                    placeholder="Signature"
+                    placeholder="Signé"
                     disabled={!canEdit}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
-                  <EditableField
-                    value={luminaire.estimation || ""}
-                    onSave={(v) => handleUpdate("estimation", v)}
-                    placeholder="Estimation"
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Lien internet</label>
-                  <div className="flex items-center gap-2">
-                    <EditableField
-                      value={luminaire.url || ""}
-                      onSave={(v) => handleUpdate("url", v)}
-                      placeholder="https://exemple.com"
-                      disabled={!canEdit}
-                    />
-                    {luminaire.url && (
-                      <a href={luminaire.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Nom du fichier</label>
+                  <div className="p-2 bg-gray-50 rounded text-sm text-gray-600">
+                    {luminaire.filename || "Aucun fichier"}
                   </div>
                 </div>
               </div>
@@ -379,19 +344,25 @@ export default function LuminaireDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {similarLuminaires.map((similar: any) => (
                 <Link key={similar.id} href={`/luminaires/${similar.id}`}>
-                  <div className="bg-gray-50 rounded-xl overflow-hidden shadow-md group">
+                  <div className="bg-gray-50 rounded-xl overflow-hidden shadow-md group hover:shadow-lg transition-shadow">
                     <div className="aspect-square relative bg-gray-100">
-                      <Image
-                        src={similar.image || "/placeholder.svg"}
-                        alt={similar.name}
-                        fill
-                        className="object-cover"
-                      />
+                      {similar.image ? (
+                        <Image
+                          src={similar.image || "/placeholder.svg"}
+                          alt={similar.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="text-4xl text-gray-400">🏮</div>
+                        </div>
+                      )}
                     </div>
                     <div className="p-4 space-y-2">
-                      <h3 className="font-serif text-lg truncate">{similar.name}</h3>
-                      <p className="text-sm">{similar.artist}</p>
-                      <p className="text-xs">{similar.year}</p>
+                      <h3 className="font-serif text-lg truncate">{similar.name || "Sans nom"}</h3>
+                      <p className="text-sm text-gray-600">{similar.artist}</p>
+                      <p className="text-xs text-gray-500">{similar.year}</p>
                     </div>
                   </div>
                 </Link>
