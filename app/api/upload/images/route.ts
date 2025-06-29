@@ -1,146 +1,98 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getBucket } from "@/lib/gridfs"
-import { Readable } from "stream"
+import { uploadToGridFS } from "@/lib/gridfs"
 import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-function fileToStream(file: File): Readable {
-  const reader = file.stream().getReader()
-  return new Readable({
-    async read() {
-      try {
-        const { done, value } = await reader.read()
-        this.push(done ? null : Buffer.from(value))
-      } catch (error) {
-        this.destroy(error as Error)
-      }
-    },
-  })
-}
-
 export async function POST(request: NextRequest) {
   try {
-    console.log("🖼️ API /api/upload/images - Début du traitement")
+    console.log("📤 API /api/upload/images - Début du traitement")
 
-    const bucket = await getBucket()
     const formData = await request.formData()
-    const files = formData.getAll("images") as File[]
+    const files = formData.getAll("files") as File[]
 
     if (!files || files.length === 0) {
       return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📤 ${files.length} images reçues pour upload`)
+    console.log(`📁 ${files.length} fichiers reçus`)
 
-    const uploadedFiles = []
-    const errors = []
-
-    // 1. Upload des fichiers vers GridFS
-    for (const file of files) {
-      try {
-        console.log(`📤 Upload de ${file.name}...`)
-
-        const stream = fileToStream(file)
-        const uploadStream = bucket.openUploadStream(file.name, {
-          contentType: file.type,
-          metadata: {
-            originalName: file.name,
-            size: file.size,
-            uploadDate: new Date(),
-          },
-        })
-
-        await new Promise<void>((resolve, reject) => {
-          stream
-            .pipe(uploadStream)
-            .on("error", (error) => {
-              console.error(`❌ Erreur upload stream ${file.name}:`, error)
-              reject(error)
-            })
-            .on("finish", () => {
-              console.log(`✅ Upload stream terminé pour ${file.name}`)
-              resolve()
-            })
-        })
-
-        const fileId = uploadStream.id.toString()
-
-        uploadedFiles.push({
-          name: file.name,
-          id: fileId,
-          path: `/api/images/${fileId}`,
-          size: file.size,
-        })
-
-        console.log(`✅ ${file.name} uploadé avec l'ID: ${fileId}`)
-      } catch (error: any) {
-        errors.push(`${file.name}: ${error.message}`)
-        console.error(`❌ Erreur upload ${file.name}:`, error)
-      }
-    }
-
-    // 2. Association avec les luminaires
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    let associatedCount = 0
+    const results = {
+      uploaded: 0,
+      associated: 0,
+      errors: [] as string[],
+      uploadedFiles: [] as string[],
+    }
 
-    for (const uploadedFile of uploadedFiles) {
+    // Charger tous les luminaires pour l'association
+    const luminaires = await db.collection("luminaires").find({}).toArray()
+    console.log(`📊 ${luminaires.length} luminaires trouvés pour association`)
+
+    for (const file of files) {
       try {
-        const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, "")
-        console.log(`🔗 Recherche luminaire pour: ${fileNameWithoutExt}`)
+        console.log(`📁 Fichier à uploader: ${file.name} ${file.size} bytes`)
 
-        // Chercher le luminaire correspondant avec plusieurs critères
-        const luminaire = await db.collection("luminaires").findOne({
-          $or: [
-            { filename: uploadedFile.name },
-            { filename: fileNameWithoutExt },
-            { nom: { $regex: fileNameWithoutExt, $options: "i" } },
-            { nom: { $regex: uploadedFile.name.replace(/\.[^/.]+$/, ""), $options: "i" } },
-          ],
+        // Convertir le fichier en buffer
+        const buffer = Buffer.from(await file.arrayBuffer())
+
+        // Upload vers GridFS
+        const fileId = await uploadToGridFS(buffer, file.name, file.type)
+
+        results.uploaded++
+        results.uploadedFiles.push(file.name)
+
+        // Essayer d'associer l'image à un luminaire
+        const baseFilename = file.name.replace(/\.[^/.]+$/, "")
+
+        const matchingLuminaire = luminaires.find((lum) => {
+          const lumFilename = lum["Nom du fichier"] || lum.filename || ""
+          const lumBaseFilename = lumFilename.replace(/\.[^/.]+$/, "")
+          return lumBaseFilename === baseFilename
         })
 
-        if (luminaire) {
-          // Ajouter l'ID de l'image au luminaire
-          const updatedImages = [...(luminaire.images || []), uploadedFile.id]
-
+        if (matchingLuminaire) {
+          // Associer l'image au luminaire
           await db.collection("luminaires").updateOne(
-            { _id: luminaire._id },
+            { _id: matchingLuminaire._id },
             {
               $set: {
-                images: updatedImages,
+                images: [file.name],
+                imageId: fileId,
                 updatedAt: new Date(),
               },
             },
           )
 
-          associatedCount++
-          console.log(`✅ Image ${uploadedFile.name} associée au luminaire: ${luminaire.nom}`)
+          results.associated++
+          console.log(`🔗 Image ${file.name} associée au luminaire: ${matchingLuminaire.nom}`)
         } else {
-          console.warn(`⚠️ Aucun luminaire trouvé pour: ${uploadedFile.name}`)
+          console.log(`⚠️ Aucun luminaire trouvé pour l'image: ${file.name}`)
         }
       } catch (error: any) {
-        console.error(`❌ Erreur association ${uploadedFile.name}:`, error)
+        console.error(`❌ Erreur upload ${file.name}:`, error)
+        results.errors.push(`${file.name}: ${error.message}`)
       }
     }
 
-    console.log(`✅ Upload terminé: ${uploadedFiles.length} images, ${associatedCount} associations`)
+    console.log(`✅ Upload terminé: ${results.uploaded} fichiers uploadés, ${results.associated} associés`)
 
     return NextResponse.json({
       success: true,
-      message: `${uploadedFiles.length} images uploadées, ${associatedCount} associées`,
-      uploaded: uploadedFiles.length,
-      associated: associatedCount,
-      uploadedFiles,
-      errors,
+      message: `${results.uploaded} images uploadées, ${results.associated} associées`,
+      uploaded: results.uploaded,
+      associated: results.associated,
+      uploadedFiles: results.uploadedFiles,
+      errors: results.errors,
     })
   } catch (error: any) {
-    console.error("❌ Erreur upload images:", error)
+    console.error("❌ Erreur critique upload images:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'upload des images",
+        error: "Erreur serveur lors de l'upload",
         details: error.message,
       },
       { status: 500 },

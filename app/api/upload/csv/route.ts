@@ -32,168 +32,30 @@ export async function POST(request: NextRequest) {
       results.processed++
 
       try {
-        // Mapping flexible des colonnes avec valeurs par défaut
+        // Préparer les données du luminaire
         const luminaireData = {
-          nom: (record.nom || record.Nom || record.name || record.Name || record.title || record.Title || "")
-            .toString()
-            .trim(),
-          designer: (
-            record.designer ||
-            record.Designer ||
-            record.auteur ||
-            record.Auteur ||
-            record.artist ||
-            record.Artist ||
-            ""
-          )
-            .toString()
-            .trim(),
-          annee: record.annee || record.Annee || record.year || record.Year || record.date || record.Date || "",
-          periode: (
-            record.periode ||
-            record.Periode ||
-            record.period ||
-            record.Period ||
-            record.epoque ||
-            record.Epoque ||
-            ""
-          )
-            .toString()
-            .trim(),
-          description: (record.description || record.Description || record.desc || record.Desc || "").toString().trim(),
-          materiaux:
-            record.materiaux ||
-            record.Materiaux ||
-            record.materials ||
-            record.Materials ||
-            record.matiere ||
-            record.Matiere ||
-            "",
-          couleurs:
-            record.couleurs ||
-            record.Couleurs ||
-            record.colors ||
-            record.Colors ||
-            record.couleur ||
-            record.Couleur ||
-            "",
-          dimensions:
-            record.dimensions ||
-            record.Dimensions ||
-            record.size ||
-            record.Size ||
-            record.taille ||
-            record.Taille ||
-            "",
-          images: record.images || record.Images || record.image || record.Image || [],
-          filename: (record.filename || record.Filename || record["Nom du fichier"] || record["nom du fichier"] || "")
-            .toString()
-            .trim(),
-          specialite: (record.specialite || record.Specialite || record.specialty || record.Specialty || "")
-            .toString()
-            .trim(),
-          collaboration: (record.collaboration || record.Collaboration || "").toString().trim(),
-          signe: (record.signe || record.Signe || record.signature || record.Signature || "").toString().trim(),
-          estimation: (
-            record.estimation ||
-            record.Estimation ||
-            record.price ||
-            record.Price ||
-            record.prix ||
-            record.Prix ||
-            ""
-          )
-            .toString()
-            .trim(),
-        }
-
-        // Traitement de l'année
-        let anneeNum = null
-        if (luminaireData.annee) {
-          const anneeStr = luminaireData.annee.toString().trim()
-          const anneeMatch = anneeStr.match(/\d{4}/)
-          if (anneeMatch) {
-            anneeNum = Number.parseInt(anneeMatch[0])
-            if (anneeNum < 1000 || anneeNum > new Date().getFullYear() + 10) {
-              anneeNum = null
-            }
-          }
-        }
-
-        // Traitement des matériaux
-        let materiauxArray = []
-        if (luminaireData.materiaux) {
-          if (Array.isArray(luminaireData.materiaux)) {
-            materiauxArray = luminaireData.materiaux
-          } else {
-            materiauxArray = luminaireData.materiaux
-              .toString()
-              .split(/[,;|]/)
-              .map((m: string) => m.trim())
-              .filter((m: string) => m)
-          }
-        }
-
-        // Traitement des couleurs
-        let couleursArray = []
-        if (luminaireData.couleurs) {
-          if (Array.isArray(luminaireData.couleurs)) {
-            couleursArray = luminaireData.couleurs
-          } else {
-            couleursArray = luminaireData.couleurs
-              .toString()
-              .split(/[,;|]/)
-              .map((c: string) => c.trim())
-              .filter((c: string) => c)
-          }
-        }
-
-        // Traitement des dimensions
-        let dimensionsObj = {}
-        if (luminaireData.dimensions) {
-          if (typeof luminaireData.dimensions === "object") {
-            dimensionsObj = luminaireData.dimensions
-          } else {
-            const dimStr = luminaireData.dimensions.toString()
-            // Essayer de parser les dimensions (ex: "H: 30cm, L: 20cm")
-            const matches = dimStr.match(/(\d+(?:\.\d+)?)\s*(?:cm|mm|m)?/g)
-            if (matches && matches.length >= 2) {
-              dimensionsObj = {
-                hauteur: matches[0],
-                largeur: matches[1],
-                profondeur: matches[2] || null,
-              }
-            } else {
-              dimensionsObj = { description: dimStr }
-            }
-          }
-        }
-
-        // Créer l'objet luminaire
-        const luminaire = {
-          nom: luminaireData.nom,
-          designer: luminaireData.designer,
-          annee: anneeNum,
-          periode: luminaireData.periode,
-          description: luminaireData.description,
-          materiaux: materiauxArray,
-          couleurs: couleursArray,
-          dimensions: dimensionsObj,
-          images: Array.isArray(luminaireData.images) ? luminaireData.images : [],
-          filename: luminaireData.filename,
-          "Nom du fichier": luminaireData.filename, // Compatibilité
-          specialite: luminaireData.specialite,
-          collaboration: luminaireData.collaboration,
-          signe: luminaireData.signe,
-          estimation: luminaireData.estimation,
+          _id: Date.now().toString() + "_" + i,
+          nom: record["Nom luminaire"] || record.nom || "",
+          designer: record["Artiste / Dates"] || record.designer || "",
+          annee: record["Année"] ? Number.parseInt(record["Année"]) : new Date().getFullYear(),
+          periode: record["Spécialité"] || record.periode || "",
+          description: record.description || "",
+          materiaux: record.materiaux ? record.materiaux.split(",").map((m: string) => m.trim()) : [],
+          couleurs: record.couleurs ? record.couleurs.split(",").map((c: string) => c.trim()) : [],
+          dimensions: record.dimensions || {},
+          images: record.images || [],
+          "Nom du fichier": record["Nom du fichier"] || record.filename || "",
+          specialite: record["Spécialité"] || record.specialite || "",
+          collaboration: record["Collaboration / Œuvre"] || record.collaboration || "",
+          signe: record["Signé"] || record.signe || "",
+          estimation: record["Estimation"] || record.estimation || "",
           createdAt: new Date(),
           updatedAt: new Date(),
-          index: i,
         }
 
-        console.log(`💾 Insertion luminaire ${i + 1}/${data.length}: ${luminaire.nom}`)
+        console.log(`💾 Insertion luminaire ${i + 1}/${data.length}: ${luminaireData.nom}`)
 
-        await db.collection("luminaires").insertOne(luminaire)
+        await db.collection("luminaires").insertOne(luminaireData)
         results.success++
 
         // Log de progression tous les 100 éléments

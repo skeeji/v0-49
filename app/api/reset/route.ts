@@ -1,66 +1,51 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { deleteAllFiles } from "@/lib/gridfs"
+import { clearGridFS } from "@/lib/gridfs"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-export async function DELETE(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    console.log("🗑️ === DÉBUT RÉINITIALISATION COMPLÈTE ===")
+    console.log("🧹 API /api/reset - Début du nettoyage")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // 1. Supprimer toutes les collections MongoDB
-    console.log("🗑️ Suppression des collections MongoDB...")
+    // Supprimer toutes les collections
+    const collections = ["luminaires", "designers", "timeline", "users"]
+    let deletedCount = 0
 
-    const collections = await db.listCollections().toArray()
-    console.log(`📊 ${collections.length} collections trouvées`)
-
-    for (const collection of collections) {
-      if (!collection.name.startsWith("system.")) {
-        await db.collection(collection.name).deleteMany({})
-        console.log(`✅ Collection ${collection.name} vidée`)
+    for (const collectionName of collections) {
+      try {
+        const result = await db.collection(collectionName).deleteMany({})
+        deletedCount += result.deletedCount
+        console.log(`🗑️ Collection ${collectionName}: ${result.deletedCount} documents supprimés`)
+      } catch (error) {
+        console.log(`⚠️ Collection ${collectionName} n'existe pas ou erreur:`, error)
       }
     }
 
-    // 2. Supprimer tous les fichiers GridFS
-    console.log("🗑️ Suppression des fichiers GridFS...")
-    await deleteAllFiles()
+    // Nettoyer GridFS
+    try {
+      await clearGridFS()
+      console.log("🗑️ GridFS nettoyé")
+    } catch (error) {
+      console.error("❌ Erreur nettoyage GridFS:", error)
+    }
 
-    // 3. Réinitialiser les index si nécessaire
-    console.log("🔄 Recréation des index...")
-
-    // Index pour les luminaires
-    await db.collection("luminaires").createIndex({ nom: 1 })
-    await db.collection("luminaires").createIndex({ designer: 1 })
-    await db.collection("luminaires").createIndex({ annee: 1 })
-    await db.collection("luminaires").createIndex({ periode: 1 })
-    await db.collection("luminaires").createIndex({ filename: 1 })
-
-    // Index pour les designers
-    await db.collection("designers").createIndex({ Nom: 1 })
-    await db.collection("designers").createIndex({ slug: 1 })
-
-    console.log("✅ Index recréés")
-
-    console.log("✅ === RÉINITIALISATION TERMINÉE ===")
+    console.log(`✅ Reset terminé: ${deletedCount} documents supprimés`)
 
     return NextResponse.json({
       success: true,
-      message: "Serveur réinitialisé avec succès",
-      details: {
-        collectionsCleared: collections.length,
-        gridfsCleared: true,
-        indexesRecreated: true,
-      },
+      message: `Base de données réinitialisée: ${deletedCount} documents supprimés`,
+      deletedCount,
     })
   } catch (error: any) {
-    console.error("❌ Erreur lors de la réinitialisation:", error)
+    console.error("❌ Erreur critique reset:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la réinitialisation",
+        error: "Erreur serveur lors du reset",
         details: error.message,
       },
       { status: 500 },

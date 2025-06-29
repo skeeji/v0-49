@@ -32,55 +32,27 @@ export async function POST(request: NextRequest) {
       results.processed++
 
       try {
-        // Mapping flexible des colonnes avec valeurs par défaut
-        const designerData = {
-          nom: (record.Nom || record.nom || record.Name || record.name || "").toString().trim(),
-          imagedesigner: (record.imagedesigner || record.image || record.Image || record.photo || "").toString().trim(),
-          description: (record.Description || record.description || "").toString().trim(),
-          biographie: (record.Biographie || record.biographie || record.Bio || record.bio || "").toString().trim(),
-          dateNaissance: (record.DateNaissance || record.dateNaissance || record.Birth || record.birth || "")
-            .toString()
-            .trim(),
-          dateDeces: (record.DateDeces || record.dateDeces || record.Death || record.death || "").toString().trim(),
-          nationalite: (record.Nationalite || record.nationalite || record.Nationality || record.nationality || "")
-            .toString()
-            .trim(),
-          specialite: (record.Specialite || record.specialite || record.Specialty || record.specialty || "")
-            .toString()
-            .trim(),
-        }
+        // Mapping flexible des colonnes
+        const nom = record.Nom || record.nom || record.Name || record.name || ""
+        const imagedesigner = record.imagedesigner || record.image || record.Image || ""
 
-        // Vérifier qu'au moins le nom est présent
-        if (!designerData.nom) {
+        if (!nom || nom.trim() === "") {
           results.errors.push(`Ligne ${i + 2}: nom manquant`)
           continue
         }
 
-        // Créer le slug
-        const slug = designerData.nom
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9-]/g, "")
-
-        // Créer l'objet designer
-        const designer = {
-          Nom: designerData.nom,
-          imagedesigner: designerData.imagedesigner,
-          description: designerData.description,
-          biographie: designerData.biographie,
-          dateNaissance: designerData.dateNaissance,
-          dateDeces: designerData.dateDeces,
-          nationalite: designerData.nationalite,
-          specialite: designerData.specialite,
-          slug: slug,
+        // Préparer les données du designer
+        const designerData = {
+          _id: Date.now().toString() + "_designer_" + i,
+          Nom: nom.trim(),
+          imagedesigner: imagedesigner.trim(),
           createdAt: new Date(),
           updatedAt: new Date(),
-          index: i,
         }
 
-        console.log(`💾 Insertion designer ${i + 1}/${data.length}: ${designer.Nom}`)
+        console.log(`💾 Insertion designer ${i + 1}/${data.length}: ${designerData.Nom}`)
 
-        await db.collection("designers").insertOne(designer)
+        await db.collection("designers").insertOne(designerData)
         results.success++
 
         // Log de progression tous les 100 éléments
@@ -110,7 +82,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'import des designers",
+        error: "Erreur serveur lors de l'import",
         details: error.message,
       },
       { status: 500 },

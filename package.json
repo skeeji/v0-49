@@ -68,7 +68,7 @@
     "snappy": "^7.2.2",
     "socks": "^2.8.5",
     "sonner": "latest",
-    "stream": "latest",
+    "stream": "^0.0.3",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "latest",
