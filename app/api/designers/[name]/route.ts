@@ -11,77 +11,36 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Recherche très flexible pour gérer tous les cas
-    const searchPatterns = [
-      // Recherche exacte
-      { "Artiste / Dates": designerName },
-      // Recherche insensible à la casse
-      { "Artiste / Dates": { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
-      // Recherche partielle
-      { "Artiste / Dates": { $regex: designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
-      // Recherche en supprimant les caractères spéciaux
-      { "Artiste / Dates": { $regex: designerName.replace(/[^a-zA-Z0-9\s]/g, ""), $options: "i" } },
-      // Recherche sur le premier mot seulement
-      { "Artiste / Dates": { $regex: `^${designerName.split(" ")[0]}`, $options: "i" } },
-    ]
+    // Rechercher les luminaires de ce designer dans la colonne "Artiste / Dates"
+    const luminaires = await db
+      .collection("luminaires")
+      .find({
+        "Artiste / Dates": { $regex: designerName, $options: "i" },
+      })
+      .toArray()
 
-    let luminaires = []
-    let searchUsed = ""
-
-    for (let i = 0; i < searchPatterns.length; i++) {
-      const pattern = searchPatterns[i]
-      luminaires = await db.collection("luminaires").find(pattern).toArray()
-
-      if (luminaires.length > 0) {
-        searchUsed = `Pattern ${i + 1}`
-        console.log(`✅ Trouvé avec ${searchUsed}: ${luminaires.length} luminaires`)
-        break
-      }
-    }
-
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour "${designerName}"`)
+    console.log(`📊 ${luminaires.length} luminaires trouvés pour ${designerName}`)
 
     if (luminaires.length === 0) {
-      // Essayer une recherche encore plus large
-      const broadSearch = await db
-        .collection("luminaires")
-        .find({
-          "Artiste / Dates": { $regex: designerName.split(" ")[0], $options: "i" },
-        })
-        .toArray()
-
-      console.log(`🔍 Recherche large: ${broadSearch.length} résultats`)
-
       return NextResponse.json(
         {
           success: false,
           error: "Designer non trouvé",
-          debug: {
-            searchTerm: designerName,
-            broadResults: broadSearch.length,
-            suggestions: broadSearch.slice(0, 5).map((l) => l["Artiste / Dates"]),
-          },
         },
         { status: 404 },
       )
     }
 
-    // Chercher l'image du designer
+    // Chercher l'image du designer dans la collection designers
     let designerImage = null
     try {
-      const designerQueries = [
-        { Nom: designerName },
-        { Nom: { $regex: designerName, $options: "i" } },
-        { Nom: { $regex: designerName.split(" ")[0], $options: "i" } },
-      ]
+      const designerDoc = await db.collection("designers").findOne({
+        Nom: { $regex: designerName, $options: "i" },
+      })
 
-      for (const query of designerQueries) {
-        const designerDoc = await db.collection("designers").findOne(query)
-        if (designerDoc && designerDoc.imagedesigner) {
-          designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
-          console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
-          break
-        }
+      if (designerDoc && designerDoc.imagedesigner) {
+        designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
+        console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
       }
     } catch (error) {
       console.log("⚠️ Pas d'image trouvée pour ce designer")
@@ -110,10 +69,6 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       data: {
         designer,
         luminaires: adaptedLuminaires,
-      },
-      debug: {
-        searchUsed,
-        originalName: designerName,
       },
     })
   } catch (error: any) {

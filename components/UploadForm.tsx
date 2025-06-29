@@ -4,167 +4,437 @@ import type React from "react"
 
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Upload, FileText, ImageIcon, Video, FileImage } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Upload, FileText, Users, ImageIcon, CheckCircle, AlertCircle, Clock } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
-interface UploadFormProps {
-  accept: string
-  onUpload: (files: File | File[]) => void
-  type: "csv" | "images" | "video" | "logo"
-  multiple?: boolean
-  expectedColumns?: string[]
+interface UploadResult {
+  success: boolean
+  message: string
+  imported?: number
+  processed?: number
+  uploaded?: number
+  associated?: number
+  remaining?: number
+  errors?: string[]
 }
 
-export function UploadForm({ accept, onUpload, type, multiple = false, expectedColumns }: UploadFormProps) {
-  const [dragActive, setDragActive] = useState(false)
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  const inputRef = useRef<HTMLInputElement>(null)
+export function UploadForm() {
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [currentStep, setCurrentStep] = useState("")
+  const [results, setResults] = useState<{
+    csv?: UploadResult
+    designers?: UploadResult
+    images?: UploadResult[]
+  }>({})
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
-  }
+  const csvFileRef = useRef<HTMLInputElement>(null)
+  const designersFileRef = useRef<HTMLInputElement>(null)
+  const imagesFileRef = useRef<HTMLInputElement>(null)
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
+  const { toast } = useToast()
 
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      setSelectedFiles(files)
-    }
-  }
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault()
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files)
-      setSelectedFiles(files)
-    }
-  }
+    console.log(`📁 Fichier CSV sélectionné: ${file.name}, taille: ${file.size} bytes`)
 
-  const handleUpload = () => {
-    if (selectedFiles.length > 0) {
-      if (multiple) {
-        onUpload(selectedFiles)
+    const estimatedLines = Math.floor(file.size / 130)
+    console.log(`📊 Estimation: ~${estimatedLines} lignes dans le CSV`)
+
+    setIsUploading(true)
+    setCurrentStep("Import du CSV luminaires...")
+    setUploadProgress(10)
+
+    try {
+      console.log("📥 Début de l'import CSV:", file.name)
+
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/upload/csv", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      console.log("📊 Réponse API CSV:", result)
+
+      setResults((prev) => ({ ...prev, csv: result }))
+
+      if (result.success) {
+        toast({
+          title: "✅ CSV importé",
+          description: result.message,
+        })
       } else {
-        onUpload(selectedFiles[0])
+        toast({
+          title: "❌ Erreur CSV",
+          description: result.error,
+          variant: "destructive",
+        })
       }
-      setSelectedFiles([])
-      if (inputRef.current) {
-        inputRef.current.value = ""
-      }
+    } catch (error: any) {
+      console.error("❌ Erreur critique lors de l'import CSV:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'importer le CSV",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
     }
   }
 
-  const getIcon = () => {
-    switch (type) {
-      case "csv":
-        return <FileText className="w-8 h-8 text-blue-500" />
-      case "images":
-        return <ImageIcon className="w-8 h-8 text-green-500" />
-      case "video":
-        return <Video className="w-8 h-8 text-purple-500" />
-      case "logo":
-        return <FileImage className="w-8 h-8 text-orange-500" />
-      default:
-        return <Upload className="w-8 h-8 text-gray-500" />
+  const handleDesignersUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    console.log(`📁 Fichier CSV sélectionné: ${file.name}, taille: ${file.size} bytes`)
+
+    const estimatedLines = Math.floor(file.size / 44)
+    console.log(`📊 Estimation: ~${estimatedLines} lignes dans le CSV`)
+
+    setIsUploading(true)
+    setCurrentStep("Import des designers...")
+    setUploadProgress(10)
+
+    try {
+      console.log("👨‍🎨 Début de l'import designers:", file.name)
+
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/upload/csv-designers", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      console.log("📊 Réponse API designers:", result)
+
+      setResults((prev) => ({ ...prev, designers: result }))
+
+      if (result.success) {
+        toast({
+          title: "✅ Designers importés",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur designers",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur critique lors de l'import designers:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'importer les designers",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
     }
   }
 
-  const getTitle = () => {
-    switch (type) {
-      case "csv":
-        return "Fichier CSV"
-      case "images":
-        return "Images"
-      case "video":
-        return "Vidéo"
-      case "logo":
-        return "Logo"
-      default:
-        return "Fichiers"
+  const handleImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    console.log(`🖼️ Début de l'upload images: ${files.length} fichiers`)
+
+    setIsUploading(true)
+    setCurrentStep("Upload des images...")
+    setUploadProgress(5)
+
+    const allResults: UploadResult[] = []
+
+    try {
+      // CORRECTION: Traiter par très petits batches de 50 fichiers
+      const BATCH_SIZE = 50
+      let totalUploaded = 0
+      let totalAssociated = 0
+
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE)
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1
+        const totalBatches = Math.ceil(files.length / BATCH_SIZE)
+
+        setCurrentStep(`Upload batch ${batchNumber}/${totalBatches} (${batch.length} images)`)
+        setUploadProgress(5 + (i / files.length) * 90)
+
+        console.log(`📦 Batch ${batchNumber}/${totalBatches}: ${batch.length} fichiers`)
+
+        const formData = new FormData()
+        batch.forEach((file) => {
+          formData.append("images", file)
+        })
+
+        try {
+          const response = await fetch("/api/upload/images", {
+            method: "POST",
+            body: formData,
+          })
+
+          const result = await response.json()
+          allResults.push(result)
+
+          if (result.success) {
+            totalUploaded += result.uploaded || 0
+            totalAssociated += result.associated || 0
+            console.log(`✅ Batch ${batchNumber}: ${result.uploaded} uploadées, ${result.associated} associées`)
+          } else {
+            console.error(`❌ Erreur batch ${batchNumber}:`, result.error)
+          }
+
+          // Pause entre les batches
+          if (i + BATCH_SIZE < files.length) {
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+          }
+        } catch (batchError: any) {
+          console.error(`❌ Erreur critique batch ${batchNumber}:`, batchError)
+          allResults.push({
+            success: false,
+            message: `Erreur batch ${batchNumber}: ${batchError.message}`,
+          })
+        }
+      }
+
+      setResults((prev) => ({ ...prev, images: allResults }))
+
+      toast({
+        title: "✅ Upload terminé",
+        description: `${totalUploaded} images uploadées, ${totalAssociated} associées`,
+      })
+    } catch (error: any) {
+      console.error("❌ Erreur critique lors de l'upload images:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'uploader les images",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
     }
   }
 
   return (
-    <div className="space-y-4">
-      <Card
-        className={`border-2 border-dashed transition-colors ${
-          dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
-        }`}
-      >
-        <CardContent className="p-8">
-          <div
-            className="text-center cursor-pointer"
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept={accept}
-              multiple={multiple}
-              onChange={handleChange}
-              className="hidden"
-            />
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-serif text-gray-900 mb-4">Import des Données</h1>
+          <p className="text-gray-600">Importez vos fichiers CSV et images pour alimenter la galerie</p>
+        </div>
 
-            <div className="flex flex-col items-center space-y-4">
-              {getIcon()}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{getTitle()}</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Glissez-déposez {multiple ? "vos fichiers" : "votre fichier"} ici ou cliquez pour sélectionner
-                </p>
+        {/* Barre de progression globale */}
+        {isUploading && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-blue-500 animate-spin" />
+                  <span className="text-sm font-medium">{currentStep}</span>
+                </div>
+                <Progress value={uploadProgress} className="w-full" />
               </div>
+            </CardContent>
+          </Card>
+        )}
 
-              {expectedColumns && (
-                <div className="text-xs text-gray-500">
-                  <p className="font-medium mb-2">Colonnes attendues :</p>
-                  <div className="flex flex-wrap gap-1">
-                    {expectedColumns.map((col, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {col}
-                      </Badge>
-                    ))}
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Upload CSV Luminaires */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                CSV Luminaires
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <input ref={csvFileRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+              <Button
+                onClick={() => csvFileRef.current?.click()}
+                disabled={isUploading}
+                className="w-full"
+                variant="outline"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Sélectionner CSV
+              </Button>
+
+              {results.csv && (
+                <div className="text-sm">
+                  {results.csv.success ? (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>{results.csv.imported} luminaires importés</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Erreur d'import</span>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {selectedFiles.length > 0 && (
-        <div className="space-y-3">
-          <div className="text-sm text-gray-600">
-            {selectedFiles.length} fichier{selectedFiles.length > 1 ? "s" : ""} sélectionné
-            {selectedFiles.length > 1 ? "s" : ""} :
-          </div>
-          <div className="max-h-32 overflow-y-auto space-y-1">
-            {selectedFiles.map((file, index) => (
-              <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
-                <span className="truncate">{file.name}</span>
-                <span className="text-gray-500 ml-2">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-              </div>
-            ))}
-          </div>
-          <Button onClick={handleUpload} className="w-full">
-            <Upload className="w-4 h-4 mr-2" />
-            Uploader {selectedFiles.length > 1 ? `${selectedFiles.length} fichiers` : "le fichier"}
-          </Button>
+          {/* Upload CSV Designers */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                CSV Designers
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <input
+                ref={designersFileRef}
+                type="file"
+                accept=".csv"
+                onChange={handleDesignersUpload}
+                className="hidden"
+              />
+              <Button
+                onClick={() => designersFileRef.current?.click()}
+                disabled={isUploading}
+                className="w-full"
+                variant="outline"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Sélectionner CSV
+              </Button>
+
+              {results.designers && (
+                <div className="text-sm">
+                  {results.designers.success ? (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>{results.designers.imported} designers importés</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Erreur d'import</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Upload Images */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5" />
+                Images
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <input
+                ref={imagesFileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImagesUpload}
+                className="hidden"
+              />
+              <Button
+                onClick={() => imagesFileRef.current?.click()}
+                disabled={isUploading}
+                className="w-full"
+                variant="outline"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Sélectionner Images
+              </Button>
+
+              {results.images && results.images.length > 0 && (
+                <div className="text-sm space-y-1">
+                  {results.images.map((result, index) => (
+                    <div key={index}>
+                      {result.success ? (
+                        <div className="flex items-center gap-2 text-green-600">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>
+                            Batch {index + 1}: {result.uploaded} uploadées, {result.associated} associées
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-red-600">
+                          <AlertCircle className="w-4 h-4" />
+                          <span>Batch {index + 1}: Erreur</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
+
+        {/* Résultats détaillés */}
+        {(results.csv || results.designers || results.images) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Résultats de l'import</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {results.csv && (
+                  <div>
+                    <h4 className="font-medium">Luminaires CSV</h4>
+                    <p className="text-sm text-gray-600">{results.csv.message}</p>
+                    {results.csv.errors && results.csv.errors.length > 0 && (
+                      <details className="mt-2">
+                        <summary className="text-sm text-red-600 cursor-pointer">
+                          {results.csv.errors.length} erreurs
+                        </summary>
+                        <div className="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
+                          {results.csv.errors.slice(0, 10).map((error, i) => (
+                            <div key={i}>{error}</div>
+                          ))}
+                          {results.csv.errors.length > 10 && <div>... et {results.csv.errors.length - 10} autres</div>}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                )}
+
+                {results.designers && (
+                  <div>
+                    <h4 className="font-medium">Designers CSV</h4>
+                    <p className="text-sm text-gray-600">{results.designers.message}</p>
+                  </div>
+                )}
+
+                {results.images && (
+                  <div>
+                    <h4 className="font-medium">Images</h4>
+                    <div className="text-sm text-gray-600">
+                      {results.images.reduce((sum, r) => sum + (r.uploaded || 0), 0)} images uploadées au total
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }

@@ -6,16 +6,16 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🖼️ API /api/upload/images - Début de l'upload images")
+    console.log("🖼️ API /api/upload/images - Début de l'upload")
 
     const formData = await request.formData()
     const files = formData.getAll("images") as File[]
 
-    if (files.length === 0) {
+    if (!files || files.length === 0) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📁 ${files.length} fichiers images reçus`)
+    console.log(`📁 ${files.length} fichiers reçus pour upload`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
@@ -25,11 +25,18 @@ export async function POST(request: NextRequest) {
     let associated = 0
     const errors: string[] = []
 
-    // Traiter les fichiers par petits batches
-    const BATCH_SIZE = 10
+    // Traitement par batch de 50 fichiers
+    const BATCH_SIZE = 50
+    const batches = []
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
-      const batch = files.slice(i, i + BATCH_SIZE)
-      console.log(`📦 Traitement batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(files.length / BATCH_SIZE)}`)
+      batches.push(files.slice(i, i + BATCH_SIZE))
+    }
+
+    console.log(`📦 Traitement en ${batches.length} batches de ${BATCH_SIZE} fichiers`)
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex]
+      console.log(`📦 Batch ${batchIndex + 1}/${batches.length}: ${batch.length} fichiers`)
 
       for (const file of batch) {
         try {
@@ -37,14 +44,15 @@ export async function POST(request: NextRequest) {
           const existingFile = await bucket.find({ filename: file.name }).toArray()
           if (existingFile.length > 0) {
             console.log(`⚠️ Fichier déjà existant: ${file.name}`)
+            associated++
             continue
           }
 
           // Upload du fichier
           const uploadStream = bucket.openUploadStream(file.name, {
             metadata: {
+              type: "luminaire-image",
               originalName: file.name,
-              contentType: file.type,
               uploadDate: new Date(),
             },
           })
@@ -64,41 +72,47 @@ export async function POST(request: NextRequest) {
 
           uploaded++
 
-          // Vérifier si ce fichier correspond à un luminaire
-          const luminaire = await db.collection("luminaires").findOne({
-            "Nom du fichier": file.name,
-          })
+          // Associer l'image au luminaire correspondant
+          try {
+            const luminaireResult = await db.collection("luminaires").updateOne(
+              { "Nom du fichier": file.name },
+              {
+                $set: {
+                  imageUploaded: true,
+                  imageId: uploadStream.id,
+                  updatedAt: new Date(),
+                },
+              },
+            )
 
-          if (luminaire) {
-            associated++
-            console.log(`🔗 Image associée: ${file.name} -> ${luminaire["Nom luminaire"] || "Sans nom"}`)
-          }
-
-          if (uploaded % 50 === 0) {
-            console.log(`📊 ${uploaded} images uploadées...`)
+            if (luminaireResult.matchedCount > 0) {
+              associated++
+            }
+          } catch (associationError) {
+            console.log(`⚠️ Impossible d'associer ${file.name} à un luminaire`)
           }
         } catch (error: any) {
-          const errorMsg = `${file.name}: ${error.message}`
+          const errorMsg = `Erreur upload ${file.name}: ${error.message}`
           errors.push(errorMsg)
           console.error(`❌ ${errorMsg}`)
         }
       }
 
-      // Pause entre les batches
-      if (i + BATCH_SIZE < files.length) {
+      // Pause entre les batches pour éviter la surcharge
+      if (batchIndex < batches.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 1000))
       }
     }
 
-    console.log(`✅ Upload terminé: ${uploaded} images uploadées, ${associated} associées`)
+    console.log(`✅ Upload terminé: ${uploaded} uploadées, ${associated} associées`)
 
     return NextResponse.json({
       success: true,
-      message: `${uploaded} images uploadées avec succès, ${associated} associées à des luminaires`,
+      message: `Upload terminé: ${uploaded} images uploadées, ${associated} associées aux luminaires`,
       uploaded,
       associated,
       processed: files.length,
-      errors: errors.slice(0, 50),
+      errors: errors.slice(0, 10),
       totalErrors: errors.length,
     })
   } catch (error: any) {
@@ -106,7 +120,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload images",
+        error: "Erreur serveur lors de l'upload",
         details: error.message,
       },
       { status: 500 },

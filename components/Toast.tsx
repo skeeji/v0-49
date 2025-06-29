@@ -1,45 +1,79 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { X, CheckCircle, AlertCircle, Info } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-interface ToastProps {
+interface ToastMessage {
+  id: string
   message: string
   type: "success" | "error" | "info"
-  onClose: () => void
-  duration?: number
 }
 
-export function Toast({ message, type, onClose, duration = 5000 }: ToastProps) {
-  const [isVisible, setIsVisible] = useState(true)
+export function Toast() {
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(false)
-      setTimeout(onClose, 300) // Attendre la fin de l'animation
-    }, duration)
+    const handleToast = (event: CustomEvent) => {
+      const { message, type } = event.detail
+      const id = Date.now().toString()
+      setToasts((prev) => [...prev, { id, message, type }])
 
-    return () => clearTimeout(timer)
-  }, [duration, onClose])
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== id))
+      }, 5000)
+    }
 
-  const bgColor = {
-    success: "bg-green-500",
-    error: "bg-red-500",
-    info: "bg-blue-500",
-  }[type]
+    window.addEventListener("show-toast", handleToast as EventListener)
+    return () => {
+      window.removeEventListener("show-toast", handleToast as EventListener)
+    }
+  }, [])
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id))
+  }
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case "success":
+        return <CheckCircle className="w-5 h-5 text-green-500" />
+      case "error":
+        return <AlertCircle className="w-5 h-5 text-red-500" />
+      case "info":
+        return <Info className="w-5 h-5 text-blue-500" />
+      default:
+        return null
+    }
+  }
+
+  const getBackgroundColor = (type: string) => {
+    switch (type) {
+      case "success":
+        return "bg-green-50 border-green-200"
+      case "error":
+        return "bg-red-50 border-red-200"
+      case "info":
+        return "bg-blue-50 border-blue-200"
+      default:
+        return "bg-gray-50 border-gray-200"
+    }
+  }
 
   return (
-    <div
-      className={`fixed top-4 right-4 z-50 p-4 rounded-lg text-white shadow-lg transition-all duration-300 ${bgColor} ${
-        isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-full"
-      }`}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span>{message}</span>
-        <button onClick={() => setIsVisible(false)} className="hover:opacity-70">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+    <div className="fixed top-4 right-4 z-50 space-y-2">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className={`flex items-center gap-3 p-4 rounded-lg border shadow-lg max-w-sm ${getBackgroundColor(toast.type)}`}
+        >
+          {getIcon(toast.type)}
+          <p className="flex-1 text-sm font-medium text-gray-900">{toast.message}</p>
+          <Button onClick={() => removeToast(toast.id)} variant="ghost" size="sm" className="p-1 h-auto">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      ))}
     </div>
   )
 }
