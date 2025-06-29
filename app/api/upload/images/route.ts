@@ -27,119 +27,105 @@ export async function POST(request: NextRequest) {
 
     console.log(`🖼️ ${files.length} images reçues pour upload`)
 
+    // CORRECTION MAJEURE: Traiter seulement les 50 premiers fichiers pour éviter les timeouts
+    const BATCH_SIZE = Math.min(50, files.length)
+    const filesToProcess = files.slice(0, BATCH_SIZE)
+
+    console.log(`📦 Traitement de ${filesToProcess.length} images (batch limité)`)
+
     const uploadedFiles = []
     const errors = []
-
-    // CORRECTION: Traiter par petits batches pour éviter les timeouts
-    const BATCH_SIZE = 10 // Réduire drastiquement pour éviter les erreurs de connexion
-    let totalUploaded = 0
     let totalAssociated = 0
 
-    for (let batchIndex = 0; batchIndex < files.length; batchIndex += BATCH_SIZE) {
-      const batch = files.slice(batchIndex, batchIndex + BATCH_SIZE)
-      console.log(
-        `📦 Batch ${Math.floor(batchIndex / BATCH_SIZE) + 1}/${Math.ceil(files.length / BATCH_SIZE)}: ${batch.length} fichiers`,
-      )
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-      // 1. Upload des fichiers vers GridFS
-      for (const file of batch) {
+    // Traiter chaque fichier individuellement
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i]
+
+      try {
+        console.log(`📤 Upload ${i + 1}/${filesToProcess.length}: ${file.name}`)
+
+        // 1. Upload vers GridFS avec timeout
+        const stream = fileToStream(file)
+        const uploadStream = bucket.openUploadStream(file.name, {
+          contentType: file.type,
+        })
+
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error("Timeout upload (10s)"))
+          }, 10000)
+
+          stream
+            .pipe(uploadStream)
+            .on("error", (err) => {
+              clearTimeout(timeout)
+              reject(err)
+            })
+            .on("finish", () => {
+              clearTimeout(timeout)
+              resolve()
+            })
+        })
+
+        const fileId = uploadStream.id.toString()
+
+        uploadedFiles.push({
+          name: file.name,
+          id: fileId,
+          path: `/api/images/${fileId}`,
+          size: file.size,
+        })
+
+        // 2. Association immédiate avec le luminaire
         try {
-          console.log(`📤 Upload de ${file.name}...`)
-
-          const stream = fileToStream(file)
-          const uploadStream = bucket.openUploadStream(file.name, {
-            contentType: file.type,
-          })
-
-          await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error("Timeout upload"))
-            }, 30000) // 30 secondes timeout
-
-            stream
-              .pipe(uploadStream)
-              .on("error", (err) => {
-                clearTimeout(timeout)
-                reject(err)
-              })
-              .on("finish", () => {
-                clearTimeout(timeout)
-                resolve()
-              })
-          })
-
-          const fileId = uploadStream.id.toString()
-
-          uploadedFiles.push({
-            name: file.name,
-            id: fileId,
-            path: `/api/images/${fileId}`,
-            size: file.size,
-          })
-
-          totalUploaded++
-          console.log(`✅ ${file.name} uploadé avec l'ID: ${fileId}`)
-        } catch (error: any) {
-          errors.push(`${file.name}: ${error.message}`)
-          console.error(`❌ Erreur upload ${file.name}:`, error)
-        }
-      }
-
-      // 2. Association avec les luminaires pour ce batch
-      const client = await clientPromise
-      const db = client.db(DBNAME)
-
-      for (const uploadedFile of uploadedFiles.slice(-batch.length)) {
-        try {
-          console.log(`🔗 Recherche luminaire pour: ${uploadedFile.name}`)
-
-          // Chercher le luminaire correspondant
           const luminaire = await db.collection("luminaires").findOne({
-            $or: [{ "Nom du fichier": uploadedFile.name }, { filename: uploadedFile.name }],
+            $or: [{ "Nom du fichier": file.name }, { filename: file.name }],
           })
 
           if (luminaire) {
-            // Ajouter l'ID de l'image au luminaire
-            const updatedImages = [...(luminaire.images || []), uploadedFile.id]
-
             await db.collection("luminaires").updateOne(
               { _id: luminaire._id },
               {
                 $set: {
-                  images: updatedImages,
+                  imageId: fileId,
+                  imagePath: `/api/images/filename/${file.name}`,
                   updatedAt: new Date(),
                 },
               },
             )
 
             totalAssociated++
-            console.log(
-              `✅ Image ${uploadedFile.name} associée au luminaire: ${luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}`,
-            )
+            console.log(`✅ ${file.name} → ${luminaire["Nom luminaire"] || "Sans nom"}`)
           } else {
-            console.warn(`⚠️ Aucun luminaire trouvé pour: ${uploadedFile.name}`)
+            console.warn(`⚠️ Aucun luminaire trouvé pour: ${file.name}`)
           }
-        } catch (error: any) {
-          console.error(`❌ Erreur association ${uploadedFile.name}:`, error)
+        } catch (associationError: any) {
+          console.error(`❌ Erreur association ${file.name}:`, associationError.message)
         }
-      }
 
-      // Log de progression
-      console.log(`📊 Progression: ${totalUploaded}/${files.length} images uploadées, ${totalAssociated} associées`)
-
-      // Petite pause entre les batches
-      if (batchIndex + BATCH_SIZE < files.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Petite pause entre chaque fichier
+        if (i < filesToProcess.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+      } catch (error: any) {
+        errors.push(`${file.name}: ${error.message}`)
+        console.error(`❌ Erreur upload ${file.name}:`, error.message)
       }
     }
 
-    console.log(`✅ Upload terminé: ${totalUploaded} images, ${totalAssociated} associations`)
+    const remainingFiles = files.length - filesToProcess.length
+
+    console.log(`✅ Batch terminé: ${uploadedFiles.length} images uploadées, ${totalAssociated} associées`)
 
     return NextResponse.json({
       success: true,
-      message: `${totalUploaded} images uploadées, ${totalAssociated} associées`,
-      uploaded: totalUploaded,
+      message: `${uploadedFiles.length} images uploadées, ${totalAssociated} associées${remainingFiles > 0 ? ` (${remainingFiles} restantes)` : ""}`,
+      uploaded: uploadedFiles.length,
       associated: totalAssociated,
+      remaining: remainingFiles,
       uploadedFiles,
       errors,
     })

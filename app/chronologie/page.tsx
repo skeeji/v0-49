@@ -2,235 +2,197 @@
 
 import { useState, useEffect } from "react"
 import { TimelineBlock } from "@/components/TimelineBlock"
+import { SearchBar } from "@/components/SearchBar"
+import { Button } from "@/components/ui/button"
+import { Calendar, Grid } from "lucide-react"
 
-const periods = [
-  {
-    name: "Moyen-Age",
-    start: 1000,
-    end: 1499,
-    defaultDescription:
-      "Période médiévale caractérisée par l'artisanat monastique et les premières innovations en éclairage avec les chandelles et lampes à huile ornementées.",
-  },
-  {
-    name: "XVIe siècle",
-    start: 1500,
-    end: 1599,
-    defaultDescription:
-      "Renaissance européenne marquée par le raffinement des arts décoratifs et l'émergence de nouveaux styles d'éclairage palatial.",
-  },
-  {
-    name: "XVIIe siècle",
-    start: 1600,
-    end: 1699,
-    defaultDescription:
-      "Siècle du baroque et du classicisme français, avec le développement des lustres en cristal et des luminaires de cour.",
-  },
-  {
-    name: "XVIIIe siècle",
-    start: 1700,
-    end: 1799,
-    defaultDescription:
-      "Siècle des Lumières et du rococo, âge d'or de l'ébénisterie française et des luminaires précieux en bronze doré.",
-  },
-  {
-    name: "XIXe siècle",
-    start: 1800,
-    end: 1899,
-    defaultDescription:
-      "Révolution industrielle et éclectisme stylistique, avec l'avènement du gaz puis de l'électricité transformant l'art de l'éclairage.",
-  },
-  {
-    name: "Art Nouveau",
-    start: 1890,
-    end: 1910,
-    defaultDescription:
-      "Mouvement artistique privilégiant les formes organiques et la nature, avec des créateurs comme Gallé, Daum et Tiffany révolutionnant l'art verrier.",
-  },
-  {
-    name: "Art Déco",
-    start: 1920,
-    end: 1940,
-    defaultDescription:
-      "Style géométrique et luxueux des années folles, caractérisé par l'utilisation de matériaux nobles et de formes stylisées.",
-  },
-  {
-    name: "1940 - 1949",
-    start: 1940,
-    end: 1949,
-    defaultDescription:
-      "Période de guerre et de reconstruction, marquée par la sobriété et l'innovation dans l'utilisation de nouveaux matériaux.",
-  },
-  {
-    name: "1950 - 1959",
-    start: 1950,
-    end: 1959,
-    defaultDescription:
-      "Renouveau créatif d'après-guerre avec l'émergence du design moderne et l'exploration de nouvelles formes fonctionnalistes.",
-  },
-  {
-    name: "1960 - 1969",
-    start: 1960,
-    end: 1969,
-    defaultDescription:
-      "Révolution culturelle et design pop, avec l'introduction du plastique et de couleurs vives dans le mobilier d'éclairage.",
-  },
-  {
-    name: "1970 - 1979",
-    start: 1970,
-    end: 1979,
-    defaultDescription:
-      "Décennie de l'expérimentation avec de nouveaux matériaux et l'influence du design scandinave et italien.",
-  },
-  {
-    name: "1980 - 1989",
-    start: 1980,
-    end: 1989,
-    defaultDescription:
-      "Postmodernisme et retour aux références historiques, avec des créateurs comme Philippe Starck révolutionnant le design français.",
-  },
-  {
-    name: "1990 - 1999",
-    start: 1990,
-    end: 1999,
-    defaultDescription:
-      "Minimalisme et high-tech, intégration des nouvelles technologies et recherche de simplicité dans les formes.",
-  },
-  {
-    name: "Contemporain",
-    start: 2000,
-    end: 2025,
-    defaultDescription:
-      "Ère numérique et développement durable, avec l'LED révolutionnant l'éclairage et l'émergence de l'éco-design.",
-  },
-]
+interface LuminaireData {
+  _id: string
+  "Nom luminaire"?: string
+  nom?: string
+  "Artiste / Dates"?: string
+  designer?: string
+  Année?: string
+  annee?: string
+  "Nom du fichier"?: string
+  filename?: string
+  [key: string]: any
+}
+
+interface TimelineData {
+  [year: string]: LuminaireData[]
+}
 
 export default function ChronologiePage() {
-  const [timelineData, setTimelineData] = useState<any[]>([])
-  const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
+  const [timelineData, setTimelineData] = useState<TimelineData>({})
+  const [filteredData, setFilteredData] = useState<TimelineData>({})
+  const [searchTerm, setSearchTerm] = useState("")
+  const [viewMode, setViewMode] = useState<"timeline" | "grid">("timeline")
   const [isLoading, setIsLoading] = useState(true)
+  const [totalLuminaires, setTotalLuminaires] = useState(0)
 
   useEffect(() => {
-    const savedDescriptions = JSON.parse(localStorage.getItem("timeline-descriptions") || "{}")
-    setDescriptions(savedDescriptions)
-
-    async function fetchAndProcessData() {
+    async function fetchTimelineData() {
       setIsLoading(true)
       try {
-        // CORRECTION: Charger TOUS les luminaires pour la chronologie
-        const response = await fetch("/api/luminaires?limit=10000") // Augmenter la limite
-        const data = await response.json()
+        console.log("📅 Chargement des données chronologie...")
 
-        if (data.success && data.luminaires) {
-          console.log(`📊 Chronologie: ${data.luminaires.length} luminaires chargés`)
+        // Charger TOUS les luminaires
+        const response = await fetch("/api/luminaires?limit=10000")
+        const result = await response.json()
 
-          // Adapter les données avec les bons champs
-          const adaptedLuminaires = data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
-            year: lum.annee, // Utiliser directement l'année parsée
-            artist: lum["Artiste / Dates"] || lum.designer || "",
-            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
-          }))
+        if (result.success && result.luminaires) {
+          console.log(`📊 ${result.luminaires.length} luminaires chargés pour la chronologie`)
 
-          console.log(`📊 Luminaires avec année:`, adaptedLuminaires.filter((l) => l.year).length)
+          // Organiser par année
+          const organized: TimelineData = {}
 
-          const grouped = periods.map((period) => {
-            // CORRECTION: Filtrer par année et trier correctement
-            const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
-              if (!luminaire.year || luminaire.year === null) return false
-              return luminaire.year >= period.start && luminaire.year <= period.end
-            })
+          result.luminaires.forEach((luminaire: LuminaireData) => {
+            // Extraire l'année de différentes sources
+            const year = luminaire["Année"] || luminaire.annee || ""
 
-            // CORRECTION: Trier par année croissante
-            const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => {
-              const yearA = a.year || 0
-              const yearB = b.year || 0
-              return yearA - yearB
-            })
+            // Nettoyer l'année (extraire les 4 chiffres)
+            const yearMatch = year.toString().match(/\b(19|20)\d{2}\b/)
+            const cleanYear = yearMatch ? yearMatch[0] : ""
 
-            console.log(`📅 Période ${period.name}: ${sortedLuminaires.length} luminaires`)
-
-            return {
-              ...period,
-              description: savedDescriptions[period.name] || period.defaultDescription,
-              luminaires: sortedLuminaires,
+            if (cleanYear) {
+              if (!organized[cleanYear]) {
+                organized[cleanYear] = []
+              }
+              organized[cleanYear].push(luminaire)
+            } else {
+              // Mettre les luminaires sans année dans "Année inconnue"
+              if (!organized["Année inconnue"]) {
+                organized["Année inconnue"] = []
+              }
+              organized["Année inconnue"].push(luminaire)
             }
           })
 
-          // Trier les périodes par date de début
-          setTimelineData(grouped.sort((a, b) => a.start - b.start))
+          // Trier les années
+          const sortedData: TimelineData = {}
+          const sortedYears = Object.keys(organized)
+            .filter((year) => year !== "Année inconnue")
+            .sort((a, b) => Number.parseInt(a) - Number.parseInt(b))
+
+          // Ajouter les années triées
+          sortedYears.forEach((year) => {
+            sortedData[year] = organized[year]
+          })
+
+          // Ajouter "Année inconnue" à la fin
+          if (organized["Année inconnue"]) {
+            sortedData["Année inconnue"] = organized["Année inconnue"]
+          }
+
+          setTimelineData(sortedData)
+          setFilteredData(sortedData)
+          setTotalLuminaires(result.luminaires.length)
+
+          console.log(`✅ Chronologie organisée: ${Object.keys(sortedData).length} années`)
         }
       } catch (error) {
-        console.error("❌ Impossible de charger la chronologie", error)
+        console.error("❌ Erreur chargement chronologie:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchAndProcessData()
+    fetchTimelineData()
   }, [])
 
   useEffect(() => {
-    if (isLoading) return
+    if (!searchTerm) {
+      setFilteredData(timelineData)
+      return
+    }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("revealed")
-          }
-        })
-      },
-      { threshold: 0.1 },
-    )
+    const filtered: TimelineData = {}
+    const searchLower = searchTerm.toLowerCase()
 
-    const elements = document.querySelectorAll(".scroll-reveal")
-    elements.forEach((el) => observer.observe(el))
+    Object.entries(timelineData).forEach(([year, luminaires]) => {
+      const filteredLuminaires = luminaires.filter((luminaire) => {
+        const name = (luminaire["Nom luminaire"] || luminaire.nom || "").toLowerCase()
+        const artist = (luminaire["Artiste / Dates"] || luminaire.designer || "").toLowerCase()
+        return name.includes(searchLower) || artist.includes(searchLower)
+      })
 
-    return () => observer.disconnect()
-  }, [timelineData, isLoading])
+      if (filteredLuminaires.length > 0) {
+        filtered[year] = filteredLuminaires
+      }
+    })
 
-  const updateDescription = (periodName: string, newDescription: string) => {
-    const updatedDescriptions = { ...descriptions, [periodName]: newDescription }
-    setDescriptions(updatedDescriptions)
-    localStorage.setItem("timeline-descriptions", JSON.stringify(updatedDescriptions))
+    setFilteredData(filtered)
+  }, [searchTerm, timelineData])
 
-    setTimelineData((prev) =>
-      prev.map((period) => (period.name === periodName ? { ...period, description: newDescription } : period)),
-    )
-  }
+  const years = Object.keys(filteredData)
+  const totalFiltered = Object.values(filteredData).reduce((sum, luminaires) => sum + luminaires.length, 0)
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p>Chargement de la chronologie...</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-16">
+          <Calendar className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+          <p className="text-lg text-gray-600">Chargement de la chronologie...</p>
         </div>
       </div>
     )
   }
 
-  const totalLuminaires = timelineData.reduce((sum, period) => sum + period.luminaires.length, 0)
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-4 text-center">Chronologie des Périodes Artistiques</h1>
-        <p className="text-center text-gray-600 mb-12">{totalLuminaires} luminaires classés par période historique</p>
+        {/* En-tête */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-serif text-gray-900 mb-4">Chronologie des Luminaires</h1>
+          <p className="text-lg text-gray-600 mb-6">Découvrez l'évolution des luminaires à travers les époques</p>
 
-        <div className="space-y-16">
-          {timelineData.map((period, index) => (
-            <TimelineBlock
-              key={period.name}
-              period={period}
-              isLeft={index % 2 === 0}
-              className="scroll-reveal"
-              onDescriptionUpdate={updateDescription}
-            />
-          ))}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <Button
+                variant={viewMode === "timeline" ? "default" : "outline"}
+                onClick={() => setViewMode("timeline")}
+                className="flex items-center gap-2"
+              >
+                <Calendar className="w-4 h-4" />
+                Chronologie
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "default" : "outline"}
+                onClick={() => setViewMode("grid")}
+                className="flex items-center gap-2"
+              >
+                <Grid className="w-4 h-4" />
+                Grille
+              </Button>
+            </div>
+
+            <div className="text-sm text-gray-600">
+              {totalFiltered} luminaires sur {totalLuminaires} • {years.length} années
+            </div>
+          </div>
+
+          <SearchBar
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Rechercher par nom ou artiste..."
+            className="max-w-md mx-auto"
+          />
         </div>
+
+        {/* Contenu */}
+        {years.length === 0 ? (
+          <div className="text-center py-16">
+            <Calendar className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <p className="text-lg text-gray-600">Aucun luminaire trouvé</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {years.map((year) => (
+              <TimelineBlock key={year} year={year} luminaires={filteredData[year]} viewMode={viewMode} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

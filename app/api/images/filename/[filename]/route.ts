@@ -8,29 +8,35 @@ export async function GET(request: NextRequest, { params }: { params: { filename
 
     const bucket = await getBucket()
 
-    // Chercher le fichier par nom
+    // Chercher le fichier par nom exact
     const files = await bucket.find({ filename }).toArray()
 
     if (files.length === 0) {
       console.log(`❌ Image non trouvée: ${filename}`)
-      return new NextResponse("Image non trouvée", { status: 404 })
+      // Retourner une image placeholder au lieu d'une erreur 404
+      return NextResponse.redirect("/placeholder.svg?height=300&width=300")
     }
 
     const file = files[0]
-    console.log(`✅ Image trouvée: ${filename}, ID: ${file._id}`)
+    console.log(`✅ Image trouvée: ${filename}, taille: ${file.length} bytes`)
 
     // Créer un stream de téléchargement
     const downloadStream = bucket.openDownloadStream(file._id)
 
-    // Convertir le stream en buffer
+    // Convertir le stream en buffer avec timeout
     const chunks: Buffer[] = []
 
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new NextResponse("Timeout lecture image", { status: 408 }))
+      }, 10000)
+
       downloadStream.on("data", (chunk) => {
         chunks.push(chunk)
       })
 
       downloadStream.on("end", () => {
+        clearTimeout(timeout)
         const buffer = Buffer.concat(chunks)
 
         const response = new NextResponse(buffer, {
@@ -38,7 +44,8 @@ export async function GET(request: NextRequest, { params }: { params: { filename
           headers: {
             "Content-Type": file.contentType || "image/jpeg",
             "Content-Length": buffer.length.toString(),
-            "Cache-Control": "public, max-age=31536000",
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "Access-Control-Allow-Origin": "*",
           },
         })
 
@@ -46,6 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: { filename
       })
 
       downloadStream.on("error", (error) => {
+        clearTimeout(timeout)
         console.error(`❌ Erreur lecture image ${filename}:`, error)
         reject(new NextResponse("Erreur lecture image", { status: 500 }))
       })
