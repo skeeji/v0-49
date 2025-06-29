@@ -17,26 +17,25 @@ function fileToStream(file: File) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🖼️ API POST /api/upload/images appelée")
+    console.log("🖼️ API /api/upload/images - Début du traitement")
 
+    const bucket = await getBucket()
     const formData = await request.formData()
     const files = formData.getAll("images") as File[]
 
     if (!files || files.length === 0) {
-      console.log("❌ Aucun fichier trouvé dans la requête")
-      return NextResponse.json({ success: false, error: "Aucun fichier trouvé" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📁 ${files.length} fichiers reçus pour upload`)
+    console.log(`🖼️ ${files.length} images reçues pour upload`)
 
-    const bucket = await getBucket()
     const uploadedFiles = []
     const errors = []
 
     // 1. Upload des fichiers vers GridFS
     for (const file of files) {
       try {
-        console.log(`📤 Upload de ${file.name} (${file.size} bytes)...`)
+        console.log(`📤 Upload de ${file.name}...`)
 
         const stream = fileToStream(file)
         const uploadStream = bucket.openUploadStream(file.name, {
@@ -69,6 +68,7 @@ export async function POST(request: NextRequest) {
     // 2. Association avec les luminaires
     const client = await clientPromise
     const db = client.db(DBNAME)
+
     let associatedCount = 0
 
     for (const uploadedFile of uploadedFiles) {

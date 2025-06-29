@@ -6,40 +6,32 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function DELETE(request: NextRequest) {
   try {
-    console.log("🗑️ API DELETE /api/reset - Début de la réinitialisation complète")
+    console.log("🗑️ API /api/reset - Début de la réinitialisation complète")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Supprimer toutes les collections
-    const collections = ["luminaires", "designers", "videos", "logos"]
+    // 1. Supprimer toutes les collections MongoDB
+    const collections = await db.listCollections().toArray()
+    console.log(`📋 ${collections.length} collections trouvées`)
 
-    for (const collectionName of collections) {
-      try {
-        const result = await db.collection(collectionName).deleteMany({})
-        console.log(`✅ Collection ${collectionName} vidée: ${result.deletedCount} documents supprimés`)
-      } catch (error) {
-        console.warn(`⚠️ Erreur lors de la suppression de ${collectionName}:`, error)
-      }
+    for (const collection of collections) {
+      await db.collection(collection.name).drop()
+      console.log(`🗑️ Collection ${collection.name} supprimée`)
     }
 
-    // Réinitialiser GridFS
-    try {
-      await resetGridFS()
-      console.log("✅ GridFS réinitialisé")
-    } catch (error) {
-      console.warn("⚠️ Erreur lors de la réinitialisation de GridFS:", error)
-    }
+    // 2. Réinitialiser GridFS
+    await resetGridFS()
 
     console.log("✅ Réinitialisation complète terminée")
 
     return NextResponse.json({
       success: true,
-      message: "Base de données et GridFS réinitialisés avec succès",
-      timestamp: new Date().toISOString(),
+      message: "Serveur réinitialisé avec succès",
+      deletedCollections: collections.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors de la réinitialisation:", error)
+    console.error("❌ Erreur lors de la réinitialisation:", error)
     return NextResponse.json(
       {
         success: false,

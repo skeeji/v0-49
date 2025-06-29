@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getBucket } from "@/lib/gridfs"
 import { Readable } from "stream"
-import clientPromise from "@/lib/mongodb"
-
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 function fileToStream(file: File) {
   const reader = file.stream().getReader()
@@ -17,24 +14,27 @@ function fileToStream(file: File) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🏷️ API POST /api/upload/logo appelée")
+    console.log("🏷️ API /api/upload/logo - Début du traitement")
 
+    const bucket = await getBucket()
     const formData = await request.formData()
     const file = formData.get("logo") as File
 
     if (!file) {
-      console.log("❌ Aucun fichier logo trouvé dans la requête")
-      return NextResponse.json({ success: false, error: "Aucun fichier logo trouvé" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Logo reçu: ${file.name} (${file.size} bytes)`)
-
-    const bucket = await getBucket()
+    console.log(`📁 Logo reçu: ${file.name}, taille: ${file.size} bytes`)
 
     // Upload vers GridFS
     const stream = fileToStream(file)
-    const uploadStream = bucket.openUploadStream(`logo_${Date.now()}_${file.name}`, {
+    const uploadStream = bucket.openUploadStream(`logo-${Date.now()}-${file.name}`, {
       contentType: file.type,
+      metadata: {
+        type: "logo",
+        originalName: file.name,
+        uploadedAt: new Date(),
+      },
     })
 
     await new Promise<void>((resolve, reject) => {
@@ -45,30 +45,14 @@ export async function POST(request: NextRequest) {
     })
 
     const fileId = uploadStream.id.toString()
+
     console.log(`✅ Logo uploadé avec l'ID: ${fileId}`)
-
-    // Sauvegarder les métadonnées en base
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    const logoData = {
-      filename: file.name,
-      fileId: fileId,
-      path: `/api/images/${fileId}`,
-      size: file.size,
-      contentType: file.type,
-      uploadedAt: new Date(),
-    }
-
-    await db.collection("logos").insertOne(logoData)
-
-    console.log(`✅ Métadonnées logo sauvegardées`)
 
     return NextResponse.json({
       success: true,
       message: "Logo uploadé avec succès",
-      filename: file.name,
       fileId: fileId,
+      filename: uploadStream.filename,
       path: `/api/images/${fileId}`,
     })
   } catch (error: any) {
