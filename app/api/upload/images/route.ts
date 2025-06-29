@@ -1,127 +1,123 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
 import { uploadToGridFS } from "@/lib/gridfs"
+import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📥 API /api/upload/images - Début du traitement")
+    console.log("🖼️ API /api/upload/images - Début upload images")
 
     const formData = await request.formData()
     const files = formData.getAll("images") as File[]
 
     if (!files || files.length === 0) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
+      console.log("❌ Aucun fichier image fourni")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Aucun fichier image fourni",
+        },
+        { status: 400 },
+      )
     }
 
-    console.log(`📁 ${files.length} fichiers reçus`)
+    console.log(`📁 ${files.length} fichiers images reçus`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    const results = {
-      uploaded: 0,
-      associated: 0,
-      errors: [] as string[],
-    }
+    let uploaded = 0
+    let associated = 0
+    const errors: string[] = []
 
-    // Traitement par batch de 50 fichiers pour éviter les timeouts
-    const BATCH_SIZE = 50
-    const totalBatches = Math.ceil(files.length / BATCH_SIZE)
+    // Traiter par batch de 50 pour éviter les timeouts
+    const batchSize = 50
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize)
+      console.log(
+        `📦 Traitement batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(files.length / batchSize)} (${batch.length} fichiers)`,
+      )
 
-    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-      const startIndex = batchIndex * BATCH_SIZE
-      const endIndex = Math.min(startIndex + BATCH_SIZE, files.length)
-      const batch = files.slice(startIndex, endIndex)
-
-      console.log(`📦 Traitement batch ${batchIndex + 1}/${totalBatches} (${batch.length} fichiers)`)
-
-      // Traiter chaque fichier du batch
       for (const file of batch) {
         try {
-          console.log(`📁 Upload: ${file.name} (${file.size} bytes)`)
+          if (!file.type.startsWith("image/")) {
+            errors.push(`${file.name}: Type de fichier invalide (${file.type})`)
+            continue
+          }
 
-          // Convertir le fichier en buffer
+          // Convertir en buffer
           const buffer = Buffer.from(await file.arrayBuffer())
 
           // Upload vers GridFS
           const fileId = await uploadToGridFS(buffer, file.name, {
             contentType: file.type,
+            category: "luminaire_image",
             originalName: file.name,
-            size: file.size,
-            category: "luminaire",
           })
 
-          results.uploaded++
+          uploaded++
 
           // Essayer d'associer l'image à un luminaire
-          const filename = file.name
-          const nameWithoutExt = filename.replace(/\.[^/.]+$/, "")
+          // Extraire le numéro du nom de fichier (ex: luminaire_1234.jpg -> 1234)
+          const match = file.name.match(/luminaire[_-]?(\d+)/i)
+          if (match) {
+            const numero = match[1]
 
-          // Rechercher le luminaire correspondant
-          const luminaire = await db.collection("luminaires").findOne({
-            $or: [
-              { filename: filename },
-              { "Nom du fichier": filename },
-              { nom: nameWithoutExt },
-              { filename: nameWithoutExt },
-              { "Nom du fichier": nameWithoutExt },
-            ],
-          })
-
-          if (luminaire) {
-            // Ajouter l'image au luminaire
-            await db.collection("luminaires").updateOne(
-              { _id: luminaire._id },
+            const result = await db.collection("luminaires").updateOne(
               {
-                $push: {
-                  images: {
-                    id: fileId.toString(),
-                    filename: filename,
-                    url: `/api/images/${fileId}`,
-                    contentType: file.type,
-                    size: file.size,
-                  },
+                $or: [
+                  { numero: numero },
+                  { numero: Number.parseInt(numero) },
+                  { id: numero },
+                  { id: Number.parseInt(numero) },
+                ],
+              },
+              {
+                $set: {
+                  image: file.name,
+                  imageId: fileId.toString(),
                 },
               },
             )
-            results.associated++
-            console.log(`✅ Image ${filename} associée au luminaire ${luminaire.nom}`)
+
+            if (result.matchedCount > 0) {
+              associated++
+              console.log(`✅ Image ${file.name} associée au luminaire ${numero}`)
+            } else {
+              console.log(`⚠️ Image ${file.name} uploadée mais pas de luminaire trouvé pour le numéro ${numero}`)
+            }
           } else {
-            console.log(`⚠️ Aucun luminaire trouvé pour l'image ${filename}`)
+            console.log(`⚠️ Image ${file.name} uploadée mais impossible d'extraire le numéro`)
           }
         } catch (error: any) {
           console.error(`❌ Erreur upload ${file.name}:`, error)
-          results.errors.push(`${file.name}: ${error.message}`)
+          errors.push(`${file.name}: ${error.message}`)
         }
       }
 
-      // Log de progression
-      console.log(`📊 Batch ${batchIndex + 1} terminé: ${results.uploaded} uploadées, ${results.associated} associées`)
-
-      // Petite pause entre les batches pour éviter la surcharge
-      if (batchIndex < totalBatches - 1) {
+      // Petite pause entre les batches
+      if (i + batchSize < files.length) {
         await new Promise((resolve) => setTimeout(resolve, 100))
       }
     }
 
-    console.log(`✅ Upload terminé: ${results.uploaded} uploadées, ${results.associated} associées`)
+    console.log(`✅ Upload terminé: ${uploaded} images uploadées, ${associated} associées`)
 
     return NextResponse.json({
       success: true,
-      message: `${results.uploaded} images uploadées, ${results.associated} associées`,
-      uploaded: results.uploaded,
-      associated: results.associated,
-      errors: results.errors.slice(0, 10), // Limiter les erreurs affichées
-      totalErrors: results.errors.length,
+      message: `${uploaded} images uploadées, ${associated} associées`,
+      uploaded,
+      associated,
+      errors,
+      total: files.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors de l'upload d'images:", error)
+    console.error("❌ Erreur critique upload images:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload",
+        error: "Erreur serveur lors de l'upload des images",
         details: error.message,
       },
       { status: 500 },

@@ -1,62 +1,95 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { uploadToGridFS } from "@/lib/gridfs"
+import clientPromise from "@/lib/mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🏷️ API /api/upload/logo - Début du traitement")
+    console.log("🏷️ API /api/upload/logo - Début upload logo")
 
     const formData = await request.formData()
+    const file = (formData.get("logo") as File) || (formData.get("file") as File)
 
-    // Essayer différents noms de champs
-    let logoFile = formData.get("logo") as File
-    if (!logoFile) {
-      logoFile = formData.get("file") as File
-    }
-    if (!logoFile) {
-      logoFile = formData.get("image") as File
-    }
-
-    console.log("📁 Fichier logo reçu:", logoFile?.name, logoFile?.size)
-
-    if (!logoFile) {
+    if (!file) {
       console.log("❌ Aucun fichier logo fourni")
-      return NextResponse.json({ error: "Aucun fichier logo fourni" }, { status: 400 })
+      console.log("📊 FormData keys:", Array.from(formData.keys()))
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Aucun fichier logo fourni",
+          debug: {
+            formDataKeys: Array.from(formData.keys()),
+            expectedKeys: ["logo", "file"],
+          },
+        },
+        { status: 400 },
+      )
     }
+
+    console.log(`📁 Fichier logo reçu: ${file.name} (${file.size} bytes, ${file.type})`)
 
     // Vérifier le type de fichier
-    if (!logoFile.type.startsWith("image/")) {
-      console.log("❌ Type de fichier invalide:", logoFile.type)
-      return NextResponse.json({ error: "Le fichier doit être une image" }, { status: 400 })
+    if (!file.type.startsWith("image/")) {
+      console.log(`❌ Type de fichier invalide: ${file.type}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Le fichier doit être une image",
+          receivedType: file.type,
+        },
+        { status: 400 },
+      )
     }
 
-    console.log(`📁 Upload logo: ${logoFile.name} (${logoFile.size} bytes)`)
-
-    // Convertir le fichier en buffer
-    const buffer = Buffer.from(await logoFile.arrayBuffer())
+    // Convertir en buffer
+    const buffer = Buffer.from(await file.arrayBuffer())
+    console.log(`📊 Buffer créé: ${buffer.length} bytes`)
 
     // Upload vers GridFS
-    const fileId = await uploadToGridFS(buffer, logoFile.name, {
-      contentType: logoFile.type,
-      originalName: logoFile.name,
-      size: logoFile.size,
+    const fileId = await uploadToGridFS(buffer, file.name, {
+      contentType: file.type,
       category: "logo",
+      originalName: file.name,
     })
 
-    console.log(`✅ Logo uploadé avec l'ID: ${fileId}`)
+    console.log(`✅ Logo uploadé vers GridFS: ${fileId}`)
+
+    // Sauvegarder les métadonnées dans MongoDB
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    await db.collection("settings").updateOne(
+      { key: "site_logo" },
+      {
+        $set: {
+          key: "site_logo",
+          filename: file.name,
+          fileId: fileId.toString(),
+          contentType: file.type,
+          size: file.size,
+          uploadDate: new Date(),
+        },
+      },
+      { upsert: true },
+    )
+
+    console.log("✅ Métadonnées logo sauvegardées")
 
     return NextResponse.json({
       success: true,
       message: "Logo uploadé avec succès",
-      filename: logoFile.name,
+      filename: file.name,
       fileId: fileId.toString(),
-      url: `/api/images/${fileId}`,
+      size: file.size,
+      contentType: file.type,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors de l'upload logo:", error)
+    console.error("❌ Erreur critique upload logo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload logo",
+        error: "Erreur serveur lors de l'upload du logo",
         details: error.message,
       },
       { status: 500 },

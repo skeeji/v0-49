@@ -1,41 +1,46 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getBucket } from "@/lib/gridfs"
+import { streamFile, findFileByName } from "@/lib/gridfs"
 
 export async function GET(request: NextRequest, { params }: { params: { filename: string } }) {
   try {
-    const filename = params.filename
-    console.log("🔍 API /api/images/filename/[filename] GET - Filename:", filename)
+    const filename = decodeURIComponent(params.filename)
+    console.log(`🖼️ API /api/images/filename/${filename} - Récupération image`)
 
-    if (!filename) {
-      console.log("❌ Nom de fichier manquant")
-      return new NextResponse("Nom de fichier manquant", { status: 400 })
+    // Chercher le fichier par nom
+    const fileInfo = await findFileByName(filename)
+
+    if (!fileInfo) {
+      console.log(`❌ Image non trouvée: ${filename}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Image non trouvée",
+        },
+        { status: 404 },
+      )
     }
 
-    const bucket = await getBucket()
+    console.log(`✅ Image trouvée: ${filename} (${fileInfo.length} bytes)`)
 
-    // Rechercher le fichier par nom
-    const files = await bucket.find({ filename: filename }).toArray()
+    // Créer un stream pour le fichier
+    const downloadStream = await streamFile(fileInfo._id)
 
-    if (!files || files.length === 0) {
-      console.log("❌ Fichier non trouvé:", filename)
-      return new NextResponse("Fichier non trouvé", { status: 404 })
-    }
+    // Créer une réponse avec le stream
+    const response = new NextResponse(downloadStream as any, {
+      headers: {
+        "Content-Type": fileInfo.contentType || "image/jpeg",
+        "Content-Length": fileInfo.length.toString(),
+        "Cache-Control": "public, max-age=31536000",
+      },
+    })
 
-    // Utiliser le premier fichier trouvé (devrait être unique)
-    const file = files[0]
-    console.log("✅ Fichier trouvé:", file.filename, file._id)
-
-    const downloadStream = bucket.openDownloadStream(file._id)
-
-    console.log("✅ Stream ouvert pour le fichier:", file.filename)
-
-    return new NextResponse(downloadStream as any)
+    return response
   } catch (error: any) {
-    console.error("❌ Erreur dans GET /api/images/filename/[filename]:", error)
+    console.error(`❌ Erreur récupération image ${params.filename}:`, error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur",
+        error: "Erreur serveur lors de la récupération de l'image",
         details: error.message,
       },
       { status: 500 },

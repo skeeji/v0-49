@@ -1,62 +1,95 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { uploadToGridFS } from "@/lib/gridfs"
+import clientPromise from "@/lib/mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🎥 API /api/upload/video - Début du traitement")
+    console.log("🎥 API /api/upload/video - Début upload vidéo")
 
     const formData = await request.formData()
+    const file = (formData.get("video") as File) || (formData.get("file") as File)
 
-    // Essayer différents noms de champs
-    let videoFile = formData.get("video") as File
-    if (!videoFile) {
-      videoFile = formData.get("file") as File
-    }
-    if (!videoFile) {
-      videoFile = formData.get("videos") as File
-    }
-
-    console.log("📁 Fichier vidéo reçu:", videoFile?.name, videoFile?.size)
-
-    if (!videoFile) {
+    if (!file) {
       console.log("❌ Aucun fichier vidéo fourni")
-      return NextResponse.json({ error: "Aucun fichier vidéo fourni" }, { status: 400 })
+      console.log("📊 FormData keys:", Array.from(formData.keys()))
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Aucun fichier vidéo fourni",
+          debug: {
+            formDataKeys: Array.from(formData.keys()),
+            expectedKeys: ["video", "file"],
+          },
+        },
+        { status: 400 },
+      )
     }
+
+    console.log(`📁 Fichier vidéo reçu: ${file.name} (${file.size} bytes, ${file.type})`)
 
     // Vérifier le type de fichier
-    if (!videoFile.type.startsWith("video/")) {
-      console.log("❌ Type de fichier invalide:", videoFile.type)
-      return NextResponse.json({ error: "Le fichier doit être une vidéo" }, { status: 400 })
+    if (!file.type.startsWith("video/")) {
+      console.log(`❌ Type de fichier invalide: ${file.type}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Le fichier doit être une vidéo",
+          receivedType: file.type,
+        },
+        { status: 400 },
+      )
     }
 
-    console.log(`📁 Upload vidéo: ${videoFile.name} (${videoFile.size} bytes)`)
-
-    // Convertir le fichier en buffer
-    const buffer = Buffer.from(await videoFile.arrayBuffer())
+    // Convertir en buffer
+    const buffer = Buffer.from(await file.arrayBuffer())
+    console.log(`📊 Buffer créé: ${buffer.length} bytes`)
 
     // Upload vers GridFS
-    const fileId = await uploadToGridFS(buffer, videoFile.name, {
-      contentType: videoFile.type,
-      originalName: videoFile.name,
-      size: videoFile.size,
+    const fileId = await uploadToGridFS(buffer, file.name, {
+      contentType: file.type,
       category: "video",
+      originalName: file.name,
     })
 
-    console.log(`✅ Vidéo uploadée avec l'ID: ${fileId}`)
+    console.log(`✅ Vidéo uploadée vers GridFS: ${fileId}`)
+
+    // Sauvegarder les métadonnées dans MongoDB
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    await db.collection("settings").updateOne(
+      { key: "welcome_video" },
+      {
+        $set: {
+          key: "welcome_video",
+          filename: file.name,
+          fileId: fileId.toString(),
+          contentType: file.type,
+          size: file.size,
+          uploadDate: new Date(),
+        },
+      },
+      { upsert: true },
+    )
+
+    console.log("✅ Métadonnées vidéo sauvegardées")
 
     return NextResponse.json({
       success: true,
       message: "Vidéo uploadée avec succès",
-      filename: videoFile.name,
+      filename: file.name,
       fileId: fileId.toString(),
-      url: `/api/videos/${fileId}`,
+      size: file.size,
+      contentType: file.type,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors de l'upload vidéo:", error)
+    console.error("❌ Erreur critique upload vidéo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload vidéo",
+        error: "Erreur serveur lors de l'upload de la vidéo",
         details: error.message,
       },
       { status: 500 },
