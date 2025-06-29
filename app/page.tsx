@@ -570,7 +570,16 @@ export default function HomePage() {
     <div className="relative min-h-screen overflow-hidden">
       {/* Vidéo de fond */}
       {welcomeVideo ? (
-        <video autoPlay muted loop className="absolute inset-0 w-full h-full object-cover">
+        <video
+          autoPlay
+          muted
+          loop
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={(e) => {
+            console.log("❌ Erreur chargement vidéo:", welcomeVideo)
+            e.currentTarget.style.display = "none"
+          }}
+        >
           <source src={welcomeVideo} type="video/mp4" />
         </video>
       ) : (

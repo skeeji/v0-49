@@ -1,128 +1,86 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+import { connectToDatabase } from "@/lib/mongodb"
 
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
+    const { db } = await connectToDatabase()
+
     const designerName = decodeURIComponent(params.name)
-    console.log(`🔍 API /api/designers/${designerName} - Recherche designer`)
+    console.log("🔍 Recherche designer:", designerName)
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    // Recherche très flexible pour gérer tous les cas
+    // Recherche ultra-flexible pour gérer tous les cas
     const searchPatterns = [
-      // Recherche exacte
-      { "Artiste / Dates": designerName },
-      // Recherche insensible à la casse
-      { "Artiste / Dates": { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
-      // Recherche partielle
-      { "Artiste / Dates": { $regex: designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
-      // Recherche en supprimant les caractères spéciaux
-      { "Artiste / Dates": { $regex: designerName.replace(/[^a-zA-Z0-9\s]/g, ""), $options: "i" } },
-      // Recherche sur le premier mot seulement
-      { "Artiste / Dates": { $regex: `^${designerName.split(" ")[0]}`, $options: "i" } },
+      designerName, // Nom exact
+      designerName
+        .replace(/\s+/g, " ")
+        .trim(), // Normaliser les espaces
+      designerName.replace(/[()]/g, ""), // Sans parenthèses
+      designerName.replace(/[+]/g, " "), // Remplacer + par espace
+      designerName
+        .split("(")[0]
+        .trim(), // Partie avant parenthèses
+      designerName
+        .split(/[()]/)[0]
+        .trim(), // Première partie
     ]
 
-    let luminaires = []
-    let searchUsed = ""
+    console.log("🔍 Patterns de recherche:", searchPatterns)
 
-    for (let i = 0; i < searchPatterns.length; i++) {
-      const pattern = searchPatterns[i]
-      luminaires = await db.collection("luminaires").find(pattern).toArray()
-
-      if (luminaires.length > 0) {
-        searchUsed = `Pattern ${i + 1}`
-        console.log(`✅ Trouvé avec ${searchUsed}: ${luminaires.length} luminaires`)
-        break
-      }
+    // Construire une requête MongoDB flexible
+    const searchQuery = {
+      $or: searchPatterns.flatMap((pattern) => [
+        { "Artiste / Dates": { $regex: pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+        { "Artiste / Dates": { $regex: pattern, $options: "i" } },
+        { designer: { $regex: pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+        { designer: { $regex: pattern, $options: "i" } },
+      ]),
     }
 
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour "${designerName}"`)
+    console.log("🔍 Requête MongoDB:", JSON.stringify(searchQuery, null, 2))
+
+    // Chercher les luminaires correspondants
+    const luminaires = await db.collection("luminaires").find(searchQuery).toArray()
+
+    console.log(`📊 ${luminaires.length} luminaires trouvés`)
 
     if (luminaires.length === 0) {
-      // Essayer une recherche encore plus large
-      const broadSearch = await db
-        .collection("luminaires")
-        .find({
-          "Artiste / Dates": { $regex: designerName.split(" ")[0], $options: "i" },
-        })
-        .toArray()
-
-      console.log(`🔍 Recherche large: ${broadSearch.length} résultats`)
-
       return NextResponse.json(
         {
           success: false,
           error: "Designer non trouvé",
-          debug: {
-            searchTerm: designerName,
-            broadResults: broadSearch.length,
-            suggestions: broadSearch.slice(0, 5).map((l) => l["Artiste / Dates"]),
-          },
+          searchedName: designerName,
+          patterns: searchPatterns,
         },
         { status: 404 },
       )
     }
 
-    // Chercher l'image du designer
-    let designerImage = null
-    try {
-      const designerQueries = [
-        { Nom: designerName },
-        { Nom: { $regex: designerName, $options: "i" } },
-        { Nom: { $regex: designerName.split(" ")[0], $options: "i" } },
-      ]
-
-      for (const query of designerQueries) {
-        const designerDoc = await db.collection("designers").findOne(query)
-        if (designerDoc && designerDoc.imagedesigner) {
-          designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
-          console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
-          break
-        }
-      }
-    } catch (error) {
-      console.log("⚠️ Pas d'image trouvée pour ce designer")
-    }
+    // Prendre le premier luminaire pour extraire les infos du designer
+    const firstLuminaire = luminaires[0]
+    const designerField = firstLuminaire["Artiste / Dates"] || firstLuminaire.designer || designerName
 
     // Créer l'objet designer
     const designer = {
-      nom: designerName,
+      nom: designerField,
       count: luminaires.length,
-      image: designerImage,
-      biographie: "",
-      specialites: [],
+      imagedesigner: firstLuminaire.imagedesigner || null,
     }
 
-    // Adapter les luminaires pour l'affichage
-    const adaptedLuminaires = luminaires.map((lum: any) => ({
-      ...lum,
-      id: lum._id,
-      image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
-      name: lum["Nom luminaire"] || "Sans nom",
-      year: lum["Année"] || "",
-    }))
+    console.log("✅ Designer trouvé:", designer)
 
     return NextResponse.json({
       success: true,
       data: {
         designer,
-        luminaires: adaptedLuminaires,
-      },
-      debug: {
-        searchUsed,
-        originalName: designerName,
+        luminaires,
       },
     })
-  } catch (error: any) {
-    console.error(`❌ Erreur API designers/${params.name}:`, error)
+  } catch (error) {
+    console.error("❌ Erreur API designer:", error)
     return NextResponse.json(
       {
         success: false,
         error: "Erreur serveur",
-        details: error.message,
       },
       { status: 500 },
     )
