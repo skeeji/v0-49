@@ -40,14 +40,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`📊 ${data.length} lignes parsées du CSV`)
+    console.log(`📊 ${data.length} lignes parsées du CSV designers`)
 
     if (data.length === 0) {
       return NextResponse.json({ error: "Aucune donnée trouvée dans le CSV" }, { status: 400 })
     }
 
     // Afficher un échantillon des données
-    console.log("📋 Premier enregistrement:", data[0])
+    console.log("📋 Premier enregistrement designers:", data[0])
 
     // Connexion à MongoDB
     const client = await clientPromise
@@ -70,8 +70,9 @@ export async function POST(request: NextRequest) {
       const designersToInsert = batch
         .map((row, index) => {
           try {
-            const nom = (row["Nom"] || row["nom"] || "").toString().trim()
-            const imagedesigner = (row["imagedesigner"] || row["image"] || "").toString().trim()
+            // Mapping selon le schéma designers (Nom, imagedesigner)
+            const nom = (row["Nom"] || row["nom"] || row["name"] || "").toString().trim()
+            const imagedesigner = (row["imagedesigner"] || row["image"] || row["Image"] || "").toString().trim()
 
             if (!nom) {
               errors.push(`Ligne ${i + index + 2}: nom manquant`)
@@ -81,10 +82,11 @@ export async function POST(request: NextRequest) {
             return {
               nom: nom,
               imagedesigner: imagedesigner,
-              biographie: (row["biographie"] || row["Biographie"] || "").toString().trim(),
-              dateNaissance: (row["dateNaissance"] || row["DateNaissance"] || "").toString().trim(),
-              dateDeces: (row["dateDeces"] || row["DateDeces"] || "").toString().trim(),
-              nationalite: (row["nationalite"] || row["Nationalite"] || "").toString().trim(),
+              slug: nom.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+              description: "",
+              biographie: "",
+              specialites: [],
+              images: [],
               createdAt: new Date(),
               updatedAt: new Date(),
             }
@@ -99,15 +101,15 @@ export async function POST(request: NextRequest) {
         try {
           await collection.insertMany(designersToInsert, { ordered: false })
           imported += designersToInsert.length
-          console.log(`✅ Batch inséré: ${designersToInsert.length} designers (Total: ${imported})`)
+          console.log(`✅ Batch designers inséré: ${designersToInsert.length} designers (Total: ${imported})`)
         } catch (error: any) {
-          console.error(`❌ Erreur insertion batch:`, error)
+          console.error(`❌ Erreur insertion batch designers:`, error)
           errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`)
         }
       }
     }
 
-    console.log(`✅ Import terminé: ${imported} designers importés sur ${data.length} lignes`)
+    console.log(`✅ Import designers terminé: ${imported} designers importés sur ${data.length} lignes`)
 
     return NextResponse.json({
       success: true,
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
       totalErrors: errors.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors de l'import designers:", error)
+    console.error("❌ Erreur critique lors de l'import CSV designers:", error)
     return NextResponse.json(
       {
         success: false,

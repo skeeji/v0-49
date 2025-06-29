@@ -13,12 +13,12 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || ""
     const designer = searchParams.get("designer") || ""
     const periode = searchParams.get("periode") || ""
-    const anneeMin = searchParams.get("anneeMin")
-    const anneeMax = searchParams.get("anneeMax")
-    const sort = searchParams.get("sort") || "nom"
-    const order = searchParams.get("order") || "asc"
+    const materiaux = searchParams.get("materiaux") || ""
+    const couleurs = searchParams.get("couleurs") || ""
+    const sortField = searchParams.get("sortField") || "nom"
+    const sortDirection = searchParams.get("sortDirection") || "asc"
 
-    console.log(`📊 Paramètres: page=${page}, limit=${limit}, search="${search}", designer="${designer}"`)
+    console.log(`📊 Paramètres: page=${page}, limit=${limit}, search="${search}"`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
@@ -32,91 +32,132 @@ export async function GET(request: NextRequest) {
         { nom: { $regex: search, $options: "i" } },
         { designer: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
-        { periode: { $regex: search, $options: "i" } },
+        { "Nom luminaire": { $regex: search, $options: "i" } },
+        { "Artiste / Dates": { $regex: search, $options: "i" } },
       ]
     }
 
     if (designer) {
-      filter.designer = { $regex: designer, $options: "i" }
+      filter.$and = filter.$and || []
+      filter.$and.push({
+        $or: [
+          { designer: { $regex: designer, $options: "i" } },
+          { "Artiste / Dates": { $regex: designer, $options: "i" } },
+        ],
+      })
     }
 
     if (periode) {
-      filter.periode = { $regex: periode, $options: "i" }
+      filter.$and = filter.$and || []
+      filter.$and.push({
+        $or: [{ periode: { $regex: periode, $options: "i" } }, { Spécialité: { $regex: periode, $options: "i" } }],
+      })
     }
 
-    if (anneeMin || anneeMax) {
-      filter.annee = {}
-      if (anneeMin) filter.annee.$gte = Number.parseInt(anneeMin)
-      if (anneeMax) filter.annee.$lte = Number.parseInt(anneeMax)
+    if (materiaux) {
+      filter.materiaux = { $in: [new RegExp(materiaux, "i")] }
+    }
+
+    if (couleurs) {
+      filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
     console.log("🔍 Filtre MongoDB:", JSON.stringify(filter))
 
+    // Construire le tri
+    const sort: any = {}
+    sort[sortField] = sortDirection === "desc" ? -1 : 1
+
     // Compter le total
     const total = await collection.countDocuments(filter)
-    console.log(`📊 Total trouvé: ${total} luminaires`)
+    console.log(`📊 Total luminaires trouvés: ${total}`)
 
     // Récupérer les luminaires avec pagination
     const skip = (page - 1) * limit
-    const sortOrder = order === "desc" ? -1 : 1
-    const sortObj: any = {}
-    sortObj[sort] = sortOrder
+    const luminaires = await collection.find(filter).sort(sort).skip(skip).limit(limit).toArray()
 
-    const luminaires = await collection.find(filter).sort(sortObj).skip(skip).limit(limit).toArray()
+    console.log(`📊 ${luminaires.length} luminaires récupérés pour la page ${page}`)
 
-    console.log(`✅ Récupéré: ${luminaires.length} luminaires pour la page ${page}`)
-
-    // Transformer les données pour le frontend
-    const transformedLuminaires = luminaires.map((luminaire) => ({
-      _id: luminaire._id.toString(),
-      nom: luminaire.nom || "",
-      designer: luminaire.designer || "",
-      annee: luminaire.annee || new Date().getFullYear(),
-      periode: luminaire.periode || "",
-      description: luminaire.description || "",
-      materiaux: luminaire.materiaux || [],
-      couleurs: luminaire.couleurs || [],
-      dimensions: luminaire.dimensions || "",
-      images: luminaire.images || [],
-      filename: luminaire["Nom du fichier"] || luminaire.filename || "",
-      specialite: luminaire.specialite || "",
-      collaboration: luminaire.collaboration || "",
-      signe: luminaire.signe || "",
-      estimation: luminaire.estimation || "",
-      isFavorite: luminaire.isFavorite || false,
-      createdAt: luminaire.createdAt,
-      updatedAt: luminaire.updatedAt,
+    // Formater les luminaires pour l'affichage
+    const formattedLuminaires = luminaires.map((luminaire) => ({
+      ...luminaire,
+      id: luminaire._id.toString(),
+      image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
+      artist: luminaire.designer || luminaire["Artiste / Dates"],
+      year: luminaire.annee || luminaire["Année"],
+      name: luminaire.nom || luminaire["Nom luminaire"],
     }))
+
+    // Calculer les options de filtres
+    const allLuminaires = await collection.find({}).toArray()
+    const designers = [...new Set(allLuminaires.map((l) => l.designer || l["Artiste / Dates"]).filter(Boolean))].sort()
+    const periodes = [...new Set(allLuminaires.map((l) => l.periode || l["Spécialité"]).filter(Boolean))].sort()
+    const allMateriaux = [...new Set(allLuminaires.flatMap((l) => l.materiaux || []).filter(Boolean))].sort()
+    const allCouleurs = [...new Set(allLuminaires.flatMap((l) => l.couleurs || []).filter(Boolean))].sort()
 
     const response = {
       success: true,
-      luminaires: transformedLuminaires,
+      luminaires: formattedLuminaires,
       pagination: {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
+        totalPages: Math.ceil(total / limit),
+        hasMore: page * limit < total,
       },
       filters: {
-        search,
-        designer,
-        periode,
-        anneeMin,
-        anneeMax,
-        sort,
-        order,
+        designers,
+        periodes,
+        materiaux: allMateriaux,
+        couleurs: allCouleurs,
       },
     }
 
     return NextResponse.json(response)
   } catch (error: any) {
-    console.error("❌ Erreur API luminaires:", error)
+    console.error("❌ Erreur API /api/luminaires:", error)
     return NextResponse.json(
       {
         success: false,
         error: "Erreur lors de la récupération des luminaires",
+        details: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log("📥 API /api/luminaires POST - Création d'un luminaire")
+
+    const data = await request.json()
+    console.log("📊 Données reçues:", data)
+
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
+    const luminaire = {
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    const result = await collection.insertOne(luminaire)
+    console.log("✅ Luminaire créé avec l'ID:", result.insertedId)
+
+    return NextResponse.json({
+      success: true,
+      message: "Luminaire créé avec succès",
+      id: result.insertedId,
+    })
+  } catch (error: any) {
+    console.error("❌ Erreur création luminaire:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la création du luminaire",
         details: error.message,
       },
       { status: 500 },

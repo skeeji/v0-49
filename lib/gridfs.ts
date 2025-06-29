@@ -1,25 +1,35 @@
-import { GridFSBucket, type MongoClient, type ObjectId } from "mongodb"
+import { GridFSBucket, type ObjectId } from "mongodb"
+import clientPromise from "./mongodb"
 
-let gridFSBucket: GridFSBucket | null = null
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-export async function getGridFSBucket(client: MongoClient, dbName: string): Promise<GridFSBucket> {
-  if (!gridFSBucket) {
-    const db = client.db(dbName)
-    gridFSBucket = new GridFSBucket(db, { bucketName: "uploads" })
+let cachedBucket: GridFSBucket | null = null
+
+export async function getBucket(): Promise<GridFSBucket> {
+  if (cachedBucket) {
+    return cachedBucket
   }
-  return gridFSBucket
+
+  try {
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    cachedBucket = new GridFSBucket(db, { bucketName: "uploads" })
+    console.log("✅ GridFS bucket initialisé")
+    return cachedBucket
+  } catch (error) {
+    console.error("❌ Erreur initialisation GridFS:", error)
+    throw error
+  }
 }
 
 export async function uploadFileToGridFS(
-  client: MongoClient,
-  dbName: string,
   buffer: Buffer,
   filename: string,
   contentType: string,
   metadata: any = {},
 ): Promise<{ fileId: ObjectId; filename: string; size: number }> {
   try {
-    const bucket = await getGridFSBucket(client, dbName)
+    const bucket = await getBucket()
 
     // Supprimer l'ancien fichier s'il existe
     try {
@@ -64,12 +74,10 @@ export async function uploadFileToGridFS(
 }
 
 export async function getFileFromGridFS(
-  client: MongoClient,
-  dbName: string,
   filename: string,
 ): Promise<{ buffer: Buffer; contentType: string; metadata: any } | null> {
   try {
-    const bucket = await getGridFSBucket(client, dbName)
+    const bucket = await getBucket()
 
     const files = await bucket.find({ filename }).toArray()
     if (files.length === 0) {
@@ -109,9 +117,9 @@ export async function getFileFromGridFS(
   }
 }
 
-export async function deleteFileFromGridFS(client: MongoClient, dbName: string, filename: string): Promise<boolean> {
+export async function deleteFileFromGridFS(filename: string): Promise<boolean> {
   try {
-    const bucket = await getGridFSBucket(client, dbName)
+    const bucket = await getBucket()
 
     const files = await bucket.find({ filename }).toArray()
     if (files.length === 0) {
@@ -131,9 +139,9 @@ export async function deleteFileFromGridFS(client: MongoClient, dbName: string, 
   }
 }
 
-export async function listFilesFromGridFS(client: MongoClient, dbName: string, filter: any = {}): Promise<any[]> {
+export async function listFilesFromGridFS(filter: any = {}): Promise<any[]> {
   try {
-    const bucket = await getGridFSBucket(client, dbName)
+    const bucket = await getBucket()
     const files = await bucket.find(filter).toArray()
     console.log(`📋 ${files.length} fichiers trouvés dans GridFS`)
     return files

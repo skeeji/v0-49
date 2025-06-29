@@ -7,67 +7,61 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
   try {
     console.log(`👨‍🎨 API /api/designers/${params.name} - Récupération du designer`)
 
-    const decodedName = decodeURIComponent(params.name)
-    console.log(`🔍 Recherche du designer: "${decodedName}"`)
+    const designerName = decodeURIComponent(params.name)
+    console.log(`🔍 Recherche designer: ${designerName}`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("designers")
+    const designersCollection = db.collection("designers")
+    const luminairesCollection = db.collection("luminaires")
 
-    // Chercher le designer par nom (insensible à la casse)
-    const designer = await collection.findOne({
-      nom: { $regex: new RegExp(`^${decodedName}$`, "i") },
+    // Chercher le designer
+    const designer = await designersCollection.findOne({
+      $or: [
+        { nom: designerName },
+        { nom: { $regex: new RegExp(designerName, "i") } },
+        { slug: designerName.toLowerCase().replace(/[^a-z0-9]+/g, "-") },
+      ],
     })
 
     if (!designer) {
-      console.log(`❌ Designer non trouvé: ${decodedName}`)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Designer non trouvé",
-        },
-        { status: 404 },
-      )
+      console.log(`❌ Designer non trouvé: ${designerName}`)
+      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
     }
 
     console.log(`✅ Designer trouvé: ${designer.nom}`)
 
-    // Récupérer les luminaires de ce designer
-    const luminairesCollection = db.collection("luminaires")
+    // Chercher les luminaires de ce designer
     const luminaires = await luminairesCollection
       .find({
-        designer: { $regex: new RegExp(decodedName, "i") },
+        $or: [
+          { designer: { $regex: new RegExp(designer.nom, "i") } },
+          { "Artiste / Dates": { $regex: new RegExp(designer.nom, "i") } },
+        ],
       })
-      .limit(20)
       .toArray()
 
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour ce designer`)
+    console.log(`📊 ${luminaires.length} luminaires trouvés pour ${designer.nom}`)
 
-    // Transformer les données pour le frontend
-    const transformedDesigner = {
-      _id: designer._id.toString(),
-      nom: designer.nom || "",
-      biographie: designer.biographie || "",
-      dateNaissance: designer.dateNaissance || "",
-      dateDeces: designer.dateDeces || "",
-      nationalite: designer.nationalite || "",
-      imagedesigner: designer.imagedesigner || "",
-      luminaires: luminaires.map((l) => ({
-        _id: l._id.toString(),
-        nom: l.nom || "",
-        annee: l.annee,
-        filename: l["Nom du fichier"] || l.filename || "",
-      })),
-      createdAt: designer.createdAt,
-      updatedAt: designer.updatedAt,
-    }
+    // Formater les luminaires
+    const formattedLuminaires = luminaires.map((luminaire) => ({
+      ...luminaire,
+      id: luminaire._id.toString(),
+      image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
+      name: luminaire.nom || luminaire["Nom luminaire"],
+    }))
 
     return NextResponse.json({
       success: true,
-      designer: transformedDesigner,
+      designer: {
+        ...designer,
+        id: designer._id.toString(),
+        image: designer.imagedesigner ? `/api/images/filename/${designer.imagedesigner}` : null,
+      },
+      luminaires: formattedLuminaires,
     })
   } catch (error: any) {
-    console.error("❌ Erreur API designer:", error)
+    console.error(`❌ Erreur récupération designer ${params.name}:`, error)
     return NextResponse.json(
       {
         success: false,

@@ -70,11 +70,11 @@ export async function POST(request: NextRequest) {
       const luminairesToInsert = batch
         .map((row, index) => {
           try {
-            // Mapping des colonnes selon le schéma CSV
-            const nomLuminaire = (row["Nom luminaire"] || "").toString().trim()
+            // Mapping exact selon votre schéma CSV
             const artiste = (row["Artiste / Dates"] || "").toString().trim()
             const specialite = (row["Spécialité"] || "").toString().trim()
             const collaboration = (row["Collaboration / Œuvre"] || "").toString().trim()
+            const nomLuminaire = (row["Nom luminaire"] || "").toString().trim()
             const anneeStr = (row["Année"] || "").toString().trim()
             const signe = (row["Signé"] || "").toString().trim()
             const nomFichier = (row["Nom du fichier"] || "").toString().trim()
@@ -86,9 +86,6 @@ export async function POST(request: NextRequest) {
                 .replace(/\.[^/.]+$/, "")
                 .replace(/^luminaire_/, "")
                 .trim()
-            }
-            if (!finalNom && artiste) {
-              finalNom = `Luminaire ${artiste.split(" ")[0]}`
             }
             if (!finalNom) {
               finalNom = `Luminaire ${i + index + 1}`
@@ -114,12 +111,14 @@ export async function POST(request: NextRequest) {
               dimensions: {},
               images: [],
               filename: nomFichier,
-              "Nom du fichier": nomFichier,
+              // Garder les champs originaux pour compatibilité
               "Artiste / Dates": artiste,
               Spécialité: specialite,
               "Collaboration / Œuvre": collaboration,
+              "Nom luminaire": nomLuminaire,
               Année: anneeStr,
               Signé: signe,
+              "Nom du fichier": nomFichier,
               isFavorite: false,
               createdAt: new Date(),
               updatedAt: new Date(),
