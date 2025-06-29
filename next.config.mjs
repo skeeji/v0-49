@@ -1,19 +1,31 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
-  outputFileTracingRoot: process.cwd(),
-  images: {
-    domains: ['localhost'],
-    unoptimized: true,
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'image-similarity-api-590690354412.us-central1.run.app',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+    unoptimized: true,
+  },
+  outputFileTracingRoot: process.cwd(),
+  experimental: {
+    serverComponentsExternalPackages: ['mongodb'],
   },
 }
 

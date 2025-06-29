@@ -75,7 +75,7 @@ export default function HomePage() {
         console.log(`❌ Erreur HTTP: ${response.status} - ${errorText}`)
         return { success: false, data: [], type: "http_error", status: response.status, error: errorText }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("💥 Erreur API:", error)
       return { success: false, data: [], type: "network_error", error: error.message }
     }
@@ -318,7 +318,7 @@ export default function HomePage() {
           toast.success("Caméra activée - Touchez l'écran pour capturer")
         }
       }, 100)
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ === ERREUR CAMÉRA ===", error)
       let errorMessage = "Impossible d'accéder à la caméra"
 
@@ -444,7 +444,7 @@ export default function HomePage() {
       // Afficher les options d'arrière-plan
       setShowBackgroundOptions(true)
       setSelectedImageForSearch(file)
-    } catch (error) {
+    } catch (error: any) {
       console.error("💥 === ERREUR CAPTURE ===", error)
       toast.error(`Erreur capture: ${error.message}`)
     } finally {
