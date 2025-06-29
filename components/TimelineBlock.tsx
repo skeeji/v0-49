@@ -2,168 +2,154 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import Link from "next/link"
-import { ChevronDown, ChevronUp, Calendar } from "lucide-react"
-import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
-
-interface LuminaireData {
-  _id: string
-  "Nom luminaire"?: string
-  nom?: string
-  "Artiste / Dates"?: string
-  designer?: string
-  Année?: string
-  annee?: string
-  "Nom du fichier"?: string
-  filename?: string
-  [key: string]: any
-}
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Edit2, Save, X, Calendar, User, Lightbulb } from "lucide-react"
 
 interface TimelineBlockProps {
-  year: string
-  luminaires: LuminaireData[]
-  viewMode: "timeline" | "grid"
+  period: {
+    name: string
+    start: number
+    end: number
+    description: string
+    luminaires: any[]
+  }
+  isLeft: boolean
+  className?: string
+  onDescriptionUpdate: (periodName: string, newDescription: string) => void
 }
 
-export function TimelineBlock({ year, luminaires, viewMode }: TimelineBlockProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
-  const [favorites, setFavorites] = useState<string[]>([])
+export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpdate }: TimelineBlockProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedDescription, setEditedDescription] = useState(period.description)
 
-  // Fonction pour obtenir l'URL de l'image
-  const getImageUrl = (luminaire: LuminaireData) => {
-    const filename = luminaire["Nom du fichier"] || luminaire.filename
-    if (filename) {
-      return `/api/images/filename/${filename}`
-    }
-    return "/placeholder.svg?height=300&width=300"
+  const handleSave = () => {
+    onDescriptionUpdate(period.name, editedDescription)
+    setIsEditing(false)
   }
 
-  const toggleFavorite = (id: string) => {
-    const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
-    setFavorites(newFavorites)
-    localStorage.setItem("favorites", JSON.stringify(newFavorites))
-  }
-
-  if (viewMode === "grid") {
-    return (
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Calendar className="w-6 h-6" />
-              <h2 className="text-2xl font-serif">{year}</h2>
-            </div>
-            <div className="text-sm opacity-90">{luminaires.length} luminaires</div>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {luminaires.map((luminaire) => (
-              <Link key={luminaire._id} href={`/luminaires/${luminaire._id}`}>
-                <div className="bg-gray-50 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow group">
-                  <div className="aspect-square relative bg-gray-100">
-                    <Image
-                      src={getImageUrl(luminaire) || "/placeholder.svg"}
-                      alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg?height=300&width=300"
-                      }}
-                    />
-                    <div className="absolute top-2 right-2">
-                      <FavoriteToggleButton
-                        isActive={favorites.includes(luminaire._id)}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          toggleFavorite(luminaire._id)
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="p-3 space-y-1">
-                    <h3 className="font-serif text-sm text-gray-900 truncate">
-                      {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
-                    </h3>
-                    <p className="text-xs text-gray-600 truncate">
-                      {luminaire["Artiste / Dates"] || luminaire.designer || "Artiste inconnu"}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
+  const handleCancel = () => {
+    setEditedDescription(period.description)
+    setIsEditing(false)
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      <div
-        className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 cursor-pointer"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-6 h-6" />
-            <h2 className="text-2xl font-serif">{year}</h2>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm opacity-90">{luminaires.length} luminaires</span>
-            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-          </div>
+    <div className={`relative ${className}`}>
+      {/* Ligne de temps */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 w-1 bg-gradient-to-b from-orange-400 to-orange-600 h-full"></div>
+
+      {/* Point sur la ligne de temps */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-2 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-lg z-10"></div>
+
+      {/* Contenu */}
+      <div className={`flex ${isLeft ? "justify-start" : "justify-end"}`}>
+        <div className={`w-full max-w-2xl ${isLeft ? "pr-8" : "pl-8"}`}>
+          <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-gray-50">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl font-serif text-gray-900 mb-2">{period.name}</CardTitle>
+                  <CardDescription className="flex items-center text-gray-600">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    {period.start} - {period.end}
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                  <Lightbulb className="w-3 h-3 mr-1" />
+                  {period.luminaires.length}
+                </Badge>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {/* Description */}
+              <div>
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <Textarea
+                      value={editedDescription}
+                      onChange={(e) => setEditedDescription(e.target.value)}
+                      className="min-h-[100px] resize-none"
+                      placeholder="Description de la période..."
+                    />
+                    <div className="flex gap-2">
+                      <Button onClick={handleSave} size="sm" className="bg-green-600 hover:bg-green-700">
+                        <Save className="w-4 h-4 mr-1" />
+                        Sauvegarder
+                      </Button>
+                      <Button onClick={handleCancel} variant="outline" size="sm">
+                        <X className="w-4 h-4 mr-1" />
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative group">
+                    <p className="text-gray-700 leading-relaxed">{period.description}</p>
+                    <Button
+                      onClick={() => setIsEditing(true)}
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Luminaires */}
+              {period.luminaires.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <Lightbulb className="w-4 h-4 mr-2 text-orange-500" />
+                    Luminaires de cette période
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {period.luminaires.slice(0, 6).map((luminaire, index) => (
+                      <div key={index} className="group cursor-pointer">
+                        <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-2">
+                          <Image
+                            src={luminaire.image || "/placeholder.svg?height=150&width=150"}
+                            alt={luminaire.name}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-200"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg?height=150&width=150"
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs">
+                          <p className="font-medium text-gray-900 truncate">{luminaire.name}</p>
+                          {luminaire.artist && (
+                            <p className="text-gray-600 truncate flex items-center">
+                              <User className="w-3 h-3 mr-1" />
+                              {luminaire.artist}
+                            </p>
+                          )}
+                          {luminaire.year && (
+                            <p className="text-gray-500 flex items-center">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {luminaire.year}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {period.luminaires.length > 6 && (
+                    <p className="text-sm text-gray-500 mt-3 text-center">
+                      ... et {period.luminaires.length - 6} autres luminaires
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {isExpanded && (
-        <div className="p-6">
-          <div className="space-y-6">
-            {luminaires.map((luminaire) => (
-              <div key={luminaire._id} className="flex gap-6 p-4 bg-gray-50 rounded-lg">
-                <Link href={`/luminaires/${luminaire._id}`} className="flex-shrink-0">
-                  <div className="w-24 h-24 relative bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform">
-                    <Image
-                      src={getImageUrl(luminaire) || "/placeholder.svg"}
-                      alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
-                      fill
-                      className="object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg?height=300&width=300"
-                      }}
-                    />
-                  </div>
-                </Link>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <Link href={`/luminaires/${luminaire._id}`}>
-                        <h3 className="font-serif text-lg text-gray-900 hover:text-orange-500 cursor-pointer">
-                          {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
-                        </h3>
-                      </Link>
-                      <p className="text-gray-600 mt-1">
-                        {luminaire["Artiste / Dates"] || luminaire.designer || "Artiste inconnu"}
-                      </p>
-                      {luminaire["Spécialité"] && (
-                        <p className="text-sm text-gray-500 mt-2">{luminaire["Spécialité"]}</p>
-                      )}
-                    </div>
-
-                    <FavoriteToggleButton
-                      isActive={favorites.includes(luminaire._id)}
-                      onClick={() => toggleFavorite(luminaire._id)}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

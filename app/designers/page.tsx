@@ -19,14 +19,16 @@ export default function DesignersPage() {
     async function fetchData() {
       setIsLoading(true)
       try {
-        // Charger tous les luminaires depuis l'API MongoDB
-        const luminairesResponse = await fetch("/api/luminaires")
+        // CORRECTION: Charger tous les luminaires pour extraire TOUS les designers
+        const luminairesResponse = await fetch("/api/luminaires?limit=10000")
         const luminairesData = await luminairesResponse.json()
 
         if (luminairesData.success) {
-          // Grouper les luminaires par designer
+          console.log(`👨‍🎨 Extraction des designers depuis ${luminairesData.luminaires.length} luminaires`)
+
+          // Grouper les luminaires par designer (Artiste / Dates)
           const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
-            const designerName = luminaire.designer
+            const designerName = luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"
 
             if (!acc[designerName]) {
               acc[designerName] = {
@@ -44,18 +46,22 @@ export default function DesignersPage() {
               image: luminaire["Nom du fichier"]
                 ? `/api/images/filename/${luminaire["Nom du fichier"]}`
                 : "/placeholder.svg",
-              name: luminaire.nom,
+              name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
             })
 
             return acc
           }, {})
 
-          // Charger les données des designers (images) depuis l'API
+          console.log(`👨‍🎨 ${Object.keys(designerGroups).length} designers uniques trouvés`)
+
+          // Charger les images des designers depuis l'API designers-data
           try {
             const designersResponse = await fetch("/api/designers-data")
             const designersResult = await designersResponse.json()
 
             if (designersResult.success && designersResult.designers) {
+              console.log(`🖼️ ${designersResult.designers.length} images de designers disponibles`)
+
               // Associer les images aux designers
               Object.keys(designerGroups).forEach((designerName) => {
                 const designerInfo = designersResult.designers.find(
@@ -64,6 +70,7 @@ export default function DesignersPage() {
 
                 if (designerInfo && designerInfo.imagedesigner) {
                   designerGroups[designerName].image = `/api/images/filename/${designerInfo.imagedesigner}`
+                  console.log(`🖼️ Image trouvée pour ${designerName}: ${designerInfo.imagedesigner}`)
                 }
               })
             }
@@ -72,6 +79,8 @@ export default function DesignersPage() {
           }
 
           const designersArray = Object.values(designerGroups).sort((a: any, b: any) => a.name.localeCompare(b.name))
+
+          console.log(`✅ ${designersArray.length} designers finaux`)
 
           // Pour les utilisateurs "free", limiter à 10% des designers
           if (userData?.role === "free") {
@@ -117,7 +126,14 @@ export default function DesignersPage() {
   }, [designers, searchTerm, sortBy])
 
   if (isLoading) {
-    return <div className="text-center py-8">Chargement des designers...</div>
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">Chargement des designers...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -172,6 +188,9 @@ export default function DesignersPage() {
                         alt={designer.name}
                         fill
                         className="object-cover rounded-full"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg"
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
@@ -194,10 +213,13 @@ export default function DesignersPage() {
                     {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
                       <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
                         <Image
-                          src={luminaire.image || "/placeholder.svg?height=80&width=80"}
+                          src={luminaire.image || "/placeholder.svg"}
                           alt={luminaire.name}
                           fill
                           className="object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                          }}
                         />
                       </div>
                     ))}
