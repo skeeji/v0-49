@@ -10,7 +10,6 @@ const periods = [
     end: 1499,
     defaultDescription:
       "Période médiévale caractérisée par l'artisanat monastique et les premières innovations en éclairage avec les chandelles et lampes à huile ornementées.",
-    image: "/placeholder.svg?height=400&width=600&text=Moyen-Age",
   },
   {
     name: "XVIe siècle",
@@ -18,7 +17,6 @@ const periods = [
     end: 1599,
     defaultDescription:
       "Renaissance européenne marquée par le raffinement des arts décoratifs et l'émergence de nouveaux styles d'éclairage palatial.",
-    image: "/placeholder.svg?height=400&width=600&text=Renaissance",
   },
   {
     name: "XVIIe siècle",
@@ -26,7 +24,6 @@ const periods = [
     end: 1699,
     defaultDescription:
       "Siècle du baroque et du classicisme français, avec le développement des lustres en cristal et des luminaires de cour.",
-    image: "/placeholder.svg?height=400&width=600&text=Baroque",
   },
   {
     name: "XVIIIe siècle",
@@ -34,7 +31,6 @@ const periods = [
     end: 1799,
     defaultDescription:
       "Siècle des Lumières et du rococo, âge d'or de l'ébénisterie française et des luminaires précieux en bronze doré.",
-    image: "/placeholder.svg?height=400&width=600&text=Siècle+des+Lumières",
   },
   {
     name: "XIXe siècle",
@@ -42,7 +38,6 @@ const periods = [
     end: 1899,
     defaultDescription:
       "Révolution industrielle et éclectisme stylistique, avec l'avènement du gaz puis de l'électricité transformant l'art de l'éclairage.",
-    image: "/placeholder.svg?height=400&width=600&text=Révolution+Industrielle",
   },
   {
     name: "Art Nouveau",
@@ -50,7 +45,6 @@ const periods = [
     end: 1910,
     defaultDescription:
       "Mouvement artistique privilégiant les formes organiques et la nature, avec des créateurs comme Gallé, Daum et Tiffany révolutionnant l'art verrier.",
-    image: "/placeholder.svg?height=400&width=600&text=Art+Nouveau",
   },
   {
     name: "Art Déco",
@@ -58,7 +52,6 @@ const periods = [
     end: 1940,
     defaultDescription:
       "Style géométrique et luxueux des années folles, caractérisé par l'utilisation de matériaux nobles et de formes stylisées.",
-    image: "/placeholder.svg?height=400&width=600&text=Art+Déco",
   },
   {
     name: "1940 - 1949",
@@ -66,7 +59,6 @@ const periods = [
     end: 1949,
     defaultDescription:
       "Période de guerre et de reconstruction, marquée par la sobriété et l'innovation dans l'utilisation de nouveaux matériaux.",
-    image: "/placeholder.svg?height=400&width=600&text=Années+1940",
   },
   {
     name: "1950 - 1959",
@@ -74,7 +66,6 @@ const periods = [
     end: 1959,
     defaultDescription:
       "Renouveau créatif d'après-guerre avec l'émergence du design moderne et l'exploration de nouvelles formes fonctionnalistes.",
-    image: "/placeholder.svg?height=400&width=600&text=Années+1950",
   },
   {
     name: "1960 - 1969",
@@ -82,7 +73,6 @@ const periods = [
     end: 1969,
     defaultDescription:
       "Révolution culturelle et design pop, avec l'introduction du plastique et de couleurs vives dans le mobilier d'éclairage.",
-    image: "/placeholder.svg?height=400&width=600&text=Années+1960",
   },
   {
     name: "1970 - 1979",
@@ -90,7 +80,6 @@ const periods = [
     end: 1979,
     defaultDescription:
       "Décennie de l'expérimentation avec de nouveaux matériaux et l'influence du design scandinave et italien.",
-    image: "/placeholder.svg?height=400&width=600&text=Années+1970",
   },
   {
     name: "1980 - 1989",
@@ -98,7 +87,6 @@ const periods = [
     end: 1989,
     defaultDescription:
       "Postmodernisme et retour aux références historiques, avec des créateurs comme Philippe Starck révolutionnant le design français.",
-    image: "/placeholder.svg?height=400&width=600&text=Années+1980",
   },
   {
     name: "1990 - 1999",
@@ -106,7 +94,6 @@ const periods = [
     end: 1999,
     defaultDescription:
       "Minimalisme et high-tech, intégration des nouvelles technologies et recherche de simplicité dans les formes.",
-    image: "/placeholder.svg?height=400&width=600&text=Années+1990",
   },
   {
     name: "Contemporain",
@@ -114,7 +101,6 @@ const periods = [
     end: 2025,
     defaultDescription:
       "Ère numérique et développement durable, avec l'LED révolutionnant l'éclairage et l'émergence de l'éco-design.",
-    image: "/placeholder.svg?height=400&width=600&text=Contemporain",
   },
 ]
 
@@ -215,13 +201,10 @@ export default function ChronologiePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-        <div className="flex justify-center items-center h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-500 border-t-transparent mx-auto mb-6"></div>
-            <h2 className="text-2xl font-serif text-gray-800 mb-2">Chargement de la chronologie</h2>
-            <p className="text-gray-600">Préparation des périodes artistiques...</p>
-          </div>
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p>Chargement de la chronologie...</p>
         </div>
       </div>
     )
@@ -230,54 +213,23 @@ export default function ChronologiePage() {
   const totalLuminaires = timelineData.reduce((sum, period) => sum + period.luminaires.length, 0)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-7xl mx-auto">
-          {/* En-tête élégant */}
-          <div className="text-center mb-20">
-            <h1 className="text-6xl font-serif text-gray-900 mb-6 leading-tight">
-              Chronologie des
-              <br />
-              <span className="text-orange-600">Périodes Artistiques</span>
-            </h1>
-            <div className="w-24 h-1 bg-gradient-to-r from-orange-400 to-amber-500 mx-auto mb-8"></div>
-            <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
-              Découvrez l'évolution de l'art de l'éclairage à travers les siècles, depuis les créations médiévales
-              jusqu'aux innovations contemporaines.
-            </p>
-            <div className="mt-8 inline-flex items-center px-6 py-3 bg-white/80 backdrop-blur-sm rounded-full shadow-lg">
-              <span className="text-lg font-medium text-gray-800">
-                {totalLuminaires} luminaires • {timelineData.filter((p) => p.luminaires.length > 0).length} périodes
-              </span>
-            </div>
-          </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-4xl font-serif text-gray-900 mb-4 text-center">Chronologie des Périodes Artistiques</h1>
+        <p className="text-center text-gray-600 mb-12">{totalLuminaires} luminaires classés par période historique</p>
 
-          {/* Timeline */}
-          <div className="relative">
-            {/* Ligne de temps principale */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-orange-300 via-amber-400 to-orange-500 opacity-60"></div>
-
-            <div className="space-y-32">
-              {timelineData.map((period, index) => (
-                <TimelineBlock
-                  key={period.name}
-                  period={period}
-                  isLeft={index % 2 === 0}
-                  className="scroll-reveal opacity-0 translate-y-8 transition-all duration-1000 ease-out"
-                  onDescriptionUpdate={updateDescription}
-                />
-              ))}
-            </div>
-          </div>
+        <div className="space-y-16">
+          {timelineData.map((period, index) => (
+            <TimelineBlock
+              key={period.name}
+              period={period}
+              isLeft={index % 2 === 0}
+              className="scroll-reveal"
+              onDescriptionUpdate={updateDescription}
+            />
+          ))}
         </div>
       </div>
-
-      <style jsx>{`
-        .scroll-reveal.revealed {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      `}</style>
     </div>
   )
 }

@@ -14,13 +14,16 @@ function parseCSVLine(line: string): string[] {
 
     if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
+        // Double quote inside quoted field
         current += '"'
         i += 2
       } else {
+        // Toggle quote state
         inQuotes = !inQuotes
         i++
       }
     } else if (char === "," && !inQuotes) {
+      // Field separator
       result.push(current.trim())
       current = ""
       i++
@@ -36,7 +39,7 @@ function parseCSVLine(line: string): string[] {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📥 API /api/upload/csv - Début de l'import CSV")
+    console.log("📥 API /api/upload/csv - Début de l'import")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -45,15 +48,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Fichier CSV reçu: ${file.name} (${file.size} bytes)`)
+    console.log(`📁 Fichier reçu: ${file.name} (${file.size} bytes)`)
 
+    // Lire le fichier avec l'encoding UTF-8
     const text = await file.text()
-    const lines = text.split(/\r?\n/).filter((line) => line.trim())
+    const lines = text.split("\n").filter((line) => line.trim())
 
     console.log(`📊 ${lines.length} lignes trouvées dans le CSV`)
 
     if (lines.length === 0) {
-      return NextResponse.json({ error: "Le fichier CSV est vide" }, { status: 400 })
+      return NextResponse.json({ error: "Fichier CSV vide" }, { status: 400 })
     }
 
     // Parser l'en-tête
@@ -64,69 +68,72 @@ export async function POST(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const luminaires = []
+    let imported = 0
+    let processed = 0
     const errors: string[] = []
 
-    // Parser chaque ligne
+    // Traiter chaque ligne
     for (let i = 1; i < lines.length; i++) {
       try {
-        const values = parseCSVLine(lines[i])
+        processed++
+        const line = lines[i].trim()
+        if (!line) continue
 
-        if (values.length !== headers.length) {
-          errors.push(`Ligne ${i + 1}: Nombre de colonnes incorrect (${values.length} vs ${headers.length})`)
-          continue
+        const values = parseCSVLine(line)
+
+        // Créer l'objet luminaire en gardant les valeurs exactes du CSV
+        const luminaire: any = {
+          createdAt: new Date(),
+          updatedAt: new Date(),
         }
 
-        const luminaire: any = {}
-
-        // Mapper chaque valeur avec son en-tête
+        // Mapper chaque colonne SANS MODIFICATION
         headers.forEach((header, index) => {
-          const value = values[index]?.trim() || ""
-          luminaire[header] = value === "" ? "" : value // Garder les valeurs vides comme vides
+          const value = values[index] || ""
+          // CORRECTION: Garder les valeurs exactes, même vides
+          luminaire[header] = value.trim()
         })
 
-        // Parser l'année SEULEMENT si elle existe et n'est pas vide
-        if (luminaire["Année"] && luminaire["Année"].trim() !== "") {
+        // CORRECTION: Ne pas ajouter d'année automatiquement
+        // Garder la valeur exacte de la colonne "Année"
+        if (luminaire["Année"]) {
+          // Extraire seulement si une année est présente
           const yearMatch = luminaire["Année"].toString().match(/\b(1[8-9]\d{2}|20\d{2})\b/)
           if (yearMatch) {
             luminaire.annee = Number.parseInt(yearMatch[0])
           }
+          // Sinon, ne pas ajouter de champ annee
         }
 
-        // Ajouter les champs techniques
-        luminaire.createdAt = new Date()
-        luminaire.updatedAt = new Date()
+        // Ajouter les champs de mapping pour compatibilité
+        luminaire.nom = luminaire["Nom luminaire"] || ""
+        luminaire.designer = luminaire["Artiste / Dates"] || ""
+        luminaire.filename = luminaire["Nom du fichier"] || ""
 
-        luminaires.push(luminaire)
+        await collection.insertOne(luminaire)
+        imported++
+
+        if (imported % 1000 === 0) {
+          console.log(`📊 ${imported} luminaires importés...`)
+        }
       } catch (error: any) {
         errors.push(`Ligne ${i + 1}: ${error.message}`)
+        if (errors.length > 100) break // Limiter les erreurs
       }
     }
 
-    console.log(`📊 ${luminaires.length} luminaires à importer`)
-
-    if (luminaires.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "Aucun luminaire valide trouvé",
-        errors,
-      })
-    }
-
-    // Insérer en base
-    const result = await collection.insertMany(luminaires, { ordered: false })
-    console.log(`✅ ${result.insertedCount} luminaires importés`)
+    console.log(`✅ Import terminé: ${imported}/${processed} luminaires importés`)
 
     return NextResponse.json({
       success: true,
-      message: `Import terminé: ${result.insertedCount} luminaires importés sur ${lines.length - 1} lignes traitées`,
-      imported: result.insertedCount,
-      processed: lines.length - 1,
+      message: `Import terminé: ${imported} luminaires importés sur ${processed} lignes traitées`,
+      imported,
+      processed,
       errors,
       totalErrors: errors.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur import CSV:", error)
+    console.error("❌ Erreur critique import CSV:", error)
     return NextResponse.json(
       {
         success: false,

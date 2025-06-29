@@ -11,23 +11,22 @@ function parseCSVLine(line: string): string[] {
 
   while (i < line.length) {
     const char = line[i]
+    const nextChar = line[i + 1]
 
     if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      if (inQuotes && nextChar === '"') {
         current += '"'
         i += 2
-      } else {
-        inQuotes = !inQuotes
-        i++
+        continue
       }
+      inQuotes = !inQuotes
     } else if (char === "," && !inQuotes) {
       result.push(current.trim())
       current = ""
-      i++
     } else {
       current += char
-      i++
     }
+    i++
   }
 
   result.push(current.trim())
@@ -36,8 +35,6 @@ function parseCSVLine(line: string): string[] {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("👨‍🎨 API /api/upload/csv-designers - Début de l'import designers")
-
     const formData = await request.formData()
     const file = formData.get("file") as File
 
@@ -45,83 +42,96 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
-    console.log(`📁 Fichier CSV designers reçu: ${file.name} (${file.size} bytes)`)
+    console.log(`👨‍🎨 Traitement du fichier designers: ${file.name}`)
 
-    const text = await file.text()
-    const lines = text.split(/\r?\n/).filter((line) => line.trim())
+    // Lire le fichier avec encoding UTF-8
+    const buffer = await file.arrayBuffer()
+    const text = new TextDecoder("utf-8").decode(buffer)
+    const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0)
 
-    console.log(`📊 ${lines.length} lignes trouvées dans le CSV designers`)
+    console.log(`📊 ${lines.length} lignes détectées dans le CSV designers`)
 
     if (lines.length === 0) {
-      return NextResponse.json({ error: "Le fichier CSV est vide" }, { status: 400 })
+      return NextResponse.json({ error: "Fichier CSV vide" }, { status: 400 })
     }
 
     // Parser l'en-tête
     const headers = parseCSVLine(lines[0])
-    console.log("📋 En-têtes designers détectés:", headers)
+    console.log(`📋 En-têtes CSV designers:`, headers)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("designers")
 
-    const designers = []
+    // Vider la collection existante
+    await db.collection("designers").deleteMany({})
+    console.log("🗑️ Collection designers vidée")
+
+    let imported = 0
+    let processed = 0
     const errors: string[] = []
 
-    // Parser chaque ligne
+    // Traiter chaque ligne de données
     for (let i = 1; i < lines.length; i++) {
-      try {
-        const values = parseCSVLine(lines[i])
+      processed++
+      const line = lines[i].trim()
 
-        if (values.length !== headers.length) {
-          errors.push(`Ligne ${i + 1}: Nombre de colonnes incorrect`)
-          continue
+      if (!line) continue
+
+      try {
+        const values = parseCSVLine(line)
+
+        // Créer l'objet designer
+        const designer: any = {
+          createdAt: new Date(),
+          updatedAt: new Date(),
         }
 
-        const designer: any = {}
-
-        // Mapper chaque valeur avec son en-tête
+        // Mapper chaque colonne
         headers.forEach((header, index) => {
           const value = values[index]?.trim() || ""
-          designer[header] = value === "" ? "" : value
+          if (value) {
+            designer[header] = value
+          }
         })
 
-        // Vérifier que le nom n'est pas vide
-        if (!designer.Nom || designer.Nom.trim() === "") {
-          errors.push(`Ligne ${i + 1}: Nom du designer manquant`)
+        // Champs spéciaux pour la compatibilité
+        designer.name = designer["Nom"] || designer["Designer"] || ""
+        designer.dates = designer["Dates"] || designer["Période"] || ""
+        designer.specialty = designer["Spécialité"] || ""
+        designer.biography = designer["Biographie"] || ""
+
+        // Vérifier qu'on a au moins un nom
+        if (!designer.name) {
+          errors.push(`Ligne ${i + 1}: Nom manquant`)
           continue
         }
 
-        designer.createdAt = new Date()
-        designer.updatedAt = new Date()
+        // Insérer en base
+        await db.collection("designers").insertOne(designer)
+        imported++
 
-        designers.push(designer)
+        if (imported % 100 === 0) {
+          console.log(`📊 Progression designers: ${imported} importés`)
+        }
       } catch (error: any) {
-        errors.push(`Ligne ${i + 1}: ${error.message}`)
+        const errorMsg = `Ligne ${i + 1}: ${error.message}`
+        errors.push(errorMsg)
+        console.error(`❌ ${errorMsg}`)
+
+        if (errors.length > 50) {
+          console.log("⚠️ Trop d'erreurs designers, arrêt de l'import")
+          break
+        }
       }
     }
 
-    console.log(`📊 ${designers.length} designers à importer`)
-
-    if (designers.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "Aucun designer valide trouvé",
-        errors,
-      })
-    }
-
-    // Supprimer les anciens designers
-    await collection.deleteMany({})
-
-    // Insérer les nouveaux
-    const result = await collection.insertMany(designers, { ordered: false })
-    console.log(`✅ ${result.insertedCount} designers importés`)
+    console.log(`✅ Import designers terminé: ${imported}/${processed} designers importés`)
 
     return NextResponse.json({
       success: true,
-      message: `Import terminé: ${result.insertedCount} designers importés sur ${lines.length - 1} lignes traitées`,
-      imported: result.insertedCount,
-      processed: lines.length - 1,
+      message: `Import terminé: ${imported} designers importés sur ${processed} lignes traitées`,
+      imported,
+      processed,
       errors,
       totalErrors: errors.length,
     })
@@ -130,7 +140,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'import CSV designers",
+        error: "Erreur serveur",
         details: error.message,
       },
       { status: 500 },
