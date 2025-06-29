@@ -14,16 +14,15 @@ export async function POST(request: NextRequest) {
     const description = formData.get("description") as string
 
     if (!file) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
+      return NextResponse.json({ error: "Aucun fichier vidéo fourni" }, { status: 400 })
     }
 
     console.log(`📁 Vidéo reçue: ${file.name} (${file.size} bytes)`)
 
-    // Convertir en Buffer
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    // Convertir en buffer
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Uploader vers GridFS
+    // Upload vers GridFS
     const fileId = await uploadFile(buffer, file.name, {
       contentType: file.type,
       originalName: file.name,
@@ -49,6 +48,7 @@ export async function POST(request: NextRequest) {
             size: file.size,
             title: title || "Vidéo d'accueil",
             description: description || "",
+            uploadDate: new Date(),
           },
           updatedAt: new Date(),
         },
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload",
+        error: "Erreur serveur lors de l'upload de la vidéo",
         details: error.message,
       },
       { status: 500 },

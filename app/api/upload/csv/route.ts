@@ -80,10 +80,23 @@ export async function POST(request: NextRequest) {
         const signe = (record["Signé"] || "").toString().trim()
         const nomFichier = (record["Nom du fichier"] || "").toString().trim()
 
-        // Validation du nom du luminaire
-        if (!nomLuminaire) {
-          results.errors.push(`Ligne ${i + 2}: nom du luminaire manquant`)
-          continue
+        console.log(`🔍 Ligne ${i + 1}: nom="${nomLuminaire}", artiste="${artiste}", fichier="${nomFichier}"`)
+
+        // Déterminer le nom final - CORRECTION: utiliser le nom du fichier si pas de nom luminaire
+        let finalNom = nomLuminaire
+        if (!finalNom && nomFichier) {
+          // Extraire le nom du fichier sans extension
+          finalNom = nomFichier
+            .replace(/\.[^/.]+$/, "")
+            .replace(/^luminaire_/, "")
+            .trim()
+        }
+        if (!finalNom && artiste) {
+          // En dernier recours, utiliser l'artiste
+          finalNom = `Luminaire ${artiste.split(" ")[0]}`
+        }
+        if (!finalNom) {
+          finalNom = `Luminaire ${i + 1}` // Nom par défaut
         }
 
         // Parser l'année
@@ -97,7 +110,7 @@ export async function POST(request: NextRequest) {
 
         // Créer l'objet luminaire
         const luminaire = {
-          nom: nomLuminaire,
+          nom: finalNom,
           designer: artiste,
           annee: annee,
           periode: specialite,
@@ -118,13 +131,13 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         }
 
-        console.log(`💾 Insertion luminaire ${i + 1}/${records.length}: ${luminaire.nom}`)
+        console.log(`💾 Insertion luminaire ${i + 1}/${records.length}: "${luminaire.nom}"`)
 
         await db.collection("luminaires").insertOne(luminaire)
         results.success++
 
-        // Log de progression tous les 100 éléments
-        if (results.success % 100 === 0) {
+        // Log de progression tous les 50 éléments
+        if (results.success % 50 === 0) {
           console.log(`📊 Progression: ${results.success}/${records.length} luminaires insérés`)
         }
       } catch (error: any) {

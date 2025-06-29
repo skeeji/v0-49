@@ -1,13 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { streamFile, getFileInfo } from "@/lib/gridfs"
-import { ObjectId } from "mongodb"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params
 
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "ID invalide" }, { status: 400 })
+    if (!id) {
+      return NextResponse.json({ error: "ID manquant" }, { status: 400 })
     }
 
     // Récupérer les infos du fichier
@@ -19,13 +18,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Créer le stream
     const downloadStream = await streamFile(id)
 
-    // Créer une réponse avec stream
-    const response = new Response(downloadStream as any, {
+    // Créer une réponse avec le stream
+    const response = new NextResponse(downloadStream as any, {
+      status: 200,
       headers: {
         "Content-Type": fileInfo.metadata?.contentType || "video/mp4",
-        "Content-Length": fileInfo.length.toString(),
+        "Content-Length": fileInfo.length?.toString() || "0",
         "Cache-Control": "public, max-age=31536000",
-        "Accept-Ranges": "bytes",
+        "Content-Disposition": `inline; filename="${fileInfo.filename}"`,
       },
     })
 
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.error("❌ Erreur streaming vidéo:", error)
     return NextResponse.json(
       {
-        error: "Erreur serveur lors du streaming",
+        error: "Erreur lors du streaming de la vidéo",
         details: error.message,
       },
       { status: 500 },

@@ -12,16 +12,15 @@ export async function POST(request: NextRequest) {
     const file = formData.get("logo") as File
 
     if (!file) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
+      return NextResponse.json({ error: "Aucun fichier logo fourni" }, { status: 400 })
     }
 
     console.log(`📁 Logo reçu: ${file.name} (${file.size} bytes)`)
 
-    // Convertir en Buffer
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    // Convertir en buffer
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Uploader vers GridFS
+    // Upload vers GridFS
     const fileId = await uploadFile(buffer, file.name, {
       contentType: file.type,
       originalName: file.name,
@@ -43,6 +42,7 @@ export async function POST(request: NextRequest) {
             filename: file.name,
             contentType: file.type,
             size: file.size,
+            uploadDate: new Date(),
           },
           updatedAt: new Date(),
         },
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload",
+        error: "Erreur serveur lors de l'upload du logo",
         details: error.message,
       },
       { status: 500 },

@@ -21,10 +21,9 @@ export async function POST(request: NextRequest) {
     const fileContent = await file.text()
     console.log(`📄 Contenu lu: ${fileContent.length} caractères`)
 
-    // Parser le CSV avec différents délimiteurs
+    // Parser le CSV
     let records: any[] = []
     try {
-      // Essayer avec point-virgule d'abord
       records = parse(fileContent, {
         columns: true,
         skip_empty_lines: true,
@@ -34,7 +33,6 @@ export async function POST(request: NextRequest) {
       console.log(`✅ Parsing avec ';' réussi: ${records.length} lignes`)
     } catch (error) {
       try {
-        // Essayer avec virgule
         records = parse(fileContent, {
           columns: true,
           skip_empty_lines: true,
@@ -43,16 +41,16 @@ export async function POST(request: NextRequest) {
         })
         console.log(`✅ Parsing avec ',' réussi: ${records.length} lignes`)
       } catch (error2) {
-        console.error("❌ Erreur parsing CSV:", error2)
-        return NextResponse.json({ error: "Impossible de parser le fichier CSV" }, { status: 400 })
+        console.error("❌ Erreur parsing CSV designers:", error2)
+        return NextResponse.json({ error: "Impossible de parser le fichier CSV designers" }, { status: 400 })
       }
     }
 
     if (records.length === 0) {
-      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV" }, { status: 400 })
+      return NextResponse.json({ error: "Aucune donnée trouvée dans le fichier CSV designers" }, { status: 400 })
     }
 
-    console.log(`📊 ${records.length} lignes parsées du CSV`)
+    console.log(`📊 ${records.length} lignes parsées du CSV designers`)
     console.log("📋 Colonnes détectées:", Object.keys(records[0]))
 
     const client = await clientPromise
@@ -70,19 +68,10 @@ export async function POST(request: NextRequest) {
       results.processed++
 
       try {
-        // Mapping des colonnes pour designers
-        const nom = (record["Nom"] || record["nom"] || record["name"] || record["Name"] || "").toString().trim()
-        const imagedesigner = (
-          record["imagedesigner"] ||
-          record["Imagedesigner"] ||
-          record["image"] ||
-          record["Image"] ||
-          ""
-        )
-          .toString()
-          .trim()
+        // Mapping des colonnes
+        const nom = (record["Nom"] || record["nom"] || record["Name"] || record["name"] || "").toString().trim()
+        const imagedesigner = (record["imagedesigner"] || record["image"] || record["Image"] || "").toString().trim()
 
-        // Validation du nom
         if (!nom) {
           results.errors.push(`Ligne ${i + 2}: nom manquant`)
           continue
@@ -94,11 +83,7 @@ export async function POST(request: NextRequest) {
           imagedesigner: imagedesigner,
           description: "",
           specialite: "",
-          anneeNaissance: null,
-          anneeDeces: null,
-          nationalite: "",
-          biographie: "",
-          images: [],
+          periode: "",
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -107,11 +92,6 @@ export async function POST(request: NextRequest) {
 
         await db.collection("designers").insertOne(designer)
         results.success++
-
-        // Log de progression tous les 100 éléments
-        if (results.success % 100 === 0) {
-          console.log(`📊 Progression: ${results.success}/${records.length} designers insérés`)
-        }
       } catch (error: any) {
         results.errors.push(`Ligne ${i + 2}: ${error.message}`)
         console.error(`❌ Erreur ligne ${i + 2}:`, error.message)
@@ -119,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(
-      `✅ Import terminé: ${results.success} succès, ${results.errors.length} erreurs sur ${results.processed} lignes`,
+      `✅ Import designers terminé: ${results.success} succès, ${results.errors.length} erreurs sur ${results.processed} lignes`,
     )
 
     return NextResponse.json({
@@ -131,11 +111,11 @@ export async function POST(request: NextRequest) {
       totalErrors: results.errors.length,
     })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors de l'import designers:", error)
+    console.error("❌ Erreur critique lors de l'import CSV designers:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'import",
+        error: "Erreur serveur lors de l'import designers",
         details: error.message,
       },
       { status: 500 },

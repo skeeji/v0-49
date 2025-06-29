@@ -12,33 +12,32 @@ export async function DELETE(request: NextRequest) {
     const db = client.db(DBNAME)
 
     // Supprimer toutes les collections
-    const collections = ["luminaires", "designers", "settings", "users"]
-    let deletedCount = 0
+    const collections = ["luminaires", "designers", "settings", "timeline"]
 
     for (const collectionName of collections) {
       try {
         const result = await db.collection(collectionName).deleteMany({})
-        deletedCount += result.deletedCount
-        console.log(`🗑️ Collection ${collectionName}: ${result.deletedCount} documents supprimés`)
+        console.log(`✅ Collection ${collectionName}: ${result.deletedCount} documents supprimés`)
       } catch (error) {
-        console.log(`⚠️ Collection ${collectionName} n'existe pas ou est vide`)
+        console.log(`⚠️ Collection ${collectionName} n'existe pas ou erreur:`, error)
       }
     }
 
     // Supprimer tous les fichiers GridFS
     try {
       await deleteAllFiles()
-      console.log("🗑️ Tous les fichiers GridFS supprimés")
+      console.log("✅ Tous les fichiers GridFS supprimés")
     } catch (error) {
       console.error("❌ Erreur suppression GridFS:", error)
     }
 
-    console.log(`✅ Réinitialisation terminée: ${deletedCount} documents supprimés`)
+    console.log("✅ Réinitialisation complète terminée")
 
     return NextResponse.json({
       success: true,
-      message: `Réinitialisation terminée: ${deletedCount} documents et tous les fichiers supprimés`,
-      deletedDocuments: deletedCount,
+      message: "Serveur réinitialisé avec succès",
+      deletedCollections: collections,
+      deletedFiles: true,
     })
   } catch (error: any) {
     console.error("❌ Erreur critique lors de la réinitialisation:", error)
