@@ -31,11 +31,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucun fichier logo fourni" }, { status: 400 })
     }
 
-    console.log(`📤 Upload du logo: ${file.name}, taille: ${file.size} bytes`)
+    console.log(`🏷️ Logo reçu: ${file.name}, ${file.size} bytes`)
 
-    // Upload vers GridFS
+    // Supprimer l'ancien logo s'il existe
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    const existingLogo = await db.collection("settings").findOne({ type: "logo" })
+    if (existingLogo && existingLogo.fileId) {
+      try {
+        await bucket.delete(existingLogo.fileId)
+        console.log("🗑️ Ancien logo supprimé")
+      } catch (error) {
+        console.warn("⚠️ Impossible de supprimer l'ancien logo:", error)
+      }
+    }
+
+    // Upload du nouveau logo
     const stream = fileToStream(file)
-    const uploadStream = bucket.openUploadStream(`logo_${Date.now()}_${file.name}`, {
+    const uploadStream = bucket.openUploadStream(file.name, {
       contentType: file.type,
       metadata: {
         type: "logo",
@@ -52,28 +66,27 @@ export async function POST(request: NextRequest) {
     const fileId = uploadStream.id.toString()
 
     // Sauvegarder les métadonnées du logo
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    await db.collection("settings").replaceOne(
+      { type: "logo" },
+      {
+        type: "logo",
+        filename: file.name,
+        fileId: fileId,
+        path: `/api/images/${fileId}`,
+        contentType: file.type,
+        size: file.size,
+        uploadDate: new Date(),
+      },
+      { upsert: true },
+    )
 
-    await db.collection("logos").deleteMany({}) // Supprimer l'ancien logo
-    await db.collection("logos").insertOne({
-      fileId: fileId,
-      filename: file.name,
-      originalName: file.name,
-      contentType: file.type,
-      size: file.size,
-      path: `/api/images/${fileId}`,
-      createdAt: new Date(),
-      isActive: true,
-    })
-
-    console.log(`✅ Logo uploadé avec l'ID: ${fileId}`)
+    console.log(`✅ Logo sauvegardé avec l'ID: ${fileId}`)
 
     return NextResponse.json({
       success: true,
       message: "Logo uploadé avec succès",
-      fileId: fileId,
       filename: file.name,
+      fileId: fileId,
       path: `/api/images/${fileId}`,
     })
   } catch (error: any) {

@@ -33,17 +33,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucun fichier vidéo fourni" }, { status: 400 })
     }
 
-    console.log(`📤 Upload de la vidéo: ${file.name}, taille: ${file.size} bytes`)
+    console.log(`🎥 Vidéo reçue: ${file.name}, ${file.size} bytes`)
 
-    // Upload vers GridFS
+    // Supprimer l'ancienne vidéo s'il existe
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+
+    const existingVideo = await db.collection("videos").findOne({ type: "welcome" })
+    if (existingVideo && existingVideo.fileId) {
+      try {
+        await bucket.delete(existingVideo.fileId)
+        console.log("🗑️ Ancienne vidéo supprimée")
+      } catch (error) {
+        console.warn("⚠️ Impossible de supprimer l'ancienne vidéo:", error)
+      }
+    }
+
+    // Upload de la nouvelle vidéo
     const stream = fileToStream(file)
-    const uploadStream = bucket.openUploadStream(`video_${Date.now()}_${file.name}`, {
+    const uploadStream = bucket.openUploadStream(file.name, {
       contentType: file.type,
       metadata: {
-        type: "video",
+        type: "welcome-video",
+        originalName: file.name,
         title: title || "Vidéo d'accueil",
         description: description || "",
-        originalName: file.name,
         size: file.size,
         uploadDate: new Date(),
       },
@@ -56,32 +70,30 @@ export async function POST(request: NextRequest) {
     const fileId = uploadStream.id.toString()
 
     // Sauvegarder les métadonnées de la vidéo
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    await db.collection("videos").replaceOne(
+      { type: "welcome" },
+      {
+        type: "welcome",
+        title: title || "Vidéo d'accueil",
+        description: description || "",
+        filename: file.name,
+        fileId: fileId,
+        path: `/api/videos/${fileId}`,
+        contentType: file.type,
+        size: file.size,
+        uploadDate: new Date(),
+      },
+      { upsert: true },
+    )
 
-    await db.collection("videos").deleteMany({}) // Supprimer l'ancienne vidéo
-    await db.collection("videos").insertOne({
-      fileId: fileId,
-      filename: file.name,
-      originalName: file.name,
-      title: title || "Vidéo d'accueil",
-      description: description || "",
-      contentType: file.type,
-      size: file.size,
-      path: `/api/images/${fileId}`,
-      createdAt: new Date(),
-      isActive: true,
-    })
-
-    console.log(`✅ Vidéo uploadée avec l'ID: ${fileId}`)
+    console.log(`✅ Vidéo sauvegardée avec l'ID: ${fileId}`)
 
     return NextResponse.json({
       success: true,
       message: "Vidéo uploadée avec succès",
-      fileId: fileId,
       filename: file.name,
-      title: title,
-      path: `/api/images/${fileId}`,
+      fileId: fileId,
+      path: `/api/videos/${fileId}`,
     })
   } catch (error: any) {
     console.error("❌ Erreur upload vidéo:", error)
