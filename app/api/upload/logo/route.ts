@@ -23,16 +23,17 @@ export async function POST(request: NextRequest) {
     const file = formData.get("logo") as File
 
     if (!file) {
-      return NextResponse.json({ success: false, error: "Aucun fichier logo fourni" }, { status: 400 })
+      console.log("❌ Aucun fichier logo trouvé dans la requête")
+      return NextResponse.json({ success: false, error: "Aucun fichier logo trouvé" }, { status: 400 })
     }
 
-    console.log(`📁 Logo reçu: ${file.name}, taille: ${file.size} bytes`)
+    console.log(`📁 Logo reçu: ${file.name} (${file.size} bytes)`)
 
     const bucket = await getBucket()
-    const stream = fileToStream(file)
-    const filename = `logo_${Date.now()}_${file.name}`
 
-    const uploadStream = bucket.openUploadStream(filename, {
+    // Upload vers GridFS
+    const stream = fileToStream(file)
+    const uploadStream = bucket.openUploadStream(`logo_${Date.now()}_${file.name}`, {
       contentType: file.type,
     })
 
@@ -44,28 +45,29 @@ export async function POST(request: NextRequest) {
     })
 
     const fileId = uploadStream.id.toString()
+    console.log(`✅ Logo uploadé avec l'ID: ${fileId}`)
 
-    // Sauvegarder les informations du logo en base
+    // Sauvegarder les métadonnées en base
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    await db.collection("logos").deleteMany({}) // Supprimer l'ancien logo
-    await db.collection("logos").insertOne({
-      filename: filename,
-      originalName: file.name,
+    const logoData = {
+      filename: file.name,
       fileId: fileId,
       path: `/api/images/${fileId}`,
-      contentType: file.type,
       size: file.size,
-      createdAt: new Date(),
-    })
+      contentType: file.type,
+      uploadedAt: new Date(),
+    }
 
-    console.log(`✅ Logo uploadé avec l'ID: ${fileId}`)
+    await db.collection("logos").insertOne(logoData)
+
+    console.log(`✅ Métadonnées logo sauvegardées`)
 
     return NextResponse.json({
       success: true,
       message: "Logo uploadé avec succès",
-      filename: filename,
+      filename: file.name,
       fileId: fileId,
       path: `/api/images/${fileId}`,
     })

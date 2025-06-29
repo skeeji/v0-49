@@ -25,16 +25,17 @@ export async function POST(request: NextRequest) {
     const description = formData.get("description") as string
 
     if (!file) {
-      return NextResponse.json({ success: false, error: "Aucun fichier vidéo fourni" }, { status: 400 })
+      console.log("❌ Aucun fichier vidéo trouvé dans la requête")
+      return NextResponse.json({ success: false, error: "Aucun fichier vidéo trouvé" }, { status: 400 })
     }
 
-    console.log(`📁 Vidéo reçue: ${file.name}, taille: ${file.size} bytes`)
+    console.log(`📁 Vidéo reçue: ${file.name} (${file.size} bytes)`)
 
     const bucket = await getBucket()
-    const stream = fileToStream(file)
-    const filename = `video_${Date.now()}_${file.name}`
 
-    const uploadStream = bucket.openUploadStream(filename, {
+    // Upload vers GridFS
+    const stream = fileToStream(file)
+    const uploadStream = bucket.openUploadStream(`video_${Date.now()}_${file.name}`, {
       contentType: file.type,
     })
 
@@ -46,32 +47,34 @@ export async function POST(request: NextRequest) {
     })
 
     const fileId = uploadStream.id.toString()
+    console.log(`✅ Vidéo uploadée avec l'ID: ${fileId}`)
 
-    // Sauvegarder les informations de la vidéo en base
+    // Sauvegarder les métadonnées en base
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    await db.collection("videos").deleteMany({}) // Supprimer l'ancienne vidéo
-    await db.collection("videos").insertOne({
-      filename: filename,
-      originalName: file.name,
+    const videoData = {
+      filename: file.name,
       fileId: fileId,
       path: `/api/images/${fileId}`,
       title: title || "Vidéo d'accueil",
       description: description || "Vidéo de bienvenue",
-      contentType: file.type,
       size: file.size,
-      createdAt: new Date(),
-    })
+      contentType: file.type,
+      uploadedAt: new Date(),
+    }
 
-    console.log(`✅ Vidéo uploadée avec l'ID: ${fileId}`)
+    await db.collection("videos").insertOne(videoData)
+
+    console.log(`✅ Métadonnées vidéo sauvegardées`)
 
     return NextResponse.json({
       success: true,
       message: "Vidéo uploadée avec succès",
-      filename: filename,
+      filename: file.name,
       fileId: fileId,
       path: `/api/images/${fileId}`,
+      title: videoData.title,
     })
   } catch (error: any) {
     console.error("❌ Erreur upload vidéo:", error)
