@@ -1,19 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle, XCircle, Upload, Users, ImageIcon, Video, FileImage } from "lucide-react"
-import { UploadForm } from "@/components/UploadForm"
+import { CheckCircle, XCircle, Upload, Users, ImageIcon, Video, FileImage, Trash2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface ImportResult {
   success: boolean
   message: string
   imported?: number
   processed?: number
+  uploaded?: number
+  associated?: number
   errors?: string[]
   totalErrors?: number
 }
@@ -23,7 +26,19 @@ export default function ImportPage() {
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [progress, setProgress] = useState<Record<string, number>>({})
 
-  const handleCSVUpload = async (file: File) => {
+  // Refs pour les inputs
+  const csvFileRef = useRef<HTMLInputElement>(null)
+  const designersFileRef = useRef<HTMLInputElement>(null)
+  const imagesFileRef = useRef<HTMLInputElement>(null)
+  const videoFileRef = useRef<HTMLInputElement>(null)
+  const logoFileRef = useRef<HTMLInputElement>(null)
+
+  const { toast } = useToast()
+
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
     const key = "csv"
     setLoading({ ...loading, [key]: true })
     setProgress({ ...progress, [key]: 0 })
@@ -54,6 +69,19 @@ export default function ImportPage() {
       console.log("📊 Réponse API CSV:", result)
 
       setResults({ ...results, [key]: result })
+
+      if (result.success) {
+        toast({
+          title: "✅ CSV importé",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur CSV",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'import CSV:", error)
       setResults({
@@ -68,7 +96,10 @@ export default function ImportPage() {
     }
   }
 
-  const handleDesignersUpload = async (file: File) => {
+  const handleDesignersUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
     const key = "designers"
     setLoading({ ...loading, [key]: true })
     setProgress({ ...progress, [key]: 0 })
@@ -79,7 +110,6 @@ export default function ImportPage() {
       const formData = new FormData()
       formData.append("file", file)
 
-      // Simuler la progression
       const progressInterval = setInterval(() => {
         setProgress((prev) => ({
           ...prev,
@@ -99,6 +129,19 @@ export default function ImportPage() {
       console.log("📊 Réponse API designers:", result)
 
       setResults({ ...results, [key]: result })
+
+      if (result.success) {
+        toast({
+          title: "✅ Designers importés",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur designers",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'import designers:", error)
       setResults({
@@ -113,7 +156,10 @@ export default function ImportPage() {
     }
   }
 
-  const handleImagesUpload = async (files: File[]) => {
+  const handleImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
     const key = "images"
     setLoading({ ...loading, [key]: true })
     setProgress({ ...progress, [key]: 0 })
@@ -145,6 +191,19 @@ export default function ImportPage() {
       console.log("📊 Réponse API images:", result)
 
       setResults({ ...results, [key]: result })
+
+      if (result.success) {
+        toast({
+          title: "✅ Images uploadées",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur images",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'upload images:", error)
       setResults({
@@ -159,7 +218,10 @@ export default function ImportPage() {
     }
   }
 
-  const handleVideoUpload = async (file: File) => {
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
     const key = "video"
     setLoading({ ...loading, [key]: true })
     setProgress({ ...progress, [key]: 0 })
@@ -189,6 +251,19 @@ export default function ImportPage() {
       console.log("📊 Réponse API vidéo:", result)
 
       setResults({ ...results, [key]: result })
+
+      if (result.success) {
+        toast({
+          title: "✅ Vidéo uploadée",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur vidéo",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'upload vidéo:", error)
       setResults({
@@ -203,7 +278,10 @@ export default function ImportPage() {
     }
   }
 
-  const handleLogoUpload = async (file: File) => {
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
     const key = "logo"
     setLoading({ ...loading, [key]: true })
     setProgress({ ...progress, [key]: 0 })
@@ -233,6 +311,19 @@ export default function ImportPage() {
       console.log("📊 Réponse API logo:", result)
 
       setResults({ ...results, [key]: result })
+
+      if (result.success) {
+        toast({
+          title: "✅ Logo uploadé",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur logo",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'upload logo:", error)
       setResults({
@@ -267,6 +358,19 @@ export default function ImportPage() {
       console.log("🗑️ Base de données vidée:", result)
 
       setResults({ reset: result })
+
+      if (result.success) {
+        toast({
+          title: "✅ Base de données vidée",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur reset",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       console.error("❌ Erreur lors du reset:", error)
       setResults({
@@ -312,6 +416,11 @@ export default function ImportPage() {
                   {result.imported} éléments importés sur {result.processed} traités
                 </p>
               )}
+              {result.uploaded && (
+                <p className="text-sm text-gray-600">
+                  {result.uploaded} fichiers uploadés, {result.associated} associés
+                </p>
+              )}
               {result.errors && result.errors.length > 0 && (
                 <details className="text-sm">
                   <summary className="cursor-pointer text-red-600">
@@ -335,132 +444,162 @@ export default function ImportPage() {
   return (
     <div className="container mx-auto py-8 space-y-8">
       <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold">Import de données</h1>
-        <p className="text-gray-600">Importez vos luminaires, designers, images et médias</p>
+        <h1 className="text-4xl font-serif text-gray-900">Import de données</h1>
+        <p className="text-lg text-gray-600">Importez vos luminaires, designers, images et médias</p>
       </div>
 
-      <Tabs defaultValue="csv" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="csv" className="flex items-center space-x-2">
-            <Upload className="w-4 h-4" />
-            <span>Luminaires</span>
-          </TabsTrigger>
-          <TabsTrigger value="designers" className="flex items-center space-x-2">
-            <Users className="w-4 h-4" />
-            <span>Designers</span>
-          </TabsTrigger>
-          <TabsTrigger value="images" className="flex items-center space-x-2">
-            <ImageIcon className="w-4 h-4" />
-            <span>Images</span>
-          </TabsTrigger>
-          <TabsTrigger value="video" className="flex items-center space-x-2">
-            <Video className="w-4 h-4" />
-            <span>Vidéo</span>
-          </TabsTrigger>
-          <TabsTrigger value="logo" className="flex items-center space-x-2">
-            <FileImage className="w-4 h-4" />
-            <span>Logo</span>
-          </TabsTrigger>
-        </TabsList>
+      {/* Grille d'import */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* CSV Luminaires */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Upload className="w-5 h-5 text-blue-500" />
+              <span>CSV Luminaires</span>
+            </CardTitle>
+            <CardDescription>Importez votre fichier CSV contenant les données des luminaires</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <input ref={csvFileRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+            <Button
+              onClick={() => csvFileRef.current?.click()}
+              disabled={loading.csv}
+              className="w-full"
+              variant="outline"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Sélectionner CSV
+            </Button>
+            {renderResult("csv")}
+          </CardContent>
+        </Card>
 
-        <TabsContent value="csv">
-          <Card>
-            <CardHeader>
-              <CardTitle>Import CSV Luminaires</CardTitle>
-              <CardDescription>
-                Importez votre fichier CSV contenant les données des luminaires (~9000 lignes attendues)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <UploadForm
-                accept=".csv"
-                onUpload={handleCSVUpload}
-                type="csv"
-                expectedColumns={[
-                  "Nom luminaire",
-                  "Nom du fichier",
-                  "Artiste / Dates",
-                  "Spécialité",
-                  "Collaboration / Œuvre",
-                  "Année",
-                  "Signé",
-                ]}
-              />
-              {renderResult("csv")}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* CSV Designers */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="w-5 h-5 text-purple-500" />
+              <span>CSV Designers</span>
+            </CardTitle>
+            <CardDescription>Importez votre fichier CSV contenant les données des designers</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <input
+              ref={designersFileRef}
+              type="file"
+              accept=".csv"
+              onChange={handleDesignersUpload}
+              className="hidden"
+            />
+            <Button
+              onClick={() => designersFileRef.current?.click()}
+              disabled={loading.designers}
+              className="w-full"
+              variant="outline"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Sélectionner CSV
+            </Button>
+            {renderResult("designers")}
+          </CardContent>
+        </Card>
 
-        <TabsContent value="designers">
-          <Card>
-            <CardHeader>
-              <CardTitle>Import CSV Designers</CardTitle>
-              <CardDescription>Importez votre fichier CSV contenant les données des designers</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <UploadForm
-                accept=".csv"
-                onUpload={handleDesignersUpload}
-                type="csv"
-                expectedColumns={["Nom", "imagedesigner"]}
-              />
-              {renderResult("designers")}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Images */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <ImageIcon className="w-5 h-5 text-green-500" />
+              <span>Images</span>
+            </CardTitle>
+            <CardDescription>Uploadez toutes les images des luminaires</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <input
+              ref={imagesFileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImagesUpload}
+              className="hidden"
+            />
+            <Button
+              onClick={() => imagesFileRef.current?.click()}
+              disabled={loading.images}
+              className="w-full"
+              variant="outline"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Sélectionner Images
+            </Button>
+            {renderResult("images")}
+          </CardContent>
+        </Card>
 
-        <TabsContent value="images">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Images</CardTitle>
-              <CardDescription>Uploadez toutes les images des luminaires (JPG, PNG, GIF, WebP)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <UploadForm accept="image/*" onUpload={handleImagesUpload} type="images" multiple />
-              {renderResult("images")}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Vidéo */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Video className="w-5 h-5 text-red-500" />
+              <span>Vidéo de fond</span>
+            </CardTitle>
+            <CardDescription>Uploadez la vidéo de fond pour la page d'accueil</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <input ref={videoFileRef} type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" />
+            <Button
+              onClick={() => videoFileRef.current?.click()}
+              disabled={loading.video}
+              className="w-full"
+              variant="outline"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Sélectionner Vidéo
+            </Button>
+            {renderResult("video")}
+          </CardContent>
+        </Card>
 
-        <TabsContent value="video">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Vidéo de fond</CardTitle>
-              <CardDescription>Uploadez la vidéo de fond pour la page d'accueil</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" />
-              {renderResult("video")}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Logo */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileImage className="w-5 h-5 text-orange-500" />
+              <span>Logo</span>
+            </CardTitle>
+            <CardDescription>Uploadez le logo de votre site</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <input ref={logoFileRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+            <Button
+              onClick={() => logoFileRef.current?.click()}
+              disabled={loading.logo}
+              className="w-full"
+              variant="outline"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Sélectionner Logo
+            </Button>
+            {renderResult("logo")}
+          </CardContent>
+        </Card>
 
-        <TabsContent value="logo">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Logo</CardTitle>
-              <CardDescription>Uploadez le logo de votre site</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <UploadForm accept="image/*" onUpload={handleLogoUpload} type="logo" />
-              {renderResult("logo")}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Card className="border-red-200">
-        <CardHeader>
-          <CardTitle className="text-red-600">Zone de danger</CardTitle>
-          <CardDescription>Actions irréversibles sur la base de données</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={resetDatabase} disabled={loading.reset} variant="destructive" className="w-full">
-            {loading.reset ? "Suppression en cours..." : "Vider toute la base de données"}
-          </Button>
-          {renderResult("reset")}
-        </CardContent>
-      </Card>
+        {/* Reset Database */}
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              <span>Zone de danger</span>
+            </CardTitle>
+            <CardDescription>Actions irréversibles sur la base de données</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={resetDatabase} disabled={loading.reset} variant="destructive" className="w-full">
+              {loading.reset ? "Suppression en cours..." : "Vider toute la base de données"}
+            </Button>
+            {renderResult("reset")}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
