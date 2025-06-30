@@ -105,6 +105,7 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       ...lum,
       id: lum._id,
       image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
+      filename: lum["Nom du fichier"], // Ajouter le nom du fichier
       name: lum["Nom luminaire"] || "Sans nom",
       year: lum["Année"] || "",
     }))

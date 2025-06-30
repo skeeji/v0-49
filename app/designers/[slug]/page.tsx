@@ -142,7 +142,10 @@ export default function DesignerDetailPage() {
                     onError={(e) => {
                       console.log("❌ Erreur chargement image designer:", designer.imagedesigner)
                       e.currentTarget.style.display = "none"
-                      e.currentTarget.nextElementSibling?.classList.remove("hidden")
+                      const nextElement = e.currentTarget.nextElementSibling as HTMLElement
+                      if (nextElement) {
+                        nextElement.classList.remove("hidden")
+                      }
                     }}
                   />
                 ) : null}
