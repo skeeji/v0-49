@@ -2,189 +2,244 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { EditableField } from "@/components/EditableField"
-import { GalleryGrid } from "@/components/GalleryGrid"
 import Image from "next/image"
+import Link from "next/link"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ArrowLeft, Palette, Calendar, Lightbulb } from "lucide-react"
+
+interface Designer {
+  _id: string
+  nom: string
+  imagedesigner?: string
+  slug: string
+  luminairesCount: number
+}
+
+interface Luminaire {
+  _id: string
+  "Nom luminaire": string
+  "Nom du fichier": string
+  "Artiste / Dates": string
+  Année: string
+  Spécialité: string
+}
 
 export default function DesignerDetailPage() {
   const params = useParams()
-  const [designer, setDesigner] = useState<any>(null)
-  const [designerLuminaires, setDesignerLuminaires] = useState<any[]>([])
-  const [description, setDescription] = useState("")
-  const [collaboration, setCollaboration] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
+  const slug = params.slug as string
+
+  const [designer, setDesigner] = useState<Designer | null>(null)
+  const [luminaires, setLuminaires] = useState<Luminaire[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!params.slug) return
+    const fetchDesigner = async () => {
+      if (!slug) return
 
-    const designerSlug = decodeURIComponent(params.slug as string)
-    console.log("🔍 Designer slug:", designerSlug)
-
-    async function fetchDesignerData() {
-      setIsLoading(true)
       try {
-        // Utiliser l'API designer spécifique
-        const response = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
-        const result = await response.json()
+        setLoading(true)
+        setError(null)
 
-        console.log("📊 Réponse API designer:", result)
+        console.log(`🔍 Chargement designer: ${slug}`)
 
-        if (result.success) {
-          setDesigner(result.data.designer)
+        const response = await fetch(`/api/designers/${encodeURIComponent(slug)}`)
+        const data = await response.json()
 
-          // Adapter les données des luminaires pour GalleryGrid
-          const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            // CORRECTION: Utiliser le nom du fichier pour l'image
-            image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
-            artist: lum["Artiste / Dates"] || lum.designer || "",
-            year: lum.annee || lum["Année"] || "",
-            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
-            specialty: lum["Spécialité"] || lum.periode || "",
-            collaboration: lum["Collaboration / Œuvre"] || lum.description || "",
-          }))
+        console.log("📊 Réponse API designer:", data)
 
-          setDesignerLuminaires(adaptedLuminaires)
-          console.log("✅ Luminaires adaptés:", adaptedLuminaires.length)
-
-          // Charger les descriptions stockées localement
-          if (adaptedLuminaires.length > 0) {
-            const fullDesignerField = adaptedLuminaires[0].artist
-            const defaultSpecialty = adaptedLuminaires[0].specialty
-
-            const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
-            const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
-
-            setDescription(storedDescriptions[fullDesignerField] || defaultSpecialty)
-            setCollaboration(storedCollaborations[fullDesignerField] || "")
-          }
+        if (data.success) {
+          setDesigner(data.designer)
+          setLuminaires(data.luminaires || [])
         } else {
-          console.error("❌ Erreur API:", result.error)
-          setDesigner(null)
+          setError(data.error || "Designer non trouvé")
         }
-      } catch (error) {
-        console.error("❌ Erreur chargement données designer:", error)
-        setDesigner(null)
+      } catch (error: any) {
+        console.error("❌ Erreur API:", error)
+        setError("Erreur serveur")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    fetchDesignerData()
-  }, [params.slug])
+    fetchDesigner()
+  }, [slug])
 
-  // Fonctions pour mettre à jour les descriptions
-  const updateDescription = (newDescription: string) => {
-    setDescription(newDescription)
-    if (designerLuminaires.length > 0) {
-      const fullDesignerField = designerLuminaires[0].artist
-      const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
-      storedDescriptions[fullDesignerField] = newDescription
-      localStorage.setItem("designer-descriptions", JSON.stringify(storedDescriptions))
-    }
-  }
-
-  const updateCollaboration = (newCollaboration: string) => {
-    setCollaboration(newCollaboration)
-    if (designerLuminaires.length > 0) {
-      const fullDesignerField = designerLuminaires[0].artist
-      const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
-      storedCollaborations[fullDesignerField] = newCollaboration
-      localStorage.setItem("designer-collaborations", JSON.stringify(storedCollaborations))
-    }
-  }
-
-  const updateLuminaire = (id: string, updates: any) => {
-    setDesignerLuminaires((prev) => prev.map((lum) => (lum.id === id ? { ...lum, ...updates } : lum)))
-  }
-
-  if (isLoading) {
-    return <div className="text-center py-8">Chargement...</div>
-  }
-
-  if (!designer) {
+  if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <p>Designer non trouvé.</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <Skeleton className="h-10 w-32" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <div className="lg:col-span-1">
+            <Card>
+              <CardContent className="p-6">
+                <Skeleton className="w-full h-64 mb-4" />
+                <Skeleton className="h-8 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Skeleton className="h-8 w-48 mb-6" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="p-0">
+                    <Skeleton className="w-full h-48" />
+                    <div className="p-4">
+                      <Skeleton className="h-4 w-3/4 mb-2" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !designer) {
+    return (
+      <div className="container mx-auto px-4 py-8">
         <Link href="/designers">
-          <Button className="mt-4">Retour</Button>
+          <Button variant="ghost" className="mb-6">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Retour aux designers
+          </Button>
         </Link>
+
+        <div className="text-center py-12">
+          <Palette className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-600 mb-2">Designer non trouvé</h1>
+          <p className="text-gray-500 mb-6">{error}</p>
+          <Link href="/designers">
+            <Button>Voir tous les designers</Button>
+          </Link>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <Link href="/designers">
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent">
-              <ArrowLeft className="w-4 h-4" />
-              Retour aux designers
-            </Button>
-          </Link>
-        </div>
+      {/* Bouton retour */}
+      <Link href="/designers">
+        <Button variant="ghost" className="mb-6">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Retour aux designers
+        </Button>
+      </Link>
 
-        <div className="bg-white rounded-xl p-8 shadow-lg mb-8">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-            <div className="w-48 h-48 relative flex-shrink-0">
-              <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 overflow-hidden">
+      {/* Informations du designer */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="lg:col-span-1">
+          <Card>
+            <CardContent className="p-6">
+              {/* Image du designer */}
+              <div className="relative w-full h-64 mb-6 bg-gray-100 rounded-lg overflow-hidden">
                 {designer.imagedesigner ? (
                   <Image
-                    src={`/api/images/filename/${designer.imagedesigner}`}
+                    src={`/api/images/filename/${encodeURIComponent(designer.imagedesigner)}`}
                     alt={designer.nom}
                     fill
                     className="object-cover"
                     onError={(e) => {
-                      console.log("❌ Erreur chargement image designer:", designer.imagedesigner)
-                      e.currentTarget.style.display = "none"
-                      const nextElement = e.currentTarget.nextElementSibling as HTMLElement
-                      if (nextElement) {
-                        nextElement.classList.remove("hidden")
-                      }
+                      e.currentTarget.src = "/placeholder.svg?height=300&width=300&text=Designer"
                     }}
                   />
-                ) : null}
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
+                    <Palette className="w-20 h-20 text-blue-400" />
+                  </div>
+                )}
+              </div>
 
-                <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
-                  <div className="text-6xl text-gray-400 mb-2">👤</div>
-                  <span className="text-sm text-gray-500">Image non disponible</span>
+              {/* Nom et informations */}
+              <h1 className="text-2xl font-bold mb-4">{designer.nom}</h1>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm text-gray-600">
+                    {luminaires.length} luminaire{luminaires.length > 1 ? "s" : ""}
+                  </span>
                 </div>
               </div>
-            </div>
-
-            <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl font-serif text-gray-900 mb-4">{designer.nom}</h1>
-
-              <p className="text-lg text-gray-600 mb-6">
-                {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
-              </p>
-
-              <div className="bg-orange-50 rounded-lg p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Spécialité</h3>
-                <EditableField value={description} onSave={updateDescription} multiline />
-              </div>
-
-              <div className="bg-orange-50 rounded-lg p-4 mt-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Collaboration / Œuvre</h3>
-                <EditableField value={collaboration} onSave={updateCollaboration} multiline />
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="bg-white rounded-xl p-8 shadow-lg">
-          <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires de {designer.nom}</h2>
+        <div className="lg:col-span-2">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <Lightbulb className="w-6 h-6 text-blue-600" />
+            Luminaires ({luminaires.length})
+          </h2>
 
-          {designerLuminaires.length > 0 ? (
-            <GalleryGrid items={designerLuminaires} viewMode="grid" onItemUpdate={updateLuminaire} />
+          {luminaires.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {luminaires.map((luminaire) => (
+                <Link key={luminaire._id} href={`/luminaires/${luminaire._id}`}>
+                  <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-200 cursor-pointer group">
+                    <CardContent className="p-0">
+                      {/* Image du luminaire */}
+                      <div className="relative w-full h-48 bg-gray-100">
+                        {luminaire["Nom du fichier"] ? (
+                          <Image
+                            src={`/api/images/filename/${encodeURIComponent(luminaire["Nom du fichier"])}`}
+                            alt={luminaire["Nom luminaire"]}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-200"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg?height=200&width=200&text=Luminaire"
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100">
+                            <Lightbulb className="w-16 h-16 text-amber-400" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Informations du luminaire */}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                          {luminaire["Nom luminaire"]}
+                        </h3>
+
+                        <div className="flex items-center justify-between">
+                          {luminaire["Année"] && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {luminaire["Année"]}
+                            </Badge>
+                          )}
+
+                          {luminaire["Spécialité"] && (
+                            <Badge variant="outline" className="text-xs">
+                              {luminaire["Spécialité"]}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
           ) : (
             <div className="text-center py-12">
-              <p>Aucun luminaire trouvé.</p>
+              <Lightbulb className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-600 mb-2">Aucun luminaire</h3>
+              <p className="text-gray-500">Aucun luminaire n'est associé à ce designer pour le moment.</p>
             </div>
           )}
         </div>
