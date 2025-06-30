@@ -1,99 +1,61 @@
 "use client"
 
-import Link from "next/link"
-import Image from "next/image"
-import { usePathname } from "next/navigation"
-import { Home, Lightbulb, Users, Clock, Upload } from "lucide-react"
-import { UserMenu } from "@/components/UserMenu"
-import { useAuth } from "@/contexts/AuthContext"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useAuth } from "@/contexts/AuthContext"
+import { UserMenu } from "./UserMenu"
+import { DrawerNav } from "./DrawerNav"
 
 export function Header() {
-  const pathname = usePathname()
-  const { userData } = useAuth()
-  const isMobile = useIsMobile()
-  const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
-
-  const isAdmin = userData?.role === "admin"
-
-  const navigation = [
-    { name: "Accueil", href: "/", icon: Home },
-    { name: "Luminaires", href: "/luminaires", icon: Lightbulb },
-    { name: "Designers", href: "/designers", icon: Users },
-    { name: "Chronologie", href: "/chronologie", icon: Clock },
-  ]
+  const { user } = useAuth()
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    // Charger le logo depuis l'API
-    const loadLogo = async () => {
+    const fetchLogo = async () => {
       try {
-        console.log("🖼️ Chargement du logo...")
         const response = await fetch("/api/logo")
-        console.log("📄 Réponse API logo:", response.status)
         if (response.ok) {
-          setLogoUrl("/api/logo")
-          console.log("✅ Logo chargé avec succès")
-        } else {
-          console.log("⚠️ Logo personnalisé non disponible, utilisation du logo par défaut")
+          const data = await response.json()
+          if (data.success && data.logoUrl) {
+            setLogoUrl(data.logoUrl)
+          }
         }
       } catch (error) {
-        console.error("💥 Erreur chargement logo:", error)
-        console.log("Logo personnalisé non disponible, utilisation du logo par défaut")
+        console.error("Erreur lors du chargement du logo:", error)
       }
     }
 
-    loadLogo()
+    fetchLogo()
   }, [])
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-sm border-b">
-      <div className="container flex items-center justify-between h-32">
-        <Link href="/" className="flex items-center gap-3">
-          <Image
-            src={logoUrl || "/placeholder.svg"}
-            alt="Logo"
-            width={120}
-            height={120}
-            className="w-28 h-28 object-contain"
-            onError={(e) => {
-              console.error("❌ Erreur affichage logo, fallback vers placeholder")
-              setLogoUrl("/placeholder-logo.svg")
-            }}
-            onLoad={() => console.log("✅ Logo affiché avec succès")}
-          />
-        </Link>
-        <nav className="flex items-center gap-4">
-          {navigation.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-cream ${
-                  isActive ? "bg-orange text-white" : "text-dark"
-                }`}
-              >
-                {!isMobile && <Icon className="w-4 h-4" />}
-                <span>{item.name}</span>
-              </Link>
-            )
-          })}
-          {/* Afficher le lien d'import uniquement pour les admins */}
-          {isAdmin && (
-            <Link
-              href="/import"
-              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-cream ${
-                pathname === "/import" ? "bg-orange text-white" : "text-dark"
-              }`}
-            >
-              {!isMobile && <Upload className="w-4 h-4" />}
-              <span>Import</span>
+    <header className="bg-white shadow-sm border-b h-32">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-32">
+          <div className="flex items-center">
+            <DrawerNav />
+            <Link href="/" className="flex items-center ml-4">
+              {logoUrl ? (
+                <img
+                  src={logoUrl || "/placeholder.svg"}
+                  alt="Logo"
+                  className="w-28 h-28 object-contain"
+                  width={120}
+                  height={120}
+                />
+              ) : (
+                <img
+                  src="/placeholder-logo.png"
+                  alt="Logo"
+                  className="w-28 h-28 object-contain"
+                  width={120}
+                  height={120}
+                />
+              )}
             </Link>
-          )}
-          <UserMenu />
-        </nav>
+          </div>
+          <div className="flex items-center space-x-4">{user && <UserMenu />}</div>
+        </div>
       </div>
     </header>
   )
