@@ -1,105 +1,100 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
-import { Menu } from "lucide-react"
-import { DrawerNav } from "./DrawerNav"
-import { UserMenu } from "./UserMenu"
+import Image from "next/image"
+import { usePathname } from "next/navigation"
+import { Home, Lightbulb, Users, Clock, Upload } from "lucide-react"
+import { UserMenu } from "@/components/UserMenu"
 import { useAuth } from "@/contexts/AuthContext"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { useState, useEffect } from "react"
 
 export function Header() {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const pathname = usePathname()
   const { userData } = useAuth()
+  const isMobile = useIsMobile()
+  const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
+
+  const isAdmin = userData?.role === "admin"
+
+  const navigation = [
+    { name: "Accueil", href: "/", icon: Home },
+    { name: "Luminaires", href: "/luminaires", icon: Lightbulb },
+    { name: "Designers", href: "/designers", icon: Users },
+    { name: "Chronologie", href: "/chronologie", icon: Clock },
+  ]
 
   useEffect(() => {
-    const fetchLogo = async () => {
+    // Charger le logo depuis l'API
+    const loadLogo = async () => {
       try {
-        console.log("🔍 Chargement du logo...")
+        console.log("🖼️ Chargement du logo...")
         const response = await fetch("/api/logo")
+        console.log("📄 Réponse API logo:", response.status)
         if (response.ok) {
-          const blob = await response.blob()
-          const url = URL.createObjectURL(blob)
-          setLogoUrl(url)
+          setLogoUrl("/api/logo")
           console.log("✅ Logo chargé avec succès")
         } else {
-          console.log("❌ Aucun logo trouvé")
+          console.log("⚠️ Logo personnalisé non disponible, utilisation du logo par défaut")
         }
       } catch (error) {
-        console.error("❌ Erreur chargement logo:", error)
+        console.error("💥 Erreur chargement logo:", error)
+        console.log("Logo personnalisé non disponible, utilisation du logo par défaut")
       }
     }
 
-    fetchLogo()
-
-    return () => {
-      if (logoUrl) {
-        URL.revokeObjectURL(logoUrl)
-      }
-    }
+    loadLogo()
   }, [])
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 h-28 flex items-center">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between">
-          {/* Logo et titre */}
-          <Link href="/" className="flex items-center space-x-4">
-            {logoUrl ? (
-              <Image
-                src={logoUrl || "/placeholder.svg"}
-                alt="Logo"
-                width={120}
-                height={120}
-                className="w-28 h-28 object-contain"
-                onError={(e) => {
-                  console.error("❌ Erreur affichage logo")
-                  e.currentTarget.style.display = "none"
-                }}
-              />
-            ) : (
-              <div className="w-28 h-28 bg-gray-100 rounded-lg flex items-center justify-center">
-                <span className="text-gray-400 text-xs">Logo</span>
-              </div>
-            )}
-          </Link>
-
-          {/* Navigation desktop */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/luminaires" className="text-gray-700 hover:text-gray-900 font-medium">
-              Luminaires
-            </Link>
-            <Link href="/designers" className="text-gray-700 hover:text-gray-900 font-medium">
-              Designers
-            </Link>
-            <Link href="/chronologie" className="text-gray-700 hover:text-gray-900 font-medium">
-              Chronologie
-            </Link>
-            {userData?.role === "admin" && (
-              <Link href="/import" className="text-gray-700 hover:text-gray-900 font-medium">
-                Import
+    <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-sm border-b">
+      <div className="container flex items-center justify-between h-24">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src={logoUrl || "/placeholder.svg"}
+            alt="Logo"
+            width={100}
+            height={100}
+            className="w-24 h-24 object-contain"
+            onError={(e) => {
+              console.error("❌ Erreur affichage logo, fallback vers placeholder")
+              setLogoUrl("/placeholder-logo.svg")
+            }}
+            onLoad={() => console.log("✅ Logo affiché avec succès")}
+          />
+        </Link>
+        <nav className="flex items-center gap-4">
+          {navigation.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-cream ${
+                  isActive ? "bg-orange text-white" : "text-dark"
+                }`}
+              >
+                {!isMobile && <Icon className="w-4 h-4" />}
+                <span>{item.name}</span>
               </Link>
-            )}
-          </nav>
-
-          {/* Menu utilisateur et bouton mobile */}
-          <div className="flex items-center space-x-4">
-            <UserMenu />
-
-            {/* Bouton menu mobile */}
-            <button
-              onClick={() => setIsDrawerOpen(true)}
-              className="md:hidden p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+            )
+          })}
+          {/* Afficher le lien d'import uniquement pour les admins */}
+          {isAdmin && (
+            <Link
+              href="/import"
+              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-cream ${
+                pathname === "/import" ? "bg-orange text-white" : "text-dark"
+              }`}
             >
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
+              {!isMobile && <Upload className="w-4 h-4" />}
+              <span>Import</span>
+            </Link>
+          )}
+          <UserMenu />
+        </nav>
       </div>
-
-      {/* Navigation mobile */}
-      <DrawerNav isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
     </header>
   )
 }
