@@ -7,25 +7,32 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
 
     // Décoder l'URL plusieurs fois si nécessaire et nettoyer
     let designerName = params.name
+    console.log(`🔍 Nom brut reçu: "${designerName}"`)
 
     // Décoder jusqu'à ce qu'il n'y ait plus de changement
     let previousName = ""
-    while (designerName !== previousName) {
+    let attempts = 0
+    while (designerName !== previousName && attempts < 5) {
       previousName = designerName
       try {
         designerName = decodeURIComponent(designerName)
+        console.log(`🔄 Décodage ${attempts + 1}: "${designerName}"`)
       } catch (e) {
+        console.log(`❌ Erreur décodage: ${e.message}`)
         break
       }
+      attempts++
     }
 
     // Nettoyer le nom (enlever le point final et espaces)
     designerName = designerName.replace(/\s*\.\s*$/, "").trim()
+    console.log(`🧹 Nom nettoyé: "${designerName}"`)
 
     console.log(`🔍 Recherche du designer: "${designerName}"`)
 
     // Échapper les caractères spéciaux pour la regex
     const escapedName = designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    console.log(`🔒 Nom échappé: "${escapedName}"`)
 
     // Rechercher d'abord dans la collection designers-data pour l'image
     const designerInfo = await db.collection("designers-data").findOne({
@@ -37,18 +44,46 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     // Rechercher les luminaires de ce designer avec plusieurs patterns
     const searchPatterns = [
       { "Artiste / Dates": { $regex: new RegExp(`^${escapedName}$`, "i") } },
+      { "Artiste / Dates": { $regex: new RegExp(`^${escapedName}\\.?$`, "i") } }, // Avec point optionnel
       { "Artiste / Dates": { $regex: new RegExp(escapedName, "i") } },
       { designer: { $regex: new RegExp(`^${escapedName}$`, "i") } },
       { designer: { $regex: new RegExp(escapedName, "i") } },
     ]
 
     let luminaires = []
-    for (const pattern of searchPatterns) {
+    for (let i = 0; i < searchPatterns.length; i++) {
+      const pattern = searchPatterns[i]
+      console.log(`🔍 Test pattern ${i + 1}:`, pattern)
       luminaires = await db.collection("luminaires").find(pattern).toArray()
       if (luminaires.length > 0) {
-        console.log(`💡 ${luminaires.length} luminaires trouvés avec le pattern:`, pattern)
+        console.log(`💡 ${luminaires.length} luminaires trouvés avec le pattern ${i + 1}`)
         break
       }
+    }
+
+    // Si toujours rien, essayer une recherche plus large
+    if (luminaires.length === 0) {
+      console.log(`🔍 Recherche élargie...`)
+      const broadSearch = await db
+        .collection("luminaires")
+        .find({
+          $or: [
+            { "Artiste / Dates": { $regex: new RegExp(designerName.split(" ")[0], "i") } },
+            { designer: { $regex: new RegExp(designerName.split(" ")[0], "i") } },
+          ],
+        })
+        .toArray()
+      console.log(`🔍 Recherche élargie trouvée: ${broadSearch.length} résultats`)
+
+      // Filtrer pour trouver les correspondances les plus proches
+      luminaires = broadSearch.filter((lum) => {
+        const artistField = lum["Artiste / Dates"] || lum.designer || ""
+        return (
+          artistField.toLowerCase().includes(designerName.toLowerCase()) ||
+          designerName.toLowerCase().includes(artistField.toLowerCase())
+        )
+      })
+      console.log(`🎯 Après filtrage: ${luminaires.length} résultats`)
     }
 
     if (luminaires.length === 0) {
