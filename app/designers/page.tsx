@@ -2,24 +2,23 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useInView } from "react-intersection-observer"
-import Image from "next/image"
-import Link from "next/link"
 import { SearchBar } from "@/components/SearchBar"
-import { SortSelector } from "@/components/SortSelector"
-import { useAuth } from "@/contexts/AuthContext"
-import { Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Grid, List, Loader2 } from "lucide-react"
+import { CSVExportButton } from "@/components/CSVExportButton"
+import Link from "next/link"
+import Image from "next/image"
 
 export default function DesignersPage() {
-  const [designers, setDesigners] = useState([])
-  const [filteredDesigners, setFilteredDesigners] = useState([])
-  const [displayedDesigners, setDisplayedDesigners] = useState([])
+  const [designers, setDesigners] = useState<any[]>([])
+  const [filteredDesigners, setFilteredDesigners] = useState<any[]>([])
+  const [displayedDesigners, setDisplayedDesigners] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [sortBy, setSortBy] = useState("name-asc")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
-  const { userData } = useAuth()
 
   const ITEMS_PER_PAGE = 50
 
@@ -28,119 +27,45 @@ export default function DesignersPage() {
     rootMargin: "100px",
   })
 
+  // Charger les designers
   useEffect(() => {
-    async function fetchData() {
+    async function fetchDesigners() {
       setIsLoading(true)
       try {
-        // CORRECTION: Charger tous les luminaires pour extraire TOUS les designers
-        const luminairesResponse = await fetch("/api/luminaires?limit=10000")
-        const luminairesData = await luminairesResponse.json()
+        const response = await fetch("/api/designers")
+        const data = await response.json()
 
-        if (luminairesData.success) {
-          console.log(`👨‍🎨 Extraction des designers depuis ${luminairesData.luminaires.length} luminaires`)
-
-          // Grouper les luminaires par designer (Artiste / Dates)
-          const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
-            const designerName = luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"
-
-            if (!acc[designerName]) {
-              acc[designerName] = {
-                name: designerName,
-                count: 0,
-                luminaires: [],
-                image: "",
-                slug: encodeURIComponent(designerName),
-              }
-            }
-
-            acc[designerName].count++
-            acc[designerName].luminaires.push({
-              ...luminaire,
-              image: luminaire["Nom du fichier"]
-                ? `/api/images/filename/${luminaire["Nom du fichier"]}`
-                : "/placeholder.svg",
-              name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
-            })
-
-            return acc
-          }, {})
-
-          console.log(`👨‍🎨 ${Object.keys(designerGroups).length} designers uniques trouvés`)
-
-          // Charger les images des designers depuis l'API designers-data
-          try {
-            const designersResponse = await fetch("/api/designers-data")
-            const designersResult = await designersResponse.json()
-
-            if (designersResult.success && designersResult.designers) {
-              console.log(`🖼️ ${designersResult.designers.length} images de designers disponibles`)
-
-              // Associer les images aux designers
-              Object.keys(designerGroups).forEach((designerName) => {
-                const designerInfo = designersResult.designers.find(
-                  (d: any) => d.Nom && d.Nom.toLowerCase().trim() === designerName.toLowerCase().trim(),
-                )
-
-                if (designerInfo && designerInfo.imagedesigner) {
-                  designerGroups[designerName].image = `/api/images/filename/${designerInfo.imagedesigner}`
-                  console.log(`🖼️ Image trouvée pour ${designerName}: ${designerInfo.imagedesigner}`)
-                }
-              })
-            }
-          } catch (error) {
-            console.error("❌ Erreur chargement données designers:", error)
-          }
-
-          const designersArray = Object.values(designerGroups).sort((a: any, b: any) => a.name.localeCompare(b.name))
-
-          console.log(`✅ ${designersArray.length} designers finaux`)
-
-          // Pour les utilisateurs "free", limiter à 10% des designers
-          if (userData?.role === "free") {
-            const limitedDesigners = designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
-            setDesigners(limitedDesigners)
-            setFilteredDesigners(limitedDesigners)
-          } else {
-            setDesigners(designersArray)
-            setFilteredDesigners(designersArray)
-          }
+        if (data.success) {
+          console.log(`👨‍🎨 ${data.designers.length} designers chargés`)
+          setDesigners(data.designers)
+          setFilteredDesigners(data.designers)
         }
       } catch (error) {
-        console.error("❌ Erreur chargement données:", error)
+        console.error("❌ Erreur chargement designers:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchData()
-  }, [userData])
+    fetchDesigners()
+  }, [])
 
-  // Filtrer et trier
+  // Filtrer les designers
   useEffect(() => {
     let filtered = [...designers]
 
     if (searchTerm) {
-      filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      filtered = filtered.filter((designer) => designer.nom.toLowerCase().includes(searchTerm.toLowerCase()))
     }
 
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "name-asc":
-          return a.name.localeCompare(b.name)
-        case "name-desc":
-          return b.name.localeCompare(a.name)
-        case "count-desc":
-          return b.count - a.count
-        default:
-          return 0
-      }
-    })
+    // Trier par nom
+    filtered.sort((a, b) => a.nom.localeCompare(b.nom))
 
     setFilteredDesigners(filtered)
     setPage(0)
     setHasMore(true)
     setDisplayedDesigners([])
-  }, [designers, searchTerm, sortBy])
+  }, [designers, searchTerm])
 
   // Charger plus d'éléments
   const loadMore = useCallback(() => {
@@ -192,104 +117,81 @@ export default function DesignersPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-8">Designers ({filteredDesigners.length})</h1>
-
-        {/* Message pour les utilisateurs "free" */}
-        {userData?.role === "free" && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-            <p className="flex items-center">
-              <span className="mr-2">ℹ️</span>
-              <span>
-                Vous utilisez un compte gratuit. Seuls 10% des designers sont affichés.
-                <Link href="#" className="ml-1 underline font-medium">
-                  Passez à Premium
-                </Link>{" "}
-                pour voir tous les designers.
-              </span>
-            </p>
+      <div className="max-w-7xl mx-auto">
+        {/* En-tête */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-serif text-gray-900 mb-2">Designers ({filteredDesigners.length})</h1>
+            <p className="text-gray-600">Collection de designers de luminaires</p>
           </div>
-        )}
+
+          <div className="flex items-center gap-4 mt-4 md:mt-0">
+            <CSVExportButton data={filteredDesigners} filename="designers" />
+
+            <div className="flex items-center gap-2 bg-white rounded-lg p-1 shadow-sm">
+              <Button variant={viewMode === "grid" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("grid")}>
+                <Grid className="w-4 h-4" />
+              </Button>
+              <Button variant={viewMode === "list" ? "default" : "ghost"} size="sm" onClick={() => setViewMode("list")}>
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {/* Filtres */}
         <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="max-w-md">
             <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un designer..." />
-
-            <SortSelector
-              value={sortBy}
-              onChange={setSortBy}
-              options={[
-                { value: "name-asc", label: "A → Z" },
-                { value: "name-desc", label: "Z → A" },
-                { value: "count-desc", label: "Nb de luminaires" },
-              ]}
-            />
           </div>
         </div>
 
         {/* Grille des designers */}
         {displayedDesigners.length === 0 && !isLoading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">Aucun designer trouvé</p>
-            <p className="text-gray-400 text-sm mt-2">
-              Importez des luminaires et des designers pour voir cette section
-            </p>
+          <div className="text-center py-16">
+            <p className="text-lg text-gray-600">Aucun designer trouvé</p>
+            <p className="text-gray-400 text-sm mt-2">Essayez de modifier votre recherche</p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {displayedDesigners.map((designer, index) => (
-                <Link key={index} href={`/designers/${designer.slug}`}>
-                  <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full">
-                    <div className="text-center">
-                      {/* Portrait circulaire */}
-                      <div className="w-24 h-24 mx-auto mb-4 relative">
-                        {designer.image ? (
-                          <Image
-                            src={designer.image || "/placeholder.svg"}
-                            alt={designer.name}
-                            fill
-                            className="object-cover rounded-full"
-                            onError={(e) => {
-                              e.currentTarget.src = "/placeholder.svg"
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
-                            <div className="text-center">
-                              <div className="text-2xl text-gray-400 mb-1">👤</div>
-                              <span className="text-xs text-gray-500">Image manquante</span>
-                            </div>
-                          </div>
-                        )}
+            <div
+              className={`grid gap-6 ${
+                viewMode === "grid"
+                  ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                  : "grid-cols-1"
+              }`}
+            >
+              {displayedDesigners.map((designer) => (
+                <Link
+                  key={designer._id}
+                  href={`/designers/${encodeURIComponent(designer.nom)}`}
+                  className="group block bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+                >
+                  <div className="aspect-square relative overflow-hidden bg-gray-100">
+                    {designer.imagedesigner ? (
+                      <Image
+                        src={`/api/images/filename/${designer.imagedesigner}`}
+                        alt={designer.nom}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <span className="text-gray-400 text-4xl font-serif">
+                          {designer.nom.charAt(0).toUpperCase()}
+                        </span>
                       </div>
+                    )}
+                  </div>
 
-                      <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
-
-                      <p className="text-gray-600 mb-4">
-                        {designer.count} luminaire{designer.count > 1 ? "s" : ""}
-                      </p>
-
-                      {/* Aperçu des luminaires */}
-                      <div className="grid grid-cols-3 gap-2 mb-4">
-                        {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
-                          <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
-                            <Image
-                              src={luminaire.image || "/placeholder.svg"}
-                              alt={luminaire.name}
-                              fill
-                              className="object-cover"
-                              onError={(e) => {
-                                e.currentTarget.src = "/placeholder.svg?height=80&width=80"
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      <span className="text-orange-500 hover:text-orange-600 font-medium">Voir le profil →</span>
-                    </div>
+                  <div className="p-4">
+                    <h3 className="font-serif text-lg text-gray-900 group-hover:text-orange-600 transition-colors">
+                      {designer.nom}
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {designer.luminairesCount || 0} luminaire{(designer.luminairesCount || 0) !== 1 ? "s" : ""}
+                    </p>
                   </div>
                 </Link>
               ))}
