@@ -4,15 +4,9 @@ import { getDatabase } from "@/lib/mongodb"
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
     const db = await getDatabase()
-
-    // Décoder l'URL et nettoyer le nom
-    let designerName = decodeURIComponent(params.name)
-
-    // Enlever le point final s'il existe
-    designerName = designerName.replace(/\.$/, "").trim()
+    const designerName = decodeURIComponent(params.name)
 
     console.log(`🔍 Recherche du designer: "${designerName}"`)
-    console.log(`🔍 Nom brut reçu: "${params.name}"`)
 
     // Échapper les caractères spéciaux pour la regex
     const escapedName = designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -43,23 +37,9 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
 
     if (luminaires.length === 0) {
       console.log(`❌ Aucun luminaire trouvé pour: "${designerName}"`)
-
-      // Debug: lister quelques designers disponibles
-      const availableDesigners = await db
-        .collection("luminaires")
-        .distinct("Artiste / Dates")
-        .then((designers) => designers.filter((d) => d && typeof d === "string" && d.trim()).slice(0, 10))
-
-      console.log(`🔍 Quelques designers disponibles:`, availableDesigners)
-
       return NextResponse.json({
         success: false,
         message: "Designer non trouvé",
-        debug: {
-          searchedName: designerName,
-          rawName: params.name,
-          availableDesigners: availableDesigners,
-        },
       })
     }
 
