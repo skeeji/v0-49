@@ -9,28 +9,30 @@ Ce guide vous explique comment démarrer l'application avec Docker.
 
 ## 🚀 Démarrage rapide
 
-### Mode Production
-
+### Development
 \`\`\`bash
-# Rendre les scripts exécutables
-chmod +x scripts/*.sh
-
-# Démarrer l'application
-./scripts/start.sh
+docker-compose up -d
 \`\`\`
 
-### Mode Développement
-
+### Production
 \`\`\`bash
-# Démarrer en mode développement (avec hot reload)
-./scripts/start-dev.sh
+docker-compose -f docker-compose.prod.yml up -d
 \`\`\`
 
-### Arrêter l'application
+## Configuration
 
-\`\`\`bash
-./scripts/stop.sh
+Make sure to set up your environment variables in `.env.local`:
+
 \`\`\`
+MONGODB_URI=mongodb://localhost:27017/luminaires
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
+# ... other Firebase config
+\`\`\`
+
+1. Copiez `.env.example` vers `.env`
+2. Modifiez les variables d'environnement selon vos besoins
+3. Configurez vos clés Firebase si nécessaire
 
 ## 🌐 URLs d'accès
 
@@ -40,11 +42,11 @@ chmod +x scripts/*.sh
   - Utilisateur : `admin`
   - Mot de passe : `admin123`
 
-## ⚙️ Configuration
+## ⚙️ Services
 
-1. Copiez `.env.example` vers `.env`
-2. Modifiez les variables d'environnement selon vos besoins
-3. Configurez vos clés Firebase si nécessaire
+- **app**: Next.js application
+- **mongodb**: MongoDB database
+- **mongo-express**: Database admin interface (development only)
 
 ## 📁 Structure des services
 

@@ -1,94 +1,71 @@
 "use client"
 
 import { useState } from "react"
-import { User, LogOut, Crown, UserIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
-import { LoginModal } from "@/components/LoginModal"
-import type { UserRole } from "@/lib/firebase"
-
-// Mode développement désactivé
-const DEV_MODE = false
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { User, Settings, LogOut, LogIn } from "lucide-react"
 
 export function UserMenu() {
-  const { user, userData, logout } = useAuth()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  const { user, userData, signOut, openLoginModal } = useAuth()
+  const [isOpen, setIsOpen] = useState(false)
 
-  const getRoleBadge = (role: UserRole) => {
-    switch (role) {
-      case "admin":
-        return (
-          <div className="flex items-center gap-1 bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
-            <Crown className="w-3 h-3" />
-            <span>Admin</span>
-          </div>
-        )
-      case "premium":
-        return (
-          <div className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">
-            <Crown className="w-3 h-3" />
-            <span>Premium</span>
-          </div>
-        )
-      case "free":
-        return (
-          <div className="flex items-center gap-1 bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full text-xs">
-            <UserIcon className="w-3 h-3" />
-            <span>Free</span>
-          </div>
-        )
-      default:
-        return null
+  if (!user) {
+    return (
+      <Button onClick={openLoginModal} variant="outline" className="flex items-center gap-2 bg-transparent">
+        <LogIn className="w-4 h-4" />
+        Se connecter
+      </Button>
+    )
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      setIsOpen(false)
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error)
     }
   }
 
   return (
-    <>
-      {user ? (
-        <div className="relative">
-          <Button onClick={() => setIsMenuOpen(!isMenuOpen)} variant="ghost" className="flex items-center gap-2 px-3">
-            <div className="w-8 h-8 rounded-full bg-orange flex items-center justify-center text-white">
-              {user.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
-            </div>
-            <div className="hidden md:block text-left">
-              <div className="text-sm font-medium truncate max-w-[120px]">
-                {user.displayName || user.email?.split("@")[0]}
-              </div>
-              {userData && getRoleBadge(userData.role)}
-            </div>
-          </Button>
-
-          {isMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50">
-              <div className="px-4 py-2 border-b border-gray-100">
-                <p className="text-sm font-medium">{user.displayName || user.email?.split("@")[0]}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                {userData && <div className="mt-1">{getRoleBadge(userData.role)}</div>}
-              </div>
-              <div className="py-1">
-                <button
-                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => {
-                    setIsMenuOpen(false)
-                    logout()
-                  }}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Déconnexion
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <Button onClick={() => setIsLoginModalOpen(true)} className="bg-orange hover:bg-orange/90">
-          <User className="w-4 h-4 mr-2" />
-          Connexion
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
+            <AvatarFallback>
+              <User className="h-4 w-4" />
+            </AvatarFallback>
+          </Avatar>
         </Button>
-      )}
-
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
-    </>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <div className="flex items-center justify-start gap-2 p-2">
+          <div className="flex flex-col space-y-1 leading-none">
+            {user.displayName && <p className="font-medium">{user.displayName}</p>}
+            {user.email && <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>}
+            {userData?.role && <p className="text-xs text-muted-foreground capitalize">Rôle: {userData.role}</p>}
+          </div>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <Settings className="mr-2 h-4 w-4" />
+          <span>Paramètres</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleSignOut}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Se déconnecter</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

@@ -1,64 +1,99 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface CarouselProps {
-  items: any[]
+  images: string[]
+  alt: string
+  className?: string
 }
 
-export function Carousel({ items }: CarouselProps) {
+export function Carousel({ images, alt, className = "" }: CarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const itemsPerView = 3
 
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + itemsPerView >= items.length ? 0 : prev + itemsPerView))
+  const goToPrevious = () => {
+    setCurrentIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1))
   }
 
-  const prevSlide = () => {
-    setCurrentIndex((prev) =>
-      prev === 0 ? Math.max(0, items.length - itemsPerView) : Math.max(0, prev - itemsPerView),
+  const goToNext = () => {
+    setCurrentIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1))
+  }
+
+  // Auto-play (optional)
+  useEffect(() => {
+    if (images.length <= 1) return
+
+    const interval = setInterval(() => {
+      goToNext()
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [images.length])
+
+  if (images.length === 0) {
+    return (
+      <div className={`relative aspect-square bg-gray-100 rounded-lg flex items-center justify-center ${className}`}>
+        <span className="text-gray-400">Aucune image</span>
+      </div>
     )
   }
 
-  if (items.length === 0) {
-    return <div className="text-center text-gray-500 py-8">Aucun luminaire pour cette période</div>
+  if (images.length === 1) {
+    return (
+      <div className={`relative aspect-square ${className}`}>
+        <Image src={images[0] || "/placeholder.svg"} alt={alt} fill className="object-cover rounded-lg" />
+      </div>
+    )
   }
 
   return (
-    <div className="relative">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="font-medium text-gray-700">Luminaires de la période</h4>
-        <div className="flex gap-2">
-          <Button onClick={prevSlide} variant="outline" size="sm" disabled={currentIndex === 0}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button
-            onClick={nextSlide}
-            variant="outline"
-            size="sm"
-            disabled={currentIndex + itemsPerView >= items.length}
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
+    <div className={`relative aspect-square ${className}`}>
+      {/* Image principale */}
+      <div className="relative w-full h-full">
+        <Image
+          src={images[currentIndex] || "/placeholder.svg"}
+          alt={`${alt} ${currentIndex + 1}`}
+          fill
+          className="object-cover rounded-lg"
+        />
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        {items.slice(currentIndex, currentIndex + itemsPerView).map((item, index) => (
-          <div key={index} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
-            <Image
-              src={item.image || "/placeholder.svg?height=150&width=150"}
-              alt={item.name || "Luminaire"}
-              fill
-              className="object-cover"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2">
-              <p className="text-xs font-medium truncate">{item.name || "Sans nom"}</p>
-            </div>
-          </div>
+
+      {/* Boutons de navigation */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+        onClick={goToPrevious}
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </Button>
+
+      <Button
+        variant="outline"
+        size="icon"
+        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+        onClick={goToNext}
+      >
+        <ChevronRight className="w-4 h-4" />
+      </Button>
+
+      {/* Indicateurs */}
+      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-2">
+        {images.map((_, index) => (
+          <button
+            key={index}
+            className={`w-2 h-2 rounded-full transition-colors ${index === currentIndex ? "bg-white" : "bg-white/50"}`}
+            onClick={() => setCurrentIndex(index)}
+          />
         ))}
+      </div>
+
+      {/* Compteur */}
+      <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+        {currentIndex + 1} / {images.length}
       </div>
     </div>
   )

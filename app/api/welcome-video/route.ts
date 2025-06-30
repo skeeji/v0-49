@@ -1,25 +1,18 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
 // Simulation d'une base de données
 const welcomeVideos: any[] = []
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const activeVideo = welcomeVideos.find((video) => video.isActive)
-
-    if (!activeVideo) {
-      return NextResponse.json({
-        success: false,
-        video: null,
-      })
-    }
-
+    // Return a simple welcome message or video URL
     return NextResponse.json({
       success: true,
-      video: activeVideo,
+      message: "Bienvenue dans la galerie de luminaires",
+      videoUrl: null, // Add video URL if needed
     })
   } catch (error) {
-    console.error("Erreur lors de la récupération de la vidéo:", error)
+    console.error("Error in welcome-video route:", error)
     return NextResponse.json(
       {
         success: false,

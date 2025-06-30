@@ -1,19 +1,32 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useInView } from "react-intersection-observer"
 import Image from "next/image"
 import Link from "next/link"
 import { SearchBar } from "@/components/SearchBar"
 import { SortSelector } from "@/components/SortSelector"
 import { useAuth } from "@/contexts/AuthContext"
+import { Loader2 } from "lucide-react"
 
 export default function DesignersPage() {
   const [designers, setDesigners] = useState([])
   const [filteredDesigners, setFilteredDesigners] = useState([])
+  const [displayedDesigners, setDisplayedDesigners] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("name-asc")
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(0)
   const { userData } = useAuth()
+
+  const ITEMS_PER_PAGE = 50
+
+  const { ref, inView } = useInView({
+    threshold: 0,
+    rootMargin: "100px",
+  })
 
   useEffect(() => {
     async function fetchData() {
@@ -102,6 +115,7 @@ export default function DesignersPage() {
     fetchData()
   }, [userData])
 
+  // Filtrer et trier
   useEffect(() => {
     let filtered = [...designers]
 
@@ -123,13 +137,53 @@ export default function DesignersPage() {
     })
 
     setFilteredDesigners(filtered)
+    setPage(0)
+    setHasMore(true)
+    setDisplayedDesigners([])
   }, [designers, searchTerm, sortBy])
+
+  // Charger plus d'éléments
+  const loadMore = useCallback(() => {
+    if (isLoadingMore || !hasMore) return
+
+    setIsLoadingMore(true)
+
+    setTimeout(() => {
+      const startIndex = page * ITEMS_PER_PAGE
+      const endIndex = startIndex + ITEMS_PER_PAGE
+      const newItems = filteredDesigners.slice(startIndex, endIndex)
+
+      if (page === 0) {
+        setDisplayedDesigners(newItems)
+      } else {
+        setDisplayedDesigners((prev) => [...prev, ...newItems])
+      }
+
+      setPage((prev) => prev + 1)
+      setHasMore(endIndex < filteredDesigners.length)
+      setIsLoadingMore(false)
+    }, 300)
+  }, [page, filteredDesigners, isLoadingMore, hasMore])
+
+  // Charger plus quand on arrive en bas
+  useEffect(() => {
+    if (inView && !isLoadingMore && hasMore) {
+      loadMore()
+    }
+  }, [inView, loadMore, isLoadingMore, hasMore])
+
+  // Charger la première page
+  useEffect(() => {
+    if (filteredDesigners.length > 0 && displayedDesigners.length === 0) {
+      loadMore()
+    }
+  }, [filteredDesigners, displayedDesigners.length, loadMore])
 
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center py-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <Loader2 className="w-12 h-12 mx-auto animate-spin text-gray-400 mb-4" />
           <p className="text-lg text-gray-600">Chargement des designers...</p>
         </div>
       </div>
@@ -175,70 +229,90 @@ export default function DesignersPage() {
         </div>
 
         {/* Grille des designers */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredDesigners.map((designer, index) => (
-            <Link key={index} href={`/designers/${designer.slug}`}>
-              <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full">
-                <div className="text-center">
-                  {/* Portrait circulaire */}
-                  <div className="w-24 h-24 mx-auto mb-4 relative">
-                    {designer.image ? (
-                      <Image
-                        src={designer.image || "/placeholder.svg"}
-                        alt={designer.name}
-                        fill
-                        className="object-cover rounded-full"
-                        onError={(e) => {
-                          e.currentTarget.src = "/placeholder.svg"
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
-                        <div className="text-center">
-                          <div className="text-2xl text-gray-400 mb-1">👤</div>
-                          <span className="text-xs text-gray-500">Image manquante</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
-
-                  <p className="text-gray-600 mb-4">
-                    {designer.count} luminaire{designer.count > 1 ? "s" : ""}
-                  </p>
-
-                  {/* Aperçu des luminaires */}
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
-                      <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
-                        <Image
-                          src={luminaire.image || "/placeholder.svg"}
-                          alt={luminaire.name}
-                          fill
-                          className="object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg?height=80&width=80"
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <span className="text-orange-500 hover:text-orange-600 font-medium">Voir le profil →</span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        {filteredDesigners.length === 0 && (
+        {displayedDesigners.length === 0 && !isLoading ? (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">Aucun designer trouvé</p>
             <p className="text-gray-400 text-sm mt-2">
               Importez des luminaires et des designers pour voir cette section
             </p>
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {displayedDesigners.map((designer, index) => (
+                <Link key={index} href={`/designers/${designer.slug}`}>
+                  <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full">
+                    <div className="text-center">
+                      {/* Portrait circulaire */}
+                      <div className="w-24 h-24 mx-auto mb-4 relative">
+                        {designer.image ? (
+                          <Image
+                            src={designer.image || "/placeholder.svg"}
+                            alt={designer.name}
+                            fill
+                            className="object-cover rounded-full"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg"
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
+                            <div className="text-center">
+                              <div className="text-2xl text-gray-400 mb-1">👤</div>
+                              <span className="text-xs text-gray-500">Image manquante</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
+
+                      <p className="text-gray-600 mb-4">
+                        {designer.count} luminaire{designer.count > 1 ? "s" : ""}
+                      </p>
+
+                      {/* Aperçu des luminaires */}
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
+                          <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
+                            <Image
+                              src={luminaire.image || "/placeholder.svg"}
+                              alt={luminaire.name}
+                              fill
+                              className="object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <span className="text-orange-500 hover:text-orange-600 font-medium">Voir le profil →</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {/* Indicateur de chargement */}
+            {hasMore && (
+              <div ref={ref} className="text-center py-8">
+                {isLoadingMore && (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-gray-600">Chargement...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!hasMore && displayedDesigners.length > 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <p>Tous les designers ont été chargés</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
