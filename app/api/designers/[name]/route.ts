@@ -1,75 +1,72 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+import { connectToDatabase } from "@/lib/mongodb"
 
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
+    const { db } = await connectToDatabase()
     const designerName = decodeURIComponent(params.name)
-    console.log(`🔍 Recherche designer: "${designerName}"`)
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    console.log(`🔍 Recherche du designer: "${designerName}"`)
 
     // Échapper les caractères spéciaux pour la regex
     const escapedName = designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-    // Essayer plusieurs patterns de recherche
+    // Rechercher d'abord dans la collection designers-data pour l'image
+    const designerInfo = await db.collection("designers-data").findOne({
+      Nom: { $regex: new RegExp(`^${escapedName}$`, "i") },
+    })
+
+    console.log(`👤 Info designer trouvée:`, designerInfo ? "Oui" : "Non")
+
+    // Rechercher les luminaires de ce designer avec plusieurs patterns
     const searchPatterns = [
-      { nom: designerName }, // Correspondance exacte
-      { nom: { $regex: `^${escapedName}$`, $options: "i" } }, // Insensible à la casse
-      { nom: { $regex: escapedName, $options: "i" } }, // Contient le nom
-      { slug: designerName }, // Par slug
-      { slug: { $regex: `^${escapedName}$`, $options: "i" } }, // Slug insensible à la casse
+      { "Artiste / Dates": { $regex: new RegExp(`^${escapedName}$`, "i") } },
+      { "Artiste / Dates": { $regex: new RegExp(escapedName, "i") } },
+      { designer: { $regex: new RegExp(`^${escapedName}$`, "i") } },
+      { designer: { $regex: new RegExp(escapedName, "i") } },
     ]
 
-    let designer = null
+    let luminaires = []
     for (const pattern of searchPatterns) {
-      designer = await db.collection("designers").findOne(pattern)
-      if (designer) {
-        console.log(`✅ Designer trouvé avec pattern:`, pattern)
+      luminaires = await db.collection("luminaires").find(pattern).toArray()
+      if (luminaires.length > 0) {
+        console.log(`💡 ${luminaires.length} luminaires trouvés avec le pattern:`, pattern)
         break
       }
     }
 
-    if (!designer) {
-      console.log(`❌ Designer non trouvé: "${designerName}"`)
-      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
-    }
-
-    // Récupérer les luminaires de ce designer
-    const luminaires = await db
-      .collection("luminaires")
-      .find({
-        $or: [
-          { "Artiste / Dates": designer.nom },
-          { designer: designer.nom },
-          { "Artiste / Dates": { $regex: escapedName, $options: "i" } },
-        ],
+    if (luminaires.length === 0) {
+      console.log(`❌ Aucun luminaire trouvé pour: "${designerName}"`)
+      return NextResponse.json({
+        success: false,
+        message: "Designer non trouvé",
       })
-      .toArray()
-
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour ${designer.nom}`)
-
-    // Inclure l'image du designer dans la réponse
-    const response = {
-      success: true,
-      designer: {
-        ...designer,
-        imagedesigner: designer.imagedesigner || null, // S'assurer que l'image est incluse
-        luminairesCount: luminaires.length,
-      },
-      luminaires: luminaires,
     }
 
-    return NextResponse.json(response)
-  } catch (error: any) {
+    // Construire la réponse avec l'image du designer
+    const designer = {
+      nom: designerName,
+      imagedesigner: designerInfo?.imagedesigner || null,
+      luminaires: luminaires.map((luminaire) => ({
+        ...luminaire,
+        image: luminaire["Nom du fichier"] ? `/api/images/filename/${luminaire["Nom du fichier"]}` : null,
+      })),
+      totalLuminaires: luminaires.length,
+    }
+
+    console.log(`✅ Designer trouvé avec ${luminaires.length} luminaires`)
+
+    return NextResponse.json({
+      success: true,
+      designer,
+    })
+  } catch (error) {
     console.error("❌ Erreur API designer:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur",
-        details: error.message,
+        message: "Erreur serveur",
+        error: error.message,
       },
       { status: 500 },
     )

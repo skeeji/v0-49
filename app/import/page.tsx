@@ -257,14 +257,14 @@ export default function ImportPage() {
       const luminairesResponse = await fetch("/api/luminaires?limit=10000")
       const luminairesData = await luminairesResponse.json()
 
-      const designersResponse = await fetch("/api/designers")
+      const designersResponse = await fetch("/api/designers-data")
       const designersData = await designersResponse.json()
 
       if (luminairesData.success && designersData.success) {
         // Créer un map des designers pour récupérer rapidement l'image
         const designersMap = new Map()
         designersData.designers.forEach((designer: any) => {
-          designersMap.set(designer.nom, designer.imagedesigner || "")
+          designersMap.set(designer.Nom, designer.imagedesigner || "")
         })
 
         // Préparer les données pour l'export avec toutes les informations
@@ -518,7 +518,7 @@ export default function ImportPage() {
           <Card>
             <CardHeader>
               <CardTitle>Upload Vidéo de fond</CardTitle>
-              <CardDescription>Uploadez la vidéo de fond pour la page d'accueil</CardDescription>
+              <CardDescription>Uploadez la vidéo de fond pour la page d'accueil (MP4)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <UploadForm accept="video/mp4" onUpload={handleVideoUpload} type="video" />
@@ -531,7 +531,7 @@ export default function ImportPage() {
           <Card>
             <CardHeader>
               <CardTitle>Upload Logo</CardTitle>
-              <CardDescription>Uploadez le logo de votre site</CardDescription>
+              <CardDescription>Uploadez le logo de votre site (PNG, JPG, SVG)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <UploadForm accept="image/*" onUpload={handleLogoUpload} type="logo" />
