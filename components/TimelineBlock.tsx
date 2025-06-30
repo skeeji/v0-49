@@ -14,6 +14,7 @@ interface TimelineBlockProps {
     end: number
     description: string
     luminaires: any[]
+    imageUrl?: string
   }
   isLeft: boolean
   className?: string
@@ -46,8 +47,30 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
       <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-2 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-lg z-10"></div>
 
       {/* Content */}
-      <div className={`flex ${isLeft ? "justify-start pr-8" : "justify-end pl-8"}`}>
-        <Card className={`w-full max-w-2xl ${isLeft ? "mr-8" : "ml-8"} shadow-lg hover:shadow-xl transition-shadow`}>
+      <div
+        className={`flex flex-col lg:flex-row ${isLeft ? "lg:justify-start lg:pr-8" : "lg:justify-end lg:pl-8"} gap-8`}
+      >
+        {/* Image de période - À gauche sur desktop, au-dessus sur mobile */}
+        {period.imageUrl && (
+          <div className={`w-full lg:w-80 flex-shrink-0 ${isLeft ? "lg:order-1" : "lg:order-2"} order-1`}>
+            <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-lg">
+              <img
+                src={period.imageUrl || "/placeholder.svg"}
+                alt={`Illustration ${period.name}`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.style.display = "none"
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Contenu principal */}
+        <Card
+          className={`w-full ${period.imageUrl ? "lg:max-w-2xl" : "max-w-2xl"} ${isLeft ? "lg:mr-8 lg:order-2" : "lg:ml-8 lg:order-1"} order-2 shadow-lg hover:shadow-xl transition-shadow`}
+        >
           <CardContent className="p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">

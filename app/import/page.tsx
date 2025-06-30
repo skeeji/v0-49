@@ -6,9 +6,22 @@ import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, XCircle, Upload, Users, ImageIcon, Video, FileImage, Download, Trash2, Clock } from "lucide-react"
+import {
+  CheckCircle,
+  XCircle,
+  Upload,
+  Users,
+  ImageIcon,
+  Video,
+  FileImage,
+  Download,
+  Trash2,
+  Clock,
+  Calendar,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { RoleGuard } from "@/components/RoleGuard"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface ImportResult {
   success: boolean
@@ -21,6 +34,23 @@ interface ImportResult {
   errors?: string[]
 }
 
+const periods = [
+  "Moyen-Age",
+  "XVIe siècle",
+  "XVIIe siècle",
+  "XVIIIe siècle",
+  "XIXe siècle",
+  "Art Nouveau",
+  "Art Déco",
+  "1940 - 1949",
+  "1950 - 1959",
+  "1960 - 1969",
+  "1970 - 1979",
+  "1980 - 1989",
+  "1990 - 1999",
+  "Contemporain",
+]
+
 export default function ImportPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -32,14 +62,17 @@ export default function ImportPage() {
     video?: ImportResult
     logo?: ImportResult
     reset?: ImportResult
+    periodImages?: { [key: string]: ImportResult }
   }>({})
   const [exportingCSV, setExportingCSV] = useState(false)
+  const [selectedPeriod, setSelectedPeriod] = useState("")
 
   const csvFileRef = useRef<HTMLInputElement>(null)
   const designersFileRef = useRef<HTMLInputElement>(null)
   const imagesFileRef = useRef<HTMLInputElement>(null)
   const videoFileRef = useRef<HTMLInputElement>(null)
   const logoFileRef = useRef<HTMLInputElement>(null)
+  const periodImageFileRef = useRef<HTMLInputElement>(null)
 
   const { toast } = useToast()
 
@@ -331,6 +364,64 @@ export default function ImportPage() {
       toast({
         title: "❌ Erreur critique",
         description: "Impossible d'uploader le logo",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+    }
+  }
+
+  const handlePeriodImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !selectedPeriod) return
+
+    console.log(`🖼️ Upload image pour période: ${selectedPeriod}`)
+
+    setIsUploading(true)
+    setCurrentStep(`Upload image pour ${selectedPeriod}...`)
+    setUploadProgress(10)
+
+    try {
+      const formData = new FormData()
+      formData.append("image", file)
+      formData.append("periodName", selectedPeriod)
+
+      const response = await fetch("/api/upload/period-images", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      console.log("📊 Réponse API image période:", result)
+
+      setResults((prev) => ({
+        ...prev,
+        periodImages: {
+          ...prev.periodImages,
+          [selectedPeriod]: result,
+        },
+      }))
+
+      if (result.success) {
+        toast({
+          title: "✅ Image période uploadée",
+          description: result.message,
+        })
+        setSelectedPeriod("")
+      } else {
+        toast({
+          title: "❌ Erreur image période",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur critique upload image période:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'uploader l'image",
         variant: "destructive",
       })
     } finally {
@@ -637,6 +728,68 @@ export default function ImportPage() {
                           <div className="flex items-center gap-2 text-red-600">
                             <XCircle className="w-4 h-4" />
                             <span>Batch {index + 1}: Erreur</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upload Images de Périodes */}
+            <Card className="border-purple-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-purple-600">
+                  <Calendar className="w-5 h-5" />
+                  Images Périodes
+                </CardTitle>
+                <CardDescription>Images illustratives pour la chronologie</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir une période" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periods.map((period) => (
+                      <SelectItem key={period} value={period}>
+                        {period}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <input
+                  ref={periodImageFileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePeriodImageUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => periodImageFileRef.current?.click()}
+                  disabled={isUploading || !selectedPeriod}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Uploader Image
+                </Button>
+
+                {results.periodImages && Object.keys(results.periodImages).length > 0 && (
+                  <div className="text-sm space-y-1">
+                    {Object.entries(results.periodImages).map(([period, result]) => (
+                      <div key={period}>
+                        {result.success ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{period}: Image uploadée</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600">
+                            <XCircle className="w-4 h-4" />
+                            <span>{period}: Erreur</span>
                           </div>
                         )}
                       </div>

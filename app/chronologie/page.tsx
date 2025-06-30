@@ -107,6 +107,7 @@ const periods = [
 export default function ChronologiePage() {
   const [timelineData, setTimelineData] = useState<any[]>([])
   const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
+  const [periodImages, setPeriodImages] = useState<{ [key: string]: string }>({})
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -116,8 +117,17 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true)
       try {
+        // Charger les luminaires
         const response = await fetch("/api/luminaires?limit=10000")
         const data = await response.json()
+
+        // Charger les images de périodes
+        const imagesResponse = await fetch("/api/period-images")
+        const imagesData = await imagesResponse.json()
+
+        if (imagesData.success) {
+          setPeriodImages(imagesData.images)
+        }
 
         if (data.success && data.luminaires) {
           console.log(`📊 Chronologie: ${data.luminaires.length} luminaires chargés`)
@@ -154,6 +164,7 @@ export default function ChronologiePage() {
               ...period,
               description: savedDescriptions[period.name] || period.defaultDescription,
               luminaires: sortedLuminaires,
+              imageUrl: imagesData.success ? imagesData.images[period.name] : null,
             }
           })
 
