@@ -18,13 +18,46 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
 
     console.log(`🔍 Recherche du designer: "${designerName}"`)
 
-    // D'abord, récupérer quelques exemples pour voir la structure
+    // Vérifier la connexion à la base de données
+    const collections = await db.listCollections().toArray()
+    console.log(
+      "📋 Collections disponibles:",
+      collections.map((c) => c.name),
+    )
+
+    // Vérifier si la collection luminaires existe
+    const luminairesExists = collections.some((c) => c.name === "luminaires")
+    console.log("💡 Collection luminaires existe:", luminairesExists)
+
+    if (!luminairesExists) {
+      return NextResponse.json({
+        success: false,
+        message: "Collection luminaires introuvable",
+        debug: {
+          collections: collections.map((c) => c.name),
+        },
+      })
+    }
+
+    // Compter les documents dans la collection
+    const totalCount = await db.collection("luminaires").countDocuments()
+    console.log("📊 Total documents luminaires:", totalCount)
+
+    if (totalCount === 0) {
+      return NextResponse.json({
+        success: false,
+        message: "Collection luminaires vide",
+      })
+    }
+
+    // Récupérer quelques exemples pour voir la structure
     const sampleLuminaires = await db.collection("luminaires").find({}).limit(5).toArray()
     console.log(
       "📋 Exemples de luminaires:",
       sampleLuminaires.map((l) => ({
         id: l._id,
         artiste: l["Artiste / Dates"],
+        keys: Object.keys(l),
       })),
     )
 
@@ -82,14 +115,17 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     if (luminaires.length === 0) {
       // Lister tous les designers disponibles pour debug
       const allDesigners = await db.collection("luminaires").distinct("Artiste / Dates")
-      console.log(`❌ Aucun résultat. Premiers designers disponibles:`, allDesigners.slice(0, 10))
+      console.log(`❌ Aucun résultat. Total designers uniques: ${allDesigners.length}`)
+      console.log(`📋 Premiers designers disponibles:`, allDesigners.slice(0, 10))
 
       return NextResponse.json({
         success: false,
         message: "Designer non trouvé",
         debug: {
           searchedFor: designerName,
+          totalDesigners: allDesigners.length,
           availableDesigners: allDesigners.slice(0, 10),
+          totalLuminaires: totalCount,
         },
       })
     }
