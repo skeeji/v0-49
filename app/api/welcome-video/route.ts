@@ -1,29 +1,38 @@
 import { NextResponse } from "next/server"
-
-// Simulation d'une base de données
-const welcomeVideos: any[] = []
+import { getDatabase } from "@/lib/mongodb"
 
 export async function GET() {
   try {
-    const activeVideo = welcomeVideos.find((video) => video.isActive)
+    console.log("🎥 API welcome-video: Recherche de la vidéo...")
+    const db = await getDatabase()
 
-    if (!activeVideo) {
+    // Chercher la vidéo la plus récente
+    const video = await db.collection("videos").findOne({}, { sort: { uploadDate: -1 } })
+
+    if (video) {
+      console.log("✅ Vidéo trouvée:", video._id)
+      return NextResponse.json({
+        success: true,
+        video: {
+          _id: video._id,
+          filename: video.filename,
+          uploadDate: video.uploadDate,
+        },
+      })
+    } else {
+      console.log("⚠️ Aucune vidéo trouvée")
       return NextResponse.json({
         success: false,
-        video: null,
+        message: "Aucune vidéo trouvée",
       })
     }
-
-    return NextResponse.json({
-      success: true,
-      video: activeVideo,
-    })
   } catch (error) {
-    console.error("Erreur lors de la récupération de la vidéo:", error)
+    console.error("❌ Erreur API welcome-video:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur",
+        message: "Erreur serveur",
+        error: error.message,
       },
       { status: 500 },
     )

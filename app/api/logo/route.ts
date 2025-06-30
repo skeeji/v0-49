@@ -1,45 +1,56 @@
-import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { downloadFromGridFS } from "@/lib/gridfs"
+import { NextResponse } from "next/server"
+import { getDatabase } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
+import { getBucket } from "@/lib/gridfs"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    console.log("🖼️ API logo: Recherche du logo...")
+    const db = await getDatabase()
+    const bucket = await getBucket()
 
-    // Récupérer les métadonnées du logo
-    const logoSetting = await db.collection("settings").findOne({ key: "logo" })
+    // Chercher le logo le plus récent
+    const logo = await db.collection("logos").findOne({}, { sort: { uploadDate: -1 } })
 
-    if (!logoSetting || !logoSetting.value?.fileId) {
-      return new NextResponse("Logo non trouvé", { status: 404 })
+    if (!logo) {
+      console.log("⚠️ Aucun logo trouvé")
+      return NextResponse.json({ error: "Logo non trouvé" }, { status: 404 })
     }
 
-    // Télécharger le fichier depuis GridFS
-    const buffer = await downloadFromGridFS(logoSetting.value.fileId)
+    console.log("📁 Logo trouvé, récupération du fichier GridFS:", logo.fileId)
 
-    // Déterminer le type de contenu
-    const filename = logoSetting.value.filename || "logo"
-    let contentType = "image/png"
-    if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
-      contentType = "image/jpeg"
-    } else if (filename.endsWith(".svg")) {
-      contentType = "image/svg+xml"
-    } else if (filename.endsWith(".gif")) {
-      contentType = "image/gif"
-    }
+    // Récupérer le fichier depuis GridFS
+    const downloadStream = bucket.openDownloadStream(new ObjectId(logo.fileId))
 
-    // Retourner le fichier avec les headers appropriés
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": contentType,
-        "Content-Length": buffer.length.toString(),
-        "Cache-Control": "public, max-age=31536000",
-      },
+    // Convertir le stream en buffer
+    const chunks: Buffer[] = []
+
+    return new Promise((resolve, reject) => {
+      downloadStream.on("data", (chunk) => {
+        chunks.push(chunk)
+      })
+
+      downloadStream.on("end", () => {
+        const buffer = Buffer.concat(chunks)
+        console.log("✅ Logo récupéré, taille:", buffer.length, "bytes")
+
+        const response = new NextResponse(buffer, {
+          headers: {
+            "Content-Type": logo.contentType || "image/png",
+            "Content-Length": buffer.length.toString(),
+            "Cache-Control": "public, max-age=31536000",
+          },
+        })
+        resolve(response)
+      })
+
+      downloadStream.on("error", (error) => {
+        console.error("❌ Erreur lecture GridFS:", error)
+        reject(NextResponse.json({ error: "Erreur lecture fichier" }, { status: 500 }))
+      })
     })
-  } catch (error: any) {
-    console.error("❌ Erreur récupération logo:", error)
-    return new NextResponse("Erreur serveur", { status: 500 })
+  } catch (error) {
+    console.error("❌ Erreur API logo:", error)
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }

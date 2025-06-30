@@ -1,4 +1,4 @@
-import { MongoClient, GridFSBucket } from "mongodb"
+import { GridFSBucket, ObjectId } from "mongodb"
 import clientPromise from "./mongodb"
 
 let bucket: GridFSBucket | null = null
@@ -35,7 +35,7 @@ export async function getFile(fileId: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
 
-    const downloadStream = bucket.openDownloadStream(new MongoClient.ObjectId(fileId))
+    const downloadStream = bucket.openDownloadStream(new ObjectId(fileId))
 
     downloadStream.on("data", (chunk) => {
       chunks.push(chunk)
@@ -51,5 +51,5 @@ export async function getFile(fileId: string): Promise<Buffer> {
 
 export async function deleteFile(fileId: string): Promise<void> {
   const bucket = await getBucket()
-  await bucket.delete(new MongoClient.ObjectId(fileId))
+  await bucket.delete(new ObjectId(fileId))
 }

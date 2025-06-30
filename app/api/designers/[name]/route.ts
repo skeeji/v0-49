@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import { getDatabase } from "@/lib/mongodb"
 
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
-    const { db } = await connectToDatabase()
+    const db = await getDatabase()
     const designerName = decodeURIComponent(params.name)
 
     console.log(`🔍 Recherche du designer: "${designerName}"`)

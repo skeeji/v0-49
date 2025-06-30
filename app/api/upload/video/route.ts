@@ -1,90 +1,68 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { GridFSBucket } from "mongodb"
+import { getDatabase } from "@/lib/mongodb"
+import { uploadFile } from "@/lib/gridfs"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🎥 API /api/upload/video - Début de l'upload vidéo")
+    console.log("🎥 API upload/video: Début upload vidéo")
 
     const formData = await request.formData()
     const file = formData.get("video") as File
 
     if (!file) {
-      return NextResponse.json({ error: "Aucun fichier vidéo fourni" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Aucun fichier vidéo fourni" })
     }
 
-    console.log(`📁 Fichier vidéo reçu: ${file.name} (${file.size} bytes)`)
+    console.log(`📁 Fichier vidéo reçu: ${file.name}, taille: ${file.size} bytes, type: ${file.type}`)
 
     // Vérifier le type de fichier
     if (!file.type.startsWith("video/")) {
-      return NextResponse.json({ error: "Le fichier doit être une vidéo" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Le fichier doit être une vidéo" })
     }
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
+    const db = await getDatabase()
 
-    // Supprimer l'ancienne vidéo de fond s'il y en a une
-    try {
-      const bucket = new GridFSBucket(db, { bucketName: "uploads" })
-      const existingVideos = await bucket.find({ "metadata.type": "background-video" }).toArray()
-
-      for (const video of existingVideos) {
-        await bucket.delete(video._id)
-        console.log(`🗑️ Ancienne vidéo supprimée: ${video.filename}`)
-      }
-    } catch (error) {
-      console.log("⚠️ Aucune ancienne vidéo à supprimer")
+    // Supprimer l'ancienne vidéo s'il y en a une
+    const oldVideo = await db.collection("videos").findOne({})
+    if (oldVideo) {
+      console.log("🗑️ Suppression de l'ancienne vidéo")
+      await db.collection("videos").deleteOne({ _id: oldVideo._id })
+      // TODO: Supprimer aussi le fichier GridFS
     }
 
-    // Upload de la nouvelle vidéo
-    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
-    const uploadStream = bucket.openUploadStream(file.name, {
-      metadata: {
-        type: "background-video",
-        originalName: file.name,
-        uploadDate: new Date(),
-      },
-    })
+    // Convertir le fichier en buffer
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    const buffer = await file.arrayBuffer()
-    const uint8Array = new Uint8Array(buffer)
+    // Uploader vers GridFS
+    console.log("📤 Upload vers GridFS...")
+    const fileId = await uploadFile(file.name, buffer, file.type)
+    console.log("✅ Fichier uploadé vers GridFS, ID:", fileId)
 
-    return new Promise((resolve) => {
-      uploadStream.end(uint8Array, (error) => {
-        if (error) {
-          console.error("❌ Erreur upload vidéo:", error)
-          resolve(
-            NextResponse.json(
-              {
-                success: false,
-                error: "Erreur lors de l'upload de la vidéo",
-                details: error.message,
-              },
-              { status: 500 },
-            ),
-          )
-        } else {
-          console.log(`✅ Vidéo uploadée avec succès: ${file.name}`)
-          resolve(
-            NextResponse.json({
-              success: true,
-              message: `Vidéo de fond uploadée avec succès: ${file.name}`,
-              fileId: uploadStream.id,
-              filename: file.name,
-            }),
-          )
-        }
-      })
+    // Sauvegarder les métadonnées en base
+    const videoDoc = {
+      filename: file.name,
+      fileId: fileId,
+      contentType: file.type,
+      size: file.size,
+      uploadDate: new Date(),
+    }
+
+    const result = await db.collection("videos").insertOne(videoDoc)
+    console.log("✅ Métadonnées vidéo sauvegardées, ID:", result.insertedId)
+
+    return NextResponse.json({
+      success: true,
+      message: "Vidéo uploadée avec succès",
+      videoId: result.insertedId,
     })
-  } catch (error: any) {
-    console.error("❌ Erreur critique upload vidéo:", error)
+  } catch (error) {
+    console.error("❌ Erreur upload vidéo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur serveur lors de l'upload vidéo",
-        details: error.message,
+        error: error.message,
       },
       { status: 500 },
     )
