@@ -30,9 +30,28 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
 
     console.log(`🔍 Recherche du designer: "${designerName}"`)
 
-    // Lister tous les designers pour debug
-    const allDesigners = await db.collection("luminaires").distinct("Artiste / Dates")
-    console.log(`📋 Tous les designers disponibles:`, allDesigners.slice(0, 10))
+    // Vérifier d'abord si la collection luminaires existe et contient des données
+    const totalLuminaires = await db.collection("luminaires").countDocuments()
+    console.log(`📊 Total luminaires dans la collection: ${totalLuminaires}`)
+
+    if (totalLuminaires === 0) {
+      console.log(`❌ Collection luminaires vide`)
+      return NextResponse.json({
+        success: false,
+        message: "Base de données vide",
+      })
+    }
+
+    // Lister quelques designers pour debug
+    const sampleDesigners = await db.collection("luminaires").find({}).limit(5).toArray()
+    console.log(
+      `📋 Échantillon de luminaires:`,
+      sampleDesigners.map((l) => ({
+        id: l._id,
+        artiste: l["Artiste / Dates"],
+        designer: l.designer,
+      })),
+    )
 
     // Rechercher avec des patterns très flexibles
     const searchQueries = [
@@ -42,9 +61,21 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
         "Artiste / Dates": { $regex: new RegExp(`^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.?$`, "i") },
       },
       { "Artiste / Dates": { $regex: new RegExp(designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") } },
-      { "Artiste / Dates": { $regex: /A\+A.*Cooren/i } },
-      { "Artiste / Dates": { $regex: /A.*A.*Cooren/i } },
+      { designer: designerName },
+      { designer: { $regex: new RegExp(`^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+      { designer: { $regex: new RegExp(designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") } },
     ]
+
+    // Si c'est "A+A Cooren", essayer des variantes spécifiques
+    if (designerName.includes("A+A") && designerName.includes("Cooren")) {
+      searchQueries.push(
+        { "Artiste / Dates": { $regex: /A\+A.*Cooren/i } },
+        { "Artiste / Dates": { $regex: /A.*A.*Cooren/i } },
+        { "Artiste / Dates": { $regex: /Cooren/i } },
+        { designer: { $regex: /A\+A.*Cooren/i } },
+        { designer: { $regex: /Cooren/i } },
+      )
+    }
 
     let luminaires = []
     for (let i = 0; i < searchQueries.length; i++) {
@@ -54,44 +85,43 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       console.log(`💡 Query ${i + 1} résultats: ${luminaires.length}`)
       if (luminaires.length > 0) {
         console.log(`✅ Trouvé avec query ${i + 1}`)
+        console.log(`📋 Premier résultat:`, {
+          artiste: luminaires[0]["Artiste / Dates"],
+          designer: luminaires[0].designer,
+        })
         break
       }
     }
 
-    // Si toujours rien, recherche très large
-    if (luminaires.length === 0) {
-      console.log(`🔍 Recherche très large avec "Cooren"...`)
-      luminaires = await db
-        .collection("luminaires")
-        .find({
-          "Artiste / Dates": { $regex: /Cooren/i },
-        })
-        .toArray()
-      console.log(`🔍 Recherche "Cooren" trouvée: ${luminaires.length} résultats`)
-
-      if (luminaires.length > 0) {
-        console.log(
-          `📋 Premiers résultats Cooren:`,
-          luminaires.slice(0, 3).map((l) => l["Artiste / Dates"]),
-        )
-      }
-    }
-
     // Rechercher dans designers-data
-    const designerInfo = await db.collection("designers-data").findOne({
-      Nom: { $regex: /Cooren/i },
-    })
-    console.log(`👤 Info designer "Cooren" trouvée:`, designerInfo ? designerInfo.Nom : "Non")
+    let designerInfo = null
+    if (designerName.includes("Cooren")) {
+      designerInfo = await db.collection("designers-data").findOne({
+        Nom: { $regex: /Cooren/i },
+      })
+      console.log(`👤 Info designer "Cooren" trouvée:`, designerInfo ? designerInfo.Nom : "Non")
+    } else {
+      designerInfo = await db.collection("designers-data").findOne({
+        Nom: { $regex: new RegExp(`^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+      })
+      console.log(`👤 Info designer trouvée:`, designerInfo ? "Oui" : "Non")
+    }
 
     if (luminaires.length === 0) {
       console.log(`❌ Aucun luminaire trouvé pour: "${designerName}"`)
+
+      // Lister tous les designers disponibles pour debug
+      const allDesigners = await db.collection("luminaires").distinct("Artiste / Dates")
+      console.log(`📋 Premiers designers disponibles:`, allDesigners.slice(0, 10))
+
       return NextResponse.json({
         success: false,
         message: "Designer non trouvé",
         debug: {
           originalName: params.name,
           decodedName: designerName,
-          availableDesigners: allDesigners.slice(0, 5),
+          totalLuminaires,
+          availableDesigners: allDesigners.slice(0, 10),
         },
       })
     }
