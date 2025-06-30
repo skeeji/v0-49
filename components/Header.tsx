@@ -48,14 +48,14 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-sm border-b">
-      <div className="container flex items-center justify-between h-16">
+      <div className="container flex items-center justify-between h-20">
         <Link href="/" className="flex items-center gap-3">
           <Image
             src={logoUrl || "/placeholder.svg"}
             alt="Logo"
-            width={60}
-            height={60}
-            className="w-15 h-15 object-contain"
+            width={80}
+            height={80}
+            className="w-20 h-20 object-contain"
             onError={(e) => {
               console.error("❌ Erreur affichage logo, fallback vers placeholder")
               setLogoUrl("/placeholder-logo.svg")

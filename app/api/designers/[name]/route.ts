@@ -14,6 +14,9 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       console.log("⚠️ Impossible de décoder l'URL, utilisation du nom brut")
     }
 
+    // Nettoyer le nom (enlever le point final s'il existe)
+    designerName = designerName.replace(/\s*\.\s*$/, "").trim()
+
     console.log(`🔍 Recherche du designer: "${designerName}"`)
     console.log(`🔍 Nom brut reçu: "${params.name}"`)
 
@@ -44,28 +47,6 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       }
     }
 
-    // Si aucun luminaire trouvé, essayer avec des patterns plus flexibles
-    if (luminaires.length === 0) {
-      console.log(`🔄 Tentative avec patterns plus flexibles...`)
-
-      // Essayer de nettoyer le nom (enlever les caractères en fin)
-      const cleanName = designerName.replace(/\s*\.\s*$/, "").trim()
-      const cleanEscapedName = cleanName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-
-      const flexiblePatterns = [
-        { "Artiste / Dates": { $regex: new RegExp(`^${cleanEscapedName}`, "i") } },
-        { "Artiste / Dates": { $regex: new RegExp(cleanEscapedName, "i") } },
-      ]
-
-      for (const pattern of flexiblePatterns) {
-        luminaires = await db.collection("luminaires").find(pattern).toArray()
-        if (luminaires.length > 0) {
-          console.log(`💡 ${luminaires.length} luminaires trouvés avec le pattern flexible:`, pattern)
-          break
-        }
-      }
-    }
-
     if (luminaires.length === 0) {
       console.log(`❌ Aucun luminaire trouvé pour: "${designerName}"`)
 
@@ -73,7 +54,7 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       const availableDesigners = await db
         .collection("luminaires")
         .distinct("Artiste / Dates")
-        .then((designers) => designers.slice(0, 5))
+        .then((designers) => designers.filter((d) => d && d.trim()).slice(0, 10))
 
       console.log(`🔍 Quelques designers disponibles:`, availableDesigners)
 

@@ -32,9 +32,14 @@ export default function DesignersPage() {
 
         console.log("📊 Réponse API designers:", data)
 
-        if (data.success) {
-          setDesigners(data.designers)
-          setFilteredDesigners(data.designers)
+        if (data.success && data.designers) {
+          // Filtrer les designers qui ont un nom valide
+          const validDesigners = data.designers.filter(
+            (designer: any) => designer && designer.nom && typeof designer.nom === "string" && designer.nom.trim(),
+          )
+
+          setDesigners(validDesigners)
+          setFilteredDesigners(validDesigners)
         }
       } catch (error) {
         console.error("❌ Erreur API:", error)
@@ -50,13 +55,19 @@ export default function DesignersPage() {
     if (searchTerm.trim() === "") {
       setFilteredDesigners(designers)
     } else {
-      const filtered = designers.filter((designer) => designer.nom.toLowerCase().includes(searchTerm.toLowerCase()))
+      const filtered = designers.filter(
+        (designer) => designer.nom && designer.nom.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
       setFilteredDesigners(filtered)
     }
   }, [searchTerm, designers])
 
   // Fonction pour créer un slug sûr pour l'URL
   const createDesignerSlug = (name: string) => {
+    // Vérifier que name existe et est une string
+    if (!name || typeof name !== "string") {
+      return "designer-inconnu"
+    }
     // Ne pas encoder, juste nettoyer les caractères problématiques
     return name.trim()
   }
@@ -139,7 +150,7 @@ export default function DesignersPage() {
                       {designer.imagedesigner ? (
                         <Image
                           src={`/api/images/filename/${designer.imagedesigner}`}
-                          alt={designer.nom}
+                          alt={designer.nom || "Designer"}
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-200"
                           onError={(e) => {
@@ -156,14 +167,14 @@ export default function DesignersPage() {
                     {/* Informations du designer */}
                     <div className="p-4">
                       <h3 className="font-semibold text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                        {designer.nom}
+                        {designer.nom || "Designer inconnu"}
                       </h3>
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Palette className="w-4 h-4" />
                           <span>
-                            {designer.totalLuminaires} luminaire{designer.totalLuminaires > 1 ? "s" : ""}
+                            {designer.totalLuminaires || 0} luminaire{(designer.totalLuminaires || 0) > 1 ? "s" : ""}
                           </span>
                         </div>
 
