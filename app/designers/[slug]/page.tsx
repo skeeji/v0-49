@@ -33,7 +33,8 @@ export default function DesignerDetailPage() {
 
         console.log(`🔍 Chargement du designer: ${slug}`)
 
-        const response = await fetch(`/api/designers/${encodeURIComponent(slug)}`)
+        // Ne pas encoder le slug, l'envoyer tel quel
+        const response = await fetch(`/api/designers/${slug}`)
         const data = await response.json()
 
         console.log("📊 Réponse API designer:", data)
@@ -42,6 +43,9 @@ export default function DesignerDetailPage() {
           setDesigner(data.designer)
         } else {
           setError(data.message || "Designer non trouvé")
+          if (data.debug) {
+            console.log("🔍 Debug info:", data.debug)
+          }
         }
       } catch (error) {
         console.error("❌ Erreur API:", error)

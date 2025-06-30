@@ -53,9 +53,9 @@ export function Header() {
           <Image
             src={logoUrl || "/placeholder.svg"}
             alt="Logo"
-            width={40}
-            height={40}
-            className="w-10 h-10 object-contain"
+            width={60}
+            height={60}
+            className="w-15 h-15 object-contain"
             onError={(e) => {
               console.error("❌ Erreur affichage logo, fallback vers placeholder")
               setLogoUrl("/placeholder-logo.svg")

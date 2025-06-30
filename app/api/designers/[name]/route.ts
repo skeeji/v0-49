@@ -4,9 +4,18 @@ import { getDatabase } from "@/lib/mongodb"
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
     const db = await getDatabase()
-    const designerName = decodeURIComponent(params.name)
+
+    // Décoder l'URL une seule fois
+    let designerName = params.name
+    try {
+      designerName = decodeURIComponent(designerName)
+    } catch (e) {
+      // Si le décodage échoue, utiliser le nom tel quel
+      console.log("⚠️ Impossible de décoder l'URL, utilisation du nom brut")
+    }
 
     console.log(`🔍 Recherche du designer: "${designerName}"`)
+    console.log(`🔍 Nom brut reçu: "${params.name}"`)
 
     // Échapper les caractères spéciaux pour la regex
     const escapedName = designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -35,11 +44,47 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       }
     }
 
+    // Si aucun luminaire trouvé, essayer avec des patterns plus flexibles
+    if (luminaires.length === 0) {
+      console.log(`🔄 Tentative avec patterns plus flexibles...`)
+
+      // Essayer de nettoyer le nom (enlever les caractères en fin)
+      const cleanName = designerName.replace(/\s*\.\s*$/, "").trim()
+      const cleanEscapedName = cleanName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+      const flexiblePatterns = [
+        { "Artiste / Dates": { $regex: new RegExp(`^${cleanEscapedName}`, "i") } },
+        { "Artiste / Dates": { $regex: new RegExp(cleanEscapedName, "i") } },
+      ]
+
+      for (const pattern of flexiblePatterns) {
+        luminaires = await db.collection("luminaires").find(pattern).toArray()
+        if (luminaires.length > 0) {
+          console.log(`💡 ${luminaires.length} luminaires trouvés avec le pattern flexible:`, pattern)
+          break
+        }
+      }
+    }
+
     if (luminaires.length === 0) {
       console.log(`❌ Aucun luminaire trouvé pour: "${designerName}"`)
+
+      // Debug: lister quelques designers disponibles
+      const availableDesigners = await db
+        .collection("luminaires")
+        .distinct("Artiste / Dates")
+        .then((designers) => designers.slice(0, 5))
+
+      console.log(`🔍 Quelques designers disponibles:`, availableDesigners)
+
       return NextResponse.json({
         success: false,
         message: "Designer non trouvé",
+        debug: {
+          searchedName: designerName,
+          rawName: params.name,
+          availableDesigners: availableDesigners,
+        },
       })
     }
 
