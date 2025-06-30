@@ -4,7 +4,23 @@ import { getDatabase } from "@/lib/mongodb"
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
     const db = await getDatabase()
-    const designerName = decodeURIComponent(params.name)
+
+    // Décoder l'URL plusieurs fois si nécessaire et nettoyer
+    let designerName = params.name
+
+    // Décoder jusqu'à ce qu'il n'y ait plus de changement
+    let previousName = ""
+    while (designerName !== previousName) {
+      previousName = designerName
+      try {
+        designerName = decodeURIComponent(designerName)
+      } catch (e) {
+        break
+      }
+    }
+
+    // Nettoyer le nom (enlever le point final et espaces)
+    designerName = designerName.replace(/\s*\.\s*$/, "").trim()
 
     console.log(`🔍 Recherche du designer: "${designerName}"`)
 
