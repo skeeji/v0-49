@@ -537,17 +537,23 @@ export default function HomePage() {
     // CORRECTION: Charger la vidéo d'accueil depuis l'API
     const loadWelcomeVideo = async () => {
       try {
+        console.log("🎥 Chargement de la vidéo de bienvenue...")
         const response = await fetch("/api/welcome-video")
         if (response.ok) {
           const data = await response.json()
+          console.log("📄 Réponse API vidéo:", data)
           if (data.success && data.video) {
             const videoUrl = `/api/videos/${data.video._id}`
             setWelcomeVideo(videoUrl)
-            console.log("🎥 Vidéo de bienvenue chargée:", videoUrl)
+            console.log("✅ Vidéo de bienvenue chargée:", videoUrl)
+          } else {
+            console.log("⚠️ Pas de vidéo trouvée dans la réponse")
           }
+        } else {
+          console.log("❌ Erreur HTTP lors du chargement de la vidéo:", response.status)
         }
       } catch (error) {
-        console.error("Erreur lors du chargement de la vidéo:", error)
+        console.error("💥 Erreur lors du chargement de la vidéo:", error)
       }
     }
 
@@ -570,8 +576,19 @@ export default function HomePage() {
     <div className="relative min-h-screen overflow-hidden">
       {/* Vidéo de fond */}
       {welcomeVideo ? (
-        <video autoPlay muted loop className="absolute inset-0 w-full h-full object-cover">
+        <video
+          autoPlay
+          muted
+          loop
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={(e) => {
+            console.error("❌ Erreur lecture vidéo:", e)
+          }}
+          onLoadStart={() => console.log("🎥 Début chargement vidéo")}
+          onLoadedData={() => console.log("✅ Vidéo chargée avec succès")}
+        >
           <source src={welcomeVideo} type="video/mp4" />
+          Votre navigateur ne supporte pas la lecture vidéo.
         </video>
       ) : (
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />

@@ -28,11 +28,17 @@ export function Header() {
     // Charger le logo depuis l'API
     const loadLogo = async () => {
       try {
+        console.log("🖼️ Chargement du logo...")
         const response = await fetch("/api/logo")
+        console.log("📄 Réponse API logo:", response.status)
         if (response.ok) {
           setLogoUrl("/api/logo")
+          console.log("✅ Logo chargé avec succès")
+        } else {
+          console.log("⚠️ Logo personnalisé non disponible, utilisation du logo par défaut")
         }
       } catch (error) {
+        console.error("💥 Erreur chargement logo:", error)
         console.log("Logo personnalisé non disponible, utilisation du logo par défaut")
       }
     }
@@ -50,9 +56,12 @@ export function Header() {
             width={40}
             height={40}
             className="w-10 h-10 object-contain"
-            onError={() => setLogoUrl("/placeholder-logo.svg")}
+            onError={(e) => {
+              console.error("❌ Erreur affichage logo, fallback vers placeholder")
+              setLogoUrl("/placeholder-logo.svg")
+            }}
+            onLoad={() => console.log("✅ Logo affiché avec succès")}
           />
-          <span className="font-playfair text-2xl font-bold text-dark">Galerie Luminaires</span>
         </Link>
         <nav className="flex items-center gap-4">
           {navigation.map((item) => {
