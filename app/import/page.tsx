@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle, XCircle, Upload, Users, ImageIcon, Video, FileImage, Download } from "lucide-react"
+import { CheckCircle, XCircle, Upload, Users, ImageIcon, Video, FileImage } from "lucide-react"
 import { UploadForm } from "@/components/UploadForm"
 
 interface ImportResult {
@@ -22,7 +22,6 @@ export default function ImportPage() {
   const [results, setResults] = useState<Record<string, ImportResult>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [progress, setProgress] = useState<Record<string, number>>({})
-  const [exportingCSV, setExportingCSV] = useState(false)
 
   const handleCSVUpload = async (file: File) => {
     const key = "csv"
@@ -248,74 +247,6 @@ export default function ImportPage() {
     }
   }
 
-  const exportAllLuminaires = async () => {
-    setExportingCSV(true)
-    try {
-      console.log("📊 Export de tous les luminaires...")
-
-      // Récupérer tous les luminaires avec les informations des designers
-      const luminairesResponse = await fetch("/api/luminaires?limit=10000")
-      const luminairesData = await luminairesResponse.json()
-
-      const designersResponse = await fetch("/api/designers")
-      const designersData = await designersResponse.json()
-
-      if (luminairesData.success && designersData.success) {
-        // Créer un map des designers pour récupérer rapidement l'image
-        const designersMap = new Map()
-        designersData.designers.forEach((designer: any) => {
-          designersMap.set(designer.nom, designer.imagedesigner || "")
-        })
-
-        // Préparer les données pour l'export avec toutes les informations
-        const csvData = luminairesData.luminaires.map((luminaire: any) => ({
-          "Nom luminaire": luminaire["Nom luminaire"] || luminaire.nom || "",
-          "Nom du fichier": luminaire["Nom du fichier"] || "",
-          "Artiste / Dates": luminaire["Artiste / Dates"] || luminaire.designer || "",
-          "Image Designer": designersMap.get(luminaire["Artiste / Dates"] || luminaire.designer) || "",
-          Spécialité: luminaire["Spécialité"] || luminaire.specialite || "",
-          "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || luminaire.collaboration || "",
-          Année: luminaire["Année"] || luminaire.annee || "",
-          Signé: luminaire["Signé"] || luminaire.signe || "",
-          Période: luminaire["Période"] || luminaire.periode || "",
-          Matériaux: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join("; ") : luminaire.materiaux || "",
-          Couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join("; ") : luminaire.couleurs || "",
-          Description: luminaire.description || "",
-          Prix: luminaire.prix || "",
-          Dimensions: luminaire.dimensions || "",
-          État: luminaire.etat || "",
-        }))
-
-        // Créer le contenu CSV
-        const headers = Object.keys(csvData[0])
-        const csvContent = [
-          headers.join(","),
-          ...csvData.map((row) =>
-            headers.map((header) => `"${(row[header] || "").toString().replace(/"/g, '""')}"`).join(","),
-          ),
-        ].join("\n")
-
-        // Créer et télécharger le fichier
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-        const link = document.createElement("a")
-        const url = URL.createObjectURL(blob)
-        link.setAttribute("href", url)
-        link.setAttribute("download", `luminaires_complet_${new Date().toISOString().split("T")[0]}.csv`)
-        link.style.visibility = "hidden"
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-
-        console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
-      }
-    } catch (error) {
-      console.error("❌ Erreur lors de l'export:", error)
-      alert("Erreur lors de l'export CSV")
-    } finally {
-      setExportingCSV(false)
-    }
-  }
-
   const resetDatabase = async () => {
     if (
       !confirm(
@@ -407,29 +338,6 @@ export default function ImportPage() {
         <h1 className="text-3xl font-bold">Import de données</h1>
         <p className="text-gray-600">Importez vos luminaires, designers, images et médias</p>
       </div>
-
-      {/* Bouton d'export CSV */}
-      <Card className="border-blue-200">
-        <CardHeader>
-          <CardTitle className="text-blue-600">Export des données</CardTitle>
-          <CardDescription>Exportez tous les luminaires avec les informations complètes</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={exportAllLuminaires} disabled={exportingCSV} className="w-full">
-            {exportingCSV ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Export en cours...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4 mr-2" />
-                Exporter tous les luminaires (CSV)
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
 
       <Tabs defaultValue="csv" className="w-full">
         <TabsList className="grid w-full grid-cols-5">

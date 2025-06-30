@@ -1,18 +1,21 @@
+# Dockerfile pour le développement
 FROM node:18-alpine
 
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install all dependencies (including dev)
+# Copier les fichiers de dépendances
+COPY package.json package-lock.json* ./
 RUN npm ci
 
-# Copy source code
+# Copier le code source
 COPY . .
 
-# Expose port
-EXPOSE 3000
+# Créer le dossier uploads
+RUN mkdir -p ./uploads
 
-# Start development server
+EXPOSE 3000
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
 CMD ["npm", "run", "dev"]

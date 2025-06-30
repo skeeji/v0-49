@@ -8,67 +8,44 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2 } from "lucide-react"
 
 interface LuminaireFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (luminaire: any) => void
-  luminaire?: any
+  onSubmit: (data: any) => void
 }
 
-export function LuminaireFormModal({ isOpen, onClose, onSave, luminaire }: LuminaireFormModalProps) {
+export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormModalProps) {
   const [formData, setFormData] = useState({
-    "Nom luminaire": luminaire?.["Nom luminaire"] || "",
-    "Artiste / Dates": luminaire?.["Artiste / Dates"] || "",
-    Année: luminaire?.["Année"] || "",
-    Période: luminaire?.["Période"] || "",
-    Type: luminaire?.["Type"] || "",
-    Spécialité: luminaire?.["Spécialité"] || "",
-    "Collaboration / Œuvre": luminaire?.["Collaboration / Œuvre"] || "",
-    Description: luminaire?.["Description"] || "",
+    nom: "",
+    designer: "",
+    annee: "",
+    periode: "",
+    description: "",
+    materiaux: "",
+    dimensions: "",
+    estimation: "",
   })
-  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-
-    try {
-      const method = luminaire ? "PUT" : "POST"
-      const url = luminaire ? `/api/luminaires/${luminaire._id}` : "/api/luminaires"
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        onSave(result.luminaire)
-        onClose()
-        setFormData({
-          "Nom luminaire": "",
-          "Artiste / Dates": "",
-          Année: "",
-          Période: "",
-          Type: "",
-          Spécialité: "",
-          "Collaboration / Œuvre": "",
-          Description: "",
-        })
-      } else {
-        console.error("Erreur:", result.error)
-      }
-    } catch (error) {
-      console.error("Erreur lors de la sauvegarde:", error)
-    } finally {
-      setIsLoading(false)
-    }
+    onSubmit({
+      ...formData,
+      materiaux: formData.materiaux
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean),
+    })
+    setFormData({
+      nom: "",
+      designer: "",
+      annee: "",
+      periode: "",
+      description: "",
+      materiaux: "",
+      dimensions: "",
+      estimation: "",
+    })
   }
 
   const handleChange = (field: string, value: string) => {
@@ -77,93 +54,82 @@ export function LuminaireFormModal({ isOpen, onClose, onSave, luminaire }: Lumin
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{luminaire ? "Modifier le luminaire" : "Ajouter un luminaire"}</DialogTitle>
+          <DialogTitle>Ajouter un luminaire</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="nom">Nom du luminaire</Label>
-              <Input
-                id="nom"
-                value={formData["Nom luminaire"]}
-                onChange={(e) => handleChange("Nom luminaire", e.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="artiste">Artiste / Dates</Label>
-              <Input
-                id="artiste"
-                value={formData["Artiste / Dates"]}
-                onChange={(e) => handleChange("Artiste / Dates", e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="annee">Année</Label>
-              <Input
-                id="annee"
-                type="number"
-                value={formData["Année"]}
-                onChange={(e) => handleChange("Année", e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="periode">Période</Label>
-              <Input
-                id="periode"
-                value={formData["Période"]}
-                onChange={(e) => handleChange("Période", e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="type">Type</Label>
-              <Input id="type" value={formData["Type"]} onChange={(e) => handleChange("Type", e.target.value)} />
-            </div>
-
-            <div>
-              <Label htmlFor="specialite">Spécialité</Label>
-              <Input
-                id="specialite"
-                value={formData["Spécialité"]}
-                onChange={(e) => handleChange("Spécialité", e.target.value)}
-              />
-            </div>
+          <div>
+            <Label htmlFor="nom">Nom du luminaire</Label>
+            <Input id="nom" value={formData.nom} onChange={(e) => handleChange("nom", e.target.value)} required />
           </div>
 
           <div>
-            <Label htmlFor="collaboration">Collaboration / Œuvre</Label>
-            <Textarea
-              id="collaboration"
-              value={formData["Collaboration / Œuvre"]}
-              onChange={(e) => handleChange("Collaboration / Œuvre", e.target.value)}
-              rows={3}
+            <Label htmlFor="designer">Designer</Label>
+            <Input id="designer" value={formData.designer} onChange={(e) => handleChange("designer", e.target.value)} />
+          </div>
+
+          <div>
+            <Label htmlFor="annee">Année</Label>
+            <Input
+              id="annee"
+              type="number"
+              value={formData.annee}
+              onChange={(e) => handleChange("annee", e.target.value)}
             />
+          </div>
+
+          <div>
+            <Label htmlFor="periode">Période</Label>
+            <Input id="periode" value={formData.periode} onChange={(e) => handleChange("periode", e.target.value)} />
           </div>
 
           <div>
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={formData["Description"]}
-              onChange={(e) => handleChange("Description", e.target.value)}
-              rows={4}
+              value={formData.description}
+              onChange={(e) => handleChange("description", e.target.value)}
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div>
+            <Label htmlFor="materiaux">Matériaux (séparés par des virgules)</Label>
+            <Input
+              id="materiaux"
+              value={formData.materiaux}
+              onChange={(e) => handleChange("materiaux", e.target.value)}
+              placeholder="Bronze, Verre, Cristal"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="dimensions">Dimensions</Label>
+            <Input
+              id="dimensions"
+              value={formData.dimensions}
+              onChange={(e) => handleChange("dimensions", e.target.value)}
+              placeholder="H: 50cm, L: 30cm"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="estimation">Estimation</Label>
+            <Input
+              id="estimation"
+              value={formData.estimation}
+              onChange={(e) => handleChange("estimation", e.target.value)}
+              placeholder="1000-1500€"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button type="submit" className="flex-1">
+              Créer
+            </Button>
             <Button type="button" variant="outline" onClick={onClose}>
               Annuler
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {luminaire ? "Modifier" : "Ajouter"}
             </Button>
           </div>
         </form>

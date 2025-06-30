@@ -1,87 +1,32 @@
-# Luminaires Gallery
+# Next js web app
 
-A modern web application for managing and displaying a collection of designer luminaires.
+*Automatically synced with your [v0.dev](https://v0.dev) deployments*
 
-## Features
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/gersaint7-3252s-projects/v0-next-js-web-app)
 
-- 🏛️ Gallery view with filtering and search
-- 👨‍🎨 Designer profiles and collections
-- 📱 Responsive design
-- 🔐 Authentication with Firebase
-- 📊 MongoDB database
-- 🖼️ Image management with GridFS
-- 📈 Timeline view
-- 📤 CSV import/export
+[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/Miq12eJRZ1c)
 
-## Tech Stack
+## Overview
 
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes
-- **Database**: MongoDB with GridFS
-- **Authentication**: Firebase Auth
-- **UI Components**: shadcn/ui
-- **Deployment**: Vercel
+This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
 
-## Getting Started
+Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
 
-### Prerequisites
+## Deployment
 
-- Node.js 18+
-- MongoDB
-- Firebase project
+Your project is live at:
 
-### Installation
+**[https://vercel.com/gersaint7-3252s-projects/v0-next-js-web-app](https://vercel.com/gersaint7-3252s-projects/v0-next-js-web-app)**
 
-1. Clone the repository
-\`\`\`bash
-git clone <repository-url>
-cd luminaires-gallery
-\`\`\`
+## Build your app
 
-2. Install dependencies
-\`\`\`bash
-npm install
-\`\`\`
+Continue building your app on:
 
-3. Set up environment variables
-\`\`\`bash
-cp .env.example .env.local
-\`\`\`
+**[https://v0.dev/chat/projects/Miq12eJRZ1c](https://v0.dev/chat/projects/Miq12eJRZ1c)**
 
-Fill in your MongoDB and Firebase configuration.
+## How It Works
 
-4. Start the development server
-\`\`\`bash
-npm run dev
-\`\`\`
-
-5. Open [http://localhost:3000](http://localhost:3000)
-
-## Docker Setup
-
-See [README.Docker.md](README.Docker.md) for Docker deployment instructions.
-
-## Project Structure
-
-\`\`\`
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes
-│   ├── luminaires/        # Luminaires pages
-│   ├── designers/         # Designers pages
-│   └── ...
-├── components/            # React components
-├── lib/                   # Utility functions
-├── contexts/              # React contexts
-└── public/               # Static assets
-\`\`\`
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## License
-
-This project is private and proprietary.
+1. Create and modify your project using [v0.dev](https://v0.dev)
+2. Deploy your chats from the v0 interface
+3. Changes are automatically pushed to this repository
+4. Vercel deploys the latest version from this repository

@@ -8,6 +8,7 @@ import { SortSelector } from "@/components/SortSelector"
 import { Button } from "@/components/ui/button"
 import { Grid, List, Plus } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
+import { CSVExportButton } from "@/components/CSVExportButton"
 import { toast } from "sonner"
 
 export default function LuminairesPage() {
@@ -238,6 +239,8 @@ export default function LuminairesPage() {
             <Plus className="w-4 h-4 mr-2" />
             Ajouter
           </Button>
+
+          <CSVExportButton data={luminaires} filename="luminaires" />
 
           <div className="flex items-center gap-2">
             <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>

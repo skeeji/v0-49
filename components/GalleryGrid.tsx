@@ -1,239 +1,256 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
-import Link from "next/link"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { EditableField } from "@/components/EditableField"
+import { Eye } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
 import { Lightbox } from "@/components/Lightbox"
-import { Eye, ExternalLink } from "lucide-react"
-
-interface GalleryItem {
-  id: string
-  name: string
-  artist: string
-  year: string
-  image: string | null
-  period?: string
-  type?: string
-  specialty?: string
-  collaboration?: string
-}
+import Link from "next/link"
 
 interface GalleryGridProps {
-  items: GalleryItem[]
+  items: any[]
   viewMode: "grid" | "list"
-  onItemUpdate?: (id: string, updates: any) => void
-  showEditableFields?: boolean
+  onItemUpdate: (id: string, updates: any) => void
+  columns?: number
 }
 
-export function GalleryGrid({ items, viewMode, onItemUpdate, showEditableFields = true }: GalleryGridProps) {
+export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: GalleryGridProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
+  const [favorites, setFavorites] = useState<string[]>([])
 
-  const updateField = (id: string, field: string, value: string) => {
-    onItemUpdate?.(id, { [field]: value })
+  // Charger les favoris une seule fois au montage du composant
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedFavorites = localStorage.getItem("favorites")
+      if (storedFavorites) {
+        setFavorites(JSON.parse(storedFavorites))
+      }
+    }
+  }, [])
+
+  const toggleFavorite = (id: string) => {
+    const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
+    setFavorites(newFavorites)
+    localStorage.setItem("favorites", JSON.stringify(newFavorites))
+  }
+
+  // Fonction pour obtenir l'URL de l'image - CORRECTION MAJEURE
+  const getImageUrl = (item: any) => {
+    // CORRECTION: Utiliser "Nom du fichier" (8ème colonne CSV) pour les luminaires
+    if (item["Nom du fichier"]) {
+      // Si c'est déjà une URL complète, l'utiliser directement
+      if (item["Nom du fichier"].startsWith("http")) {
+        return item["Nom du fichier"]
+      }
+      // CORRECTION: Utiliser la nouvelle API pour les noms de fichiers
+      return `/api/images/filename/${item["Nom du fichier"]}`
+    }
+
+    // Fallback sur filename (au cas où)
+    if (item.filename) {
+      if (item.filename.startsWith("http")) {
+        return item.filename
+      }
+      return `/api/images/filename/${item.filename}`
+    }
+
+    // Fallback sur l'ancien système d'images (ObjectId)
+    if (item.image) {
+      if (item.image.startsWith("/api/images/")) {
+        return item.image
+      }
+      if (typeof item.image === "string" && /^[0-9a-fA-F]{24}$/.test(item.image)) {
+        return `/api/images/${item.image}`
+      }
+      if (item.image.startsWith("http")) {
+        return item.image
+      }
+      // Si c'est un nom de fichier, utiliser la nouvelle API
+      if (item.image.includes(".")) {
+        return `/api/images/filename/${item.image}`
+      }
+      return `/api/images/${item.image}`
+    }
+
+    return "/placeholder.svg?height=300&width=300"
   }
 
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
         {items.map((item) => (
-          <Card key={item.id} className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="flex">
-                {/* Image */}
-                <div className="w-32 h-32 relative flex-shrink-0">
-                  {item.image ? (
-                    <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={item.name}
-                      fill
-                      className="object-cover cursor-pointer"
-                      onClick={() => setLightboxImage(item.image)}
+          <div
+            key={item.id || item._id}
+            id={`luminaire-${item.id || item._id}`}
+            className="bg-white rounded-xl p-6 shadow-lg"
+          >
+            <div className="flex flex-col md:flex-row gap-6">
+              <Link
+                href={`/luminaires/${item.id || item._id}`}
+                className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
+              >
+                <Image
+                  src={getImageUrl(item) || "/placeholder.svg"}
+                  alt={item.name || item.nom || "Luminaire"}
+                  fill
+                  className="object-cover"
+                  onError={(e) => {
+                    console.log("❌ Erreur chargement image:", getImageUrl(item))
+                    e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+                  }}
+                />
+              </Link>
+
+              <div className="flex-1 space-y-4">
+                <div className="flex items-start justify-between">
+                  <Link href={`/luminaires/${item.id || item._id}`}>
+                    <h3 className="text-xl font-serif text-gray-900 hover:text-orange-500 cursor-pointer">
+                      {item.name || item.nom || "Nom du luminaire"}
+                    </h3>
+                  </Link>
+
+                  <div className="flex items-center gap-2">
+                    <FavoriteToggleButton
+                      isActive={favorites.includes(item.id || item._id)}
+                      onClick={() => toggleFavorite(item.id || item._id)}
                     />
-                  ) : (
-                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                      <span className="text-gray-400 text-xs">Pas d'image</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Contenu */}
-                <div className="flex-1 p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      {showEditableFields ? (
-                        <EditableField
-                          value={item.name}
-                          onSave={(value) => updateField(item.id, "name", value)}
-                          placeholder="Nom du luminaire"
-                          className="mb-2"
-                        />
-                      ) : (
-                        <h3 className="font-semibold text-lg mb-2">{item.name}</h3>
-                      )}
-
-                      {showEditableFields ? (
-                        <EditableField
-                          value={item.artist}
-                          onSave={(value) => updateField(item.id, "artist", value)}
-                          placeholder="Artiste / Designer"
-                          className="mb-2"
-                        />
-                      ) : (
-                        <p className="text-gray-600 mb-2">{item.artist}</p>
-                      )}
-
-                      <div className="flex flex-wrap gap-2">
-                        {item.year && <Badge variant="secondary">{item.year}</Badge>}
-                        {item.period && <Badge variant="outline">{item.period}</Badge>}
-                        {item.type && <Badge variant="outline">{item.type}</Badge>}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 ml-4">
-                      <FavoriteToggleButton itemId={item.id} />
-                      <Link href={`/luminaires/${item.id}`}>
-                        <ExternalLink className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                      </Link>
-                    </div>
+                    <Button onClick={() => setLightboxImage(getImageUrl(item))} variant="outline" size="sm">
+                      <Eye className="w-4 h-4" />
+                    </Button>
                   </div>
-
-                  {showEditableFields && (
-                    <div className="space-y-2">
-                      <EditableField
-                        value={item.specialty || ""}
-                        onSave={(value) => updateField(item.id, "specialty", value)}
-                        placeholder="Spécialité"
-                        multiline
-                      />
-                      <EditableField
-                        value={item.collaboration || ""}
-                        onSave={(value) => updateField(item.id, "collaboration", value)}
-                        placeholder="Collaboration / Œuvre"
-                        multiline
-                      />
-                    </div>
-                  )}
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
+                    <p className="text-gray-900">{item.artist || item.designer || "Non renseigné"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
+                    <p className="text-gray-900">{item.year || item.annee || "Non renseigné"}</p>
+                  </div>
+                </div>
+
+                {(item.specialty || item.specialite) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
+                    <p className="text-gray-600">{item.specialty || item.specialite}</p>
+                  </div>
+                )}
+
+                {item.collaboration && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Collaboration / Œuvre</label>
+                    <p className="text-gray-600">{item.collaboration}</p>
+                  </div>
+                )}
+
+                {(item.materials || item.materiaux) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Matériaux</label>
+                    <p className="text-gray-600">
+                      {Array.isArray(item.materials)
+                        ? item.materials.join(", ")
+                        : Array.isArray(item.materiaux)
+                          ? item.materiaux.join(", ")
+                          : item.materials || item.materiaux}
+                    </p>
+                  </div>
+                )}
+
+                {item.dimensions && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dimensions</label>
+                    <p className="text-gray-900">{item.dimensions}</p>
+                  </div>
+                )}
+
+                {item.estimation && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Estimation</label>
+                    <p className="text-gray-900">{item.estimation}</p>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))}
 
-        {lightboxImage && <Lightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />}
+        {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
       </div>
     )
   }
 
+  // Déterminer les classes de grille en fonction du nombre de colonnes
+  const gridColumnsClass =
+    {
+      3: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4",
+      4: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5",
+      5: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6",
+      6: "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8",
+      8: "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10",
+    }[columns] || "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+
   return (
-    <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        {items.map((item) => (
-          <Card key={item.id} className="group overflow-hidden hover:shadow-lg transition-shadow">
-            <CardContent className="p-0">
-              {/* Image */}
-              <div className="aspect-square relative bg-gray-100">
-                {item.image ? (
-                  <>
-                    <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={item.name}
-                      fill
-                      className="object-cover transition-transform group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                      <button
-                        onClick={() => setLightboxImage(item.image)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-gray-400">Pas d'image</span>
-                  </div>
-                )}
+    <div className={`grid ${gridColumnsClass} gap-2 md:gap-3`}>
+      {items.map((item) => (
+        <div
+          key={item.id || item._id}
+          id={`luminaire-${item.id || item._id}`}
+          className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
+        >
+          <Link href={`/luminaires/${item.id || item._id}`}>
+            <div className="aspect-square relative bg-gray-100 cursor-pointer hover:scale-105 transition-transform">
+              <Image
+                src={getImageUrl(item) || "/placeholder.svg"}
+                alt={item.name || item.nom || "Luminaire"}
+                fill
+                className="object-cover"
+                onError={(e) => {
+                  console.log("❌ Erreur chargement image:", getImageUrl(item))
+                  e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+                }}
+              />
 
-                {/* Bouton favori */}
-                <div className="absolute top-2 right-2">
-                  <FavoriteToggleButton itemId={item.id} />
-                </div>
+              <div className="absolute top-2 right-2">
+                <FavoriteToggleButton
+                  isActive={favorites.includes(item.id || item._id)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    toggleFavorite(item.id || item._id)
+                  }}
+                />
               </div>
+            </div>
+          </Link>
 
-              {/* Contenu */}
-              <div className="p-4">
-                {showEditableFields ? (
-                  <>
-                    <EditableField
-                      value={item.name}
-                      onSave={(value) => updateField(item.id, "name", value)}
-                      placeholder="Nom du luminaire"
-                      className="mb-2"
-                    />
-                    <EditableField
-                      value={item.artist}
-                      onSave={(value) => updateField(item.id, "artist", value)}
-                      placeholder="Artiste / Designer"
-                      className="mb-2"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <h3 className="font-semibold text-sm mb-1 line-clamp-2">{item.name}</h3>
-                    <p className="text-gray-600 text-sm mb-2 line-clamp-1">{item.artist}</p>
-                  </>
-                )}
+          <div className="p-2 space-y-0.5">
+            <Link href={`/luminaires/${item.id || item._id}`}>
+              <h3 className="font-serif text-xs md:text-sm text-gray-900 hover:text-orange-500 cursor-pointer truncate">
+                {item.name || item.nom || "Nom du luminaire"}
+              </h3>
+            </Link>
 
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {item.year && (
-                    <Badge variant="secondary" className="text-xs">
-                      {item.year}
-                    </Badge>
-                  )}
-                  {item.period && (
-                    <Badge variant="outline" className="text-xs">
-                      {item.period}
-                    </Badge>
-                  )}
-                </div>
+            <p className="text-gray-600 text-xs truncate">{item.artist || item.designer || "Artiste non renseigné"}</p>
 
-                {showEditableFields && (
-                  <div className="space-y-2">
-                    <EditableField
-                      value={item.specialty || ""}
-                      onSave={(value) => updateField(item.id, "specialty", value)}
-                      placeholder="Spécialité"
-                      multiline
-                    />
-                    <EditableField
-                      value={item.collaboration || ""}
-                      onSave={(value) => updateField(item.id, "collaboration", value)}
-                      placeholder="Collaboration / Œuvre"
-                      multiline
-                    />
-                  </div>
-                )}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">{item.year || item.annee || "Année inconnue"}</span>
+              <Button
+                onClick={() => setLightboxImage(getImageUrl(item))}
+                variant="ghost"
+                size="sm"
+                className="p-1 h-auto"
+              >
+                <Eye className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      ))}
 
-                <div className="flex justify-between items-center mt-3">
-                  <Link
-                    href={`/luminaires/${item.id}`}
-                    className="text-orange-500 hover:text-orange-600 text-sm font-medium"
-                  >
-                    Voir détails →
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {lightboxImage && <Lightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />}
-    </>
+      {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
+    </div>
   )
 }

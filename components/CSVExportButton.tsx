@@ -2,7 +2,6 @@
 
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Blob } from "buffer"
 
 interface CSVExportButtonProps {
   data: any[]
