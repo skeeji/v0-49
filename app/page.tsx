@@ -591,31 +591,24 @@ export default function HomePage() {
           Votre navigateur ne supporte pas la lecture vidéo.
         </video>
       ) : (
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50" />
       )}
 
-      {/* Overlay élégant */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80" />
+      {/* Overlay plus clair */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-amber-50/60 to-orange-50/40" />
 
       {/* Contenu principal */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-serif text-white mb-6 leading-tight">
-            Luminaires d'Exception
-            <br />
-            <span className="text-2xl md:text-3xl text-slate-300 font-light">du Moyen Âge à nos jours</span>
-          </h1>
-          <p className="text-xl text-slate-200 max-w-2xl mx-auto leading-relaxed">
-            Découvrez une collection unique de luminaires historiques grâce à l'intelligence artificielle
-          </p>
+          <h1 className="text-4xl md:text-6xl font-serif text-amber-900 mb-6 leading-tight">Luminaires</h1>
         </div>
 
         {/* Zone de recherche par image */}
         <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-10 max-w-lg w-full shadow-2xl border border-white/20">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-slate-700 mr-3" />
-              <h2 className="text-2xl md:text-3xl font-serif text-slate-800">Recherche IA</h2>
+              <Sparkles className="w-8 h-8 text-amber-700 mr-3" />
+              <h2 className="text-2xl md:text-3xl font-serif text-amber-800">Recherche IA</h2>
             </div>
             <p className="text-slate-600 leading-relaxed">
               Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
@@ -624,8 +617,8 @@ export default function HomePage() {
 
           {/* Message pour les utilisateurs "free" */}
           {userData?.role === "free" && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <p className="flex items-center text-sm text-blue-800">
+            <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+              <p className="flex items-center text-sm text-amber-800">
                 <span className="mr-2">ℹ️</span>
                 <span>Compte gratuit : {3 - (userData.searchCount || 0)}/3 recherches restantes aujourd'hui</span>
               </p>
@@ -662,7 +655,7 @@ export default function HomePage() {
             <div className="space-y-4">
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
+                className="w-full bg-amber-700 hover:bg-amber-800 text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
                 disabled={isSearching || !canSearch}
               >
                 <Upload className="w-5 h-5 mr-3" />
@@ -671,13 +664,12 @@ export default function HomePage() {
 
               <Button
                 onClick={startCamera}
-                variant="outline"
-                className="w-full border-2 border-slate-300 text-slate-700 hover:bg-slate-50 py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl bg-transparent"
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
                 disabled={isSearching || isCameraLoading || !canSearch}
               >
                 {isCameraLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-700 mr-3"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white mr-3"></div>
                     Activation caméra...
                   </>
                 ) : (
@@ -709,7 +701,7 @@ export default function HomePage() {
             <div className="space-y-6 text-center">
               <div className="w-full h-64 bg-slate-100 rounded-2xl flex items-center justify-center">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-slate-700 mx-auto mb-4"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-amber-700 mx-auto mb-4"></div>
                   <p className="text-slate-600 font-medium">Activation de la caméra...</p>
                 </div>
               </div>
@@ -735,7 +727,7 @@ export default function HomePage() {
               <div className="flex gap-3">
                 <Button
                   onClick={capturePhoto}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-xl"
+                  className="flex-1 bg-amber-700 hover:bg-amber-800 rounded-xl"
                   disabled={isCapturing}
                 >
                   {isCapturing ? (
@@ -779,7 +771,7 @@ export default function HomePage() {
                 </div>
               )}
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-slate-700 mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-amber-700 mx-auto mb-4"></div>
                 <p className="text-lg font-medium text-slate-800 mb-2">Analyse IA en cours...</p>
                 <p className="text-sm text-slate-600">Recherche des luminaires similaires dans notre collection</p>
               </div>
@@ -798,7 +790,7 @@ export default function HomePage() {
                   <input
                     type="checkbox"
                     id="removeBackground"
-                    className="w-5 h-5 text-slate-700 bg-white border-slate-300 rounded focus:ring-slate-500 focus:ring-2"
+                    className="w-5 h-5 text-amber-700 bg-white border-slate-300 rounded focus:ring-amber-500 focus:ring-2"
                     onChange={async (e) => {
                       if (e.target.checked) {
                         // Supprimer l'arrière-plan et mettre à jour l'affichage
@@ -832,7 +824,7 @@ export default function HomePage() {
 
                 {isRemovingBackground && (
                   <div className="text-center py-6">
-                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-slate-300 border-t-slate-700 mx-auto mb-3"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-slate-300 border-t-amber-700 mx-auto mb-3"></div>
                     <p className="text-sm text-slate-600">Suppression de l'arrière-plan en cours...</p>
                   </div>
                 )}
@@ -840,7 +832,7 @@ export default function HomePage() {
                 <div className="flex gap-3">
                   <Button
                     onClick={searchWithOriginal}
-                    className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-xl"
+                    className="flex-1 bg-amber-700 hover:bg-amber-800 rounded-xl"
                     disabled={isRemovingBackground}
                   >
                     Rechercher maintenant
@@ -870,7 +862,7 @@ export default function HomePage() {
               <div className="flex gap-3 justify-center md:justify-end">
                 <Button
                   onClick={searchAgain}
-                  className="bg-slate-800 hover:bg-slate-700 text-white rounded-xl shadow-lg"
+                  className="bg-amber-700 hover:bg-amber-800 text-white rounded-xl shadow-lg"
                   size="sm"
                   disabled={isSearching || !canSearch}
                 >

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { Home, Lightbulb, Users, Clock, Upload } from "lucide-react"
+import { Lightbulb, Users, Clock } from "lucide-react"
 import { UserMenu } from "@/components/UserMenu"
 import { useAuth } from "@/contexts/AuthContext"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -18,7 +18,6 @@ export function Header() {
   const isAdmin = userData?.role === "admin"
 
   const navigation = [
-    { name: "Accueil", href: "/", icon: Home },
     { name: "Luminaires", href: "/luminaires", icon: Lightbulb },
     { name: "Designers", href: "/designers", icon: Users },
     { name: "Chronologie", href: "/chronologie", icon: Clock },
@@ -65,17 +64,17 @@ export function Header() {
         </Link>
         <nav className="flex items-center gap-4">
           {navigation.map((item) => {
-            const Icon = item.icon
             const isActive = pathname === item.href
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-cream ${
-                  isActive ? "bg-orange text-white" : "text-dark"
+                className={`px-4 py-2 rounded-lg transition-all duration-200 font-medium ${
+                  isActive
+                    ? "bg-amber-100 text-amber-800 shadow-sm"
+                    : "text-slate-700 hover:bg-amber-50 hover:text-amber-700"
                 }`}
               >
-                {!isMobile && <Icon className="w-4 h-4" />}
                 <span>{item.name}</span>
               </Link>
             )
@@ -84,11 +83,12 @@ export function Header() {
           {isAdmin && (
             <Link
               href="/import"
-              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors hover:bg-cream ${
-                pathname === "/import" ? "bg-orange text-white" : "text-dark"
+              className={`px-4 py-2 rounded-lg transition-all duration-200 font-medium ${
+                pathname === "/import"
+                  ? "bg-amber-100 text-amber-800 shadow-sm"
+                  : "text-slate-700 hover:bg-amber-50 hover:text-amber-700"
               }`}
             >
-              {!isMobile && <Upload className="w-4 h-4" />}
               <span>Import</span>
             </Link>
           )}
