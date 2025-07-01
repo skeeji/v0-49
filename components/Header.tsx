@@ -74,7 +74,7 @@ export function Header() {
                 {isActive && (
                   <div
                     className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
-                    style={{ backgroundColor: "#d4a574" }}
+                    style={{ backgroundColor: "#f2d895" }}
                   />
                 )}
               </Link>
@@ -92,7 +92,7 @@ export function Header() {
               {pathname === "/import" && (
                 <div
                   className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
-                  style={{ backgroundColor: "#d4a574" }}
+                  style={{ backgroundColor: "#f2d895" }}
                 />
               )}
             </Link>
