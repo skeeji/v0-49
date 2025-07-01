@@ -205,12 +205,12 @@ export default function LuminairesPage() {
     }
   }, [luminaires])
 
-  // Initialiser la plage d'années avec les vraies valeurs
+  // Initialiser la plage d'années avec les vraies valeurs une seule fois
   useEffect(() => {
-    if (yearBounds.min !== 1900 || yearBounds.max !== 2024) {
+    if (luminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
-  }, [yearBounds])
+  }, [yearBounds, luminaires.length, yearRange])
 
   if (loading && luminaires.length === 0) {
     return (
