@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Download } from "lucide-react"
+import { ArrowLeft, Download, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
@@ -18,6 +18,12 @@ export default function LuminaireDetailPage() {
   const [similarLuminaires, setSimilarLuminaires] = useState<any[]>([])
   const [generatingPDF, setGeneratingPDF] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
+    description: true,
+    materials: false,
+    dimensions: false,
+    estimation: false,
+  })
   const { userData, loading: authLoading } = useAuth()
 
   const canEdit = !authLoading && userData?.role === "admin"
@@ -49,19 +55,17 @@ export default function LuminaireDetailPage() {
             signed: String(result.data["Signé"] || result.data.signe || ""),
             name: String(result.data["Nom luminaire"] || result.data.nom || ""),
             filename: String(result.data["Nom du fichier"] || result.data.filename || ""),
+            description: String(result.data["Description"] || result.data.description || ""),
             dimensions: String(result.data["Dimensions"] || result.data.dimensions || ""),
             materials: String(result.data["Matériaux"] || result.data.materiaux || ""),
             estimation: String(result.data["Estimation"] || result.data.estimation || ""),
-            provenance: String(result.data["Provenance"] || result.data.provenance || ""),
-            condition: String(result.data["État"] || result.data.condition || ""),
-            notes: String(result.data["Notes"] || result.data.notes || ""),
           }
 
           setLuminaire(formattedLuminaire)
           console.log("✅ Luminaire formaté:", formattedLuminaire)
 
-          // Charger les luminaires similaires
-          const allLuminairesResponse = await fetch("/api/luminaires?limit=100")
+          // Charger les luminaires similaires (6 images)
+          const allLuminairesResponse = await fetch("/api/luminaires?limit=200")
           const allLuminairesData = await allLuminairesResponse.json()
 
           if (allLuminairesData.success) {
@@ -127,12 +131,10 @@ export default function LuminaireDetailPage() {
       name: "Nom luminaire",
       year: "Année",
       signed: "Signé",
+      description: "Description",
       dimensions: "Dimensions",
       materials: "Matériaux",
       estimation: "Estimation",
-      provenance: "Provenance",
-      condition: "État",
-      notes: "Notes",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -163,6 +165,13 @@ export default function LuminaireDetailPage() {
     setIsFavorite(!isFavorite)
   }
 
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }))
+  }
+
   const generatePDF = async () => {
     if (!luminaire) return
 
@@ -181,8 +190,9 @@ export default function LuminaireDetailPage() {
 
       const addField = (label: string, value: string) => {
         if (value && value.trim()) {
-          pdf.text(`${label}: ${String(value)}`, 20, yPos)
-          yPos += 10
+          const lines = pdf.splitTextToSize(`${label}: ${String(value)}`, 170)
+          pdf.text(lines, 20, yPos)
+          yPos += lines.length * 7
         }
       }
 
@@ -191,43 +201,34 @@ export default function LuminaireDetailPage() {
       addField("Spécialité", luminaire.specialty)
       addField("Collaboration / Œuvre", luminaire.collaboration)
       addField("Signé", luminaire.signed)
+      addField("Description", luminaire.description)
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
       addField("Estimation", luminaire.estimation)
-      addField("Provenance", luminaire.provenance)
-      addField("État", luminaire.condition)
-      addField("Notes", luminaire.notes)
 
       // Ajouter l'image si disponible
       if (luminaire.image) {
         try {
+          const response = await fetch(luminaire.image)
+          const blob = await response.blob()
+
+          const canvas = document.createElement("canvas")
+          const ctx = canvas.getContext("2d")
           const img = new Image()
-          img.crossOrigin = "anonymous"
 
           await new Promise((resolve, reject) => {
             img.onload = () => {
-              try {
-                const canvas = document.createElement("canvas")
-                const ctx = canvas.getContext("2d")
-                if (!ctx) {
-                  resolve(null)
-                  return
-                }
+              canvas.width = 150
+              canvas.height = 150
+              ctx?.drawImage(img, 0, 0, 150, 150)
 
-                canvas.width = img.width
-                canvas.height = img.height
-                ctx.drawImage(img, 0, 0)
-
-                const imgData = canvas.toDataURL("image/jpeg", 0.8)
-                pdf.addImage(imgData, "JPEG", 20, yPos + 10, 100, 100)
-                resolve(null)
-              } catch (error) {
-                console.error("❌ Erreur traitement image:", error)
-                resolve(null)
-              }
+              const imgData = canvas.toDataURL("image/jpeg", 0.8)
+              pdf.addImage(imgData, "JPEG", 20, yPos + 10, 150, 150)
+              resolve(null)
             }
-            img.onerror = () => resolve(null)
-            img.src = luminaire.image
+            img.onerror = reject
+            img.crossOrigin = "anonymous"
+            img.src = URL.createObjectURL(blob)
           })
         } catch (error) {
           console.error("❌ Erreur ajout image PDF:", error)
@@ -317,7 +318,7 @@ export default function LuminaireDetailPage() {
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 h-full">
             <div className="space-y-4 font-serif">
               <EditableField
                 value={String(luminaire.name || "")}
@@ -334,6 +335,16 @@ export default function LuminaireDetailPage() {
                     value={String(luminaire.artist || "")}
                     onSave={(v) => handleUpdate("artist", v)}
                     placeholder="Artiste / Dates"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
+                  <EditableField
+                    value={String(luminaire.year || "")}
+                    onSave={(v) => handleUpdate("year", v)}
+                    placeholder="Année"
                     disabled={!canEdit}
                   />
                 </div>
@@ -361,16 +372,6 @@ export default function LuminaireDetailPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
-                  <EditableField
-                    value={String(luminaire.year || "")}
-                    onSave={(v) => handleUpdate("year", v)}
-                    placeholder="Année"
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
                   <EditableField
                     value={String(luminaire.signed || "")}
@@ -380,77 +381,120 @@ export default function LuminaireDetailPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
-                  <EditableField
-                    value={String(luminaire.dimensions || "")}
-                    onSave={(v) => handleUpdate("dimensions", v)}
-                    placeholder="Dimensions"
-                    disabled={!canEdit}
-                  />
-                </div>
+                {/* Sections déroulantes */}
+                <div className="space-y-2">
+                  {/* Description */}
+                  <div className="border border-gray-200 rounded-lg">
+                    <button
+                      onClick={() => toggleSection("description")}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50"
+                    >
+                      <span className="text-sm font-bold text-gray-700">Description</span>
+                      {expandedSections.description ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+                    {expandedSections.description && (
+                      <div className="p-3 border-t border-gray-200">
+                        <EditableField
+                          value={String(luminaire.description || "")}
+                          onSave={(v) => handleUpdate("description", v)}
+                          placeholder="Description"
+                          multiline
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
-                  <EditableField
-                    value={String(luminaire.materials || "")}
-                    onSave={(v) => handleUpdate("materials", v)}
-                    placeholder="Matériaux"
-                    multiline
-                    disabled={!canEdit}
-                  />
-                </div>
+                  {/* Matériaux */}
+                  <div className="border border-gray-200 rounded-lg">
+                    <button
+                      onClick={() => toggleSection("materials")}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50"
+                    >
+                      <span className="text-sm font-bold text-gray-700">Matériaux</span>
+                      {expandedSections.materials ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+                    {expandedSections.materials && (
+                      <div className="p-3 border-t border-gray-200">
+                        <EditableField
+                          value={String(luminaire.materials || "")}
+                          onSave={(v) => handleUpdate("materials", v)}
+                          placeholder="Matériaux"
+                          multiline
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
-                  <EditableField
-                    value={String(luminaire.estimation || "")}
-                    onSave={(v) => handleUpdate("estimation", v)}
-                    placeholder="Estimation"
-                    disabled={!canEdit}
-                  />
-                </div>
+                  {/* Dimensions */}
+                  <div className="border border-gray-200 rounded-lg">
+                    <button
+                      onClick={() => toggleSection("dimensions")}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50"
+                    >
+                      <span className="text-sm font-bold text-gray-700">Dimensions</span>
+                      {expandedSections.dimensions ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+                    {expandedSections.dimensions && (
+                      <div className="p-3 border-t border-gray-200">
+                        <EditableField
+                          value={String(luminaire.dimensions || "")}
+                          onSave={(v) => handleUpdate("dimensions", v)}
+                          placeholder="Dimensions"
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Provenance</label>
-                  <EditableField
-                    value={String(luminaire.provenance || "")}
-                    onSave={(v) => handleUpdate("provenance", v)}
-                    placeholder="Provenance"
-                    multiline
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">État</label>
-                  <EditableField
-                    value={String(luminaire.condition || "")}
-                    onSave={(v) => handleUpdate("condition", v)}
-                    placeholder="État"
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Notes</label>
-                  <EditableField
-                    value={String(luminaire.notes || "")}
-                    onSave={(v) => handleUpdate("notes", v)}
-                    placeholder="Notes"
-                    multiline
-                    disabled={!canEdit}
-                  />
+                  {/* Estimation */}
+                  <div className="border border-gray-200 rounded-lg">
+                    <button
+                      onClick={() => toggleSection("estimation")}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50"
+                    >
+                      <span className="text-sm font-bold text-gray-700">Estimation</span>
+                      {expandedSections.estimation ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+                    {expandedSections.estimation && (
+                      <div className="p-3 border-t border-gray-200">
+                        <EditableField
+                          value={String(luminaire.estimation || "")}
+                          onSave={(v) => handleUpdate("estimation", v)}
+                          placeholder="Estimation"
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* 6 Images similaires sous chaque photo */}
         {similarLuminaires.length > 0 && (
           <div className="bg-white rounded-xl p-8 shadow-lg">
             <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires similaires</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               {similarLuminaires.map((similar: any) => (
                 <Link key={String(similar.id)} href={`/luminaires/${similar.id}`}>
                   <div className="bg-gray-50 rounded-xl overflow-hidden shadow-md group hover:shadow-lg transition-shadow">
@@ -464,13 +508,13 @@ export default function LuminaireDetailPage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <div className="text-4xl text-gray-400">🏮</div>
+                          <div className="text-2xl text-gray-400">🏮</div>
                         </div>
                       )}
                     </div>
-                    <div className="p-4 space-y-2">
-                      <h3 className="font-serif text-lg truncate">{String(similar.name || "Sans nom")}</h3>
-                      <p className="text-sm text-gray-600">{String(similar.artist || "")}</p>
+                    <div className="p-2 space-y-1">
+                      <h3 className="font-serif text-xs truncate">{String(similar.name || "Sans nom")}</h3>
+                      <p className="text-xs text-gray-600 truncate">{String(similar.artist || "")}</p>
                       <p className="text-xs text-gray-500">{String(similar.year || "")}</p>
                     </div>
                   </div>
