@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { GalleryGrid } from "@/components/GalleryGrid"
 import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
-import { SortSelector } from "@/components/SortSelector"
+import { RangeSlider } from "@/components/RangeSlider"
 import { Button } from "@/components/ui/button"
 import { Grid, List, Plus } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { CSVExportButton } from "@/components/CSVExportButton"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 
 export default function LuminairesPage() {
@@ -23,14 +24,15 @@ export default function LuminairesPage() {
   // États pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
-  const [selectedPeriode, setSelectedPeriode] = useState("")
-  const [selectedMateriaux, setSelectedMateriaux] = useState("")
-  const [selectedCouleurs, setSelectedCouleurs] = useState("")
+  const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+
+  const { userData } = useAuth()
+  const isAdmin = userData?.role === "admin"
 
   // CORRECTION: Fonction pour charger les luminaires avec scroll infini
   const loadLuminaires = useCallback(
@@ -45,12 +47,11 @@ export default function LuminairesPage() {
 
         const params = new URLSearchParams({
           page: page.toString(),
-          limit: "50", // Réduire pour de meilleures performances
+          limit: "50",
           search: searchTerm,
           designer: selectedDesigner,
-          periode: selectedPeriode,
-          materiaux: selectedMateriaux,
-          couleurs: selectedCouleurs,
+          yearMin: yearRange[0].toString(),
+          yearMax: yearRange[1].toString(),
           sortField,
           sortDirection,
         })
@@ -64,10 +65,8 @@ export default function LuminairesPage() {
 
         if (data.success) {
           if (append && page > 1) {
-            // CORRECTION: Ajouter les nouveaux luminaires à la liste existante
             setLuminaires((prev) => [...prev, ...data.luminaires])
           } else {
-            // Première page ou reset
             setLuminaires(data.luminaires)
             setCurrentPage(1)
           }
@@ -89,16 +88,16 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, selectedPeriode, selectedMateriaux, selectedCouleurs, sortField, sortDirection],
+    [searchTerm, selectedDesigner, yearRange, sortField, sortDirection],
   )
 
-  // CORRECTION: Charger les luminaires au montage et lors des changements de filtres
+  // Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, selectedPeriode, selectedMateriaux, selectedCouleurs, sortField, sortDirection])
+  }, [searchTerm, selectedDesigner, yearRange, sortField, sortDirection])
 
-  // CORRECTION: Fonction pour charger plus de luminaires (scroll infini)
+  // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) {
       const nextPage = currentPage + 1
@@ -108,10 +107,9 @@ export default function LuminairesPage() {
     }
   }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
 
-  // CORRECTION: Scroll infini optimisé
+  // Scroll infini optimisé
   useEffect(() => {
     const handleScroll = () => {
-      // Vérifier si on est proche du bas de la page
       const scrollTop = document.documentElement.scrollTop
       const scrollHeight = document.documentElement.scrollHeight
       const clientHeight = document.documentElement.clientHeight
@@ -121,7 +119,6 @@ export default function LuminairesPage() {
       }
     }
 
-    // Throttle pour éviter trop d'appels
     let timeoutId: NodeJS.Timeout
 
     const throttledHandleScroll = () => {
@@ -175,7 +172,6 @@ export default function LuminairesPage() {
         if (data.success) {
           toast.success("Luminaire créé avec succès")
           setIsModalOpen(false)
-          // Recharger la première page
           loadLuminaires(1, false)
         } else {
           throw new Error(data.error)
@@ -191,11 +187,17 @@ export default function LuminairesPage() {
   // Options pour les filtres (calculées à partir des données)
   const filterOptions = useMemo(() => {
     const designers = [...new Set(luminaires.map((l) => l.designer).filter(Boolean))].sort()
-    const periodes = [...new Set(luminaires.map((l) => l.periode).filter(Boolean))].sort()
-    const materiaux = [...new Set(luminaires.flatMap((l) => l.materiaux || []).filter(Boolean))].sort()
-    const couleurs = [...new Set(luminaires.flatMap((l) => l.couleurs || []).filter(Boolean))].sort()
+    return { designers }
+  }, [luminaires])
 
-    return { designers, periodes, materiaux, couleurs }
+  // Calculer la plage d'années disponibles
+  const yearBounds = useMemo(() => {
+    const years = luminaires.map((l) => l.annee || l.year).filter(Boolean)
+    if (years.length === 0) return { min: 1900, max: 2024 }
+    return {
+      min: Math.min(...years),
+      max: Math.max(...years),
+    }
   }, [luminaires])
 
   if (loading && luminaires.length === 0) {
@@ -230,17 +232,19 @@ export default function LuminairesPage() {
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
             {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
-            {hasMore && ` (scroll pour charger plus)`}
           </p>
         </div>
 
         <div className="flex items-center gap-4 mt-4 lg:mt-0">
-          <Button onClick={() => setIsModalOpen(true)} className="bg-orange-500 hover:bg-orange-600">
-            <Plus className="w-4 h-4 mr-2" />
-            Ajouter
-          </Button>
-
-          <CSVExportButton data={luminaires} filename="luminaires" />
+          {isAdmin && (
+            <>
+              <Button onClick={() => setIsModalOpen(true)} className="bg-orange-500 hover:bg-orange-600">
+                <Plus className="w-4 h-4 mr-2" />
+                Ajouter
+              </Button>
+              <CSVExportButton data={luminaires} filename="luminaires" />
+            </>
+          )}
 
           <div className="flex items-center gap-2">
             <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
@@ -268,8 +272,8 @@ export default function LuminairesPage() {
       </div>
 
       {/* Filtres */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="lg:col-span-1">
           <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
         </div>
 
@@ -280,34 +284,34 @@ export default function LuminairesPage() {
           options={filterOptions.designers}
         />
 
-        <DropdownFilter
-          label="Période"
-          value={selectedPeriode}
-          onChange={setSelectedPeriode}
-          options={filterOptions.periodes}
-        />
+        <div className="flex items-center gap-2">
+          <select
+            value={`${sortField}-${sortDirection}`}
+            onChange={(e) => {
+              const [field, direction] = e.target.value.split("-")
+              setSortField(field)
+              setSortDirection(direction as "asc" | "desc")
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm w-full"
+          >
+            <option value="nom-asc">Nom A-Z</option>
+            <option value="nom-desc">Nom Z-A</option>
+            <option value="designer-asc">Designer A-Z</option>
+            <option value="designer-desc">Designer Z-A</option>
+            <option value="annee-asc">Année croissante</option>
+            <option value="annee-desc">Année décroissante</option>
+          </select>
+        </div>
 
-        <DropdownFilter
-          label="Matériaux"
-          value={selectedMateriaux}
-          onChange={setSelectedMateriaux}
-          options={filterOptions.materiaux}
-        />
-
-        <SortSelector
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSortChange={(field, direction) => {
-            setSortField(field)
-            setSortDirection(direction)
-          }}
-          options={[
-            { value: "nom", label: "Nom" },
-            { value: "designer", label: "Designer" },
-            { value: "annee", label: "Année" },
-            { value: "periode", label: "Période" },
-          ]}
-        />
+        <div className="lg:col-span-1">
+          <RangeSlider
+            min={yearBounds.min}
+            max={yearBounds.max}
+            value={yearRange}
+            onChange={setYearRange}
+            label="Chronologie"
+          />
+        </div>
       </div>
 
       {/* Grille des luminaires */}
@@ -341,7 +345,13 @@ export default function LuminairesPage() {
       )}
 
       {/* Modal de création */}
-      <LuminaireFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleCreateLuminaire} />
+      {isAdmin && (
+        <LuminaireFormModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleCreateLuminaire}
+        />
+      )}
     </div>
   )
 }

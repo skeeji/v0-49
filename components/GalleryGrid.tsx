@@ -35,19 +35,15 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
     localStorage.setItem("favorites", JSON.stringify(newFavorites))
   }
 
-  // Fonction pour obtenir l'URL de l'image - CORRECTION MAJEURE
+  // Fonction pour obtenir l'URL de l'image
   const getImageUrl = (item: any) => {
-    // CORRECTION: Utiliser "Nom du fichier" (8ème colonne CSV) pour les luminaires
     if (item["Nom du fichier"]) {
-      // Si c'est déjà une URL complète, l'utiliser directement
       if (item["Nom du fichier"].startsWith("http")) {
         return item["Nom du fichier"]
       }
-      // CORRECTION: Utiliser la nouvelle API pour les noms de fichiers
       return `/api/images/filename/${item["Nom du fichier"]}`
     }
 
-    // Fallback sur filename (au cas où)
     if (item.filename) {
       if (item.filename.startsWith("http")) {
         return item.filename
@@ -55,7 +51,6 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
       return `/api/images/filename/${item.filename}`
     }
 
-    // Fallback sur l'ancien système d'images (ObjectId)
     if (item.image) {
       if (item.image.startsWith("/api/images/")) {
         return item.image
@@ -66,7 +61,6 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
       if (item.image.startsWith("http")) {
         return item.image
       }
-      // Si c'est un nom de fichier, utiliser la nouvelle API
       if (item.image.includes(".")) {
         return `/api/images/filename/${item.image}`
       }
@@ -79,103 +73,107 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
-        {items.map((item) => (
-          <div
-            key={item.id || item._id}
-            id={`luminaire-${item.id || item._id}`}
-            className="bg-white rounded-xl p-6 shadow-lg"
-          >
-            <div className="flex flex-col md:flex-row gap-6">
-              <Link
-                href={`/luminaires/${item.id || item._id}`}
-                className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
-              >
-                <Image
-                  src={getImageUrl(item) || "/placeholder.svg"}
-                  alt={item.name || item.nom || "Luminaire"}
-                  fill
-                  className="object-cover"
-                  onError={(e) => {
-                    console.log("❌ Erreur chargement image:", getImageUrl(item))
-                    e.currentTarget.src = "/placeholder.svg?height=300&width=300"
-                  }}
-                />
-              </Link>
+        {items.map((item) => {
+          const itemId = item.id || item._id
+          const itemName = item.name || item.nom || "Nom du luminaire"
+          const itemDesigner = item.artist || item.designer || "Non renseigné"
+          const itemYear = item.year || item.annee || "Non renseigné"
+          const itemSpecialty = item.specialty || item.specialite
+          const itemCollaboration = item.collaboration
+          const itemMaterials = item.materials || item.materiaux
+          const itemDimensions = item.dimensions
+          const itemEstimation = item.estimation
 
-              <div className="flex-1 space-y-4">
-                <div className="flex items-start justify-between">
-                  <Link href={`/luminaires/${item.id || item._id}`}>
-                    <h3 className="text-xl font-serif text-gray-900 hover:text-orange-500 cursor-pointer">
-                      {item.name || item.nom || "Nom du luminaire"}
-                    </h3>
-                  </Link>
+          return (
+            <div key={itemId} id={`luminaire-${itemId}`} className="bg-white rounded-xl p-6 shadow-lg">
+              <div className="flex flex-col md:flex-row gap-6">
+                <Link
+                  href={`/luminaires/${itemId}`}
+                  className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                >
+                  <Image
+                    src={getImageUrl(item) || "/placeholder.svg"}
+                    alt={itemName}
+                    fill
+                    className="object-cover"
+                    onError={(e) => {
+                      console.log("❌ Erreur chargement image:", getImageUrl(item))
+                      e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+                    }}
+                  />
+                </Link>
 
-                  <div className="flex items-center gap-2">
-                    <FavoriteToggleButton
-                      isActive={favorites.includes(item.id || item._id)}
-                      onClick={() => toggleFavorite(item.id || item._id)}
-                    />
-                    <Button onClick={() => setLightboxImage(getImageUrl(item))} variant="outline" size="sm">
-                      <Eye className="w-4 h-4" />
-                    </Button>
+                <div className="flex-1 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <Link href={`/luminaires/${itemId}`}>
+                      <h3 className="text-xl font-serif text-gray-900 hover:text-orange-500 cursor-pointer">
+                        {itemName}
+                      </h3>
+                    </Link>
+
+                    <div className="flex items-center gap-2">
+                      <FavoriteToggleButton
+                        isActive={favorites.includes(itemId)}
+                        onClick={() => toggleFavorite(itemId)}
+                      />
+                      <Button onClick={() => setLightboxImage(getImageUrl(item))} variant="outline" size="sm">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
+                      <p className="text-gray-900">{itemDesigner}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
+                      <p className="text-gray-900">{itemYear}</p>
+                    </div>
+                  </div>
+
+                  {itemSpecialty && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
+                      <p className="text-gray-600">{itemSpecialty}</p>
+                    </div>
+                  )}
+
+                  {itemCollaboration && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Collaboration / Œuvre</label>
+                      <p className="text-gray-600">{itemCollaboration}</p>
+                    </div>
+                  )}
+
+                  {itemMaterials && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Matériaux</label>
+                      <p className="text-gray-600">
+                        {Array.isArray(itemMaterials) ? itemMaterials.join(", ") : itemMaterials}
+                      </p>
+                    </div>
+                  )}
+
+                  {itemDimensions && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Dimensions</label>
+                      <p className="text-gray-900">{itemDimensions}</p>
+                    </div>
+                  )}
+
+                  {itemEstimation && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimation</label>
+                      <p className="text-gray-900">{itemEstimation}</p>
+                    </div>
+                  )}
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
-                    <p className="text-gray-900">{item.artist || item.designer || "Non renseigné"}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
-                    <p className="text-gray-900">{item.year || item.annee || "Non renseigné"}</p>
-                  </div>
-                </div>
-
-                {(item.specialty || item.specialite) && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
-                    <p className="text-gray-600">{item.specialty || item.specialite}</p>
-                  </div>
-                )}
-
-                {item.collaboration && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Collaboration / Œuvre</label>
-                    <p className="text-gray-600">{item.collaboration}</p>
-                  </div>
-                )}
-
-                {(item.materials || item.materiaux) && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Matériaux</label>
-                    <p className="text-gray-600">
-                      {Array.isArray(item.materials)
-                        ? item.materials.join(", ")
-                        : Array.isArray(item.materiaux)
-                          ? item.materiaux.join(", ")
-                          : item.materials || item.materiaux}
-                    </p>
-                  </div>
-                )}
-
-                {item.dimensions && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Dimensions</label>
-                    <p className="text-gray-900">{item.dimensions}</p>
-                  </div>
-                )}
-
-                {item.estimation && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Estimation</label>
-                    <p className="text-gray-900">{item.estimation}</p>
-                  </div>
-                )}
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
       </div>
@@ -194,61 +192,68 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
   return (
     <div className={`grid ${gridColumnsClass} gap-2 md:gap-3`}>
-      {items.map((item) => (
-        <div
-          key={item.id || item._id}
-          id={`luminaire-${item.id || item._id}`}
-          className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
-        >
-          <Link href={`/luminaires/${item.id || item._id}`}>
-            <div className="aspect-square relative bg-gray-100 cursor-pointer hover:scale-105 transition-transform">
-              <Image
-                src={getImageUrl(item) || "/placeholder.svg"}
-                alt={item.name || item.nom || "Luminaire"}
-                fill
-                className="object-cover"
-                onError={(e) => {
-                  console.log("❌ Erreur chargement image:", getImageUrl(item))
-                  e.currentTarget.src = "/placeholder.svg?height=300&width=300"
-                }}
-              />
+      {items.map((item) => {
+        const itemId = item.id || item._id
+        const itemName = item.name || item.nom || "Nom du luminaire"
+        const itemDesigner = item.artist || item.designer || "Artiste non renseigné"
+        const itemYear = item.year || item.annee || "Année inconnue"
 
-              <div className="absolute top-2 right-2">
-                <FavoriteToggleButton
-                  isActive={favorites.includes(item.id || item._id)}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    toggleFavorite(item.id || item._id)
+        return (
+          <div
+            key={itemId}
+            id={`luminaire-${itemId}`}
+            className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
+          >
+            <Link href={`/luminaires/${itemId}`}>
+              <div className="aspect-square relative bg-gray-100 cursor-pointer hover:scale-105 transition-transform">
+                <Image
+                  src={getImageUrl(item) || "/placeholder.svg"}
+                  alt={itemName}
+                  fill
+                  className="object-cover"
+                  onError={(e) => {
+                    console.log("❌ Erreur chargement image:", getImageUrl(item))
+                    e.currentTarget.src = "/placeholder.svg?height=300&width=300"
                   }}
                 />
-              </div>
-            </div>
-          </Link>
 
-          <div className="p-2 space-y-0.5">
-            <Link href={`/luminaires/${item.id || item._id}`}>
-              <h3 className="font-serif text-xs md:text-sm text-gray-900 hover:text-orange-500 cursor-pointer truncate">
-                {item.name || item.nom || "Nom du luminaire"}
-              </h3>
+                <div className="absolute top-2 right-2">
+                  <FavoriteToggleButton
+                    isActive={favorites.includes(itemId)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleFavorite(itemId)
+                    }}
+                  />
+                </div>
+              </div>
             </Link>
 
-            <p className="text-gray-600 text-xs truncate">{item.artist || item.designer || "Artiste non renseigné"}</p>
+            <div className="p-2 space-y-0.5">
+              <Link href={`/luminaires/${itemId}`}>
+                <h3 className="font-serif text-xs md:text-sm text-gray-900 hover:text-orange-500 cursor-pointer truncate">
+                  {itemName}
+                </h3>
+              </Link>
 
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">{item.year || item.annee || "Année inconnue"}</span>
-              <Button
-                onClick={() => setLightboxImage(getImageUrl(item))}
-                variant="ghost"
-                size="sm"
-                className="p-1 h-auto"
-              >
-                <Eye className="w-3 h-3" />
-              </Button>
+              <p className="text-gray-600 text-xs truncate">{itemDesigner}</p>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">{itemYear}</span>
+                <Button
+                  onClick={() => setLightboxImage(getImageUrl(item))}
+                  variant="ghost"
+                  size="sm"
+                  className="p-1 h-auto"
+                >
+                  <Eye className="w-3 h-3" />
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
 
       {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
     </div>
