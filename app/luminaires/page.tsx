@@ -69,7 +69,7 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // N'ajoute les paramètres de yearRange que si le slider a été modifié
+        // N'ajoute les paramètres de yearRange que si le slider a été modifié manuellement
         if (sliderModified) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
@@ -225,14 +225,15 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années avec les vraies valeurs
+  // Initialiser la plage d'années avec les vraies valeurs sans déclencher le filtrage
   useEffect(() => {
     if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
+      // Mise à jour silencieuse du slider sans marquer comme modifié
       setYearRange([yearBounds.min, yearBounds.max])
     }
   }, [yearBounds, allLuminaires.length, yearRange])
 
-  // Fonction pour gérer le changement du slider
+  // Fonction pour gérer le changement manuel du slider par l'utilisateur
   const handleYearRangeChange = (newRange: number[]) => {
     setYearRange(newRange)
     setSliderModified(true)
