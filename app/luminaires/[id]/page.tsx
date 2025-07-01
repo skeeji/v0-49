@@ -39,22 +39,22 @@ export default function LuminaireDetailPage() {
         if (result.success) {
           const formattedLuminaire = {
             ...result.data,
-            id: result.data._id,
-            // CORRECTION: Utiliser le nom du fichier pour l'image
+            id: String(result.data._id || ""),
+            _id: String(result.data._id || ""),
             image: result.data.filename ? `/api/images/filename/${result.data.filename}` : null,
-            artist: result.data["Artiste / Dates"] || result.data.designer || "",
-            specialty: result.data["Spécialité"] || result.data.periode || "",
-            collaboration: result.data["Collaboration / Œuvre"] || result.data.description || "",
-            year: result.data.annee || result.data["Année"] || "",
-            signed: result.data["Signé"] || result.data.signe || "",
-            name: result.data["Nom luminaire"] || result.data.nom || "",
-            filename: result.data["Nom du fichier"] || result.data.filename || "",
-            dimensions: result.data["Dimensions"] || result.data.dimensions || "",
-            materials: result.data["Matériaux"] || result.data.materiaux || "",
-            estimation: result.data["Estimation"] || result.data.estimation || "",
-            provenance: result.data["Provenance"] || result.data.provenance || "",
-            condition: result.data["État"] || result.data.condition || "",
-            notes: result.data["Notes"] || result.data.notes || "",
+            artist: String(result.data["Artiste / Dates"] || result.data.designer || ""),
+            specialty: String(result.data["Spécialité"] || result.data.periode || ""),
+            collaboration: String(result.data["Collaboration / Œuvre"] || result.data.description || ""),
+            year: String(result.data.annee || result.data["Année"] || ""),
+            signed: String(result.data["Signé"] || result.data.signe || ""),
+            name: String(result.data["Nom luminaire"] || result.data.nom || ""),
+            filename: String(result.data["Nom du fichier"] || result.data.filename || ""),
+            dimensions: String(result.data["Dimensions"] || result.data.dimensions || ""),
+            materials: String(result.data["Matériaux"] || result.data.materiaux || ""),
+            estimation: String(result.data["Estimation"] || result.data.estimation || ""),
+            provenance: String(result.data["Provenance"] || result.data.provenance || ""),
+            condition: String(result.data["État"] || result.data.condition || ""),
+            notes: String(result.data["Notes"] || result.data.notes || ""),
           }
 
           setLuminaire(formattedLuminaire)
@@ -79,7 +79,7 @@ export default function LuminaireDetailPage() {
 
       // Charger les favoris
       const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
-      setIsFavorite(favorites.includes(params.id as string))
+      setIsFavorite(favorites.includes(String(params.id)))
     }
 
     fetchLuminaireData()
@@ -89,26 +89,26 @@ export default function LuminaireDetailPage() {
     const currentYear = Number.parseInt(current.year) || 0
 
     return all
-      .filter((item) => item._id !== current._id)
+      .filter((item) => String(item._id) !== String(current._id))
       .map((item) => {
         let score = 0
 
-        const itemArtist = item["Artiste / Dates"] || item.designer || ""
+        const itemArtist = String(item["Artiste / Dates"] || item.designer || "")
         if (itemArtist && current.artist && itemArtist === current.artist) score += 3
 
-        const itemSpecialty = item["Spécialité"] || item.periode || ""
+        const itemSpecialty = String(item["Spécialité"] || item.periode || "")
         if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 2
 
-        const itemYear = Number.parseInt(item.annee || item["Année"]) || 0
+        const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
         if (currentYear > 0 && itemYear > 0 && Math.abs(currentYear - itemYear) <= 10) score += 1
 
         return {
           ...item,
-          id: item._id,
+          id: String(item._id || ""),
           image: item.filename ? `/api/images/filename/${item.filename}` : null,
           artist: itemArtist,
-          year: item.annee || item["Année"] || "",
-          name: item["Nom luminaire"] || item.nom || "Sans nom",
+          year: String(item.annee || item["Année"] || ""),
+          name: String(item["Nom luminaire"] || item.nom || "Sans nom"),
           similarityScore: score,
         }
       })
@@ -137,7 +137,7 @@ export default function LuminaireDetailPage() {
 
     const keyToUpdate = keyMapping[field] || field
 
-    setLuminaire((prev: any) => ({ ...prev, [field]: value }))
+    setLuminaire((prev: any) => ({ ...prev, [field]: String(value) }))
 
     try {
       await fetch(`/api/luminaires/${luminaire._id}`, {
@@ -156,8 +156,8 @@ export default function LuminaireDetailPage() {
 
     const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
     const newFavorites = isFavorite
-      ? favorites.filter((id: string) => id !== luminaire._id)
-      : [...favorites, luminaire._id]
+      ? favorites.filter((id: string) => String(id) !== String(luminaire._id))
+      : [...favorites, String(luminaire._id)]
 
     localStorage.setItem("favorites", JSON.stringify(newFavorites))
     setIsFavorite(!isFavorite)
@@ -173,15 +173,15 @@ export default function LuminaireDetailPage() {
 
       // Titre
       pdf.setFontSize(20)
-      pdf.text(luminaire.name || "Luminaire sans nom", 20, 30)
+      pdf.text(String(luminaire.name || "Luminaire sans nom"), 20, 30)
 
       // Informations
       pdf.setFontSize(12)
       let yPos = 50
 
       const addField = (label: string, value: string) => {
-        if (value) {
-          pdf.text(`${label}: ${value}`, 20, yPos)
+        if (value && value.trim()) {
+          pdf.text(`${label}: ${String(value)}`, 20, yPos)
           yPos += 10
         }
       }
@@ -203,25 +203,38 @@ export default function LuminaireDetailPage() {
         try {
           const img = new Image()
           img.crossOrigin = "anonymous"
-          img.onload = () => {
-            const canvas = document.createElement("canvas")
-            const ctx = canvas.getContext("2d")
-            canvas.width = img.width
-            canvas.height = img.height
-            ctx?.drawImage(img, 0, 0)
 
-            const imgData = canvas.toDataURL("image/jpeg", 0.8)
-            pdf.addImage(imgData, "JPEG", 20, yPos + 10, 100, 100)
-            pdf.save(`${luminaire.name || "luminaire"}.pdf`)
-          }
-          img.src = luminaire.image
+          await new Promise((resolve, reject) => {
+            img.onload = () => {
+              try {
+                const canvas = document.createElement("canvas")
+                const ctx = canvas.getContext("2d")
+                if (!ctx) {
+                  resolve(null)
+                  return
+                }
+
+                canvas.width = img.width
+                canvas.height = img.height
+                ctx.drawImage(img, 0, 0)
+
+                const imgData = canvas.toDataURL("image/jpeg", 0.8)
+                pdf.addImage(imgData, "JPEG", 20, yPos + 10, 100, 100)
+                resolve(null)
+              } catch (error) {
+                console.error("❌ Erreur traitement image:", error)
+                resolve(null)
+              }
+            }
+            img.onerror = () => resolve(null)
+            img.src = luminaire.image
+          })
         } catch (error) {
           console.error("❌ Erreur ajout image PDF:", error)
-          pdf.save(`${luminaire.name || "luminaire"}.pdf`)
         }
-      } else {
-        pdf.save(`${luminaire.name || "luminaire"}.pdf`)
       }
+
+      pdf.save(`${String(luminaire.name || "luminaire")}.pdf`)
     } catch (error) {
       console.error("❌ Erreur génération PDF:", error)
     } finally {
@@ -286,7 +299,7 @@ export default function LuminaireDetailPage() {
             {luminaire.image ? (
               <Image
                 src={luminaire.image || "/placeholder.svg"}
-                alt={luminaire.name || "Luminaire"}
+                alt={String(luminaire.name || "Luminaire")}
                 fill
                 className="object-cover"
                 onError={(e) => {
@@ -307,7 +320,7 @@ export default function LuminaireDetailPage() {
           <div className="space-y-6">
             <div className="space-y-4 font-serif">
               <EditableField
-                value={luminaire.name || ""}
+                value={String(luminaire.name || "")}
                 onSave={(v) => handleUpdate("name", v)}
                 className="text-2xl font-serif text-gray-900"
                 placeholder="Nom du luminaire"
@@ -318,7 +331,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Artiste / Dates</label>
                   <EditableField
-                    value={luminaire.artist || ""}
+                    value={String(luminaire.artist || "")}
                     onSave={(v) => handleUpdate("artist", v)}
                     placeholder="Artiste / Dates"
                     disabled={!canEdit}
@@ -328,7 +341,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Spécialité</label>
                   <EditableField
-                    value={luminaire.specialty || ""}
+                    value={String(luminaire.specialty || "")}
                     onSave={(v) => handleUpdate("specialty", v)}
                     placeholder="Spécialité"
                     multiline
@@ -339,7 +352,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
                   <EditableField
-                    value={luminaire.collaboration || ""}
+                    value={String(luminaire.collaboration || "")}
                     onSave={(v) => handleUpdate("collaboration", v)}
                     placeholder="Collaboration / Œuvre"
                     multiline
@@ -350,7 +363,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
                   <EditableField
-                    value={luminaire.year || ""}
+                    value={String(luminaire.year || "")}
                     onSave={(v) => handleUpdate("year", v)}
                     placeholder="Année"
                     disabled={!canEdit}
@@ -360,7 +373,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
                   <EditableField
-                    value={luminaire.signed || ""}
+                    value={String(luminaire.signed || "")}
                     onSave={(v) => handleUpdate("signed", v)}
                     placeholder="Signé"
                     disabled={!canEdit}
@@ -370,7 +383,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
                   <EditableField
-                    value={luminaire.dimensions || ""}
+                    value={String(luminaire.dimensions || "")}
                     onSave={(v) => handleUpdate("dimensions", v)}
                     placeholder="Dimensions"
                     disabled={!canEdit}
@@ -380,7 +393,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
                   <EditableField
-                    value={luminaire.materials || ""}
+                    value={String(luminaire.materials || "")}
                     onSave={(v) => handleUpdate("materials", v)}
                     placeholder="Matériaux"
                     multiline
@@ -391,7 +404,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
                   <EditableField
-                    value={luminaire.estimation || ""}
+                    value={String(luminaire.estimation || "")}
                     onSave={(v) => handleUpdate("estimation", v)}
                     placeholder="Estimation"
                     disabled={!canEdit}
@@ -401,7 +414,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Provenance</label>
                   <EditableField
-                    value={luminaire.provenance || ""}
+                    value={String(luminaire.provenance || "")}
                     onSave={(v) => handleUpdate("provenance", v)}
                     placeholder="Provenance"
                     multiline
@@ -412,7 +425,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">État</label>
                   <EditableField
-                    value={luminaire.condition || ""}
+                    value={String(luminaire.condition || "")}
                     onSave={(v) => handleUpdate("condition", v)}
                     placeholder="État"
                     disabled={!canEdit}
@@ -422,7 +435,7 @@ export default function LuminaireDetailPage() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Notes</label>
                   <EditableField
-                    value={luminaire.notes || ""}
+                    value={String(luminaire.notes || "")}
                     onSave={(v) => handleUpdate("notes", v)}
                     placeholder="Notes"
                     multiline
@@ -439,13 +452,13 @@ export default function LuminaireDetailPage() {
             <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires similaires</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {similarLuminaires.map((similar: any) => (
-                <Link key={similar.id} href={`/luminaires/${similar.id}`}>
+                <Link key={String(similar.id)} href={`/luminaires/${similar.id}`}>
                   <div className="bg-gray-50 rounded-xl overflow-hidden shadow-md group hover:shadow-lg transition-shadow">
                     <div className="aspect-square relative bg-gray-100">
                       {similar.image ? (
                         <Image
                           src={similar.image || "/placeholder.svg"}
-                          alt={similar.name}
+                          alt={String(similar.name || "Luminaire")}
                           fill
                           className="object-cover"
                         />
@@ -456,9 +469,9 @@ export default function LuminaireDetailPage() {
                       )}
                     </div>
                     <div className="p-4 space-y-2">
-                      <h3 className="font-serif text-lg truncate">{similar.name || "Sans nom"}</h3>
-                      <p className="text-sm text-gray-600">{similar.artist}</p>
-                      <p className="text-xs text-gray-500">{similar.year}</p>
+                      <h3 className="font-serif text-lg truncate">{String(similar.name || "Sans nom")}</h3>
+                      <p className="text-sm text-gray-600">{String(similar.artist || "")}</p>
+                      <p className="text-xs text-gray-500">{String(similar.year || "")}</p>
                     </div>
                   </div>
                 </Link>
