@@ -56,24 +56,49 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
 
       // Préparer les données du luminaire
       const luminaireData = {
+        nom: formData.nom,
+        designer: formData.artist,
+        annee: formData.annee ? Number.parseInt(formData.annee) : null,
+        periode: formData.specialty,
+        description: formData.collaboration,
+        signe: formData.signed,
+        dimensions: formData.dimensions,
+        materiaux: formData.materials
+          .split(",")
+          .map((m) => m.trim())
+          .filter(Boolean),
+        estimation: formData.estimation,
+        filename: filename,
+        images: filename ? [filename] : [],
+        // Champs CSV pour compatibilité
         "Nom luminaire": formData.nom,
         "Artiste / Dates": formData.artist,
         Année: formData.annee,
         Spécialité: formData.specialty,
         "Collaboration / Œuvre": formData.collaboration,
         Signé: formData.signed,
-        Description: formData.description,
-        Dimensions: formData.dimensions,
-        Matériaux: formData.materials,
-        Estimation: formData.estimation,
         "Nom du fichier": filename,
-        filename: filename,
-        images: filename ? [filename] : [],
         createdAt: new Date(),
         updatedAt: new Date(),
       }
 
-      onSubmit(luminaireData)
+      // Créer le luminaire via l'API
+      const response = await fetch("/api/luminaires", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(luminaireData),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        onSubmit(luminaireData)
+        onClose()
+      } else {
+        console.error("❌ Erreur lors de la création:", result.error)
+      }
 
       // Reset du formulaire
       setFormData({
