@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET() {
   try {
     console.log("🖼️ API Period Images - Récupération des images")
 
-    const { db } = await connectToDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
     // Récupérer toutes les images de périodes
     const files = await db

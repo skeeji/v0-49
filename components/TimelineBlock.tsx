@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ChevronLeft, ChevronRight, Edit2, Save, X, ExternalLink } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Edit3, Save, X, Calendar, User, ImageIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
 interface TimelineBlockProps {
@@ -18,184 +19,334 @@ interface TimelineBlockProps {
   }
   isLeft: boolean
   className?: string
-  onDescriptionUpdate?: (periodName: string, newDescription: string) => void
+  onDescriptionUpdate: (periodName: string, newDescription: string) => void
 }
 
-export function TimelineBlock({ period, isLeft, className, onDescriptionUpdate }: TimelineBlockProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpdate }: TimelineBlockProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedDescription, setEditedDescription] = useState(period.description)
+  const carouselRef = useRef<HTMLDivElement>(null)
 
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % period.luminaires.length)
-  }
-
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + period.luminaires.length) % period.luminaires.length)
-  }
-
-  const handleSaveDescription = () => {
-    if (onDescriptionUpdate) {
-      onDescriptionUpdate(period.name, editedDescription)
-    }
+  const handleSave = () => {
+    onDescriptionUpdate(period.name, editedDescription)
     setIsEditing(false)
   }
 
-  const handleCancelEdit = () => {
+  const handleCancel = () => {
     setEditedDescription(period.description)
     setIsEditing(false)
   }
 
+  const scrollCarousel = (direction: "left" | "right") => {
+    if (carouselRef.current) {
+      const scrollAmount = 300
+      carouselRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      })
+    }
+  }
+
   return (
     <div className={`relative ${className}`}>
-      {/* Point sur la timeline */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-lg z-20"></div>
+      {/* Timeline line - Toujours centrée */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-orange-200 to-orange-400 z-0"></div>
 
-      {/* Contenu principal */}
-      <div className={`flex ${isLeft ? "justify-start" : "justify-end"} mb-8`}>
-        <div className={`w-full max-w-2xl ${isLeft ? "pr-8" : "pl-8"}`}>
-          <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
-            <CardContent className="p-8">
-              {/* En-tête de la période */}
-              <div className="mb-6">
-                <h2 className="text-3xl font-serif text-gray-900 mb-2">{period.name}</h2>
-                <p className="text-lg text-orange-600 font-medium">
-                  {period.start} - {period.end}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">{period.luminaires.length} luminaires</p>
+      {/* Timeline dot */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-2 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-lg z-10"></div>
+
+      {/* Container principal */}
+      <div className="relative z-5">
+        {/* Layout Desktop */}
+        <div className="hidden lg:flex items-stretch gap-8 min-h-[500px]">
+          {/* Image à gauche si isLeft = true */}
+          {period.imageUrl && isLeft && (
+            <div className="w-80 flex-shrink-0 pr-8">
+              <div className="h-full rounded-lg overflow-hidden shadow-lg">
+                <img
+                  src={period.imageUrl || "/placeholder.svg"}
+                  alt={`Illustration ${period.name}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.style.display = "none"
+                  }}
+                />
               </div>
+            </div>
+          )}
 
-              {/* Image de période si disponible */}
-              {period.imageUrl && (
-                <div className="mb-6">
-                  <img
-                    src={period.imageUrl || "/placeholder.svg"}
-                    alt={`Illustration ${period.name}`}
-                    className="w-full h-48 object-cover rounded-lg shadow-md"
-                  />
+          {/* Contenu principal */}
+          <Card className={`flex-1 max-w-2xl ${isLeft ? "mr-8" : "ml-8"} shadow-lg hover:shadow-xl transition-shadow`}>
+            <CardContent className="p-6 h-full flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-2xl font-serif text-gray-900 mb-1">{period.name}</h3>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="w-4 h-4" />
+                    <span>
+                      {period.start} - {period.end}
+                    </span>
+                    <Badge variant="secondary" className="ml-2">
+                      {period.luminaires.length} luminaires
+                    </Badge>
+                  </div>
                 </div>
-              )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </Button>
+              </div>
 
               {/* Description */}
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-800">Description</h3>
-                  {!isEditing ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsEditing(true)}
-                      className="text-gray-500 hover:text-orange-600"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                  ) : (
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <Textarea
+                      value={editedDescription}
+                      onChange={(e) => setEditedDescription(e.target.value)}
+                      className="min-h-[100px]"
+                      placeholder="Description de la période..."
+                    />
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={handleSaveDescription} className="text-green-600">
-                        <Save className="w-4 h-4" />
+                      <Button size="sm" onClick={handleSave}>
+                        <Save className="w-4 h-4 mr-1" />
+                        Sauvegarder
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="text-red-600">
-                        <X className="w-4 h-4" />
+                      <Button size="sm" variant="outline" onClick={handleCancel}>
+                        <X className="w-4 h-4 mr-1" />
+                        Annuler
                       </Button>
                     </div>
-                  )}
-                </div>
-
-                {isEditing ? (
-                  <Textarea
-                    value={editedDescription}
-                    onChange={(e) => setEditedDescription(e.target.value)}
-                    className="min-h-[100px] resize-none"
-                    placeholder="Description de la période..."
-                  />
+                  </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">{period.description}</p>
                 )}
               </div>
 
-              {/* Carrousel des luminaires */}
+              {/* Luminaires - Slider horizontal */}
               {period.luminaires.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Luminaires de cette période</h3>
+                <div className="flex-1">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Luminaires de cette période
+                  </h4>
 
                   <div className="relative">
-                    {/* Luminaire actuel */}
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex gap-4">
-                        {/* Image du luminaire */}
-                        <div className="flex-shrink-0">
-                          {period.luminaires[currentIndex].image ? (
-                            <img
-                              src={period.luminaires[currentIndex].image || "/placeholder.svg"}
-                              alt={period.luminaires[currentIndex].name}
-                              className="w-24 h-24 object-cover rounded-lg shadow-sm"
-                            />
-                          ) : (
-                            <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center">
-                              <span className="text-gray-400 text-xs">Pas d'image</span>
-                            </div>
-                          )}
-                        </div>
+                    {/* Flèche gauche */}
+                    {period.luminaires.length > 3 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white shadow-md"
+                        onClick={() => scrollCarousel("left")}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                    )}
 
-                        {/* Informations du luminaire */}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 truncate">{period.luminaires[currentIndex].name}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{period.luminaires[currentIndex].artist}</p>
-                          {period.luminaires[currentIndex].year && (
-                            <p className="text-sm text-orange-600 mt-1">
-                              Année: {period.luminaires[currentIndex].year}
-                            </p>
-                          )}
-                          <Link
-                            href={`/luminaires/${period.luminaires[currentIndex].id}`}
-                            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 mt-2"
-                          >
-                            Voir détails <ExternalLink className="w-3 h-3" />
-                          </Link>
-                        </div>
-                      </div>
+                    {/* Slider horizontal */}
+                    <div
+                      ref={carouselRef}
+                      className="flex gap-4 overflow-x-auto scrollbar-hide px-8 pb-2"
+                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                    >
+                      {period.luminaires.map((luminaire, index) => (
+                        <Link
+                          key={luminaire.id || index}
+                          href={`/luminaires/${luminaire.id}`}
+                          className="flex-shrink-0 group cursor-pointer"
+                        >
+                          <div className="w-40 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-3">
+                            <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-3">
+                              {luminaire.image ? (
+                                <img
+                                  src={luminaire.image || "/placeholder.svg"}
+                                  alt={luminaire.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.src = "/placeholder.svg?height=128&width=160&text=Image+non+trouvée"
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                  <ImageIcon className="w-8 h-8" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm">
+                              <p className="font-medium text-gray-900 line-clamp-2 mb-1">{luminaire.name}</p>
+                              {luminaire.artist && (
+                                <p className="text-gray-600 text-xs line-clamp-1 flex items-center gap-1 mb-1">
+                                  <User className="w-3 h-3" />
+                                  {luminaire.artist}
+                                </p>
+                              )}
+                              {luminaire.year && (
+                                <p className="text-orange-600 text-xs flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {luminaire.year}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
                     </div>
 
-                    {/* Navigation du carrousel */}
-                    {period.luminaires.length > 1 && (
-                      <div className="flex items-center justify-between mt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={prevSlide}
-                          disabled={period.luminaires.length <= 1}
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </Button>
+                    {/* Flèche droite */}
+                    {period.luminaires.length > 3 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white shadow-md"
+                        onClick={() => scrollCarousel("right")}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">
-                            {currentIndex + 1} / {period.luminaires.length}
-                          </span>
-                          <div className="flex gap-1">
-                            {period.luminaires.slice(0, 5).map((_, index) => (
-                              <button
-                                key={index}
-                                onClick={() => setCurrentIndex(index)}
-                                className={`w-2 h-2 rounded-full transition-colors ${
-                                  index === currentIndex ? "bg-orange-500" : "bg-gray-300"
-                                }`}
+          {/* Image à droite si isLeft = false */}
+          {period.imageUrl && !isLeft && (
+            <div className="w-80 flex-shrink-0 pl-8">
+              <div className="h-full rounded-lg overflow-hidden shadow-lg">
+                <img
+                  src={period.imageUrl || "/placeholder.svg"}
+                  alt={`Illustration ${period.name}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.style.display = "none"
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Layout Mobile */}
+        <div className="lg:hidden">
+          {/* Image au-dessus sur mobile */}
+          {period.imageUrl && (
+            <div className="mb-6">
+              <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-lg">
+                <img
+                  src={period.imageUrl || "/placeholder.svg"}
+                  alt={`Illustration ${period.name}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.style.display = "none"
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Contenu principal mobile */}
+          <Card className="shadow-lg hover:shadow-xl transition-shadow">
+            <CardContent className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-2xl font-serif text-gray-900 mb-1">{period.name}</h3>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="w-4 h-4" />
+                    <span>
+                      {period.start} - {period.end}
+                    </span>
+                    <Badge variant="secondary" className="ml-2">
+                      {period.luminaires.length} luminaires
+                    </Badge>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Description */}
+              <div className="mb-6">
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <Textarea
+                      value={editedDescription}
+                      onChange={(e) => setEditedDescription(e.target.value)}
+                      className="min-h-[100px]"
+                      placeholder="Description de la période..."
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSave}>
+                        <Save className="w-4 h-4 mr-1" />
+                        Sauvegarder
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleCancel}>
+                        <X className="w-4 h-4 mr-1" />
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-700 leading-relaxed">{period.description}</p>
+                )}
+              </div>
+
+              {/* Luminaires - Slider mobile */}
+              {period.luminaires.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Luminaires de cette période
+                  </h4>
+
+                  <div className="flex gap-3 overflow-x-auto pb-2">
+                    {period.luminaires.map((luminaire, index) => (
+                      <Link
+                        key={luminaire.id || index}
+                        href={`/luminaires/${luminaire.id}`}
+                        className="flex-shrink-0 group cursor-pointer"
+                      >
+                        <div className="w-28 bg-white rounded-lg shadow-sm p-2">
+                          <div className="w-full h-24 bg-gray-100 rounded-lg overflow-hidden mb-2">
+                            {luminaire.image ? (
+                              <img
+                                src={luminaire.image || "/placeholder.svg"}
+                                alt={luminaire.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.src = "/placeholder.svg?height=96&width=112&text=Image+non+trouvée"
+                                }}
                               />
-                            ))}
-                            {period.luminaires.length > 5 && <span className="text-gray-400">...</span>}
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <ImageIcon className="w-6 h-6" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs">
+                            <p className="font-medium text-gray-900 line-clamp-2 mb-1">{luminaire.name}</p>
+                            {luminaire.year && <p className="text-orange-600 text-xs">{luminaire.year}</p>}
                           </div>
                         </div>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={nextSlide}
-                          disabled={period.luminaires.length <= 1}
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )}

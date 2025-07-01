@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
 import { GridFSBucket } from "mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +23,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Fichier et nom de période requis" }, { status: 400 })
     }
 
-    const { db } = await connectToDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
     // Supprimer l'ancienne image de cette période si elle existe

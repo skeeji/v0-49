@@ -1,10 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
 import { GridFSBucket, ObjectId } from "mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { db } = await connectToDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
     const fileId = new ObjectId(params.id)
