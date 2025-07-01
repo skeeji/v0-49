@@ -14,6 +14,8 @@ import { toast } from "sonner"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
+  const [allDesigners, setAllDesigners] = useState<string[]>([])
+  const [globalYearBounds, setGlobalYearBounds] = useState({ min: 1900, max: 2024 })
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,37 +33,30 @@ export default function LuminairesPage() {
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
 
-  // États pour les métadonnées globales
-  const [globalDesigners, setGlobalDesigners] = useState<string[]>([])
-  const [globalYearBounds, setGlobalYearBounds] = useState({ min: 1900, max: 2024 })
-
   const { userData } = useAuth()
   const isAdmin = userData?.role === "admin"
 
-  // Charger les métadonnées globales une seule fois
+  // Charger les métadonnées globales (designers et années) une seule fois
   const loadGlobalMetadata = useCallback(async () => {
     try {
       console.log("🔍 Chargement des métadonnées globales...")
 
-      // Charger un échantillon pour obtenir les designers et années
-      const response = await fetch("/api/luminaires?limit=10000&page=1")
-      const data = await response.json()
+      // Charger tous les designers
+      const designersResponse = await fetch("/api/designers")
+      const designersData = await designersResponse.json()
+      if (designersData.success) {
+        const designers = designersData.designers.map((d: any) => d.name).sort()
+        setAllDesigners(designers)
+        console.log(`📊 ${designers.length} designers chargés`)
+      }
 
-      if (data.success && data.luminaires) {
-        // Extraire les designers uniques
-        const designers = [...new Set(data.luminaires.map((l: any) => l.designer).filter(Boolean))].sort()
-        setGlobalDesigners(designers)
-
-        // Calculer les bornes d'années
-        const years = data.luminaires.map((l: any) => l.annee || l.year).filter(Boolean)
-        if (years.length > 0) {
-          const minYear = Math.min(...years)
-          const maxYear = Math.max(...years)
-          setGlobalYearBounds({ min: minYear, max: maxYear })
-          setYearRange([minYear, maxYear])
-        }
-
-        console.log(`📊 ${designers.length} designers et années ${globalYearBounds.min}-${globalYearBounds.max}`)
+      // Charger les bornes d'années globales
+      const statsResponse = await fetch("/api/luminaires?stats=true")
+      const statsData = await statsResponse.json()
+      if (statsData.success && statsData.yearBounds) {
+        setGlobalYearBounds(statsData.yearBounds)
+        setYearRange([statsData.yearBounds.min, statsData.yearBounds.max])
+        console.log(`📊 Années: ${statsData.yearBounds.min} - ${statsData.yearBounds.max}`)
       }
     } catch (err) {
       console.error("❌ Erreur chargement métadonnées:", err)
@@ -82,19 +77,15 @@ export default function LuminairesPage() {
         const params = new URLSearchParams({
           page: page.toString(),
           limit: "50",
-          search: searchTerm,
-          designer: selectedDesigner,
-          sortField,
-          sortDirection,
         })
 
-        // Ajouter les filtres d'années seulement s'ils sont différents des valeurs globales
-        if (yearRange[0] !== globalYearBounds.min) {
-          params.set("yearMin", yearRange[0].toString())
-        }
-        if (yearRange[1] !== globalYearBounds.max) {
-          params.set("yearMax", yearRange[1].toString())
-        }
+        // Ajouter les filtres seulement s'ils sont définis
+        if (searchTerm.trim()) params.set("search", searchTerm.trim())
+        if (selectedDesigner) params.set("designer", selectedDesigner)
+        if (yearRange[0] !== globalYearBounds.min) params.set("yearMin", yearRange[0].toString())
+        if (yearRange[1] !== globalYearBounds.max) params.set("yearMax", yearRange[1].toString())
+        if (sortField) params.set("sortField", sortField)
+        if (sortDirection) params.set("sortDirection", sortDirection)
 
         console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
 
@@ -315,7 +306,7 @@ export default function LuminairesPage() {
           label="Designer"
           value={selectedDesigner}
           onChange={setSelectedDesigner}
-          options={globalDesigners}
+          options={allDesigners}
         />
 
         <select

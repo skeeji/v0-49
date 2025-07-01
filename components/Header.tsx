@@ -45,7 +45,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-sm border-b">
       <div className="container flex items-center justify-between h-32">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/luminaires" className="flex items-center gap-3">
           <Image
             src={logoUrl || "/placeholder.svg"}
             alt="Logo"
