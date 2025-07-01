@@ -6,6 +6,8 @@ import { Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
 import { Lightbox } from "@/components/Lightbox"
+import { DeleteLuminaireButton } from "@/components/DeleteLuminaireButton"
+import { useAuth } from "@/contexts/AuthContext"
 import Link from "next/link"
 
 interface GalleryGridProps {
@@ -18,6 +20,7 @@ interface GalleryGridProps {
 export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: GalleryGridProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<string[]>([])
+  const { userData } = useAuth()
 
   // Charger les favoris une seule fois au montage du composant
   useEffect(() => {
@@ -70,6 +73,11 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
     return "/placeholder.svg?height=300&width=300"
   }
 
+  const handleDeleteLuminaire = () => {
+    // Recharger la page pour mettre à jour la liste
+    window.location.reload()
+  }
+
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
@@ -115,6 +123,13 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                       <Button onClick={() => setLightboxImage(getImageUrl(item))} variant="outline" size="sm">
                         <Eye className="w-4 h-4" />
                       </Button>
+                      {userData?.role === "admin" && (
+                        <DeleteLuminaireButton
+                          luminaireId={itemId}
+                          luminaireName={itemName}
+                          onDelete={handleDeleteLuminaire}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -206,14 +221,23 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">{itemYear}</span>
-                <Button
-                  onClick={() => setLightboxImage(getImageUrl(item))}
-                  variant="ghost"
-                  size="sm"
-                  className="p-1 h-auto"
-                >
-                  <Eye className="w-3 h-3" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    onClick={() => setLightboxImage(getImageUrl(item))}
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 h-auto"
+                  >
+                    <Eye className="w-3 h-3" />
+                  </Button>
+                  {userData?.role === "admin" && (
+                    <DeleteLuminaireButton
+                      luminaireId={itemId}
+                      luminaireName={itemName}
+                      onDelete={handleDeleteLuminaire}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>

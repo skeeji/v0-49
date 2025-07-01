@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "sonner"
 
 interface LuminaireFormModalProps {
   isOpen: boolean
@@ -49,31 +50,42 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         })
 
         const uploadResult = await uploadResponse.json()
-        if (uploadResult.success && uploadResult.filenames.length > 0) {
-          filename = uploadResult.filenames[0]
+        if (uploadResult.success) {
+          filename = imageFile.name
+        } else {
+          throw new Error("Erreur lors de l'upload de l'image")
         }
       }
 
       // Préparer les données du luminaire
       const luminaireData = {
+        nom: formData.nom,
+        designer: formData.artist,
+        annee: formData.annee ? Number.parseInt(formData.annee) : null,
+        periode: formData.specialty,
+        description: formData.collaboration,
+        signe: formData.signed,
+        dimensions: formData.dimensions,
+        materiaux: formData.materials
+          .split(",")
+          .map((m) => m.trim())
+          .filter(Boolean),
+        estimation: formData.estimation,
+        filename: filename,
+        images: filename ? [filename] : [],
+        // Champs CSV pour compatibilité
         "Nom luminaire": formData.nom,
         "Artiste / Dates": formData.artist,
         Année: formData.annee,
         Spécialité: formData.specialty,
         "Collaboration / Œuvre": formData.collaboration,
         Signé: formData.signed,
-        Description: formData.description,
-        Dimensions: formData.dimensions,
-        Matériaux: formData.materials,
-        Estimation: formData.estimation,
         "Nom du fichier": filename,
-        filename: filename,
-        images: filename ? [filename] : [],
         createdAt: new Date(),
         updatedAt: new Date(),
       }
 
-      onSubmit(luminaireData)
+      await onSubmit(luminaireData)
 
       // Reset du formulaire
       setFormData({
@@ -89,8 +101,11 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         estimation: "",
       })
       setImageFile(null)
-    } catch (error) {
+      onClose()
+      toast.success("Luminaire créé avec succès")
+    } catch (error: any) {
       console.error("❌ Erreur lors de la création:", error)
+      toast.error(error.message || "Erreur lors de la création du luminaire")
     } finally {
       setUploading(false)
     }
@@ -122,6 +137,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               value={formData.nom}
               onChange={(e) => handleChange("nom", e.target.value)}
               placeholder="Nom du luminaire"
+              required
             />
           </div>
 
@@ -139,6 +155,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
             <Label htmlFor="annee">Année</Label>
             <Input
               id="annee"
+              type="number"
               value={formData.annee}
               onChange={(e) => handleChange("annee", e.target.value)}
               placeholder="Année"
@@ -199,13 +216,13 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           </div>
 
           <div>
-            <Label htmlFor="materials">Matériaux</Label>
+            <Label htmlFor="materials">Matériaux (séparés par des virgules)</Label>
             <Textarea
               id="materials"
               value={formData.materials}
               onChange={(e) => handleChange("materials", e.target.value)}
-              placeholder="Matériaux"
-              rows={3}
+              placeholder="Bronze, Verre, Cristal"
+              rows={2}
             />
           </div>
 
@@ -215,7 +232,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               id="estimation"
               value={formData.estimation}
               onChange={(e) => handleChange("estimation", e.target.value)}
-              placeholder="Estimation"
+              placeholder="1000-1500€"
             />
           </div>
 
