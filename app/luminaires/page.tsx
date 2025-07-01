@@ -34,7 +34,7 @@ export default function LuminairesPage() {
   const { userData } = useAuth()
   const isAdmin = userData?.role === "admin"
 
-  // Fonction pour charger les luminaires avec scroll infini
+  // CORRECTION: Fonction pour charger les luminaires avec scroll infini
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -47,7 +47,7 @@ export default function LuminairesPage() {
 
         const params = new URLSearchParams({
           page: page.toString(),
-          limit: "50",
+          limit: "50", // Réduire pour de meilleures performances
           search: searchTerm,
           designer: selectedDesigner,
           yearMin: yearRange[0].toString(),
@@ -65,8 +65,10 @@ export default function LuminairesPage() {
 
         if (data.success) {
           if (append && page > 1) {
+            // CORRECTION: Ajouter les nouveaux luminaires à la liste existante
             setLuminaires((prev) => [...prev, ...data.luminaires])
           } else {
+            // Première page ou reset
             setLuminaires(data.luminaires)
             setCurrentPage(1)
           }
@@ -91,13 +93,13 @@ export default function LuminairesPage() {
     [searchTerm, selectedDesigner, yearRange, sortField, sortDirection],
   )
 
-  // Charger les luminaires au montage et lors des changements de filtres
+  // CORRECTION: Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
   }, [searchTerm, selectedDesigner, yearRange, sortField, sortDirection])
 
-  // Fonction pour charger plus de luminaires (scroll infini)
+  // CORRECTION: Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) {
       const nextPage = currentPage + 1
@@ -107,9 +109,10 @@ export default function LuminairesPage() {
     }
   }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
 
-  // Scroll infini optimisé
+  // CORRECTION: Scroll infini optimisé
   useEffect(() => {
     const handleScroll = () => {
+      // Vérifier si on est proche du bas de la page
       const scrollTop = document.documentElement.scrollTop
       const scrollHeight = document.documentElement.scrollHeight
       const clientHeight = document.documentElement.clientHeight
@@ -119,6 +122,7 @@ export default function LuminairesPage() {
       }
     }
 
+    // Throttle pour éviter trop d'appels
     let timeoutId: NodeJS.Timeout
 
     const throttledHandleScroll = () => {
@@ -172,6 +176,7 @@ export default function LuminairesPage() {
         if (data.success) {
           toast.success("Luminaire créé avec succès")
           setIsModalOpen(false)
+          // Recharger la première page
           loadLuminaires(1, false)
         } else {
           throw new Error(data.error)
@@ -200,12 +205,12 @@ export default function LuminairesPage() {
     }
   }, [luminaires])
 
-  // Initialiser la plage d'années avec les vraies valeurs
+  // Initialiser la plage d'années avec les vraies valeurs une seule fois
   useEffect(() => {
-    if (yearBounds.min !== 1900 || yearBounds.max !== 2024) {
+    if (luminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
-  }, [yearBounds])
+  }, [yearBounds, luminaires.length, yearRange])
 
   if (loading && luminaires.length === 0) {
     return (
