@@ -11,7 +11,7 @@ import Image from "next/image"
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
   const pathname = usePathname()
   const { user, userData } = useAuth()
 
@@ -60,7 +60,7 @@ export function Header() {
           <Link href="/" className="flex items-center space-x-3">
             <div className="relative w-10 h-10">
               <Image
-                src={logoUrl || "/placeholder-logo.svg"}
+                src={logoUrl || "/placeholder.svg"}
                 alt="Logo"
                 fill
                 className="object-contain"

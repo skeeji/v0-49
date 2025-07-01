@@ -68,44 +68,27 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    // Filtre par années - version corrigée
+    // Filtre par années - version simplifiée qui fonctionne
     if (yearMin || yearMax) {
       const yearConditions: any[] = []
 
       if (yearMin && yearMax) {
+        const minYear = Number.parseInt(yearMin)
+        const maxYear = Number.parseInt(yearMax)
+
         yearConditions.push(
-          { annee: { $gte: Number.parseInt(yearMin), $lte: Number.parseInt(yearMax) } },
-          { year: { $gte: Number.parseInt(yearMin), $lte: Number.parseInt(yearMax) } },
-          {
-            $and: [
-              { Année: { $ne: null } },
-              {
-                $expr: {
-                  $and: [
-                    { $gte: [{ $toInt: "$Année" }, Number.parseInt(yearMin)] },
-                    { $lte: [{ $toInt: "$Année" }, Number.parseInt(yearMax)] },
-                  ],
-                },
-              },
-            ],
-          },
+          { annee: { $gte: minYear, $lte: maxYear } },
+          { year: { $gte: minYear, $lte: maxYear } },
+          { Année: { $gte: yearMin, $lte: yearMax } },
         )
       } else if (yearMin) {
-        yearConditions.push(
-          { annee: { $gte: Number.parseInt(yearMin) } },
-          { year: { $gte: Number.parseInt(yearMin) } },
-          {
-            $and: [{ Année: { $ne: null } }, { $expr: { $gte: [{ $toInt: "$Année" }, Number.parseInt(yearMin)] } }],
-          },
-        )
+        const minYear = Number.parseInt(yearMin)
+
+        yearConditions.push({ annee: { $gte: minYear } }, { year: { $gte: minYear } }, { Année: { $gte: yearMin } })
       } else if (yearMax) {
-        yearConditions.push(
-          { annee: { $lte: Number.parseInt(yearMax) } },
-          { year: { $lte: Number.parseInt(yearMax) } },
-          {
-            $and: [{ Année: { $ne: null } }, { $expr: { $lte: [{ $toInt: "$Année" }, Number.parseInt(yearMax)] } }],
-          },
-        )
+        const maxYear = Number.parseInt(yearMax)
+
+        yearConditions.push({ annee: { $lte: maxYear } }, { year: { $lte: maxYear } }, { Année: { $lte: yearMax } })
       }
 
       if (yearConditions.length > 0) {
