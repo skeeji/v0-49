@@ -15,10 +15,14 @@ export async function GET(request: NextRequest) {
     const periode = searchParams.get("periode") || ""
     const materiaux = searchParams.get("materiaux") || ""
     const couleurs = searchParams.get("couleurs") || ""
+    const yearMin = searchParams.get("yearMin")
+    const yearMax = searchParams.get("yearMax")
     const sortField = searchParams.get("sortField") || "nom"
     const sortDirection = searchParams.get("sortDirection") || "asc"
 
-    console.log(`📊 Paramètres: page=${page}, limit=${limit}, search="${search}"`)
+    console.log(
+      `📊 Paramètres: page=${page}, limit=${limit}, search="${search}", yearMin=${yearMin}, yearMax=${yearMax}`,
+    )
 
     const client = await clientPromise
     const db = client.db(DBNAME)
@@ -64,11 +68,63 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    console.log("🔍 Filtre MongoDB:", JSON.stringify(filter))
+    // Filtre par années - version corrigée
+    if (yearMin || yearMax) {
+      const yearConditions: any[] = []
+
+      if (yearMin && yearMax) {
+        yearConditions.push(
+          { annee: { $gte: Number.parseInt(yearMin), $lte: Number.parseInt(yearMax) } },
+          { year: { $gte: Number.parseInt(yearMin), $lte: Number.parseInt(yearMax) } },
+          {
+            $and: [
+              { Année: { $ne: null } },
+              {
+                $expr: {
+                  $and: [
+                    { $gte: [{ $toInt: "$Année" }, Number.parseInt(yearMin)] },
+                    { $lte: [{ $toInt: "$Année" }, Number.parseInt(yearMax)] },
+                  ],
+                },
+              },
+            ],
+          },
+        )
+      } else if (yearMin) {
+        yearConditions.push(
+          { annee: { $gte: Number.parseInt(yearMin) } },
+          { year: { $gte: Number.parseInt(yearMin) } },
+          {
+            $and: [{ Année: { $ne: null } }, { $expr: { $gte: [{ $toInt: "$Année" }, Number.parseInt(yearMin)] } }],
+          },
+        )
+      } else if (yearMax) {
+        yearConditions.push(
+          { annee: { $lte: Number.parseInt(yearMax) } },
+          { year: { $lte: Number.parseInt(yearMax) } },
+          {
+            $and: [{ Année: { $ne: null } }, { $expr: { $lte: [{ $toInt: "$Année" }, Number.parseInt(yearMax)] } }],
+          },
+        )
+      }
+
+      if (yearConditions.length > 0) {
+        filter.$and = filter.$and || []
+        filter.$and.push({ $or: yearConditions })
+      }
+    }
+
+    console.log("🔍 Filtre MongoDB:", JSON.stringify(filter, null, 2))
 
     // Construire le tri
     const sort: any = {}
-    sort[sortField] = sortDirection === "desc" ? -1 : 1
+    if (sortField === "annee") {
+      sort.annee = sortDirection === "desc" ? -1 : 1
+      sort.year = sortDirection === "desc" ? -1 : 1
+      sort["Année"] = sortDirection === "desc" ? -1 : 1
+    } else {
+      sort[sortField] = sortDirection === "desc" ? -1 : 1
+    }
 
     // Compter le total
     const total = await collection.countDocuments(filter)

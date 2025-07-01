@@ -57,22 +57,20 @@ export function Header() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/luminaires" className="flex items-center space-x-3">
-            {logoUrl && (
-              <div className="relative w-10 h-10">
-                <Image
-                  src={logoUrl || "/placeholder.svg"}
-                  alt="Logo"
-                  fill
-                  className="object-contain"
-                  onError={(e) => {
-                    console.log("❌ Erreur affichage logo, fallback vers placeholder")
-                    const target = e.target as HTMLImageElement
-                    target.src = "/placeholder-logo.svg"
-                  }}
-                />
-              </div>
-            )}
+          <Link href="/" className="flex items-center space-x-3">
+            <div className="relative w-10 h-10">
+              <Image
+                src={logoUrl || "/placeholder-logo.svg"}
+                alt="Logo"
+                fill
+                className="object-contain"
+                onError={(e) => {
+                  console.log("❌ Erreur affichage logo, fallback vers placeholder")
+                  const target = e.target as HTMLImageElement
+                  target.src = "/placeholder-logo.svg"
+                }}
+              />
+            </div>
           </Link>
 
           {/* Navigation desktop */}
