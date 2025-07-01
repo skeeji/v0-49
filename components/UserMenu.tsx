@@ -1,94 +1,91 @@
 "use client"
 
 import { useState } from "react"
-import { User, LogOut, Crown, UserIcon } from "lucide-react"
+import { User, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
-import type { UserRole } from "@/lib/firebase"
-
-// Mode développement désactivé
-const DEV_MODE = false
 
 export function UserMenu() {
-  const { user, userData, logout } = useAuth()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  const { user, userData, signInWithGoogle, logout } = useAuth()
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const getRoleBadge = (role: UserRole) => {
-    switch (role) {
-      case "admin":
-        return (
-          <div className="flex items-center gap-1 bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
-            <Crown className="w-3 h-3" />
-            <span>Admin</span>
-          </div>
-        )
-      case "premium":
-        return (
-          <div className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">
-            <Crown className="w-3 h-3" />
-            <span>Premium</span>
-          </div>
-        )
-      case "free":
-        return (
-          <div className="flex items-center gap-1 bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full text-xs">
-            <UserIcon className="w-3 h-3" />
-            <span>Free</span>
-          </div>
-        )
-      default:
-        return null
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true)
+    try {
+      await signInWithGoogle()
+      setShowLoginModal(false)
+    } catch (error) {
+      console.error("Erreur lors de la connexion:", error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  return (
-    <>
-      {user ? (
-        <div className="relative">
-          <Button onClick={() => setIsMenuOpen(!isMenuOpen)} variant="ghost" className="flex items-center gap-2 px-3">
-            <div className="w-8 h-8 rounded-full bg-orange flex items-center justify-center text-white">
-              {user.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
-            </div>
-            <div className="hidden md:block text-left">
-              <div className="text-sm font-medium truncate max-w-[120px]">
-                {user.displayName || user.email?.split("@")[0]}
-              </div>
-              {userData && getRoleBadge(userData.role)}
-            </div>
-          </Button>
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error)
+    }
+  }
 
-          {isMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50">
-              <div className="px-4 py-2 border-b border-gray-100">
-                <p className="text-sm font-medium">{user.displayName || user.email?.split("@")[0]}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                {userData && <div className="mt-1">{getRoleBadge(userData.role)}</div>}
-              </div>
-              <div className="py-1">
-                <button
-                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => {
-                    setIsMenuOpen(false)
-                    logout()
-                  }}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Déconnexion
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <Button onClick={() => setIsLoginModalOpen(true)} className="bg-orange hover:bg-orange/90">
+  if (!user) {
+    return (
+      <>
+        <Button
+          onClick={() => setShowLoginModal(true)}
+          className="text-white transition-all duration-200"
+          style={{ backgroundColor: "#d4a574" }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#c19660")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#d4a574")}
+        >
           <User className="w-4 h-4 mr-2" />
           Connexion
         </Button>
-      )}
+        <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+      </>
+    )
+  }
 
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
-    </>
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="flex items-center gap-2 text-slate-700 hover:text-slate-800">
+          <User className="w-5 h-5" />
+          <span className="hidden md:inline">{userData?.email || user.email}</span>
+          {userData?.role && (
+            <span
+              className="px-2 py-1 text-xs font-medium rounded-full text-white"
+              style={{ backgroundColor: "#d4a574" }}
+            >
+              {userData.role}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <div className="px-2 py-1.5">
+          <p className="text-sm font-medium">{userData?.email || user.email}</p>
+          {userData?.role && <p className="text-xs text-slate-500 capitalize">Rôle: {userData.role}</p>}
+          {userData?.role === "free" && (
+            <p className="text-xs text-slate-500">Recherches: {userData.searchCount || 0}/3</p>
+          )}
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+          <LogOut className="w-4 h-4 mr-2" />
+          Déconnexion
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

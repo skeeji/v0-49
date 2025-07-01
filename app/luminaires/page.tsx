@@ -1,209 +1,144 @@
 "use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import { GalleryGrid } from "@/components/GalleryGrid"
+import { useState, useEffect } from "react"
 import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
 import { SortSelector } from "@/components/SortSelector"
+import { GalleryGrid } from "@/components/GalleryGrid"
 import { Button } from "@/components/ui/button"
-import { Grid, List, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { CSVExportButton } from "@/components/CSVExportButton"
-import { toast } from "sonner"
+import { useAuth } from "@/contexts/AuthContext"
+
+interface Luminaire {
+  _id: string
+  nom: string
+  designer?: string
+  annee?: number
+  periode?: string
+  description?: string
+  materiaux?: string[]
+  dimensions?: string
+  estimation?: string
+  image?: string
+  isFavorite?: boolean
+}
 
 export default function LuminairesPage() {
-  const [luminaires, setLuminaires] = useState<any[]>([])
+  const [luminaires, setLuminaires] = useState<Luminaire[]>([])
+  const [filteredLuminaires, setFilteredLuminaires] = useState<Luminaire[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [columns, setColumns] = useState(4)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedPeriod, setSelectedPeriod] = useState("")
+  const [selectedMaterial, setSelectedMaterial] = useState("")
+  const [sortBy, setSortBy] = useState("nom")
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // États pour les filtres et la pagination
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedDesigner, setSelectedDesigner] = useState("")
-  const [selectedPeriode, setSelectedPeriode] = useState("")
-  const [selectedMateriaux, setSelectedMateriaux] = useState("")
-  const [selectedCouleurs, setSelectedCouleurs] = useState("")
-  const [sortField, setSortField] = useState("nom")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalItems, setTotalItems] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
+  const { userData } = useAuth()
+  const isAdmin = userData?.role === "admin"
 
-  // CORRECTION: Fonction pour charger les luminaires avec scroll infini
-  const loadLuminaires = useCallback(
-    async (page = 1, append = false) => {
-      try {
-        if (page === 1) {
-          setLoading(true)
-          setError(null)
-        } else {
-          setLoadingMore(true)
-        }
-
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: "50", // Réduire pour de meilleures performances
-          search: searchTerm,
-          designer: selectedDesigner,
-          periode: selectedPeriode,
-          materiaux: selectedMateriaux,
-          couleurs: selectedCouleurs,
-          sortField,
-          sortDirection,
-        })
-
-        console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
-
-        const response = await fetch(`/api/luminaires?${params}`)
-        const data = await response.json()
-
-        console.log("📊 Données reçues:", data)
-
-        if (data.success) {
-          if (append && page > 1) {
-            // CORRECTION: Ajouter les nouveaux luminaires à la liste existante
-            setLuminaires((prev) => [...prev, ...data.luminaires])
-          } else {
-            // Première page ou reset
-            setLuminaires(data.luminaires)
-            setCurrentPage(1)
-          }
-
-          setTotalItems(data.pagination.total)
-          setHasMore(data.pagination.hasMore)
-
-          console.log(`📊 ${data.luminaires.length} luminaires chargés depuis MongoDB (page ${page})`)
-          console.log(`📊 Total dans la base: ${data.pagination.total}`)
-        } else {
-          throw new Error(data.error || "Erreur lors du chargement")
-        }
-      } catch (err: any) {
-        console.error("❌ Erreur chargement:", err)
-        setError(err.message)
-        toast.error("Erreur lors du chargement des luminaires")
-      } finally {
-        setLoading(false)
-        setLoadingMore(false)
-      }
-    },
-    [searchTerm, selectedDesigner, selectedPeriode, selectedMateriaux, selectedCouleurs, sortField, sortDirection],
-  )
-
-  // CORRECTION: Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
-    setCurrentPage(1)
-    loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, selectedPeriode, selectedMateriaux, selectedCouleurs, sortField, sortDirection])
-
-  // CORRECTION: Fonction pour charger plus de luminaires (scroll infini)
-  const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading) {
-      const nextPage = currentPage + 1
-      console.log(`📄 Chargement page suivante: ${nextPage}`)
-      setCurrentPage(nextPage)
-      loadLuminaires(nextPage, true)
-    }
-  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
-
-  // CORRECTION: Scroll infini optimisé
-  useEffect(() => {
-    const handleScroll = () => {
-      // Vérifier si on est proche du bas de la page
-      const scrollTop = document.documentElement.scrollTop
-      const scrollHeight = document.documentElement.scrollHeight
-      const clientHeight = document.documentElement.clientHeight
-
-      if (scrollTop + clientHeight >= scrollHeight - 1000) {
-        loadMore()
-      }
-    }
-
-    // Throttle pour éviter trop d'appels
-    let timeoutId: NodeJS.Timeout
-
-    const throttledHandleScroll = () => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(handleScroll, 200)
-    }
-
-    window.addEventListener("scroll", throttledHandleScroll, { passive: true })
-
-    return () => {
-      window.removeEventListener("scroll", throttledHandleScroll)
-      clearTimeout(timeoutId)
-    }
-  }, [loadMore])
-
-  // Fonction pour mettre à jour un luminaire
-  const handleItemUpdate = useCallback(async (id: string, updates: any) => {
-    try {
-      const response = await fetch(`/api/luminaires/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setLuminaires((prev) => prev.map((item) => (item._id === id ? { ...item, ...updates } : item)))
-        toast.success("Luminaire mis à jour avec succès")
-      } else {
-        throw new Error(data.error)
-      }
-    } catch (err: any) {
-      console.error("❌ Erreur mise à jour:", err)
-      toast.error("Erreur lors de la mise à jour")
-    }
+    fetchLuminaires()
   }, [])
 
-  // Fonction pour créer un nouveau luminaire
-  const handleCreateLuminaire = useCallback(
-    async (luminaireData: any) => {
-      try {
-        const response = await fetch("/api/luminaires", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(luminaireData),
-        })
+  useEffect(() => {
+    filterAndSortLuminaires()
+  }, [luminaires, searchTerm, selectedPeriod, selectedMaterial, sortBy])
 
+  const fetchLuminaires = async () => {
+    try {
+      const response = await fetch("/api/luminaires")
+      if (response.ok) {
         const data = await response.json()
-
         if (data.success) {
-          toast.success("Luminaire créé avec succès")
-          setIsModalOpen(false)
-          // Recharger la première page
-          loadLuminaires(1, false)
-        } else {
-          throw new Error(data.error)
+          setLuminaires(data.luminaires)
         }
-      } catch (err: any) {
-        console.error("❌ Erreur création:", err)
-        toast.error("Erreur lors de la création")
       }
-    },
-    [loadLuminaires],
-  )
+    } catch (error) {
+      console.error("Erreur lors du chargement des luminaires:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  // Options pour les filtres (calculées à partir des données)
-  const filterOptions = useMemo(() => {
-    const designers = [...new Set(luminaires.map((l) => l.designer).filter(Boolean))].sort()
-    const periodes = [...new Set(luminaires.map((l) => l.periode).filter(Boolean))].sort()
-    const materiaux = [...new Set(luminaires.flatMap((l) => l.materiaux || []).filter(Boolean))].sort()
-    const couleurs = [...new Set(luminaires.flatMap((l) => l.couleurs || []).filter(Boolean))].sort()
+  const filterAndSortLuminaires = () => {
+    let filtered = [...luminaires]
 
-    return { designers, periodes, materiaux, couleurs }
-  }, [luminaires])
+    // Filtrage par recherche
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (luminaire) =>
+          luminaire.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          luminaire.designer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          luminaire.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    }
 
-  if (loading && luminaires.length === 0) {
+    // Filtrage par période
+    if (selectedPeriod) {
+      filtered = filtered.filter((luminaire) => luminaire.periode === selectedPeriod)
+    }
+
+    // Filtrage par matériau
+    if (selectedMaterial) {
+      filtered = filtered.filter((luminaire) =>
+        luminaire.materiaux?.some((mat) => mat.toLowerCase().includes(selectedMaterial.toLowerCase())),
+      )
+    }
+
+    // Tri
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "nom":
+          return (a.nom || "").localeCompare(b.nom || "")
+        case "designer":
+          return (a.designer || "").localeCompare(b.designer || "")
+        case "annee":
+          return (a.annee || 0) - (b.annee || 0)
+        case "periode":
+          return (a.periode || "").localeCompare(b.periode || "")
+        default:
+          return 0
+      }
+    })
+
+    setFilteredLuminaires(filtered)
+  }
+
+  const handleCreateLuminaire = async (data: any) => {
+    try {
+      const response = await fetch("/api/luminaires", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setLuminaires([...luminaires, result.luminaire])
+          setIsModalOpen(false)
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de la création du luminaire:", error)
+    }
+  }
+
+  const periods = [...new Set(luminaires.map((l) => l.periode).filter(Boolean))]
+  const materials = [...new Set(luminaires.flatMap((l) => l.materiaux || []))]
+
+  if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <div
+              className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 mx-auto mb-4"
+              style={{ borderTopColor: "#d4a574" }}
+            ></div>
             <p className="text-gray-600">Chargement des luminaires...</p>
           </div>
         </div>
@@ -211,136 +146,51 @@ export default function LuminairesPage() {
     )
   }
 
-  if (error && luminaires.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Erreur: {error}</p>
-          <Button onClick={() => loadLuminaires(1, false)}>Réessayer</Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* En-tête */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
-          <p className="text-gray-600">
-            {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
-            {hasMore && ` (scroll pour charger plus)`}
-          </p>
+          <p className="text-gray-600">{filteredLuminaires.length} luminaires trouvés</p>
         </div>
-
-        <div className="flex items-center gap-4 mt-4 lg:mt-0">
-          <Button onClick={() => setIsModalOpen(true)} className="bg-orange-500 hover:bg-orange-600">
-            <Plus className="w-4 h-4 mr-2" />
-            Ajouter
-          </Button>
-
-          <CSVExportButton data={luminaires} filename="luminaires" />
-
-          <div className="flex items-center gap-2">
-            <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
-              <Grid className="w-4 h-4" />
-            </Button>
-            <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
-              <List className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {viewMode === "grid" && (
-            <select
-              value={columns}
-              onChange={(e) => setColumns(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+        <div className="flex gap-3 mt-4 md:mt-0">
+          <CSVExportButton data={filteredLuminaires} filename="luminaires" />
+          {isAdmin && (
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              className="text-white transition-all duration-200"
+              style={{ backgroundColor: "#d4a574" }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#c19660")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#d4a574")}
             >
-              <option value={3}>3 colonnes</option>
-              <option value={4}>4 colonnes</option>
-              <option value={5}>5 colonnes</option>
-              <option value={6}>6 colonnes</option>
-              <option value={8}>8 colonnes</option>
-            </select>
+              <Plus className="w-4 h-4 mr-2" />
+              Ajouter
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Filtres */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
-        <div className="lg:col-span-2">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
-        </div>
-
-        <DropdownFilter
-          label="Designer"
-          value={selectedDesigner}
-          onChange={setSelectedDesigner}
-          options={filterOptions.designers}
-        />
-
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
         <DropdownFilter
           label="Période"
-          value={selectedPeriode}
-          onChange={setSelectedPeriode}
-          options={filterOptions.periodes}
+          value={selectedPeriod}
+          onChange={setSelectedPeriod}
+          options={periods}
+          placeholder="Toutes les périodes"
         />
-
         <DropdownFilter
-          label="Matériaux"
-          value={selectedMateriaux}
-          onChange={setSelectedMateriaux}
-          options={filterOptions.materiaux}
+          label="Matériau"
+          value={selectedMaterial}
+          onChange={setSelectedMaterial}
+          options={materials}
+          placeholder="Tous les matériaux"
         />
-
-        <SortSelector
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSortChange={(field, direction) => {
-            setSortField(field)
-            setSortDirection(direction)
-          }}
-          options={[
-            { value: "nom", label: "Nom" },
-            { value: "designer", label: "Designer" },
-            { value: "annee", label: "Année" },
-            { value: "periode", label: "Période" },
-          ]}
-        />
+        <SortSelector value={sortBy} onChange={setSortBy} />
       </div>
 
-      {/* Grille des luminaires */}
-      <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
+      <GalleryGrid items={filteredLuminaires} />
 
-      {/* Indicateur de chargement pour le scroll infini */}
-      {loadingMore && (
-        <div className="text-center mt-8">
-          <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
-            <span className="text-orange-500">Chargement de plus de luminaires...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Message fin de liste */}
-      {!hasMore && luminaires.length > 0 && (
-        <div className="text-center mt-8 py-4">
-          <p className="text-gray-500">
-            ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
-          </p>
-        </div>
-      )}
-
-      {/* Message aucun résultat */}
-      {luminaires.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">Aucun luminaire trouvé</p>
-          <p className="text-gray-400 text-sm mt-2">Essayez de modifier vos critères de recherche</p>
-        </div>
-      )}
-
-      {/* Modal de création */}
       <LuminaireFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleCreateLuminaire} />
     </div>
   )
