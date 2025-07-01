@@ -1,155 +1,105 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Menu, X, User, LogOut } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { usePathname } from "next/navigation"
+import { UserMenu } from "@/components/UserMenu"
 import { useAuth } from "@/contexts/AuthContext"
-import { LoginModal } from "@/components/LoginModal"
+import { useState, useEffect } from "react"
 
 export function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  const pathname = usePathname()
+  const { userData } = useAuth()
   const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
-  const { user, userData, logout } = useAuth()
+
+  const isAdmin = userData?.role === "admin"
+
+  const navigation = [
+    { name: "Luminaires", href: "/luminaires" },
+    { name: "Designers", href: "/designers" },
+    { name: "Chronologie", href: "/chronologie" },
+  ]
 
   useEffect(() => {
+    // Charger le logo depuis l'API
     const loadLogo = async () => {
       try {
+        console.log("🖼️ Chargement du logo...")
         const response = await fetch("/api/logo")
+        console.log("📄 Réponse API logo:", response.status)
         if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.logoUrl) {
-            setLogoUrl(data.logoUrl)
-          }
+          setLogoUrl("/api/logo")
+          console.log("✅ Logo chargé avec succès")
+        } else {
+          console.log("⚠️ Logo personnalisé non disponible, utilisation du logo par défaut")
         }
       } catch (error) {
-        console.error("Erreur lors du chargement du logo:", error)
+        console.error("💥 Erreur chargement logo:", error)
+        console.log("Logo personnalisé non disponible, utilisation du logo par défaut")
       }
     }
 
     loadLogo()
   }, [])
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-      setIsMenuOpen(false)
-    } catch (error) {
-      console.error("Erreur lors de la déconnexion:", error)
-    }
-  }
-
-  const navItems = [
-    { href: "/luminaires", label: "Luminaires" },
-    { href: "/designers", label: "Designers" },
-    { href: "/chronologie", label: "Chronologie" },
-    { href: "/import", label: "Import" },
-  ]
-
   return (
-    <>
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="relative w-32 h-32 flex-shrink-0">
-                <Image
-                  src={logoUrl || "/placeholder.svg"}
-                  alt="Logo"
-                  fill
-                  className="object-contain"
-                  sizes="128px"
-                  priority
-                  onError={() => setLogoUrl("/placeholder-logo.svg")}
-                />
-              </div>
-            </Link>
-
-            {/* Navigation desktop */}
-            <nav className="hidden md:flex items-center space-x-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-gray-700 hover:text-gray-900 font-medium transition-colors"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            {/* Actions utilisateur */}
-            <div className="flex items-center space-x-4">
-              {user ? (
-                <div className="flex items-center space-x-3">
-                  <div className="hidden md:flex items-center space-x-2">
-                    <User className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm text-gray-700">{userData?.email}</span>
-                    {userData?.role && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{userData.role}</span>
-                    )}
-                  </div>
-                  <Button
-                    onClick={handleLogout}
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    <LogOut className="w-4 h-4 md:mr-2" />
-                    <span className="hidden md:inline">Déconnexion</span>
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  onClick={() => setIsLoginModalOpen(true)}
-                  style={{ backgroundColor: "#f2d895", color: "#000" }}
-                  className="hover:opacity-90"
-                >
-                  Connexion
-                </Button>
-              )}
-
-              {/* Menu mobile */}
-              <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </Button>
-            </div>
-          </div>
-
-          {/* Menu mobile */}
-          {isMenuOpen && (
-            <div className="md:hidden border-t bg-white py-4">
-              <nav className="flex flex-col space-y-3">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="text-gray-700 hover:text-gray-900 font-medium px-2 py-1"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                {user && (
-                  <div className="border-t pt-3 mt-3">
-                    <div className="flex items-center space-x-2 px-2 py-1 text-sm text-gray-600">
-                      <User className="w-4 h-4" />
-                      <span>{userData?.email}</span>
-                      {userData?.role && <span className="text-xs bg-gray-100 px-2 py-1 rounded">{userData.role}</span>}
-                    </div>
-                  </div>
+    <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-sm border-b">
+      <div className="container flex items-center justify-between h-32">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src={logoUrl || "/placeholder.svg"}
+            alt="Logo"
+            width={120}
+            height={120}
+            className="w-32 h-32 object-contain"
+            onError={(e) => {
+              console.error("❌ Erreur affichage logo, fallback vers placeholder")
+              setLogoUrl("/placeholder-logo.svg")
+            }}
+            onLoad={() => console.log("✅ Logo affiché avec succès")}
+          />
+        </Link>
+        <nav className="flex items-center gap-8">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`relative px-2 py-2 transition-all duration-200 font-medium text-lg ${
+                  isActive ? "text-slate-800" : "text-slate-700 hover:text-slate-800"
+                }`}
+              >
+                <span>{item.name}</span>
+                {isActive && (
+                  <div
+                    className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                    style={{ backgroundColor: "#f2d895" }}
+                  />
                 )}
-              </nav>
-            </div>
+              </Link>
+            )
+          })}
+          {/* Afficher le lien d'import uniquement pour les admins */}
+          {isAdmin && (
+            <Link
+              href="/import"
+              className={`relative px-2 py-2 transition-all duration-200 font-medium text-lg ${
+                pathname === "/import" ? "text-slate-800" : "text-slate-700 hover:text-slate-800"
+              }`}
+            >
+              <span>Import</span>
+              {pathname === "/import" && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                  style={{ backgroundColor: "#f2d895" }}
+                />
+              )}
+            </Link>
           )}
-        </div>
-      </header>
-
-      {/* Modal de connexion */}
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
-    </>
+          <UserMenu />
+        </nav>
+      </div>
+    </header>
   )
 }
