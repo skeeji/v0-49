@@ -1,16 +1,27 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import {
+  CheckCircle,
+  XCircle,
+  Upload,
+  Users,
+  ImageIcon,
+  Video,
+  FileImage,
+  Download,
+  Trash2,
+  Clock,
+  Calendar,
+} from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { RoleGuard } from "@/components/RoleGuard"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, FileText, ImageIcon, Video, Palette, Clock, CheckCircle, XCircle, Trash2 } from "lucide-react"
-import { UploadForm } from "@/components/UploadForm"
-import { toast } from "@/components/ui/toast"
 
 interface ImportResult {
   success: boolean
@@ -55,9 +66,6 @@ export default function ImportPage() {
   }>({})
   const [exportingCSV, setExportingCSV] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState("")
-  const [periodImageFile, setPeriodImageFile] = useState<File | null>(null)
-  const [isUploadingPeriodImage, setIsUploadingPeriodImage] = useState(false)
-  const [periodImageMessage, setPeriodImageMessage] = useState("")
 
   const csvFileRef = useRef<HTMLInputElement>(null)
   const designersFileRef = useRef<HTMLInputElement>(null)
@@ -65,6 +73,8 @@ export default function ImportPage() {
   const videoFileRef = useRef<HTMLInputElement>(null)
   const logoFileRef = useRef<HTMLInputElement>(null)
   const periodImageFileRef = useRef<HTMLInputElement>(null)
+
+  const { toast } = useToast()
 
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -363,18 +373,19 @@ export default function ImportPage() {
     }
   }
 
-  const handlePeriodImageUpload = async () => {
-    if (!periodImageFile || !selectedPeriod) {
-      setPeriodImageMessage("Veuillez sélectionner une période et un fichier")
-      return
-    }
+  const handlePeriodImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !selectedPeriod) return
 
-    setIsUploadingPeriodImage(true)
-    setPeriodImageMessage("")
+    console.log(`🖼️ Upload image pour période: ${selectedPeriod}`)
+
+    setIsUploading(true)
+    setCurrentStep(`Upload image pour ${selectedPeriod}...`)
+    setUploadProgress(10)
 
     try {
       const formData = new FormData()
-      formData.append("file", periodImageFile)
+      formData.append("image", file)
       formData.append("periodName", selectedPeriod)
 
       const response = await fetch("/api/upload/period-images", {
@@ -383,22 +394,40 @@ export default function ImportPage() {
       })
 
       const result = await response.json()
+      console.log("📊 Réponse API image période:", result)
+
+      setResults((prev) => ({
+        ...prev,
+        periodImages: {
+          ...prev.periodImages,
+          [selectedPeriod]: result,
+        },
+      }))
 
       if (result.success) {
-        setPeriodImageMessage(`✅ ${result.message}`)
-        setPeriodImageFile(null)
+        toast({
+          title: "✅ Image période uploadée",
+          description: result.message,
+        })
         setSelectedPeriod("")
-        // Reset du input file
-        const fileInput = document.getElementById("period-image-file") as HTMLInputElement
-        if (fileInput) fileInput.value = ""
       } else {
-        setPeriodImageMessage(`❌ ${result.message}`)
+        toast({
+          title: "❌ Erreur image période",
+          description: result.error,
+          variant: "destructive",
+        })
       }
-    } catch (error) {
-      console.error("Erreur upload image période:", error)
-      setPeriodImageMessage("❌ Erreur lors de l'upload")
+    } catch (error: any) {
+      console.error("❌ Erreur critique upload image période:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'uploader l'image",
+        variant: "destructive",
+      })
     } finally {
-      setIsUploadingPeriodImage(false)
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
     }
   }
 
@@ -528,387 +557,414 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-serif text-gray-900 mb-4">Import des Données</h1>
-          <p className="text-gray-600">Importez vos fichiers CSV et images pour alimenter la galerie</p>
-        </div>
+    <RoleGuard requiredRole="admin">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-serif text-gray-900 mb-4">Import des Données</h1>
+            <p className="text-gray-600">Importez vos fichiers CSV et images pour alimenter la galerie</p>
+          </div>
 
-        {/* Barre de progression globale */}
-        {isUploading && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-blue-500 animate-spin" />
-                  <span className="text-sm font-medium">{currentStep}</span>
+          {/* Barre de progression globale */}
+          {isUploading && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-blue-500 animate-spin" />
+                    <span className="text-sm font-medium">{currentStep}</span>
+                  </div>
+                  <Progress value={uploadProgress} className="w-full" />
                 </div>
-                <Progress value={uploadProgress} className="w-full" />
-              </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bouton d'export CSV */}
+          <Card className="border-blue-200">
+            <CardHeader>
+              <CardTitle className="text-blue-600">Export des données</CardTitle>
+              <CardDescription>Exportez tous les luminaires avec les informations complètes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={exportAllLuminaires} disabled={exportingCSV || isUploading} className="w-full">
+                {exportingCSV ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Export en cours...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Exporter tous les luminaires (CSV)
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
-        )}
 
-        {/* Bouton d'export CSV */}
-        <Card className="border-blue-200">
-          <CardHeader>
-            <CardTitle className="text-blue-600">Export des données</CardTitle>
-            <CardDescription>Exportez tous les luminaires avec les informations complètes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={exportAllLuminaires} disabled={exportingCSV || isUploading} className="w-full">
-              {exportingCSV ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Export en cours...
-                </>
-              ) : (
-                <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Upload CSV Luminaires */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  CSV Luminaires
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input ref={csvFileRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+                <Button
+                  onClick={() => csvFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
                   <Upload className="w-4 h-4 mr-2" />
-                  Exporter tous les luminaires (CSV)
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+                  Sélectionner CSV
+                </Button>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Import CSV Luminaires */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                CSV Luminaires
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <UploadForm />
-            </CardContent>
-          </Card>
-
-          {/* Import Images Périodes */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5" />
-                Images Périodes Chronologiques
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="period-select">Période</Label>
-                  <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une période" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {periods.map((period) => (
-                        <SelectItem key={period} value={period}>
-                          {period}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="period-image-file">Image illustrative</Label>
-                  <Input
-                    id="period-image-file"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setPeriodImageFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-              </div>
-
-              <Button
-                onClick={handlePeriodImageUpload}
-                disabled={isUploadingPeriodImage || !selectedPeriod || !periodImageFile}
-                className="w-full"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                {isUploadingPeriodImage ? "Upload en cours..." : "Uploader l'image de période"}
-              </Button>
-
-              {periodImageMessage && <div className="text-sm mt-2">{periodImageMessage}</div>}
-            </CardContent>
-          </Card>
-
-          {/* Import Images Luminaires */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5" />
-                Images Luminaires
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <input
-                ref={imagesFileRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImagesUpload}
-                className="hidden"
-              />
-              <Button
-                onClick={() => imagesFileRef.current?.click()}
-                disabled={isUploading}
-                className="w-full"
-                variant="outline"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Sélectionner Images
-              </Button>
-
-              {results.images && results.images.length > 0 && (
-                <div className="text-sm space-y-1">
-                  {results.images.map((result, index) => (
-                    <div key={index}>
-                      {result.success ? (
-                        <div className="flex items-center gap-2 text-green-600">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>
-                            Batch {index + 1}: {result.uploaded} uploadées, {result.associated} associées
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-red-600">
-                          <XCircle className="w-4 h-4" />
-                          <span>Batch {index + 1}: Erreur</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Import Vidéos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="w-5 h-5" />
-                Vidéos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <input
-                ref={videoFileRef}
-                type="file"
-                accept="video/mp4"
-                onChange={handleVideoUpload}
-                className="hidden"
-              />
-              <Button
-                onClick={() => videoFileRef.current?.click()}
-                disabled={isUploading}
-                className="w-full"
-                variant="outline"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Sélectionner Vidéos
-              </Button>
-
-              {results.video && (
-                <div className="text-sm">
-                  {results.video.success ? (
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Vidéo uploadée</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-red-600">
-                      <XCircle className="w-4 h-4" />
-                      <span>Erreur upload vidéo</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Import CSV Designers */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                CSV Designers
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <input
-                ref={designersFileRef}
-                type="file"
-                accept=".csv"
-                onChange={handleDesignersUpload}
-                className="hidden"
-              />
-              <Button
-                onClick={() => designersFileRef.current?.click()}
-                disabled={isUploading}
-                className="w-full"
-                variant="outline"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Sélectionner CSV
-              </Button>
-
-              {results.designers && (
-                <div className="text-sm">
-                  {results.designers.success ? (
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>{results.designers.imported} designers importés</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-red-600">
-                      <XCircle className="w-4 h-4" />
-                      <span>Erreur d'import</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Import Logo */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5" />
-                Logo
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <input ref={logoFileRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-              <Button
-                onClick={() => logoFileRef.current?.click()}
-                disabled={isUploading}
-                className="w-full"
-                variant="outline"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Sélectionner Logo
-              </Button>
-
-              {results.logo && (
-                <div className="text-sm">
-                  {results.logo.success ? (
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Logo uploadé</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-red-600">
-                      <XCircle className="w-4 h-4" />
-                      <span>Erreur upload logo</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Reset Database */}
-          <Card className="border-red-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-600">
-                <Trash2 className="w-5 h-5" />
-                Reset Base
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button onClick={resetDatabase} disabled={isUploading} className="w-full" variant="destructive">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Vider la Base
-              </Button>
-
-              {results.reset && (
-                <div className="text-sm">
-                  {results.reset.success ? (
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Base vidée</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-red-600">
-                      <XCircle className="w-4 h-4" />
-                      <span>Erreur reset</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Résultats détaillés */}
-        {(results.csv || results.designers || results.images) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Résultats de l'import</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
                 {results.csv && (
-                  <div>
-                    <h4 className="font-medium">Luminaires CSV</h4>
-                    <p className="text-sm text-gray-600">{results.csv.message}</p>
-                    {results.csv.errors && results.csv.errors.length > 0 && (
-                      <details className="mt-2">
-                        <summary className="text-sm text-red-600 cursor-pointer">
-                          {results.csv.errors.length} erreurs
-                        </summary>
-                        <div className="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
-                          {results.csv.errors.slice(0, 10).map((error, i) => (
-                            <div key={i}>{error}</div>
-                          ))}
-                          {results.csv.errors.length > 10 && <div>... et {results.csv.errors.length - 10} autres</div>}
-                        </div>
-                      </details>
+                  <div className="text-sm">
+                    {results.csv.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>{results.csv.imported} luminaires importés</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur d'import</span>
+                      </div>
                     )}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Upload CSV Designers */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  CSV Designers
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input
+                  ref={designersFileRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleDesignersUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => designersFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner CSV
+                </Button>
 
                 {results.designers && (
-                  <div>
-                    <h4 className="font-medium">Designers CSV</h4>
-                    <p className="text-sm text-gray-600">{results.designers.message}</p>
+                  <div className="text-sm">
+                    {results.designers.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>{results.designers.imported} designers importés</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur d'import</span>
+                      </div>
+                    )}
                   </div>
                 )}
+              </CardContent>
+            </Card>
 
-                {results.images && (
-                  <div>
-                    <h4 className="font-medium">Images Luminaires</h4>
-                    <div className="text-sm text-gray-600">
-                      {results.images.reduce((sum, r) => sum + (r.uploaded || 0), 0)} images uploadées au total
-                    </div>
+            {/* Upload Images */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5" />
+                  Images
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input
+                  ref={imagesFileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImagesUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => imagesFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner Images
+                </Button>
+
+                {results.images && results.images.length > 0 && (
+                  <div className="text-sm space-y-1">
+                    {results.images.map((result, index) => (
+                      <div key={index}>
+                        {result.success ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>
+                              Batch {index + 1}: {result.uploaded} uploadées, {result.associated} associées
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600">
+                            <XCircle className="w-4 h-4" />
+                            <span>Batch {index + 1}: Erreur</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Upload Images de Périodes */}
+            <Card className="border-purple-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-purple-600">
+                  <Calendar className="w-5 h-5" />
+                  Images Périodes
+                </CardTitle>
+                <CardDescription>Images illustratives pour la chronologie</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir une période" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periods.map((period) => (
+                      <SelectItem key={period} value={period}>
+                        {period}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <input
+                  ref={periodImageFileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePeriodImageUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => periodImageFileRef.current?.click()}
+                  disabled={isUploading || !selectedPeriod}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Uploader Image
+                </Button>
+
+                {results.periodImages && Object.keys(results.periodImages).length > 0 && (
+                  <div className="text-sm space-y-1">
+                    {Object.entries(results.periodImages).map(([period, result]) => (
+                      <div key={period}>
+                        {result.success ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{period}: Image uploadée</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600">
+                            <XCircle className="w-4 h-4" />
+                            <span>{period}: Erreur</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upload Vidéo */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="w-5 h-5" />
+                  Vidéo de fond
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input
+                  ref={videoFileRef}
+                  type="file"
+                  accept="video/mp4"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => videoFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner Vidéo
+                </Button>
 
                 {results.video && (
-                  <div>
-                    <h4 className="font-medium">Vidéos</h4>
-                    <div className="text-sm text-gray-600">{results.video.message}</div>
+                  <div className="text-sm">
+                    {results.video.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Vidéo uploadée</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur upload vidéo</span>
+                      </div>
+                    )}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Upload Logo */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileImage className="w-5 h-5" />
+                  Logo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input ref={logoFileRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                <Button
+                  onClick={() => logoFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner Logo
+                </Button>
 
                 {results.logo && (
-                  <div>
-                    <h4 className="font-medium">Logo</h4>
-                    <div className="text-sm text-gray-600">{results.logo.message}</div>
+                  <div className="text-sm">
+                    {results.logo.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Logo uploadé</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur upload logo</span>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+
+            {/* Reset Database */}
+            <Card className="border-red-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-600">
+                  <Trash2 className="w-5 h-5" />
+                  Reset Base
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button onClick={resetDatabase} disabled={isUploading} className="w-full" variant="destructive">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Vider la Base
+                </Button>
+
+                {results.reset && (
+                  <div className="text-sm">
+                    {results.reset.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Base vidée</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur reset</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Résultats détaillés */}
+          {(results.csv || results.designers || results.images) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Résultats de l'import</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {results.csv && (
+                    <div>
+                      <h4 className="font-medium">Luminaires CSV</h4>
+                      <p className="text-sm text-gray-600">{results.csv.message}</p>
+                      {results.csv.errors && results.csv.errors.length > 0 && (
+                        <details className="mt-2">
+                          <summary className="text-sm text-red-600 cursor-pointer">
+                            {results.csv.errors.length} erreurs
+                          </summary>
+                          <div className="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
+                            {results.csv.errors.slice(0, 10).map((error, i) => (
+                              <div key={i}>{error}</div>
+                            ))}
+                            {results.csv.errors.length > 10 && (
+                              <div>... et {results.csv.errors.length - 10} autres</div>
+                            )}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
+
+                  {results.designers && (
+                    <div>
+                      <h4 className="font-medium">Designers CSV</h4>
+                      <p className="text-sm text-gray-600">{results.designers.message}</p>
+                    </div>
+                  )}
+
+                  {results.images && (
+                    <div>
+                      <h4 className="font-medium">Images</h4>
+                      <div className="text-sm text-gray-600">
+                        {results.images.reduce((sum, r) => sum + (r.uploaded || 0), 0)} images uploadées au total
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-    </div>
+    </RoleGuard>
   )
 }
