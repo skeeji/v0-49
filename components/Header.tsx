@@ -3,24 +3,21 @@
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { Lightbulb, Users, Clock } from "lucide-react"
 import { UserMenu } from "@/components/UserMenu"
 import { useAuth } from "@/contexts/AuthContext"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { useState, useEffect } from "react"
 
 export function Header() {
   const pathname = usePathname()
   const { userData } = useAuth()
-  const isMobile = useIsMobile()
   const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
 
   const isAdmin = userData?.role === "admin"
 
   const navigation = [
-    { name: "Luminaires", href: "/luminaires", icon: Lightbulb },
-    { name: "Designers", href: "/designers", icon: Users },
-    { name: "Chronologie", href: "/chronologie", icon: Clock },
+    { name: "Luminaires", href: "/luminaires" },
+    { name: "Designers", href: "/designers" },
+    { name: "Chronologie", href: "/chronologie" },
   ]
 
   useEffect(() => {
