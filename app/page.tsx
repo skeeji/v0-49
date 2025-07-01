@@ -600,15 +600,21 @@ export default function HomePage() {
       {/* Contenu principal */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-serif text-amber-900 mb-6 leading-tight">Luminaires</h1>
+          <h1 className="text-4xl md:text-6xl font-serif leading-tight" style={{ color: "#f2d895" }}>
+            Luminaires
+            <br />
+            <span className="text-2xl md:text-3xl font-light">Du Moyen-âge à nos jours</span>
+          </h1>
         </div>
 
         {/* Zone de recherche par image */}
         <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-10 max-w-lg w-full shadow-2xl border border-white/20">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-amber-700 mr-3" />
-              <h2 className="text-2xl md:text-3xl font-serif text-amber-800">Recherche IA</h2>
+              <Sparkles className="w-8 h-8 mr-3" style={{ color: "#f2d895" }} />
+              <h2 className="text-2xl md:text-3xl font-serif" style={{ color: "#f2d895" }}>
+                Recherche IA
+              </h2>
             </div>
             <p className="text-slate-600 leading-relaxed">
               Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
@@ -655,7 +661,10 @@ export default function HomePage() {
             <div className="space-y-4">
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-amber-700 hover:bg-amber-800 text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
+                className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
+                style={{ backgroundColor: "#f2d895" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                 disabled={isSearching || !canSearch}
               >
                 <Upload className="w-5 h-5 mr-3" />
@@ -664,7 +673,10 @@ export default function HomePage() {
 
               <Button
                 onClick={startCamera}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
+                className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
+                style={{ backgroundColor: "#f2d895" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                 disabled={isSearching || isCameraLoading || !canSearch}
               >
                 {isCameraLoading ? (
@@ -701,7 +713,10 @@ export default function HomePage() {
             <div className="space-y-6 text-center">
               <div className="w-full h-64 bg-slate-100 rounded-2xl flex items-center justify-center">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-amber-700 mx-auto mb-4"></div>
+                  <div
+                    className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 mx-auto mb-4"
+                    style={{ borderTopColor: "#f2d895" }}
+                  ></div>
                   <p className="text-slate-600 font-medium">Activation de la caméra...</p>
                 </div>
               </div>
@@ -727,7 +742,10 @@ export default function HomePage() {
               <div className="flex gap-3">
                 <Button
                   onClick={capturePhoto}
-                  className="flex-1 bg-amber-700 hover:bg-amber-800 rounded-xl"
+                  className="flex-1 text-white rounded-xl"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                   disabled={isCapturing}
                 >
                   {isCapturing ? (
@@ -771,7 +789,10 @@ export default function HomePage() {
                 </div>
               )}
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-amber-700 mx-auto mb-4"></div>
+                <div
+                  className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 mx-auto mb-4"
+                  style={{ borderTopColor: "#f2d895" }}
+                ></div>
                 <p className="text-lg font-medium text-slate-800 mb-2">Analyse IA en cours...</p>
                 <p className="text-sm text-slate-600">Recherche des luminaires similaires dans notre collection</p>
               </div>
@@ -790,7 +811,8 @@ export default function HomePage() {
                   <input
                     type="checkbox"
                     id="removeBackground"
-                    className="w-5 h-5 text-amber-700 bg-white border-slate-300 rounded focus:ring-amber-500 focus:ring-2"
+                    className="w-5 h-5 bg-white border-slate-300 rounded focus:ring-2"
+                    style={{ accentColor: "#f2d895" }}
                     onChange={async (e) => {
                       if (e.target.checked) {
                         // Supprimer l'arrière-plan et mettre à jour l'affichage
@@ -824,7 +846,10 @@ export default function HomePage() {
 
                 {isRemovingBackground && (
                   <div className="text-center py-6">
-                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-slate-300 border-t-amber-700 mx-auto mb-3"></div>
+                    <div
+                      className="animate-spin rounded-full h-8 w-8 border-4 border-slate-300 mx-auto mb-3"
+                      style={{ borderTopColor: "#f2d895" }}
+                    ></div>
                     <p className="text-sm text-slate-600">Suppression de l'arrière-plan en cours...</p>
                   </div>
                 )}
@@ -832,7 +857,10 @@ export default function HomePage() {
                 <div className="flex gap-3">
                   <Button
                     onClick={searchWithOriginal}
-                    className="flex-1 bg-amber-700 hover:bg-amber-800 rounded-xl"
+                    className="flex-1 text-white rounded-xl"
+                    style={{ backgroundColor: "#f2d895" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                     disabled={isRemovingBackground}
                   >
                     Rechercher maintenant
@@ -862,7 +890,10 @@ export default function HomePage() {
               <div className="flex gap-3 justify-center md:justify-end">
                 <Button
                   onClick={searchAgain}
-                  className="bg-amber-700 hover:bg-amber-800 text-white rounded-xl shadow-lg"
+                  className="text-white rounded-xl shadow-lg"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                   size="sm"
                   disabled={isSearching || !canSearch}
                 >

@@ -44,14 +44,14 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-sm border-b">
-      <div className="container flex items-center justify-between h-24">
+      <div className="container flex items-center justify-between h-32">
         <Link href="/" className="flex items-center gap-3">
           <Image
             src={logoUrl || "/placeholder.svg"}
             alt="Logo"
-            width={100}
-            height={100}
-            className="w-24 h-24 object-contain"
+            width={120}
+            height={120}
+            className="w-32 h-32 object-contain"
             onError={(e) => {
               console.error("❌ Erreur affichage logo, fallback vers placeholder")
               setLogoUrl("/placeholder-logo.svg")
@@ -59,20 +59,24 @@ export function Header() {
             onLoad={() => console.log("✅ Logo affiché avec succès")}
           />
         </Link>
-        <nav className="flex items-center gap-4">
+        <nav className="flex items-center gap-8">
           {navigation.map((item) => {
             const isActive = pathname === item.href
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`px-4 py-2 rounded-lg transition-all duration-200 font-medium ${
-                  isActive
-                    ? "bg-amber-100 text-amber-800 shadow-sm"
-                    : "text-slate-700 hover:bg-amber-50 hover:text-amber-700"
+                className={`relative px-2 py-2 transition-all duration-200 font-medium text-lg ${
+                  isActive ? "text-slate-800" : "text-slate-700 hover:text-slate-800"
                 }`}
               >
                 <span>{item.name}</span>
+                {isActive && (
+                  <div
+                    className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                    style={{ backgroundColor: "#f2d895" }}
+                  />
+                )}
               </Link>
             )
           })}
@@ -80,13 +84,17 @@ export function Header() {
           {isAdmin && (
             <Link
               href="/import"
-              className={`px-4 py-2 rounded-lg transition-all duration-200 font-medium ${
-                pathname === "/import"
-                  ? "bg-amber-100 text-amber-800 shadow-sm"
-                  : "text-slate-700 hover:bg-amber-50 hover:text-amber-700"
+              className={`relative px-2 py-2 transition-all duration-200 font-medium text-lg ${
+                pathname === "/import" ? "text-slate-800" : "text-slate-700 hover:text-slate-800"
               }`}
             >
               <span>Import</span>
+              {pathname === "/import" && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                  style={{ backgroundColor: "#f2d895" }}
+                />
+              )}
             </Link>
           )}
           <UserMenu />
