@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const sortDirection = searchParams.get("sortDirection") || "asc"
 
     console.log(
-      `📊 Paramètres: page=${page}, limit=${limit}, search="${search}", yearMin=${yearMin}, yearMax=${yearMax}`,
+      `📊 Paramètres: page=${page}, limit=${limit}, search="${search}", yearMin=${yearMin}, yearMax=${yearMax}, sortField=${sortField}`,
     )
 
     const client = await clientPromise
