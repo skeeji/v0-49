@@ -2,140 +2,87 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { UserMenu } from "@/components/UserMenu"
-import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
+import { Menu } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { DrawerNav } from "@/components/DrawerNav"
+import { UserMenu } from "@/components/UserMenu"
 
 export function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
-  const pathname = usePathname()
-  const { user, userData } = useAuth()
 
-  // Charger le logo
   useEffect(() => {
     const loadLogo = async () => {
       try {
-        console.log("🔍 Chargement du logo...")
         const response = await fetch("/api/logo")
-
-        if (response.ok) {
-          console.log("✅ Logo API disponible, utilisation de /api/logo")
-          setLogoUrl("/api/logo")
-        } else {
-          console.log("⚠️ Pas de logo personnalisé, utilisation du placeholder")
-          setLogoUrl("/placeholder-logo.svg")
+        const data = await response.json()
+        if (data.success && data.logoUrl) {
+          setLogoUrl(data.logoUrl)
         }
       } catch (error) {
-        console.error("❌ Erreur chargement logo:", error)
-        setLogoUrl("/placeholder-logo.svg")
+        console.error("Erreur chargement logo:", error)
       }
     }
 
     loadLogo()
   }, [])
 
-  const navigation = [
-    { name: "Luminaires", href: "/luminaires" },
-    { name: "Designers", href: "/designers" },
-    { name: "Chronologie", href: "/chronologie" },
-    ...(userData?.role === "admin" ? [{ name: "Import", href: "/import" }] : []),
-  ]
-
-  const isActive = (href: string) => {
-    if (href === "/" && pathname === "/") return true
-    if (href !== "/" && pathname.startsWith(href)) return true
-    return false
-  }
-
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+    <>
+      <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="relative w-10 h-10">
-              <Image
-                src={logoUrl || "/placeholder.svg"}
-                alt="Logo"
-                fill
-                className="object-contain"
-                onError={(e) => {
-                  console.log("❌ Erreur affichage logo, fallback vers placeholder")
-                  const target = e.target as HTMLImageElement
-                  target.src = "/placeholder-logo.svg"
-                  setLogoUrl("/placeholder-logo.svg")
-                }}
-              />
-            </div>
+          <Link href="/" className="flex items-center space-x-2">
+            <Image
+              src={logoUrl || "/placeholder.svg"}
+              alt="Logo"
+              width={128}
+              height={128}
+              className="w-32 h-32 object-contain"
+              onError={() => setLogoUrl("/placeholder-logo.svg")}
+            />
           </Link>
 
           {/* Navigation desktop */}
-          <nav className="hidden md:flex items-center space-x-8">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 ${
-                  isActive(item.href) ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                {item.name}
-                {isActive(item.href) && (
-                  <div
-                    className="absolute bottom-0 left-0 right-0 h-0.5 transition-all duration-200"
-                    style={{ backgroundColor: "#f2d895" }}
-                  />
-                )}
-              </Link>
-            ))}
+          <nav className="hidden md:flex items-center space-x-6">
+            <Link
+              href="/luminaires"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              Luminaires
+            </Link>
+            <Link href="/designers" className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">
+              Designers
+            </Link>
+            <Link
+              href="/chronologie"
+              className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              Chronologie
+            </Link>
+            <Link href="/import" className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">
+              Import
+            </Link>
           </nav>
 
-          {/* Actions */}
-          <div className="flex items-center space-x-4">
-            {user ? (
-              <UserMenu />
-            ) : (
-              <Button style={{ backgroundColor: "#f2d895", color: "#000" }} className="hover:opacity-90" size="sm">
-                Connexion
-              </Button>
-            )}
+          {/* Actions desktop */}
+          <div className="hidden md:flex items-center space-x-4">
+            <UserMenu />
+          </div>
 
-            {/* Menu mobile */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+          {/* Menu mobile */}
+          <div className="md:hidden flex items-center space-x-2">
+            <UserMenu />
+            <Button variant="ghost" size="sm" onClick={() => setIsDrawerOpen(true)}>
+              <Menu className="h-5 w-5" />
+            </Button>
           </div>
         </div>
+      </header>
 
-        {/* Navigation mobile */}
-        {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-200">
-            <nav className="flex flex-col space-y-2">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                    isActive(item.href)
-                      ? "bg-gray-100 text-gray-900"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        )}
-      </div>
-    </header>
+      {/* Drawer mobile */}
+      <DrawerNav isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
+    </>
   )
 }
