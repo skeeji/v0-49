@@ -19,12 +19,77 @@ export async function GET(request: NextRequest) {
     const yearMax = searchParams.get("yearMax")
     const sortField = searchParams.get("sortField") || "nom"
     const sortDirection = searchParams.get("sortDirection") || "asc"
+    const statsOnly = searchParams.get("stats") === "true"
 
-    console.log(`📊 Paramètres: page=${page}, limit=${limit}, search="${search}"`)
+    console.log(
+      `📊 Paramètres: page=${page}, limit=${limit}, search="${search}", yearMin=${yearMin}, yearMax=${yearMax}`,
+    )
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
+
+    // Si on demande juste les stats
+    if (statsOnly) {
+      console.log("📊 Calcul des statistiques globales...")
+
+      // Calculer les bornes d'années
+      const yearStats = await collection
+        .aggregate([
+          {
+            $addFields: {
+              yearValue: {
+                $cond: {
+                  if: { $ne: ["$annee", null] },
+                  then: "$annee",
+                  else: {
+                    $cond: {
+                      if: { $ne: ["$year", null] },
+                      then: "$year",
+                      else: {
+                        $cond: {
+                          if: { $ne: ["$Année", null] },
+                          then: { $toInt: "$Année" },
+                          else: null,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          {
+            $match: {
+              yearValue: { $ne: null, $type: "number" },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              minYear: { $min: "$yearValue" },
+              maxYear: { $max: "$yearValue" },
+              total: { $sum: 1 },
+            },
+          },
+        ])
+        .toArray()
+
+      const yearBounds = yearStats[0]
+        ? {
+            min: yearStats[0].minYear || 1900,
+            max: yearStats[0].maxYear || 2024,
+          }
+        : { min: 1900, max: 2024 }
+
+      console.log(`📊 Stats: ${yearBounds.min}-${yearBounds.max}, total: ${yearStats[0]?.total || 0}`)
+
+      return NextResponse.json({
+        success: true,
+        yearBounds,
+        total: yearStats[0]?.total || 0,
+      })
+    }
 
     // Construire le filtre de recherche
     const filter: any = {}
@@ -66,27 +131,43 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    // Filtre par années
+    // Filtre par années - version simplifiée qui fonctionne
     if (yearMin || yearMax) {
-      const yearFilter: any = {}
-      if (yearMin) {
-        yearFilter.$gte = Number.parseInt(yearMin)
-      }
-      if (yearMax) {
-        yearFilter.$lte = Number.parseInt(yearMax)
+      const yearConditions: any[] = []
+
+      if (yearMin && yearMax) {
+        yearConditions.push(
+          { annee: { $gte: Number.parseInt(yearMin), $lte: Number.parseInt(yearMax) } },
+          { year: { $gte: Number.parseInt(yearMin), $lte: Number.parseInt(yearMax) } },
+          {
+            $and: [{ Année: { $ne: null } }, { Année: { $gte: yearMin, $lte: yearMax } }],
+          },
+        )
+      } else if (yearMin) {
+        yearConditions.push(
+          { annee: { $gte: Number.parseInt(yearMin) } },
+          { year: { $gte: Number.parseInt(yearMin) } },
+          {
+            $and: [{ Année: { $ne: null } }, { Année: { $gte: yearMin } }],
+          },
+        )
+      } else if (yearMax) {
+        yearConditions.push(
+          { annee: { $lte: Number.parseInt(yearMax) } },
+          { year: { $lte: Number.parseInt(yearMax) } },
+          {
+            $and: [{ Année: { $ne: null } }, { Année: { $lte: yearMax } }],
+          },
+        )
       }
 
-      filter.$and = filter.$and || []
-      filter.$and.push({
-        $or: [
-          { annee: yearFilter },
-          { year: yearFilter },
-          { Année: { $gte: yearMin ? Number.parseInt(yearMin) : 0, $lte: yearMax ? Number.parseInt(yearMax) : 9999 } },
-        ],
-      })
+      if (yearConditions.length > 0) {
+        filter.$and = filter.$and || []
+        filter.$and.push({ $or: yearConditions })
+      }
     }
 
-    console.log("🔍 Filtre MongoDB:", JSON.stringify(filter))
+    console.log("🔍 Filtre MongoDB:", JSON.stringify(filter, null, 2))
 
     // Construire le tri
     const sort: any = {}
@@ -128,7 +209,7 @@ export async function GET(request: NextRequest) {
       signed: luminaire.signe || luminaire["Signé"] || "",
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
 
-      // Image
+      // Image - garder l'ancien format
       image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
 
       // Autres champs
