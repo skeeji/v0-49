@@ -69,7 +69,7 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // N'ajoute les paramètres de yearRange que si le slider a été modifié manuellement
+        // N'ajoute AUCUN paramètre de yearRange si le slider n'a pas été modifié manuellement
         if (sliderModified) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
@@ -107,7 +107,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, ...(sliderModified ? [yearRange] : [])],
+    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange],
   )
 
   // Charger les données globales au montage
@@ -119,7 +119,7 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [loadLuminaires])
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -225,13 +225,12 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années avec les vraies valeurs sans déclencher le filtrage
+  // Initialiser la plage d'années avec les vraies valeurs SANS déclencher de rechargement
   useEffect(() => {
-    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
-      // Mise à jour silencieuse du slider sans marquer comme modifié
+    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024 && !sliderModified) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
-  }, [yearBounds, allLuminaires.length, yearRange])
+  }, [yearBounds, allLuminaires.length, yearRange, sliderModified])
 
   // Fonction pour gérer le changement manuel du slider par l'utilisateur
   const handleYearRangeChange = (newRange: number[]) => {
