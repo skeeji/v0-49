@@ -78,11 +78,6 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
           const itemName = String(item.name || item.nom || "Nom du luminaire")
           const itemDesigner = String(item.artist || item.designer || "Non renseigné")
           const itemYear = String(item.year || item.annee || "Non renseigné")
-          const itemSpecialty = item.specialty || item.specialite
-          const itemCollaboration = item.collaboration
-          const itemMaterials = item.materials || item.materiaux
-          const itemDimensions = item.dimensions
-          const itemEstimation = item.estimation
 
           return (
             <div key={itemId} className="bg-white rounded-xl p-6 shadow-lg">
@@ -123,6 +118,7 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                     </div>
                   </div>
 
+                  {/* Affichage simplifié : seulement nom, artiste et année */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
@@ -133,43 +129,6 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                       <p className="text-gray-900">{itemYear}</p>
                     </div>
                   </div>
-
-                  {itemSpecialty && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
-                      <p className="text-gray-600">{String(itemSpecialty)}</p>
-                    </div>
-                  )}
-
-                  {itemCollaboration && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Collaboration / Œuvre</label>
-                      <p className="text-gray-600">{String(itemCollaboration)}</p>
-                    </div>
-                  )}
-
-                  {itemMaterials && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Matériaux</label>
-                      <p className="text-gray-600">
-                        {Array.isArray(itemMaterials) ? itemMaterials.join(", ") : String(itemMaterials)}
-                      </p>
-                    </div>
-                  )}
-
-                  {itemDimensions && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Dimensions</label>
-                      <p className="text-gray-900">{String(itemDimensions)}</p>
-                    </div>
-                  )}
-
-                  {itemEstimation && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimation</label>
-                      <p className="text-gray-900">{String(itemEstimation)}</p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

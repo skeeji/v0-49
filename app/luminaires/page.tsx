@@ -14,6 +14,7 @@ import { toast } from "sonner"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
+  const [allLuminaires, setAllLuminaires] = useState<any[]>([]) // Pour les stats globales
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +35,20 @@ export default function LuminairesPage() {
   const { userData } = useAuth()
   const isAdmin = userData?.role === "admin"
 
-  // CORRECTION: Fonction pour charger les luminaires avec scroll infini
+  // Charger toutes les données pour les statistiques globales
+  const loadAllLuminaires = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/luminaires?limit=10000&page=1`)
+      const data = await response.json()
+      if (data.success) {
+        setAllLuminaires(data.luminaires)
+      }
+    } catch (err) {
+      console.error("❌ Erreur chargement données globales:", err)
+    }
+  }, [])
+
+  // Fonction pour charger les luminaires avec scroll infini
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -47,7 +61,7 @@ export default function LuminairesPage() {
 
         const params = new URLSearchParams({
           page: page.toString(),
-          limit: "50", // Réduire pour de meilleures performances
+          limit: "50",
           search: searchTerm,
           designer: selectedDesigner,
           yearMin: yearRange[0].toString(),
@@ -65,10 +79,8 @@ export default function LuminairesPage() {
 
         if (data.success) {
           if (append && page > 1) {
-            // CORRECTION: Ajouter les nouveaux luminaires à la liste existante
             setLuminaires((prev) => [...prev, ...data.luminaires])
           } else {
-            // Première page ou reset
             setLuminaires(data.luminaires)
             setCurrentPage(1)
           }
@@ -93,13 +105,18 @@ export default function LuminairesPage() {
     [searchTerm, selectedDesigner, yearRange, sortField, sortDirection],
   )
 
-  // CORRECTION: Charger les luminaires au montage et lors des changements de filtres
+  // Charger les données globales au montage
+  useEffect(() => {
+    loadAllLuminaires()
+  }, [loadAllLuminaires])
+
+  // Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, yearRange, sortField, sortDirection])
+  }, [loadLuminaires])
 
-  // CORRECTION: Fonction pour charger plus de luminaires (scroll infini)
+  // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) {
       const nextPage = currentPage + 1
@@ -109,10 +126,9 @@ export default function LuminairesPage() {
     }
   }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
 
-  // CORRECTION: Scroll infini optimisé
+  // Scroll infini optimisé
   useEffect(() => {
     const handleScroll = () => {
-      // Vérifier si on est proche du bas de la page
       const scrollTop = document.documentElement.scrollTop
       const scrollHeight = document.documentElement.scrollHeight
       const clientHeight = document.documentElement.clientHeight
@@ -122,7 +138,6 @@ export default function LuminairesPage() {
       }
     }
 
-    // Throttle pour éviter trop d'appels
     let timeoutId: NodeJS.Timeout
 
     const throttledHandleScroll = () => {
@@ -176,8 +191,8 @@ export default function LuminairesPage() {
         if (data.success) {
           toast.success("Luminaire créé avec succès")
           setIsModalOpen(false)
-          // Recharger la première page
           loadLuminaires(1, false)
+          loadAllLuminaires() // Recharger les données globales
         } else {
           throw new Error(data.error)
         }
@@ -186,31 +201,31 @@ export default function LuminairesPage() {
         toast.error("Erreur lors de la création")
       }
     },
-    [loadLuminaires],
+    [loadLuminaires, loadAllLuminaires],
   )
 
-  // Options pour les filtres (calculées à partir des données)
+  // Options pour les filtres (calculées à partir de TOUTES les données)
   const filterOptions = useMemo(() => {
-    const designers = [...new Set(luminaires.map((l) => l.designer).filter(Boolean))].sort()
+    const designers = [...new Set(allLuminaires.map((l) => l.designer).filter(Boolean))].sort()
     return { designers }
-  }, [luminaires])
+  }, [allLuminaires])
 
-  // Calculer la plage d'années disponibles
+  // Calculer la plage d'années disponibles (à partir de TOUTES les données)
   const yearBounds = useMemo(() => {
-    const years = luminaires.map((l) => l.annee || l.year).filter(Boolean)
+    const years = allLuminaires.map((l) => l.annee || l.year).filter(Boolean)
     if (years.length === 0) return { min: 1900, max: 2024 }
     return {
       min: Math.min(...years),
       max: Math.max(...years),
     }
-  }, [luminaires])
+  }, [allLuminaires])
 
-  // Initialiser la plage d'années avec les vraies valeurs une seule fois
+  // Initialiser la plage d'années avec les vraies valeurs
   useEffect(() => {
-    if (luminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
+    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
-  }, [yearBounds, luminaires.length, yearRange])
+  }, [yearBounds, allLuminaires.length, yearRange])
 
   if (loading && luminaires.length === 0) {
     return (
@@ -250,7 +265,11 @@ export default function LuminairesPage() {
         <div className="flex items-center gap-4 mt-4 lg:mt-0">
           {isAdmin && (
             <>
-              <Button onClick={() => setIsModalOpen(true)} className="bg-orange-500 hover:bg-orange-600">
+              <Button
+                onClick={() => setIsModalOpen(true)}
+                style={{ backgroundColor: "#f2d895", color: "#000" }}
+                className="hover:opacity-90"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Ajouter
               </Button>
