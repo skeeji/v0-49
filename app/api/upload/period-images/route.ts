@@ -6,64 +6,74 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    const file = formData.get("file") as File
-    const periodName = formData.get("periodName") as string
+    console.log("🖼️ API /api/upload/period-images - Début de l'upload")
 
-    if (!file || !periodName) {
-      return NextResponse.json({ success: false, message: "Fichier et nom de période requis" }, { status: 400 })
+    const formData = await request.formData()
+    const periodName = formData.get("periodName") as string
+    const file = formData.get("image") as File
+
+    if (!periodName || !file) {
+      return NextResponse.json({ error: "Nom de période et fichier requis" }, { status: 400 })
     }
+
+    console.log(`📁 Upload image pour la période: ${periodName}`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "period-images" })
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+
+    // Nom de fichier unique pour la période
+    const filename = `period-${periodName.replace(/[^a-zA-Z0-9]/g, "-")}-${Date.now()}`
+
+    // Vérifier si une image existe déjà pour cette période
+    const existingFiles = await bucket.find({ "metadata.periodName": periodName }).toArray()
 
     // Supprimer l'ancienne image si elle existe
-    try {
-      const existingFiles = await bucket.find({ "metadata.periodName": periodName }).toArray()
-      for (const existingFile of existingFiles) {
-        await bucket.delete(existingFile._id)
-      }
-    } catch (error) {
-      console.log("Aucune image existante à supprimer")
+    for (const existingFile of existingFiles) {
+      await bucket.delete(existingFile._id)
+      console.log(`🗑️ Ancienne image supprimée pour ${periodName}`)
     }
 
-    // Convertir le fichier en buffer
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-
-    // Créer un nom de fichier unique
-    const filename = `${periodName}-${Date.now()}-${file.name}`
-
-    // Upload vers GridFS
+    // Upload du nouveau fichier
     const uploadStream = bucket.openUploadStream(filename, {
       metadata: {
+        type: "period-image",
         periodName: periodName,
         originalName: file.name,
-        contentType: file.type,
         uploadDate: new Date(),
       },
     })
 
-    return new Promise((resolve) => {
-      uploadStream.end(buffer, (error) => {
+    const buffer = await file.arrayBuffer()
+    const uint8Array = new Uint8Array(buffer)
+
+    await new Promise<void>((resolve, reject) => {
+      uploadStream.end(uint8Array, (error) => {
         if (error) {
-          console.error("Erreur upload GridFS:", error)
-          resolve(NextResponse.json({ success: false, message: "Erreur lors de l'upload" }, { status: 500 }))
+          reject(error)
         } else {
-          console.log(`✅ Image période uploadée: ${filename} pour ${periodName}`)
-          resolve(
-            NextResponse.json({
-              success: true,
-              message: `Image pour ${periodName} uploadée avec succès`,
-              filename: filename,
-            }),
-          )
+          resolve()
         }
       })
     })
+
+    console.log(`✅ Image uploadée pour ${periodName}: ${filename}`)
+
+    return NextResponse.json({
+      success: true,
+      message: `Image uploadée pour la période ${periodName}`,
+      filename: filename,
+      periodName: periodName,
+    })
   } catch (error: any) {
-    console.error("Erreur upload image période:", error)
-    return NextResponse.json({ success: false, message: "Erreur serveur", error: error.message }, { status: 500 })
+    console.error("❌ Erreur critique upload image période:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur lors de l'upload",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

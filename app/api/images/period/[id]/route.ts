@@ -8,7 +8,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   try {
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "period-images" })
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
     const fileId = new ObjectId(params.id)
     const downloadStream = bucket.openDownloadStream(fileId)
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const contentType = fileInfo.metadata?.contentType || "image/jpeg"
 
     // Convertir le stream en buffer
-    const chunks: Buffer[] = []
+    const chunks: Uint8Array[] = []
 
     return new Promise((resolve) => {
       downloadStream.on("data", (chunk) => {
@@ -42,13 +42,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         )
       })
 
-      downloadStream.on("error", (error) => {
-        console.error("Erreur lecture image période:", error)
+      downloadStream.on("error", () => {
         resolve(new NextResponse("Erreur lecture image", { status: 500 }))
       })
     })
-  } catch (error: any) {
-    console.error("Erreur API image période:", error)
+  } catch (error) {
+    console.error("❌ Erreur API images/period:", error)
     return new NextResponse("Erreur serveur", { status: 500 })
   }
 }

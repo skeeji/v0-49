@@ -1,353 +1,189 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Edit3, Save, X, Calendar, User, ImageIcon, ChevronLeft, ChevronRight } from "lucide-react"
+import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
-interface TimelineBlockProps {
-  period: {
-    name: string
-    start: number
-    end: number
-    description: string
-    luminaires: any[]
-    imageUrl?: string
-  }
-  isLeft: boolean
-  className?: string
-  onDescriptionUpdate: (periodName: string, newDescription: string) => void
+interface Luminaire {
+  _id: string
+  id: string
+  "Nom luminaire": string
+  "Artiste / Dates": string
+  Année: string
+  image?: string
 }
 
-export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpdate }: TimelineBlockProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedDescription, setEditedDescription] = useState(period.description)
-  const carouselRef = useRef<HTMLDivElement>(null)
+interface TimelineBlockProps {
+  period: string
+  years: string
+  description: string
+  luminaires: Luminaire[]
+  imageUrl?: string
+  isLeft: boolean
+}
 
-  const handleSave = () => {
-    onDescriptionUpdate(period.name, editedDescription)
-    setIsEditing(false)
-  }
+export function TimelineBlock({ period, years, description, luminaires, imageUrl, isLeft }: TimelineBlockProps) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const itemsPerPage = 3
+  const totalPages = Math.ceil(luminaires.length / itemsPerPage)
+  const canScrollLeft = currentIndex > 0
+  const canScrollRight = currentIndex < totalPages - 1
 
-  const handleCancel = () => {
-    setEditedDescription(period.description)
-    setIsEditing(false)
-  }
-
-  const scrollCarousel = (direction: "left" | "right") => {
-    if (carouselRef.current) {
-      const scrollAmount = 300
-      carouselRef.current.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      })
+  const scrollLeft = () => {
+    if (canScrollLeft) {
+      setCurrentIndex(currentIndex - 1)
     }
   }
 
+  const scrollRight = () => {
+    if (canScrollRight) {
+      setCurrentIndex(currentIndex + 1)
+    }
+  }
+
+  const visibleLuminaires = luminaires.slice(currentIndex * itemsPerPage, (currentIndex + 1) * itemsPerPage)
+
   return (
-    <div className={`relative ${className}`}>
-      {/* Timeline line - Toujours centrée */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-orange-200 to-orange-400 z-0"></div>
+    <div className="relative">
+      {/* Point sur la ligne centrale */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-lg z-20"></div>
 
-      {/* Timeline dot */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-2 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-lg z-10"></div>
+      <div className={`flex items-stretch gap-8 ${isLeft ? "flex-row" : "flex-row-reverse"}`}>
+        {/* Image de période */}
+        {imageUrl && (
+          <div className="w-80 flex-shrink-0 hidden md:block">
+            <div className="h-full bg-white rounded-xl shadow-lg overflow-hidden">
+              <Image
+                src={imageUrl || "/placeholder.svg"}
+                alt={`Illustration ${period}`}
+                width={320}
+                height={400}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.log(`❌ Erreur chargement image période: ${period}`)
+                  e.currentTarget.style.display = "none"
+                }}
+              />
+            </div>
+          </div>
+        )}
 
-      {/* Container principal */}
-      <div className="relative z-5">
-        {/* Layout Desktop */}
-        <div className="hidden lg:flex items-stretch gap-8">
-          {/* Image à gauche si isLeft = true */}
-          {period.imageUrl && isLeft && (
-            <div className="w-80 flex-shrink-0 pr-8">
-              <div className="h-full rounded-lg overflow-hidden shadow-lg">
-                <img
-                  src={period.imageUrl || "/placeholder.svg"}
-                  alt={`Illustration ${period.name}`}
+        {/* Contenu principal */}
+        <div className="flex-1 bg-white rounded-xl shadow-lg p-8">
+          {/* Image mobile - au-dessus du contenu */}
+          {imageUrl && (
+            <div className="md:hidden mb-6">
+              <div className="aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
+                <Image
+                  src={imageUrl || "/placeholder.svg"}
+                  alt={`Illustration ${period}`}
+                  width={400}
+                  height={300}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.style.display = "none"
+                    console.log(`❌ Erreur chargement image période mobile: ${period}`)
+                    e.currentTarget.style.display = "none"
                   }}
                 />
               </div>
             </div>
           )}
 
-          {/* Contenu principal */}
-          <Card className={`flex-1 max-w-2xl ${isLeft ? "mr-8" : "ml-8"} shadow-lg hover:shadow-xl transition-shadow`}>
-            <CardContent className="p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-2xl font-serif text-gray-900 mb-1">{period.name}</h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      {period.start} - {period.end}
-                    </span>
-                    <Badge variant="secondary" className="ml-2">
-                      {period.luminaires.length} luminaires
-                    </Badge>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </Button>
-              </div>
+          {/* En-tête */}
+          <div className="mb-6">
+            <h2 className="text-3xl font-serif text-gray-900 mb-2">{period}</h2>
+            <p className="text-lg text-orange-600 font-medium mb-3">{years}</p>
+            <p className="text-gray-600 leading-relaxed">{description}</p>
+          </div>
 
-              {/* Description */}
-              <div className="mb-6">
-                {isEditing ? (
-                  <div className="space-y-3">
-                    <Textarea
-                      value={editedDescription}
-                      onChange={(e) => setEditedDescription(e.target.value)}
-                      className="min-h-[100px]"
-                      placeholder="Description de la période..."
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleSave}>
-                        <Save className="w-4 h-4 mr-1" />
-                        Sauvegarder
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={handleCancel}>
-                        <X className="w-4 h-4 mr-1" />
-                        Annuler
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-700 leading-relaxed">{period.description}</p>
-                )}
-              </div>
-
-              {/* Luminaires - Carrousel */}
-              {period.luminaires.length > 0 && (
-                <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5" />
-                    Luminaires de cette période
-                  </h4>
-
-                  <div className="relative">
-                    {/* Flèche gauche */}
-                    {period.luminaires.length > 3 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white shadow-md"
-                        onClick={() => scrollCarousel("left")}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                    )}
-
-                    {/* Carrousel */}
-                    <div
-                      ref={carouselRef}
-                      className="flex gap-4 overflow-x-auto scrollbar-hide px-8"
-                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          {/* Luminaires en carrousel */}
+          {luminaires.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-medium text-gray-900">Luminaires de cette période ({luminaires.length})</h3>
+                {luminaires.length > itemsPerPage && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={scrollLeft}
+                      disabled={!canScrollLeft}
+                      className={`p-2 rounded-full border ${
+                        canScrollLeft
+                          ? "border-orange-300 text-orange-600 hover:bg-orange-50"
+                          : "border-gray-200 text-gray-400 cursor-not-allowed"
+                      }`}
                     >
-                      {period.luminaires.map((luminaire, index) => (
-                        <Link
-                          key={luminaire.id || index}
-                          href={`/luminaires/${luminaire.id}`}
-                          className="flex-shrink-0 group cursor-pointer"
-                        >
-                          <div className="w-32 h-32 bg-gray-100 rounded-lg overflow-hidden mb-2">
-                            {luminaire.image ? (
-                              <img
-                                src={luminaire.image || "/placeholder.svg"}
-                                alt={luminaire.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement
-                                  target.src = "/placeholder.svg?height=128&width=128&text=Image+non+trouvée"
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                <ImageIcon className="w-8 h-8" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-sm w-32">
-                            <p className="font-medium text-gray-900 truncate">{luminaire.name}</p>
-                            {luminaire.artist && (
-                              <p className="text-gray-600 truncate flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                {luminaire.artist}
-                              </p>
-                            )}
-                            {luminaire.year && (
-                              <p className="text-gray-500 text-xs flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {luminaire.year}
-                              </p>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-
-                    {/* Flèche droite */}
-                    {period.luminaires.length > 3 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white shadow-md"
-                        onClick={() => scrollCarousel("right")}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    )}
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={scrollRight}
+                      disabled={!canScrollRight}
+                      className={`p-2 rounded-full border ${
+                        canScrollRight
+                          ? "border-orange-300 text-orange-600 hover:bg-orange-50"
+                          : "border-gray-200 text-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Image à droite si isLeft = false */}
-          {period.imageUrl && !isLeft && (
-            <div className="w-80 flex-shrink-0 pl-8">
-              <div className="h-full rounded-lg overflow-hidden shadow-lg">
-                <img
-                  src={period.imageUrl || "/placeholder.svg"}
-                  alt={`Illustration ${period.name}`}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.style.display = "none"
-                  }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Layout Mobile */}
-        <div className="lg:hidden">
-          {/* Image au-dessus sur mobile */}
-          {period.imageUrl && (
-            <div className="mb-6">
-              <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-lg">
-                <img
-                  src={period.imageUrl || "/placeholder.svg"}
-                  alt={`Illustration ${period.name}`}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.style.display = "none"
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Contenu principal mobile */}
-          <Card className="shadow-lg hover:shadow-xl transition-shadow">
-            <CardContent className="p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-2xl font-serif text-gray-900 mb-1">{period.name}</h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      {period.start} - {period.end}
-                    </span>
-                    <Badge variant="secondary" className="ml-2">
-                      {period.luminaires.length} luminaires
-                    </Badge>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </Button>
-              </div>
-
-              {/* Description */}
-              <div className="mb-6">
-                {isEditing ? (
-                  <div className="space-y-3">
-                    <Textarea
-                      value={editedDescription}
-                      onChange={(e) => setEditedDescription(e.target.value)}
-                      className="min-h-[100px]"
-                      placeholder="Description de la période..."
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleSave}>
-                        <Save className="w-4 h-4 mr-1" />
-                        Sauvegarder
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={handleCancel}>
-                        <X className="w-4 h-4 mr-1" />
-                        Annuler
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-700 leading-relaxed">{period.description}</p>
                 )}
               </div>
 
-              {/* Luminaires - Carrousel mobile */}
-              {period.luminaires.length > 0 && (
-                <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5" />
-                    Luminaires de cette période
-                  </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {visibleLuminaires.map((luminaire) => (
+                  <Link
+                    key={luminaire.id}
+                    href={`/luminaires/${luminaire.id}`}
+                    className="group block bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="aspect-square bg-white">
+                      {luminaire.image ? (
+                        <Image
+                          src={luminaire.image || "/placeholder.svg"}
+                          alt={luminaire["Nom luminaire"]}
+                          width={200}
+                          height={200}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          onError={(e) => {
+                            console.log(`❌ Erreur image luminaire: ${luminaire["Nom luminaire"]}`)
+                            e.currentTarget.style.display = "none"
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <div className="text-center">
+                            <div className="text-4xl mb-2">💡</div>
+                            <span className="text-sm">Image non disponible</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <h4 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2">
+                        {luminaire["Nom luminaire"]}
+                      </h4>
+                      <p className="text-xs text-gray-600 mb-1">{luminaire["Artiste / Dates"]}</p>
+                      <p className="text-xs text-orange-600">{luminaire["Année"]}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
 
-                  <div className="flex gap-4 overflow-x-auto pb-2">
-                    {period.luminaires.map((luminaire, index) => (
-                      <Link
-                        key={luminaire.id || index}
-                        href={`/luminaires/${luminaire.id}`}
-                        className="flex-shrink-0 group cursor-pointer"
-                      >
-                        <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden mb-2">
-                          {luminaire.image ? (
-                            <img
-                              src={luminaire.image || "/placeholder.svg"}
-                              alt={luminaire.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.src = "/placeholder.svg?height=96&width=96&text=Image+non+trouvée"
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                              <ImageIcon className="w-6 h-6" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-xs w-24">
-                          <p className="font-medium text-gray-900 truncate">{luminaire.name}</p>
-                          {luminaire.year && <p className="text-gray-500 text-xs">{luminaire.year}</p>}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
+              {/* Indicateur de pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-center gap-2 mt-4">
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentIndex(i)}
+                      className={`w-2 h-2 rounded-full ${i === currentIndex ? "bg-orange-500" : "bg-gray-300"}`}
+                    />
+                  ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </div>
       </div>
     </div>
