@@ -51,9 +51,8 @@ export function DeleteLuminaireButton({ luminaireId, luminaireName, onDelete }: 
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm" disabled={isDeleting}>
-          <Trash2 className="w-4 h-4 mr-2" />
-          {isDeleting ? "Suppression..." : "Supprimer"}
+        <Button variant="destructive" size="sm" disabled={isDeleting} className="h-6 px-2 text-xs">
+          <Trash2 className="w-3 h-3" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

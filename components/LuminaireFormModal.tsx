@@ -55,7 +55,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       // Upload de l'image si sélectionnée
       if (selectedFile) {
         const imageFormData = new FormData()
-        imageFormData.append("file", selectedFile)
+        imageFormData.append("images", selectedFile)
 
         const imageResponse = await fetch("/api/upload/images", {
           method: "POST",
@@ -63,8 +63,8 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         })
 
         const imageData = await imageResponse.json()
-        if (imageData.success) {
-          imageFilename = imageData.filename
+        if (imageData.success && imageData.filenames && imageData.filenames.length > 0) {
+          imageFilename = imageData.filenames[0]
         } else {
           throw new Error("Erreur lors de l'upload de l'image")
         }
@@ -80,14 +80,29 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         annee: Number.parseInt(formData.annee) || null,
         year: Number.parseInt(formData.annee) || null, // Compatibilité
         specialite: formData.specialite,
+        periode: formData.specialite, // Compatibilité
         collaboration: formData.collaboration,
+        description: formData.collaboration, // Compatibilité
         signe: formData.signe,
-        description: formData.description,
         dimensions: formData.dimensions,
-        materiaux: formData.materiaux,
+        materiaux: formData.materiaux
+          .split(",")
+          .map((m) => m.trim())
+          .filter(Boolean),
         estimation: formData.estimation,
         image: imageFilename,
         filename: imageFilename, // Compatibilité
+        "Nom du fichier": imageFilename, // Compatibilité CSV
+        "Nom luminaire": formData.nom, // Compatibilité CSV
+        "Artiste / Dates": formData.artiste, // Compatibilité CSV
+        Année: Number.parseInt(formData.annee) || null, // Compatibilité CSV
+        Spécialité: formData.specialite, // Compatibilité CSV
+        "Collaboration / Œuvre": formData.collaboration, // Compatibilité CSV
+        Signé: formData.signe, // Compatibilité CSV
+        Description: formData.description, // Compatibilité CSV
+        Dimensions: formData.dimensions, // Compatibilité CSV
+        Matériaux: formData.materiaux, // Compatibilité CSV
+        Estimation: formData.estimation, // Compatibilité CSV
         createdAt: new Date(),
         updatedAt: new Date(),
       }
@@ -226,6 +241,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               value={formData.materiaux}
               onChange={handleInputChange}
               rows={2}
+              placeholder="Séparez par des virgules"
             />
           </div>
 
