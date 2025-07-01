@@ -184,7 +184,7 @@ export default function DesignersPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center py-16">
           <Loader2 className="w-12 h-12 mx-auto animate-spin text-gray-400 mb-4" />
-          <p className="text-lg text-gray-600">Chargement des designers...</p>
+          <p className="text-lg text-gray-600 font-serif">Chargement des designers...</p>
         </div>
       </div>
     )
@@ -198,7 +198,7 @@ export default function DesignersPage() {
         {/* Message pour les utilisateurs "free" */}
         {userData?.role === "free" && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-            <p className="flex items-center">
+            <p className="flex items-center font-serif">
               <span className="mr-2">ℹ️</span>
               <span>
                 Vous utilisez un compte gratuit. Seuls 10% des designers sont affichés.
@@ -231,8 +231,8 @@ export default function DesignersPage() {
         {/* Grille des designers */}
         {displayedDesigners.length === 0 && !isLoading ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">Aucun designer trouvé</p>
-            <p className="text-gray-400 text-sm mt-2">
+            <p className="text-gray-500 text-lg font-serif">Aucun designer trouvé</p>
+            <p className="text-gray-400 text-sm mt-2 font-serif">
               Importez des luminaires et des designers pour voir cette section
             </p>
           </div>
@@ -259,7 +259,7 @@ export default function DesignersPage() {
                           <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
                             <div className="text-center">
                               <div className="text-2xl text-gray-400 mb-1">👤</div>
-                              <span className="text-xs text-gray-500">Image manquante</span>
+                              <span className="text-xs text-gray-500 font-serif">Image manquante</span>
                             </div>
                           </div>
                         )}
@@ -290,7 +290,7 @@ export default function DesignersPage() {
 
                       <span
                         className="font-medium font-serif hover:opacity-80 transition-opacity"
-                        style={{ color: "#f2d895" }}
+                        style={{ color: "#d4a574" }}
                       >
                         Voir le designer →
                       </span>

@@ -20,14 +20,22 @@ interface TimelineBlockProps {
   isLeft: boolean
   className?: string
   onDescriptionUpdate: (periodName: string, newDescription: string) => void
+  canEdit?: boolean
 }
 
-export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpdate }: TimelineBlockProps) {
+export function TimelineBlock({
+  period,
+  isLeft,
+  className = "",
+  onDescriptionUpdate,
+  canEdit = false,
+}: TimelineBlockProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedDescription, setEditedDescription] = useState(period.description)
   const carouselRef = useRef<HTMLDivElement>(null)
 
   const handleSave = () => {
+    if (!canEdit) return
     onDescriptionUpdate(period.name, editedDescription)
     setIsEditing(false)
   }
@@ -49,12 +57,6 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
 
   return (
     <div className={`relative ${className}`}>
-      {/* Timeline line - Toujours centrée */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-orange-200 to-orange-400 z-0"></div>
-
-      {/* Timeline dot */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-2 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-lg z-10"></div>
-
       {/* Container principal */}
       <div className="relative z-5">
         {/* Layout Desktop */}
@@ -85,32 +87,34 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                   <h3 className="text-2xl font-serif text-gray-900 mb-1">{period.name}</h3>
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Calendar className="w-4 h-4" />
-                    <span>
+                    <span className="font-serif">
                       {period.start} - {period.end}
                     </span>
-                    <Badge variant="secondary" className="ml-2">
+                    <Badge variant="secondary" className="ml-2 font-serif">
                       {period.luminaires.length} luminaires
                     </Badge>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
 
               {/* Description */}
               <div className="mb-6">
-                {isEditing ? (
+                {isEditing && canEdit ? (
                   <div className="space-y-3">
                     <Textarea
                       value={editedDescription}
                       onChange={(e) => setEditedDescription(e.target.value)}
-                      className="min-h-[100px]"
+                      className="min-h-[100px] font-serif"
                       placeholder="Description de la période..."
                     />
                     <div className="flex gap-2">
@@ -125,14 +129,14 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-700 leading-relaxed">{period.description}</p>
+                  <p className="text-gray-700 leading-relaxed font-serif">{period.description}</p>
                 )}
               </div>
 
               {/* Luminaires - Slider horizontal */}
               {period.luminaires.length > 0 && (
                 <div className="flex-1">
-                  <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2 font-serif">
                     <ImageIcon className="w-5 h-5" />
                     Luminaires de cette période
                   </h4>
@@ -181,15 +185,15 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                               )}
                             </div>
                             <div className="text-sm">
-                              <p className="font-medium text-gray-900 line-clamp-2 mb-1">{luminaire.name}</p>
+                              <p className="font-medium text-gray-900 line-clamp-2 mb-1 font-serif">{luminaire.name}</p>
                               {luminaire.artist && (
-                                <p className="text-gray-600 text-xs line-clamp-1 flex items-center gap-1 mb-1">
+                                <p className="text-gray-600 text-xs line-clamp-1 flex items-center gap-1 mb-1 font-serif">
                                   <User className="w-3 h-3" />
                                   {luminaire.artist}
                                 </p>
                               )}
                               {luminaire.year && (
-                                <p className="text-orange-600 text-xs flex items-center gap-1">
+                                <p className="text-orange-600 text-xs flex items-center gap-1 font-serif">
                                   <Calendar className="w-3 h-3" />
                                   {luminaire.year}
                                 </p>
@@ -263,32 +267,34 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                   <h3 className="text-2xl font-serif text-gray-900 mb-1">{period.name}</h3>
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Calendar className="w-4 h-4" />
-                    <span>
+                    <span className="font-serif">
                       {period.start} - {period.end}
                     </span>
-                    <Badge variant="secondary" className="ml-2">
+                    <Badge variant="secondary" className="ml-2 font-serif">
                       {period.luminaires.length} luminaires
                     </Badge>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
 
               {/* Description */}
               <div className="mb-6">
-                {isEditing ? (
+                {isEditing && canEdit ? (
                   <div className="space-y-3">
                     <Textarea
                       value={editedDescription}
                       onChange={(e) => setEditedDescription(e.target.value)}
-                      className="min-h-[100px]"
+                      className="min-h-[100px] font-serif"
                       placeholder="Description de la période..."
                     />
                     <div className="flex gap-2">
@@ -303,14 +309,14 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-700 leading-relaxed">{period.description}</p>
+                  <p className="text-gray-700 leading-relaxed font-serif">{period.description}</p>
                 )}
               </div>
 
               {/* Luminaires - Slider mobile */}
               {period.luminaires.length > 0 && (
                 <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2 font-serif">
                     <ImageIcon className="w-5 h-5" />
                     Luminaires de cette période
                   </h4>
@@ -341,8 +347,8 @@ export function TimelineBlock({ period, isLeft, className = "", onDescriptionUpd
                             )}
                           </div>
                           <div className="text-xs">
-                            <p className="font-medium text-gray-900 line-clamp-2 mb-1">{luminaire.name}</p>
-                            {luminaire.year && <p className="text-orange-600 text-xs">{luminaire.year}</p>}
+                            <p className="font-medium text-gray-900 line-clamp-2 mb-1 font-serif">{luminaire.name}</p>
+                            {luminaire.year && <p className="text-orange-600 text-xs font-serif">{luminaire.year}</p>}
                           </div>
                         </div>
                       </Link>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { TimelineBlock } from "@/components/TimelineBlock"
+import { useAuth } from "@/contexts/AuthContext"
 
 const periods = [
   {
@@ -109,6 +110,9 @@ export default function ChronologiePage() {
   const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
   const [periodImages, setPeriodImages] = useState<{ [key: string]: string }>({})
   const [isLoading, setIsLoading] = useState(true)
+  const { userData } = useAuth()
+
+  const canEdit = userData?.role === "admin"
 
   useEffect(() => {
     const savedDescriptions = JSON.parse(localStorage.getItem("timeline-descriptions") || "{}")
@@ -201,6 +205,8 @@ export default function ChronologiePage() {
   }, [timelineData, isLoading])
 
   const updateDescription = (periodName: string, newDescription: string) => {
+    if (!canEdit) return
+
     const updatedDescriptions = { ...descriptions, [periodName]: newDescription }
     setDescriptions(updatedDescriptions)
     localStorage.setItem("timeline-descriptions", JSON.stringify(updatedDescriptions))
@@ -215,7 +221,7 @@ export default function ChronologiePage() {
       <div className="flex justify-center items-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p>Chargement de la chronologie...</p>
+          <p className="font-serif">Chargement de la chronologie...</p>
         </div>
       </div>
     )
@@ -227,7 +233,17 @@ export default function ChronologiePage() {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-serif text-gray-900 mb-4 text-center">Chronologie des Périodes Artistiques</h1>
-        <p className="text-center text-gray-600 mb-12">{totalLuminaires} luminaires classés par période historique</p>
+        <p className="text-center text-gray-600 mb-12 font-serif">
+          {totalLuminaires} luminaires classés par période historique
+        </p>
+
+        {!canEdit && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 text-sm text-blue-800">
+            <p className="font-serif text-center">
+              Mode lecture seule. Seuls les administrateurs peuvent modifier les descriptions des périodes.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-16">
           {timelineData.map((period, index) => (
@@ -237,6 +253,7 @@ export default function ChronologiePage() {
               isLeft={index % 2 === 0}
               className="scroll-reveal"
               onDescriptionUpdate={updateDescription}
+              canEdit={canEdit}
             />
           ))}
         </div>

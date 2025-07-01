@@ -60,11 +60,18 @@ export default function DesignerDetailPage() {
             const fullDesignerField = adaptedLuminaires[0].artist
             const defaultSpecialty = adaptedLuminaires[0].specialty
 
+            // Récupérer toutes les collaborations/œuvres uniques pour ce designer
+            const allCollaborations = adaptedLuminaires
+              .map((lum) => lum.collaboration)
+              .filter((collab) => collab && collab.trim() !== "")
+              .filter((value, index, self) => self.indexOf(value) === index) // Supprimer les doublons
+              .join(" • ")
+
             const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
             const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
 
             setDescription(storedDescriptions[fullDesignerField] || defaultSpecialty)
-            setCollaboration(storedCollaborations[fullDesignerField] || "")
+            setCollaboration(storedCollaborations[fullDesignerField] || allCollaborations)
           }
         } else {
           console.error("❌ Erreur API:", result.error)
@@ -179,12 +186,12 @@ export default function DesignerDetailPage() {
                 {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
               </p>
 
-              <div className="bg-orange-50 rounded-lg p-4">
+              <div className="bg-white rounded-lg p-4 border border-gray-200 mb-4">
                 <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Spécialité</h3>
                 <EditableField value={description} onSave={updateDescription} multiline disabled={!canEdit} />
               </div>
 
-              <div className="bg-orange-50 rounded-lg p-4 mt-4">
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Collaboration / Œuvre</h3>
                 <EditableField value={collaboration} onSave={updateCollaboration} multiline disabled={!canEdit} />
               </div>
