@@ -19,7 +19,7 @@ import { toast } from "sonner"
 interface DeleteLuminaireButtonProps {
   luminaireId: string
   luminaireName: string
-  onDelete: () => void
+  onDelete?: () => void
 }
 
 export function DeleteLuminaireButton({ luminaireId, luminaireName, onDelete }: DeleteLuminaireButtonProps) {
@@ -36,13 +36,18 @@ export function DeleteLuminaireButton({ luminaireId, luminaireName, onDelete }: 
 
       if (data.success) {
         toast.success("Luminaire supprimé avec succès")
-        onDelete()
+        if (onDelete) {
+          onDelete()
+        } else {
+          // Recharger la page si pas de callback
+          window.location.reload()
+        }
       } else {
         throw new Error(data.error || "Erreur lors de la suppression")
       }
     } catch (error: any) {
       console.error("❌ Erreur suppression:", error)
-      toast.error("Erreur lors de la suppression du luminaire")
+      toast.error(error.message || "Erreur lors de la suppression")
     } finally {
       setIsDeleting(false)
     }

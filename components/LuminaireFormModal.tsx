@@ -41,6 +41,8 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
 
       // Upload de l'image si présente
       if (imageFile) {
+        console.log("📤 Upload de l'image:", imageFile.name)
+
         const imageFormData = new FormData()
         imageFormData.append("images", imageFile)
 
@@ -50,10 +52,14 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         })
 
         const uploadResult = await uploadResponse.json()
-        if (uploadResult.success) {
-          filename = imageFile.name
+        console.log("📤 Résultat upload:", uploadResult)
+
+        if (uploadResult.success && uploadResult.filenames && uploadResult.filenames.length > 0) {
+          filename = uploadResult.filenames[0]
+          console.log("✅ Image uploadée avec succès:", filename)
         } else {
-          throw new Error("Erreur lors de l'upload de l'image")
+          console.error("❌ Erreur upload:", uploadResult)
+          throw new Error(uploadResult.error || "Erreur lors de l'upload de l'image")
         }
       }
 
@@ -85,6 +91,8 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         updatedAt: new Date(),
       }
 
+      console.log("📊 Données luminaire à créer:", luminaireData)
+
       await onSubmit(luminaireData)
 
       // Reset du formulaire
@@ -102,7 +110,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       })
       setImageFile(null)
       onClose()
-      toast.success("Luminaire créé avec succès")
     } catch (error: any) {
       console.error("❌ Erreur lors de la création:", error)
       toast.error(error.message || "Erreur lors de la création du luminaire")
@@ -118,6 +125,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      console.log("📁 Fichier sélectionné:", file.name, file.size, "bytes")
       setImageFile(file)
     }
   }

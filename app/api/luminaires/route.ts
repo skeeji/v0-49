@@ -102,23 +102,48 @@ export async function GET(request: NextRequest) {
 
     console.log("🔍 Filtre MongoDB:", JSON.stringify(filter, null, 2))
 
-    // Construire le tri
+    // Construire le tri - SEULS les tris par année excluent les luminaires sans année
     const sort: any = {}
+    let sortFilter = filter
+
     if (sortField === "annee") {
+      // Pour le tri par année, exclure les luminaires sans année
+      sortFilter = {
+        ...filter,
+        $and: [
+          ...(filter.$and || []),
+          {
+            $or: [
+              { annee: { $exists: true, $ne: null, $ne: "" } },
+              { year: { $exists: true, $ne: null, $ne: "" } },
+              { Année: { $exists: true, $ne: null, $ne: "" } },
+            ],
+          },
+        ],
+      }
       sort.annee = sortDirection === "desc" ? -1 : 1
       sort.year = sortDirection === "desc" ? -1 : 1
       sort["Année"] = sortDirection === "desc" ? -1 : 1
     } else {
-      sort[sortField] = sortDirection === "desc" ? -1 : 1
+      // Pour les autres tris (nom, designer), inclure TOUS les luminaires
+      if (sortField === "nom") {
+        sort.nom = sortDirection === "desc" ? -1 : 1
+        sort["Nom luminaire"] = sortDirection === "desc" ? -1 : 1
+      } else if (sortField === "designer") {
+        sort.designer = sortDirection === "desc" ? -1 : 1
+        sort["Artiste / Dates"] = sortDirection === "desc" ? -1 : 1
+      } else {
+        sort[sortField] = sortDirection === "desc" ? -1 : 1
+      }
     }
 
-    // Compter le total
-    const total = await collection.countDocuments(filter)
+    // Compter le total avec le bon filtre
+    const total = await collection.countDocuments(sortFilter)
     console.log(`📊 Total luminaires trouvés: ${total}`)
 
     // Récupérer les luminaires avec pagination
     const skip = (page - 1) * limit
-    const luminaires = await collection.find(filter).sort(sort).skip(skip).limit(limit).toArray()
+    const luminaires = await collection.find(sortFilter).sort(sort).skip(skip).limit(limit).toArray()
 
     console.log(`📊 ${luminaires.length} luminaires récupérés pour la page ${page}`)
 
@@ -234,6 +259,39 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "Erreur lors de la création du luminaire",
+        details: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID manquant" }, { status: 400 })
+    }
+
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
+    const result = await collection.deleteOne({ _id: new (require("mongodb").ObjectId)(id) })
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, message: "Luminaire supprimé avec succès" })
+  } catch (error: any) {
+    console.error("❌ Erreur suppression luminaire:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la suppression du luminaire",
         details: error.message,
       },
       { status: 500 },
