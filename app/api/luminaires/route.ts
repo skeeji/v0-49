@@ -68,33 +68,36 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    // Filtre par années - version simplifiée qui fonctionne
-    if (yearMin || yearMax) {
+    // Filtre par années - ne pas filtrer si les valeurs par défaut sont utilisées
+    if (yearMin && yearMax && !(yearMin === "1900" && yearMax === "2024")) {
+      const yearConditions: any[] = []
+      const minYear = Number.parseInt(yearMin)
+      const maxYear = Number.parseInt(yearMax)
+
+      yearConditions.push(
+        { annee: { $gte: minYear, $lte: maxYear } },
+        { year: { $gte: minYear, $lte: maxYear } },
+        { Année: { $gte: yearMin, $lte: yearMax } },
+      )
+
+      filter.$and = filter.$and || []
+      filter.$and.push({ $or: yearConditions })
+    } else if (yearMin && yearMin !== "1900") {
+      const minYear = Number.parseInt(yearMin)
       const yearConditions: any[] = []
 
-      if (yearMin && yearMax) {
-        const minYear = Number.parseInt(yearMin)
-        const maxYear = Number.parseInt(yearMax)
+      yearConditions.push({ annee: { $gte: minYear } }, { year: { $gte: minYear } }, { Année: { $gte: yearMin } })
 
-        yearConditions.push(
-          { annee: { $gte: minYear, $lte: maxYear } },
-          { year: { $gte: minYear, $lte: maxYear } },
-          { Année: { $gte: yearMin, $lte: yearMax } },
-        )
-      } else if (yearMin) {
-        const minYear = Number.parseInt(yearMin)
+      filter.$and = filter.$and || []
+      filter.$and.push({ $or: yearConditions })
+    } else if (yearMax && yearMax !== "2024") {
+      const maxYear = Number.parseInt(yearMax)
+      const yearConditions: any[] = []
 
-        yearConditions.push({ annee: { $gte: minYear } }, { year: { $gte: minYear } }, { Année: { $gte: yearMin } })
-      } else if (yearMax) {
-        const maxYear = Number.parseInt(yearMax)
+      yearConditions.push({ annee: { $lte: maxYear } }, { year: { $lte: maxYear } }, { Année: { $lte: yearMax } })
 
-        yearConditions.push({ annee: { $lte: maxYear } }, { year: { $lte: maxYear } }, { Année: { $lte: yearMax } })
-      }
-
-      if (yearConditions.length > 0) {
-        filter.$and = filter.$and || []
-        filter.$and.push({ $or: yearConditions })
-      }
+      filter.$and = filter.$and || []
+      filter.$and.push({ $or: yearConditions })
     }
 
     console.log("🔍 Filtre MongoDB:", JSON.stringify(filter, null, 2))

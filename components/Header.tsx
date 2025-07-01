@@ -21,11 +21,10 @@ export function Header() {
       try {
         console.log("🔍 Chargement du logo...")
         const response = await fetch("/api/logo")
-        const data = await response.json()
 
-        if (data.success && data.logoUrl) {
-          console.log("✅ Logo chargé:", data.logoUrl)
-          setLogoUrl(data.logoUrl)
+        if (response.ok) {
+          console.log("✅ Logo API disponible, utilisation de /api/logo")
+          setLogoUrl("/api/logo")
         } else {
           console.log("⚠️ Pas de logo personnalisé, utilisation du placeholder")
           setLogoUrl("/placeholder-logo.svg")
@@ -68,6 +67,7 @@ export function Header() {
                   console.log("❌ Erreur affichage logo, fallback vers placeholder")
                   const target = e.target as HTMLImageElement
                   target.src = "/placeholder-logo.svg"
+                  setLogoUrl("/placeholder-logo.svg")
                 }}
               />
             </div>
