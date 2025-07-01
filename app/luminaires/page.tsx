@@ -107,7 +107,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, yearRange, sortField, sortDirection, sliderModified],
+    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, ...(sliderModified ? [yearRange] : [])],
   )
 
   // Charger les données globales au montage
