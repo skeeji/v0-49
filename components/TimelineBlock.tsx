@@ -1,189 +1,206 @@
 "use client"
 
 import { useState } from "react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { ChevronLeft, ChevronRight, Edit2, Save, X, ExternalLink } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
-import { ChevronLeft, ChevronRight } from "lucide-react"
-
-interface Luminaire {
-  _id: string
-  id: string
-  "Nom luminaire": string
-  "Artiste / Dates": string
-  Année: string
-  image?: string
-}
 
 interface TimelineBlockProps {
-  period: string
-  years: string
-  description: string
-  luminaires: Luminaire[]
-  imageUrl?: string
+  period: {
+    name: string
+    start: number
+    end: number
+    description: string
+    luminaires: any[]
+    imageUrl?: string
+  }
   isLeft: boolean
+  className?: string
+  onDescriptionUpdate?: (periodName: string, newDescription: string) => void
 }
 
-export function TimelineBlock({ period, years, description, luminaires, imageUrl, isLeft }: TimelineBlockProps) {
+export function TimelineBlock({ period, isLeft, className, onDescriptionUpdate }: TimelineBlockProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const itemsPerPage = 3
-  const totalPages = Math.ceil(luminaires.length / itemsPerPage)
-  const canScrollLeft = currentIndex > 0
-  const canScrollRight = currentIndex < totalPages - 1
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedDescription, setEditedDescription] = useState(period.description)
 
-  const scrollLeft = () => {
-    if (canScrollLeft) {
-      setCurrentIndex(currentIndex - 1)
-    }
+  const nextSlide = () => {
+    setCurrentIndex((prev) => (prev + 1) % period.luminaires.length)
   }
 
-  const scrollRight = () => {
-    if (canScrollRight) {
-      setCurrentIndex(currentIndex + 1)
-    }
+  const prevSlide = () => {
+    setCurrentIndex((prev) => (prev - 1 + period.luminaires.length) % period.luminaires.length)
   }
 
-  const visibleLuminaires = luminaires.slice(currentIndex * itemsPerPage, (currentIndex + 1) * itemsPerPage)
+  const handleSaveDescription = () => {
+    if (onDescriptionUpdate) {
+      onDescriptionUpdate(period.name, editedDescription)
+    }
+    setIsEditing(false)
+  }
+
+  const handleCancelEdit = () => {
+    setEditedDescription(period.description)
+    setIsEditing(false)
+  }
 
   return (
-    <div className="relative">
-      {/* Point sur la ligne centrale */}
+    <div className={`relative ${className}`}>
+      {/* Point sur la timeline */}
       <div className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-orange-500 rounded-full border-4 border-white shadow-lg z-20"></div>
 
-      <div className={`flex items-stretch gap-8 ${isLeft ? "flex-row" : "flex-row-reverse"}`}>
-        {/* Image de période */}
-        {imageUrl && (
-          <div className="w-80 flex-shrink-0 hidden md:block">
-            <div className="h-full bg-white rounded-xl shadow-lg overflow-hidden">
-              <Image
-                src={imageUrl || "/placeholder.svg"}
-                alt={`Illustration ${period}`}
-                width={320}
-                height={400}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  console.log(`❌ Erreur chargement image période: ${period}`)
-                  e.currentTarget.style.display = "none"
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Contenu principal */}
-        <div className="flex-1 bg-white rounded-xl shadow-lg p-8">
-          {/* Image mobile - au-dessus du contenu */}
-          {imageUrl && (
-            <div className="md:hidden mb-6">
-              <div className="aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
-                <Image
-                  src={imageUrl || "/placeholder.svg"}
-                  alt={`Illustration ${period}`}
-                  width={400}
-                  height={300}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    console.log(`❌ Erreur chargement image période mobile: ${period}`)
-                    e.currentTarget.style.display = "none"
-                  }}
-                />
+      {/* Contenu principal */}
+      <div className={`flex ${isLeft ? "justify-start" : "justify-end"} mb-8`}>
+        <div className={`w-full max-w-2xl ${isLeft ? "pr-8" : "pl-8"}`}>
+          <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
+            <CardContent className="p-8">
+              {/* En-tête de la période */}
+              <div className="mb-6">
+                <h2 className="text-3xl font-serif text-gray-900 mb-2">{period.name}</h2>
+                <p className="text-lg text-orange-600 font-medium">
+                  {period.start} - {period.end}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">{period.luminaires.length} luminaires</p>
               </div>
-            </div>
-          )}
 
-          {/* En-tête */}
-          <div className="mb-6">
-            <h2 className="text-3xl font-serif text-gray-900 mb-2">{period}</h2>
-            <p className="text-lg text-orange-600 font-medium mb-3">{years}</p>
-            <p className="text-gray-600 leading-relaxed">{description}</p>
-          </div>
+              {/* Image de période si disponible */}
+              {period.imageUrl && (
+                <div className="mb-6">
+                  <img
+                    src={period.imageUrl || "/placeholder.svg"}
+                    alt={`Illustration ${period.name}`}
+                    className="w-full h-48 object-cover rounded-lg shadow-md"
+                  />
+                </div>
+              )}
 
-          {/* Luminaires en carrousel */}
-          {luminaires.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-medium text-gray-900">Luminaires de cette période ({luminaires.length})</h3>
-                {luminaires.length > itemsPerPage && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={scrollLeft}
-                      disabled={!canScrollLeft}
-                      className={`p-2 rounded-full border ${
-                        canScrollLeft
-                          ? "border-orange-300 text-orange-600 hover:bg-orange-50"
-                          : "border-gray-200 text-gray-400 cursor-not-allowed"
-                      }`}
+              {/* Description */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-800">Description</h3>
+                  {!isEditing ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditing(true)}
+                      className="text-gray-500 hover:text-orange-600"
                     >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={scrollRight}
-                      disabled={!canScrollRight}
-                      className={`p-2 rounded-full border ${
-                        canScrollRight
-                          ? "border-orange-300 text-orange-600 hover:bg-orange-50"
-                          : "border-gray-200 text-gray-400 cursor-not-allowed"
-                      }`}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={handleSaveDescription} className="text-green-600">
+                        <Save className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="text-red-600">
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {isEditing ? (
+                  <Textarea
+                    value={editedDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    className="min-h-[100px] resize-none"
+                    placeholder="Description de la période..."
+                  />
+                ) : (
+                  <p className="text-gray-700 leading-relaxed">{period.description}</p>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {visibleLuminaires.map((luminaire) => (
-                  <Link
-                    key={luminaire.id}
-                    href={`/luminaires/${luminaire.id}`}
-                    className="group block bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-all duration-200"
-                  >
-                    <div className="aspect-square bg-white">
-                      {luminaire.image ? (
-                        <Image
-                          src={luminaire.image || "/placeholder.svg"}
-                          alt={luminaire["Nom luminaire"]}
-                          width={200}
-                          height={200}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          onError={(e) => {
-                            console.log(`❌ Erreur image luminaire: ${luminaire["Nom luminaire"]}`)
-                            e.currentTarget.style.display = "none"
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <div className="text-center">
-                            <div className="text-4xl mb-2">💡</div>
-                            <span className="text-sm">Image non disponible</span>
+              {/* Carrousel des luminaires */}
+              {period.luminaires.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Luminaires de cette période</h3>
+
+                  <div className="relative">
+                    {/* Luminaire actuel */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex gap-4">
+                        {/* Image du luminaire */}
+                        <div className="flex-shrink-0">
+                          {period.luminaires[currentIndex].image ? (
+                            <img
+                              src={period.luminaires[currentIndex].image || "/placeholder.svg"}
+                              alt={period.luminaires[currentIndex].name}
+                              className="w-24 h-24 object-cover rounded-lg shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <span className="text-gray-400 text-xs">Pas d'image</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Informations du luminaire */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 truncate">{period.luminaires[currentIndex].name}</h4>
+                          <p className="text-sm text-gray-600 mt-1">{period.luminaires[currentIndex].artist}</p>
+                          {period.luminaires[currentIndex].year && (
+                            <p className="text-sm text-orange-600 mt-1">
+                              Année: {period.luminaires[currentIndex].year}
+                            </p>
+                          )}
+                          <Link
+                            href={`/luminaires/${period.luminaires[currentIndex].id}`}
+                            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 mt-2"
+                          >
+                            Voir détails <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Navigation du carrousel */}
+                    {period.luminaires.length > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={prevSlide}
+                          disabled={period.luminaires.length <= 1}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">
+                            {currentIndex + 1} / {period.luminaires.length}
+                          </span>
+                          <div className="flex gap-1">
+                            {period.luminaires.slice(0, 5).map((_, index) => (
+                              <button
+                                key={index}
+                                onClick={() => setCurrentIndex(index)}
+                                className={`w-2 h-2 rounded-full transition-colors ${
+                                  index === currentIndex ? "bg-orange-500" : "bg-gray-300"
+                                }`}
+                              />
+                            ))}
+                            {period.luminaires.length > 5 && <span className="text-gray-400">...</span>}
                           </div>
                         </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <h4 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2">
-                        {luminaire["Nom luminaire"]}
-                      </h4>
-                      <p className="text-xs text-gray-600 mb-1">{luminaire["Artiste / Dates"]}</p>
-                      <p className="text-xs text-orange-600">{luminaire["Année"]}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
 
-              {/* Indicateur de pagination */}
-              {totalPages > 1 && (
-                <div className="flex justify-center gap-2 mt-4">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setCurrentIndex(i)}
-                      className={`w-2 h-2 rounded-full ${i === currentIndex ? "bg-orange-500" : "bg-gray-300"}`}
-                    />
-                  ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={nextSlide}
+                          disabled={period.luminaires.length <= 1}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-            </div>
-          )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
