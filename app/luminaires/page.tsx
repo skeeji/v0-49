@@ -26,6 +26,7 @@ export default function LuminairesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
   const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
+  const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
@@ -64,11 +65,15 @@ export default function LuminairesPage() {
           limit: "50",
           search: searchTerm,
           designer: selectedDesigner,
-          yearMin: yearRange[0].toString(),
-          yearMax: yearRange[1].toString(),
           sortField,
           sortDirection,
         })
+
+        // N'ajoute les paramètres de yearRange que si le slider a été modifié
+        if (sliderModified) {
+          params.append("yearMin", yearRange[0].toString())
+          params.append("yearMax", yearRange[1].toString())
+        }
 
         console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
 
@@ -102,7 +107,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, yearRange, sortField, sortDirection],
+    [searchTerm, selectedDesigner, yearRange, sortField, sortDirection, sliderModified],
   )
 
   // Charger les données globales au montage
@@ -227,6 +232,12 @@ export default function LuminairesPage() {
     }
   }, [yearBounds, allLuminaires.length, yearRange])
 
+  // Fonction pour gérer le changement du slider
+  const handleYearRangeChange = (newRange: number[]) => {
+    setYearRange(newRange)
+    setSliderModified(true)
+  }
+
   if (loading && luminaires.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -337,7 +348,7 @@ export default function LuminairesPage() {
           min={yearBounds.min}
           max={yearBounds.max}
           value={yearRange}
-          onChange={setYearRange}
+          onChange={handleYearRangeChange}
           label="Chronologie"
         />
       </div>
