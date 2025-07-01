@@ -115,11 +115,11 @@ export default function LuminairesPage() {
     loadAllLuminaires()
   }, [loadAllLuminaires])
 
-  // Charger les luminaires au montage et lors des changements de filtres
+  // Charger les luminaires au montage et lors des changements de filtres (SANS yearRange si slider pas modifié)
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange])
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, ...(sliderModified ? [yearRange] : [])])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {

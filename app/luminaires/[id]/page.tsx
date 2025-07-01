@@ -49,6 +49,12 @@ export default function LuminaireDetailPage() {
             signed: result.data["Signé"] || result.data.signe || "",
             name: result.data["Nom luminaire"] || result.data.nom || "",
             filename: result.data["Nom du fichier"] || result.data.filename || "",
+            dimensions: result.data["Dimensions"] || result.data.dimensions || "",
+            materials: result.data["Matériaux"] || result.data.materiaux || "",
+            estimation: result.data["Estimation"] || result.data.estimation || "",
+            provenance: result.data["Provenance"] || result.data.provenance || "",
+            condition: result.data["État"] || result.data.condition || "",
+            notes: result.data["Notes"] || result.data.notes || "",
           }
 
           setLuminaire(formattedLuminaire)
@@ -121,6 +127,12 @@ export default function LuminaireDetailPage() {
       name: "Nom luminaire",
       year: "Année",
       signed: "Signé",
+      dimensions: "Dimensions",
+      materials: "Matériaux",
+      estimation: "Estimation",
+      provenance: "Provenance",
+      condition: "État",
+      notes: "Notes",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -179,9 +191,37 @@ export default function LuminaireDetailPage() {
       addField("Spécialité", luminaire.specialty)
       addField("Collaboration / Œuvre", luminaire.collaboration)
       addField("Signé", luminaire.signed)
-      addField("Nom du fichier", luminaire.filename)
+      addField("Dimensions", luminaire.dimensions)
+      addField("Matériaux", luminaire.materials)
+      addField("Estimation", luminaire.estimation)
+      addField("Provenance", luminaire.provenance)
+      addField("État", luminaire.condition)
+      addField("Notes", luminaire.notes)
 
-      pdf.save(`${luminaire.name || "luminaire"}.pdf`)
+      // Ajouter l'image si disponible
+      if (luminaire.image) {
+        try {
+          const img = new Image()
+          img.crossOrigin = "anonymous"
+          img.onload = () => {
+            const canvas = document.createElement("canvas")
+            const ctx = canvas.getContext("2d")
+            canvas.width = img.width
+            canvas.height = img.height
+            ctx?.drawImage(img, 0, 0)
+
+            const imgData = canvas.toDataURL("image/jpeg", 0.8)
+            pdf.addImage(imgData, "JPEG", 20, yPos + 10, 100, 100)
+            pdf.save(`${luminaire.name || "luminaire"}.pdf`)
+          }
+          img.src = luminaire.image
+        } catch (error) {
+          console.error("❌ Erreur ajout image PDF:", error)
+          pdf.save(`${luminaire.name || "luminaire"}.pdf`)
+        }
+      } else {
+        pdf.save(`${luminaire.name || "luminaire"}.pdf`)
+      }
     } catch (error) {
       console.error("❌ Erreur génération PDF:", error)
     } finally {
@@ -223,7 +263,8 @@ export default function LuminaireDetailPage() {
             {(userData?.role === "admin" || userData?.role === "premium") && (
               <Button
                 onClick={generatePDF}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                style={{ backgroundColor: "#f2d895", color: "#000" }}
+                className="hover:opacity-90"
                 disabled={generatingPDF}
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -258,7 +299,6 @@ export default function LuminaireDetailPage() {
                 <div className="text-center">
                   <div className="text-6xl text-gray-400 mb-2">🏮</div>
                   <span className="text-sm text-gray-500">Image non disponible</span>
-                  {luminaire.filename && <p className="text-xs text-gray-400 mt-1">Fichier: {luminaire.filename}</p>}
                 </div>
               </div>
             )}
@@ -270,7 +310,7 @@ export default function LuminaireDetailPage() {
                 value={luminaire.name || ""}
                 onSave={(v) => handleUpdate("name", v)}
                 className="text-2xl font-serif text-gray-900"
-                placeholder="Nom du luminaire (peut être vide)"
+                placeholder="Nom du luminaire"
                 disabled={!canEdit}
               />
 
@@ -328,10 +368,66 @@ export default function LuminaireDetailPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Nom du fichier</label>
-                  <div className="p-2 bg-gray-50 rounded text-sm text-gray-600">
-                    {luminaire.filename || "Aucun fichier"}
-                  </div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
+                  <EditableField
+                    value={luminaire.dimensions || ""}
+                    onSave={(v) => handleUpdate("dimensions", v)}
+                    placeholder="Dimensions"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
+                  <EditableField
+                    value={luminaire.materials || ""}
+                    onSave={(v) => handleUpdate("materials", v)}
+                    placeholder="Matériaux"
+                    multiline
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
+                  <EditableField
+                    value={luminaire.estimation || ""}
+                    onSave={(v) => handleUpdate("estimation", v)}
+                    placeholder="Estimation"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Provenance</label>
+                  <EditableField
+                    value={luminaire.provenance || ""}
+                    onSave={(v) => handleUpdate("provenance", v)}
+                    placeholder="Provenance"
+                    multiline
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">État</label>
+                  <EditableField
+                    value={luminaire.condition || ""}
+                    onSave={(v) => handleUpdate("condition", v)}
+                    placeholder="État"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Notes</label>
+                  <EditableField
+                    value={luminaire.notes || ""}
+                    onSave={(v) => handleUpdate("notes", v)}
+                    placeholder="Notes"
+                    multiline
+                    disabled={!canEdit}
+                  />
                 </div>
               </div>
             </div>
