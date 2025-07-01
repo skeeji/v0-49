@@ -18,6 +18,7 @@ import {
   Trash2,
   Clock,
   Calendar,
+  Archive,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { RoleGuard } from "@/components/RoleGuard"
@@ -65,6 +66,7 @@ export default function ImportPage() {
     periodImages?: { [key: string]: ImportResult }
   }>({})
   const [exportingCSV, setExportingCSV] = useState(false)
+  const [exportingImages, setExportingImages] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState("")
 
   const csvFileRef = useRef<HTMLInputElement>(null)
@@ -507,6 +509,45 @@ export default function ImportPage() {
     }
   }
 
+  const exportAllImages = async () => {
+    setExportingImages(true)
+    try {
+      console.log("📦 Export de toutes les images...")
+
+      const response = await fetch("/api/export/images", {
+        method: "GET",
+      })
+
+      if (!response.ok) {
+        throw new Error("Erreur lors de l'export des images")
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `images_export_${new Date().toISOString().split("T")[0]}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "✅ Export terminé",
+        description: "Toutes les images ont été exportées",
+      })
+    } catch (error: any) {
+      console.error("❌ Erreur lors de l'export des images:", error)
+      toast({
+        title: "❌ Erreur export",
+        description: "Erreur lors de l'export des images",
+        variant: "destructive",
+      })
+    } finally {
+      setExportingImages(false)
+    }
+  }
+
   const resetDatabase = async () => {
     if (
       !confirm(
@@ -580,28 +621,52 @@ export default function ImportPage() {
             </Card>
           )}
 
-          {/* Bouton d'export CSV */}
-          <Card className="border-blue-200">
-            <CardHeader>
-              <CardTitle className="text-blue-600">Export des données</CardTitle>
-              <CardDescription>Exportez tous les luminaires avec les informations complètes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={exportAllLuminaires} disabled={exportingCSV || isUploading} className="w-full">
-                {exportingCSV ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Export en cours...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Exporter tous les luminaires (CSV)
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Boutons d'export */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-blue-600">Export des données</CardTitle>
+                <CardDescription>Exportez tous les luminaires avec les informations complètes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={exportAllLuminaires} disabled={exportingCSV || isUploading} className="w-full">
+                  {exportingCSV ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Export en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Exporter tous les luminaires (CSV)
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-green-200">
+              <CardHeader>
+                <CardTitle className="text-green-600">Export des images</CardTitle>
+                <CardDescription>Téléchargez toutes les images de la base de données</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={exportAllImages} disabled={exportingImages || isUploading} className="w-full">
+                  {exportingImages ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Export en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="w-4 h-4 mr-2" />
+                      Télécharger toutes les images (ZIP)
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Upload CSV Luminaires */}

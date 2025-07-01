@@ -54,8 +54,9 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         const uploadResult = await uploadResponse.json()
         console.log("📤 Résultat upload:", uploadResult)
 
-        if (uploadResult.success && uploadResult.filenames && uploadResult.filenames.length > 0) {
-          filename = uploadResult.filenames[0]
+        if (uploadResult.success) {
+          // Utiliser le nom du fichier original
+          filename = imageFile.name
           console.log("✅ Image uploadée avec succès:", filename)
         } else {
           console.error("❌ Erreur upload:", uploadResult)
@@ -110,6 +111,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       })
       setImageFile(null)
       onClose()
+      toast.success("Luminaire créé avec succès")
     } catch (error: any) {
       console.error("❌ Erreur lors de la création:", error)
       toast.error(error.message || "Erreur lors de la création du luminaire")

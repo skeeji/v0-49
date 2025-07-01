@@ -2,140 +2,135 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { UserMenu } from "@/components/UserMenu"
+import { UserMenu } from "./UserMenu"
+import { LoginModal } from "./LoginModal"
 import { useAuth } from "@/contexts/AuthContext"
-import Image from "next/image"
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
-  const pathname = usePathname()
-  const { user, userData } = useAuth()
+  const [isLoginOpen, setIsLoginOpen] = useState(false)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const { user } = useAuth()
 
-  // Charger le logo
   useEffect(() => {
-    const loadLogo = async () => {
+    const fetchLogo = async () => {
       try {
-        console.log("🔍 Chargement du logo...")
         const response = await fetch("/api/logo")
-
-        if (response.ok) {
-          console.log("✅ Logo API disponible, utilisation de /api/logo")
-          setLogoUrl("/api/logo")
-        } else {
-          console.log("⚠️ Pas de logo personnalisé, utilisation du placeholder")
-          setLogoUrl("/placeholder-logo.svg")
+        const data = await response.json()
+        if (data.success && data.logoUrl) {
+          setLogoUrl(data.logoUrl)
         }
       } catch (error) {
-        console.error("❌ Erreur chargement logo:", error)
-        setLogoUrl("/placeholder-logo.svg")
+        console.error("Erreur lors du chargement du logo:", error)
       }
     }
 
-    loadLogo()
+    fetchLogo()
   }, [])
 
-  const navigation = [
-    { name: "Luminaires", href: "/luminaires" },
-    { name: "Designers", href: "/designers" },
-    { name: "Chronologie", href: "/chronologie" },
-    ...(userData?.role === "admin" ? [{ name: "Import", href: "/import" }] : []),
-  ]
-
-  const isActive = (href: string) => {
-    if (href === "/" && pathname === "/") return true
-    if (href !== "/" && pathname.startsWith(href)) return true
-    return false
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen)
   }
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-24">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="relative w-32 h-32">
-              <Image
-                src={logoUrl || "/placeholder.svg"}
-                alt="Logo"
-                fill
-                className="object-contain"
-                onError={(e) => {
-                  console.log("❌ Erreur affichage logo, fallback vers placeholder")
-                  const target = e.target as HTMLImageElement
-                  target.src = "/placeholder-logo.svg"
-                  setLogoUrl("/placeholder-logo.svg")
-                }}
-              />
-            </div>
-          </Link>
+    <>
+      <header className="bg-white shadow-sm border-b border-gray-200 h-24">
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex items-center justify-between h-full">
+            {/* Logo */}
+            <Link href="/" className="flex items-center">
+              {logoUrl ? (
+                <img src={logoUrl || "/placeholder.svg"} alt="Logo" className="w-32 h-32 object-contain" />
+              ) : (
+                <div className="w-32 h-32 bg-gray-200 rounded flex items-center justify-center">
+                  <span className="text-gray-500 text-sm">Logo</span>
+                </div>
+              )}
+            </Link>
 
-          {/* Navigation desktop */}
-          <nav className="hidden md:flex items-center space-x-8">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 ${
-                  isActive(item.href) ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                {item.name}
-                {isActive(item.href) && (
-                  <div
-                    className="absolute bottom-0 left-0 right-0 h-0.5 transition-all duration-200"
-                    style={{ backgroundColor: "#f2d895" }}
-                  />
-                )}
+            {/* Navigation Desktop */}
+            <nav className="hidden md:flex items-center space-x-8">
+              <Link href="/luminaires" className="text-gray-700 hover:text-gray-900 font-medium">
+                Luminaires
               </Link>
-            ))}
-          </nav>
+              <Link href="/designers" className="text-gray-700 hover:text-gray-900 font-medium">
+                Designers
+              </Link>
+              <Link href="/chronologie" className="text-gray-700 hover:text-gray-900 font-medium">
+                Chronologie
+              </Link>
+              <Link href="/import" className="text-gray-700 hover:text-gray-900 font-medium">
+                Import
+              </Link>
+            </nav>
 
-          {/* Actions */}
-          <div className="flex items-center space-x-4">
-            {user ? (
-              <UserMenu />
-            ) : (
-              <Button style={{ backgroundColor: "#f2d895", color: "#000" }} className="hover:opacity-90" size="sm">
-                Connexion
-              </Button>
-            )}
+            {/* User Menu / Login */}
+            <div className="hidden md:flex items-center">
+              {user ? (
+                <UserMenu />
+              ) : (
+                <Button onClick={() => setIsLoginOpen(true)} variant="outline">
+                  Se connecter
+                </Button>
+              )}
+            </div>
 
-            {/* Menu mobile */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {/* Menu Mobile */}
+            <button onClick={toggleMenu} className="md:hidden p-2">
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
-        </div>
 
-        {/* Navigation mobile */}
-        {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-200">
-            <nav className="flex flex-col space-y-2">
-              {navigation.map((item) => (
+          {/* Navigation Mobile */}
+          {isMenuOpen && (
+            <div className="md:hidden absolute top-24 left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50">
+              <nav className="flex flex-col space-y-4 p-4">
                 <Link
-                  key={item.name}
-                  href={item.href}
+                  href="/luminaires"
+                  className="text-gray-700 hover:text-gray-900 font-medium"
                   onClick={() => setIsMenuOpen(false)}
-                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                    isActive(item.href)
-                      ? "bg-gray-100 text-gray-900"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
                 >
-                  {item.name}
+                  Luminaires
                 </Link>
-              ))}
-            </nav>
-          </div>
-        )}
-      </div>
-    </header>
+                <Link
+                  href="/designers"
+                  className="text-gray-700 hover:text-gray-900 font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Designers
+                </Link>
+                <Link
+                  href="/chronologie"
+                  className="text-gray-700 hover:text-gray-900 font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Chronologie
+                </Link>
+                <Link
+                  href="/import"
+                  className="text-gray-700 hover:text-gray-900 font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Import
+                </Link>
+                <div className="pt-4 border-t border-gray-200">
+                  {user ? (
+                    <UserMenu />
+                  ) : (
+                    <Button onClick={() => setIsLoginOpen(true)} variant="outline" className="w-full">
+                      Se connecter
+                    </Button>
+                  )}
+                </div>
+              </nav>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
+    </>
   )
 }

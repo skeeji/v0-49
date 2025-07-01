@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
 
     // Construire le tri - SEULS les tris par année excluent les luminaires sans année
     const sort: any = {}
-    let sortFilter = filter
+    let sortFilter = { ...filter }
 
     if (sortField === "annee") {
       // Pour le tri par année, exclure les luminaires sans année
@@ -124,17 +124,40 @@ export async function GET(request: NextRequest) {
       sort.annee = sortDirection === "desc" ? -1 : 1
       sort.year = sortDirection === "desc" ? -1 : 1
       sort["Année"] = sortDirection === "desc" ? -1 : 1
-    } else {
-      // Pour les autres tris (nom, designer), inclure TOUS les luminaires
-      if (sortField === "nom") {
-        sort.nom = sortDirection === "desc" ? -1 : 1
-        sort["Nom luminaire"] = sortDirection === "desc" ? -1 : 1
-      } else if (sortField === "designer") {
-        sort.designer = sortDirection === "desc" ? -1 : 1
-        sort["Artiste / Dates"] = sortDirection === "desc" ? -1 : 1
-      } else {
-        sort[sortField] = sortDirection === "desc" ? -1 : 1
+    } else if (sortField === "nom") {
+      // Pour le tri par nom, inclure tous les luminaires qui ont un nom
+      sortFilter = {
+        ...filter,
+        $and: [
+          ...(filter.$and || []),
+          {
+            $or: [
+              { nom: { $exists: true, $ne: null, $ne: "" } },
+              { "Nom luminaire": { $exists: true, $ne: null, $ne: "" } },
+            ],
+          },
+        ],
       }
+      sort.nom = sortDirection === "desc" ? -1 : 1
+      sort["Nom luminaire"] = sortDirection === "desc" ? -1 : 1
+    } else if (sortField === "designer") {
+      // Pour le tri par designer, inclure tous les luminaires qui ont un designer
+      sortFilter = {
+        ...filter,
+        $and: [
+          ...(filter.$and || []),
+          {
+            $or: [
+              { designer: { $exists: true, $ne: null, $ne: "" } },
+              { "Artiste / Dates": { $exists: true, $ne: null, $ne: "" } },
+            ],
+          },
+        ],
+      }
+      sort.designer = sortDirection === "desc" ? -1 : 1
+      sort["Artiste / Dates"] = sortDirection === "desc" ? -1 : 1
+    } else {
+      sort[sortField] = sortDirection === "desc" ? -1 : 1
     }
 
     // Compter le total avec le bon filtre
