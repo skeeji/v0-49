@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { GalleryGrid } from "@/components/GalleryGrid"
 import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
@@ -14,8 +14,7 @@ import { toast } from "sonner"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
-  const [allDesigners, setAllDesigners] = useState<string[]>([])
-  const [globalYearBounds, setGlobalYearBounds] = useState({ min: 1900, max: 2024 })
+  const [allLuminaires, setAllLuminaires] = useState<any[]>([]) // Pour les stats globales
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,34 +35,20 @@ export default function LuminairesPage() {
   const { userData } = useAuth()
   const isAdmin = userData?.role === "admin"
 
-  // Charger les métadonnées globales (designers et années) une seule fois
-  const loadGlobalMetadata = useCallback(async () => {
+  // Charger toutes les données pour les statistiques globales
+  const loadAllLuminaires = useCallback(async () => {
     try {
-      console.log("🔍 Chargement des métadonnées globales...")
-
-      // Charger tous les designers
-      const designersResponse = await fetch("/api/designers")
-      const designersData = await designersResponse.json()
-      if (designersData.success) {
-        const designers = designersData.designers.map((d: any) => d.name).sort()
-        setAllDesigners(designers)
-        console.log(`📊 ${designers.length} designers chargés`)
-      }
-
-      // Charger les bornes d'années globales
-      const statsResponse = await fetch("/api/luminaires?stats=true")
-      const statsData = await statsResponse.json()
-      if (statsData.success && statsData.yearBounds) {
-        setGlobalYearBounds(statsData.yearBounds)
-        setYearRange([statsData.yearBounds.min, statsData.yearBounds.max])
-        console.log(`📊 Années: ${statsData.yearBounds.min} - ${statsData.yearBounds.max}`)
+      const response = await fetch(`/api/luminaires?limit=10000&page=1`)
+      const data = await response.json()
+      if (data.success) {
+        setAllLuminaires(data.luminaires)
       }
     } catch (err) {
-      console.error("❌ Erreur chargement métadonnées:", err)
+      console.error("❌ Erreur chargement données globales:", err)
     }
   }, [])
 
-  // Fonction pour charger les luminaires avec filtres
+  // Fonction pour charger les luminaires avec scroll infini
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -77,15 +62,13 @@ export default function LuminairesPage() {
         const params = new URLSearchParams({
           page: page.toString(),
           limit: "50",
+          search: searchTerm,
+          designer: selectedDesigner,
+          yearMin: yearRange[0].toString(),
+          yearMax: yearRange[1].toString(),
+          sortField,
+          sortDirection,
         })
-
-        // Ajouter les filtres seulement s'ils sont définis
-        if (searchTerm.trim()) params.set("search", searchTerm.trim())
-        if (selectedDesigner) params.set("designer", selectedDesigner)
-        if (yearRange[0] !== globalYearBounds.min) params.set("yearMin", yearRange[0].toString())
-        if (yearRange[1] !== globalYearBounds.max) params.set("yearMax", yearRange[1].toString())
-        if (sortField) params.set("sortField", sortField)
-        if (sortDirection) params.set("sortDirection", sortDirection)
 
         console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
 
@@ -105,8 +88,8 @@ export default function LuminairesPage() {
           setTotalItems(data.pagination.total)
           setHasMore(data.pagination.hasMore)
 
-          console.log(`📊 ${data.luminaires.length} luminaires chargés (page ${page})`)
-          console.log(`📊 Total filtré: ${data.pagination.total}`)
+          console.log(`📊 ${data.luminaires.length} luminaires chargés depuis MongoDB (page ${page})`)
+          console.log(`📊 Total dans la base: ${data.pagination.total}`)
         } else {
           throw new Error(data.error || "Erreur lors du chargement")
         }
@@ -119,21 +102,19 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, yearRange, sortField, sortDirection, globalYearBounds],
+    [searchTerm, selectedDesigner, yearRange, sortField, sortDirection],
   )
 
-  // Charger les métadonnées au montage
+  // Charger les données globales au montage
   useEffect(() => {
-    loadGlobalMetadata()
-  }, [loadGlobalMetadata])
+    loadAllLuminaires()
+  }, [loadAllLuminaires])
 
-  // Charger les luminaires quand les filtres changent
+  // Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
-    if (globalYearBounds.min !== 1900 || globalYearBounds.max !== 2024) {
-      setCurrentPage(1)
-      loadLuminaires(1, false)
-    }
-  }, [searchTerm, selectedDesigner, yearRange, sortField, sortDirection, loadLuminaires, globalYearBounds])
+    setCurrentPage(1)
+    loadLuminaires(1, false)
+  }, [loadLuminaires])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -211,7 +192,7 @@ export default function LuminairesPage() {
           toast.success("Luminaire créé avec succès")
           setIsModalOpen(false)
           loadLuminaires(1, false)
-          loadGlobalMetadata() // Recharger les métadonnées
+          loadAllLuminaires() // Recharger les données globales
         } else {
           throw new Error(data.error)
         }
@@ -220,8 +201,31 @@ export default function LuminairesPage() {
         toast.error("Erreur lors de la création")
       }
     },
-    [loadLuminaires, loadGlobalMetadata],
+    [loadLuminaires, loadAllLuminaires],
   )
+
+  // Options pour les filtres (calculées à partir de TOUTES les données)
+  const filterOptions = useMemo(() => {
+    const designers = [...new Set(allLuminaires.map((l) => l.designer).filter(Boolean))].sort()
+    return { designers }
+  }, [allLuminaires])
+
+  // Calculer la plage d'années disponibles (à partir de TOUTES les données)
+  const yearBounds = useMemo(() => {
+    const years = allLuminaires.map((l) => l.annee || l.year).filter(Boolean)
+    if (years.length === 0) return { min: 1900, max: 2024 }
+    return {
+      min: Math.min(...years),
+      max: Math.max(...years),
+    }
+  }, [allLuminaires])
+
+  // Initialiser la plage d'années avec les vraies valeurs
+  useEffect(() => {
+    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
+      setYearRange([yearBounds.min, yearBounds.max])
+    }
+  }, [yearBounds, allLuminaires.length, yearRange])
 
   if (loading && luminaires.length === 0) {
     return (
@@ -306,7 +310,7 @@ export default function LuminairesPage() {
           label="Designer"
           value={selectedDesigner}
           onChange={setSelectedDesigner}
-          options={allDesigners}
+          options={filterOptions.designers}
         />
 
         <select
@@ -330,8 +334,8 @@ export default function LuminairesPage() {
       {/* Filtres - Deuxième ligne : Slider chronologique */}
       <div className="mb-8">
         <RangeSlider
-          min={globalYearBounds.min}
-          max={globalYearBounds.max}
+          min={yearBounds.min}
+          max={yearBounds.max}
           value={yearRange}
           onChange={setYearRange}
           label="Chronologie"
