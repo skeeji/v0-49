@@ -1,20 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { User, LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { LoginModal } from "@/components/LoginModal"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { User, LogOut, Settings } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { LoginModal } from "@/components/LoginModal"
 
 export function UserMenu() {
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
   const { user, userData, logout } = useAuth()
 
   const handleLogout = async () => {
@@ -29,16 +23,15 @@ export function UserMenu() {
     return (
       <>
         <Button
-          onClick={() => setIsLoginModalOpen(true)}
+          onClick={() => setShowLoginModal(true)}
           className="text-white transition-all duration-200"
           style={{ backgroundColor: "#f2d895" }}
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
         >
-          <User className="w-4 h-4 mr-2" />
           Connexion
         </Button>
-        <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+        <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
       </>
     )
   }
@@ -46,12 +39,12 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="flex items-center space-x-2">
+        <Button variant="ghost" size="sm" className="flex items-center gap-2">
           <User className="w-4 h-4" />
-          <span className="hidden sm:inline">{userData?.displayName || user.email}</span>
+          <span className="hidden md:inline">{userData?.email || user.email}</span>
           {userData?.role === "admin" && (
             <span
-              className="px-2 py-1 text-xs font-medium text-white rounded-full ml-2"
+              className="px-2 py-1 text-xs font-medium text-white rounded-full"
               style={{ backgroundColor: "#f2d895" }}
             >
               Admin
@@ -59,16 +52,12 @@ export function UserMenu() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <div className="px-2 py-1.5 text-sm font-medium">{userData?.displayName || user.email}</div>
-        <div className="px-2 py-1.5 text-xs text-gray-500">{user.email}</div>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="end">
         <DropdownMenuItem>
           <Settings className="w-4 h-4 mr-2" />
           Paramètres
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+        <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="w-4 h-4 mr-2" />
           Déconnexion
         </DropdownMenuItem>

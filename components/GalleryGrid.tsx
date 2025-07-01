@@ -1,267 +1,267 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Image from "next/image"
-import { Eye } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { EditableField } from "@/components/EditableField"
 import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
 import { Lightbox } from "@/components/Lightbox"
-import Link from "next/link"
+import { Eye, Calendar, User, Palette, Wrench } from "lucide-react"
 
 interface GalleryGridProps {
   items: any[]
-  viewMode: "grid" | "list"
-  onItemUpdate: (id: string, updates: any) => void
+  viewMode?: "grid" | "list"
+  onItemUpdate?: (id: string, updates: any) => void
   columns?: number
 }
 
-export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: GalleryGridProps) {
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
-  const [favorites, setFavorites] = useState<string[]>([])
+export function GalleryGrid({ items, viewMode = "grid", onItemUpdate, columns = 4 }: GalleryGridProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxImage, setLightboxImage] = useState("")
+  const [lightboxTitle, setLightboxTitle] = useState("")
 
-  // Charger les favoris une seule fois au montage du composant
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedFavorites = localStorage.getItem("favorites")
-      if (storedFavorites) {
-        setFavorites(JSON.parse(storedFavorites))
-      }
-    }
-  }, [])
-
-  const toggleFavorite = (id: string) => {
-    const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
-    setFavorites(newFavorites)
-    localStorage.setItem("favorites", JSON.stringify(newFavorites))
+  const openLightbox = (imageUrl: string, title: string) => {
+    setLightboxImage(imageUrl)
+    setLightboxTitle(title)
+    setLightboxOpen(true)
   }
 
-  // Fonction pour obtenir l'URL de l'image
-  const getImageUrl = (item: any) => {
-    if (item["Nom du fichier"]) {
-      if (item["Nom du fichier"].startsWith("http")) {
-        return item["Nom du fichier"]
-      }
-      return `/api/images/filename/${item["Nom du fichier"]}`
+  const getGridClass = () => {
+    switch (columns) {
+      case 3:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+      case 4:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+      case 5:
+        return "grid-cols-1 md:grid-cols-3 lg:grid-cols-5"
+      case 6:
+        return "grid-cols-1 md:grid-cols-3 lg:grid-cols-6"
+      case 8:
+        return "grid-cols-1 md:grid-cols-4 lg:grid-cols-8"
+      default:
+        return "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
     }
-
-    if (item.filename) {
-      if (item.filename.startsWith("http")) {
-        return item.filename
-      }
-      return `/api/images/filename/${item.filename}`
-    }
-
-    if (item.image) {
-      if (item.image.startsWith("/api/images/")) {
-        return item.image
-      }
-      if (typeof item.image === "string" && /^[0-9a-fA-F]{24}$/.test(item.image)) {
-        return `/api/images/${item.image}`
-      }
-      if (item.image.startsWith("http")) {
-        return item.image
-      }
-      if (item.image.includes(".")) {
-        return `/api/images/filename/${item.image}`
-      }
-      return `/api/images/${item.image}`
-    }
-
-    return "/placeholder.svg?height=300&width=300"
   }
 
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
-        {items.map((item) => {
-          const itemId = String(item.id || item._id || "")
-          const itemName = String(item.name || item.nom || "Nom du luminaire")
-          const itemDesigner = String(item.artist || item.designer || "Non renseigné")
-          const itemYear = String(item.year || item.annee || "Non renseigné")
-          const itemSpecialty = item.specialty || item.specialite
-          const itemCollaboration = item.collaboration
-          const itemMaterials = item.materials || item.materiaux
-          const itemDimensions = item.dimensions
-          const itemEstimation = item.estimation
-
-          return (
-            <div key={itemId} className="bg-white rounded-xl p-6 shadow-lg">
-              <div className="flex flex-col md:flex-row gap-6">
-                <Link
-                  href={`/luminaires/${itemId}`}
-                  className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
-                >
+        {items.map((item) => (
+          <Card key={item._id} className="overflow-hidden hover:shadow-lg transition-shadow">
+            <div className="flex flex-col md:flex-row">
+              <div className="md:w-48 h-48 relative bg-gray-100">
+                {item.image ? (
                   <Image
-                    src={getImageUrl(item) || "/placeholder.svg"}
-                    alt={itemName}
+                    src={String(item.image) || "/placeholder.svg"}
+                    alt={String(item.nom || "Luminaire")}
                     fill
-                    className="object-cover"
+                    className="object-cover cursor-pointer"
+                    onClick={() => openLightbox(String(item.image), String(item.nom || "Luminaire"))}
                     onError={(e) => {
-                      console.log("❌ Erreur chargement image:", getImageUrl(item))
                       const target = e.target as HTMLImageElement
-                      target.src = "/placeholder.svg?height=300&width=300"
+                      target.src = "/placeholder.svg"
                     }}
                   />
-                </Link>
-
-                <div className="flex-1 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <Link href={`/luminaires/${itemId}`}>
-                      <h3 className="text-xl font-serif text-gray-900 hover:text-orange-500 cursor-pointer">
-                        {itemName}
-                      </h3>
-                    </Link>
-
-                    <div className="flex items-center gap-2">
-                      <FavoriteToggleButton
-                        isActive={favorites.includes(itemId)}
-                        onClick={() => toggleFavorite(itemId)}
-                      />
-                      <Button onClick={() => setLightboxImage(getImageUrl(item))} variant="outline" size="sm">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                    <span className="text-gray-400">Pas d'image</span>
+                  </div>
+                )}
+                <div className="absolute top-2 right-2">
+                  <FavoriteToggleButton
+                    isFavorite={Boolean(item.isFavorite)}
+                    onToggle={(isFavorite) => onItemUpdate?.(String(item._id), { isFavorite })}
+                  />
+                </div>
+                <div className="absolute bottom-2 right-2">
+                  <button
+                    onClick={() => openLightbox(String(item.image), String(item.nom || "Luminaire"))}
+                    className="bg-black/50 text-white p-1 rounded-full hover:bg-black/70 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <CardContent className="flex-1 p-6">
+                <div className="space-y-4">
+                  <div>
+                    <EditableField
+                      value={String(item.nom || "")}
+                      onSave={(value) => onItemUpdate?.(String(item._id), { nom: value })}
+                      className="text-xl font-semibold text-gray-900"
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
-                      <p className="text-gray-900">{itemDesigner}</p>
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-500" />
+                      <EditableField
+                        value={String(item.designer || "")}
+                        onSave={(value) => onItemUpdate?.(String(item._id), { designer: value })}
+                        placeholder="Designer"
+                        className="text-sm text-gray-600"
+                      />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
-                      <p className="text-gray-900">{itemYear}</p>
+
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-gray-500" />
+                      <EditableField
+                        value={String(item.annee || item.year || "")}
+                        onSave={(value) => onItemUpdate?.(String(item._id), { annee: Number.parseInt(value) || null })}
+                        placeholder="Année"
+                        className="text-sm text-gray-600"
+                      />
                     </div>
+
+                    {item.periode && (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {String(item.periode)}
+                        </Badge>
+                      </div>
+                    )}
+
+                    {item.materiaux && Array.isArray(item.materiaux) && item.materiaux.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Wrench className="w-4 h-4 text-gray-500" />
+                        <div className="flex flex-wrap gap-1">
+                          {item.materiaux.map((materiau: any, index: number) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {String(materiau)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {item.couleurs && Array.isArray(item.couleurs) && item.couleurs.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Palette className="w-4 h-4 text-gray-500" />
+                        <div className="flex flex-wrap gap-1">
+                          {item.couleurs.map((couleur: any, index: number) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {String(couleur)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {itemSpecialty && (
+                  {item.description && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
-                      <p className="text-gray-600">{String(itemSpecialty)}</p>
+                      <EditableField
+                        value={String(item.description)}
+                        onSave={(value) => onItemUpdate?.(String(item._id), { description: value })}
+                        placeholder="Description"
+                        className="text-sm text-gray-600"
+                        multiline
+                      />
                     </div>
                   )}
 
-                  {itemCollaboration && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Collaboration / Œuvre</label>
-                      <p className="text-gray-600">{String(itemCollaboration)}</p>
+                  {item.dimensions && (
+                    <div className="text-sm text-gray-500">
+                      <strong>Dimensions:</strong> {String(item.dimensions)}
                     </div>
                   )}
 
-                  {itemMaterials && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Matériaux</label>
-                      <p className="text-gray-600">
-                        {Array.isArray(itemMaterials) ? itemMaterials.join(", ") : String(itemMaterials)}
-                      </p>
-                    </div>
-                  )}
-
-                  {itemDimensions && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Dimensions</label>
-                      <p className="text-gray-900">{String(itemDimensions)}</p>
-                    </div>
-                  )}
-
-                  {itemEstimation && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimation</label>
-                      <p className="text-gray-900">{String(itemEstimation)}</p>
+                  {item.estimation && (
+                    <div className="text-sm text-gray-500">
+                      <strong>Estimation:</strong> {String(item.estimation)}
                     </div>
                   )}
                 </div>
-              </div>
+              </CardContent>
             </div>
-          )
-        })}
+          </Card>
+        ))}
 
-        {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
+        <Lightbox
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          imageUrl={lightboxImage}
+          title={lightboxTitle}
+        />
       </div>
     )
   }
 
-  // Correction du mapping des colonnes pour afficher le bon nombre
-  const getGridClass = (cols: number) => {
-    switch (cols) {
-      case 3:
-        return "grid-cols-2 sm:grid-cols-3"
-      case 4:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-      case 5:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-      case 6:
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
-      case 8:
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
-      default:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-    }
-  }
-
   return (
-    <div className={`grid ${getGridClass(columns)} gap-2 md:gap-3`}>
-      {items.map((item) => {
-        const itemId = String(item.id || item._id || "")
-        const itemName = String(item.name || item.nom || "Nom du luminaire")
-        const itemDesigner = String(item.artist || item.designer || "Artiste non renseigné")
-        const itemYear = String(item.year || item.annee || "Année inconnue")
-
-        return (
-          <div key={itemId} className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow">
-            <Link href={`/luminaires/${itemId}`}>
-              <div className="aspect-square relative bg-gray-100 cursor-pointer hover:scale-105 transition-transform">
-                <Image
-                  src={getImageUrl(item) || "/placeholder.svg"}
-                  alt={itemName}
-                  fill
-                  className="object-cover"
-                  onError={(e) => {
-                    console.log("❌ Erreur chargement image:", getImageUrl(item))
-                    const target = e.target as HTMLImageElement
-                    target.src = "/placeholder.svg?height=300&width=300"
-                  }}
-                />
-
-                <div className="absolute top-2 right-2">
-                  <FavoriteToggleButton
-                    isActive={favorites.includes(itemId)}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      toggleFavorite(itemId)
-                    }}
-                  />
-                </div>
+    <div className={`grid ${getGridClass()} gap-6`}>
+      {items.map((item) => (
+        <Card key={item._id} className="overflow-hidden hover:shadow-lg transition-shadow group">
+          <div className="relative aspect-square bg-gray-100">
+            {item.image ? (
+              <Image
+                src={String(item.image) || "/placeholder.svg"}
+                alt={String(item.nom || "Luminaire")}
+                fill
+                className="object-cover cursor-pointer"
+                onClick={() => openLightbox(String(item.image), String(item.nom || "Luminaire"))}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.src = "/placeholder.svg"
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                <span className="text-gray-400">Pas d'image</span>
               </div>
-            </Link>
-
-            <div className="p-2 space-y-0.5">
-              <Link href={`/luminaires/${itemId}`}>
-                <h3 className="font-serif text-xs md:text-sm text-gray-900 hover:text-orange-500 cursor-pointer truncate">
-                  {itemName}
-                </h3>
-              </Link>
-
-              <p className="text-gray-600 text-xs truncate">{itemDesigner}</p>
-
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{itemYear}</span>
-                <Button
-                  onClick={() => setLightboxImage(getImageUrl(item))}
-                  variant="ghost"
-                  size="sm"
-                  className="p-1 h-auto"
-                >
-                  <Eye className="w-3 h-3" />
-                </Button>
-              </div>
+            )}
+            <div className="absolute top-2 right-2">
+              <FavoriteToggleButton
+                isFavorite={Boolean(item.isFavorite)}
+                onToggle={(isFavorite) => onItemUpdate?.(String(item._id), { isFavorite })}
+              />
+            </div>
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => openLightbox(String(item.image), String(item.nom || "Luminaire"))}
+                className="bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
+              >
+                <Eye className="w-4 h-4" />
+              </button>
             </div>
           </div>
-        )
-      })}
+          <CardContent className="p-4">
+            <div className="space-y-2">
+              <EditableField
+                value={String(item.nom || "")}
+                onSave={(value) => onItemUpdate?.(String(item._id), { nom: value })}
+                className="font-semibold text-gray-900 line-clamp-2"
+              />
+              <EditableField
+                value={String(item.designer || "")}
+                onSave={(value) => onItemUpdate?.(String(item._id), { designer: value })}
+                placeholder="Designer"
+                className="text-sm text-gray-600"
+              />
+              <div className="flex items-center justify-between">
+                <EditableField
+                  value={String(item.annee || item.year || "")}
+                  onSave={(value) => onItemUpdate?.(String(item._id), { annee: Number.parseInt(value) || null })}
+                  placeholder="Année"
+                  className="text-sm text-gray-500"
+                />
+                {item.periode && (
+                  <Badge variant="secondary" className="text-xs">
+                    {String(item.periode)}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
 
-      {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
+      <Lightbox
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        imageUrl={lightboxImage}
+        title={lightboxTitle}
+      />
     </div>
   )
 }
