@@ -32,7 +32,7 @@ export default function DesignersPage() {
     async function fetchData() {
       setIsLoading(true)
       try {
-        // CORRECTION: Charger tous les luminaires pour extraire TOUS les designers
+        // Charger tous les luminaires pour extraire TOUS les designers
         const luminairesResponse = await fetch("/api/luminaires?limit=10000")
         const luminairesData = await luminairesResponse.json()
 
@@ -50,6 +50,8 @@ export default function DesignersPage() {
                 luminaires: [],
                 image: "",
                 slug: encodeURIComponent(designerName),
+                // Extraire les années depuis "Artiste / Dates"
+                years: [],
               }
             }
 
@@ -61,6 +63,15 @@ export default function DesignersPage() {
                 : "/placeholder.svg",
               name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
             })
+
+            // Extraire les années du champ "Artiste / Dates"
+            const artistDates = luminaire["Artiste / Dates"] || luminaire.designer || ""
+            const yearMatches = artistDates.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g)
+            if (yearMatches) {
+              acc[designerName].years = [
+                ...new Set([...acc[designerName].years, ...yearMatches.map((y) => Number.parseInt(y))]),
+              ]
+            }
 
             return acc
           }, {})
@@ -129,6 +140,14 @@ export default function DesignersPage() {
           return a.name.localeCompare(b.name)
         case "name-desc":
           return b.name.localeCompare(a.name)
+        case "year-asc":
+          const minYearA = a.years.length > 0 ? Math.min(...a.years) : 9999
+          const minYearB = b.years.length > 0 ? Math.min(...b.years) : 9999
+          return minYearA - minYearB
+        case "year-desc":
+          const maxYearA = a.years.length > 0 ? Math.max(...a.years) : 0
+          const maxYearB = b.years.length > 0 ? Math.max(...b.years) : 0
+          return maxYearB - maxYearA
         case "count-desc":
           return b.count - a.count
         default:
@@ -220,8 +239,10 @@ export default function DesignersPage() {
               value={sortBy}
               onChange={setSortBy}
               options={[
-                { value: "name-asc", label: "A → Z" },
-                { value: "name-desc", label: "Z → A" },
+                { value: "name-asc", label: "Nom A → Z" },
+                { value: "name-desc", label: "Nom Z → A" },
+                { value: "year-asc", label: "Année croissante" },
+                { value: "year-desc", label: "Année décroissante" },
                 { value: "count-desc", label: "Nb de luminaires" },
               ]}
             />

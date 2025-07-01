@@ -36,7 +36,10 @@ export default function HomePage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const { user, userData, incrementSearchCount, canSearch } = useAuth()
+  const { user, userData, incrementSearchCount } = useAuth()
+
+  // Autoriser la recherche pour tous les utilisateurs connectés
+  const canSearch = !user || userData?.role !== "free" || (userData?.searchCount || 0) < 3
 
   const callImageSimilarityAPI = async (file: File) => {
     try {
@@ -90,7 +93,7 @@ export default function HomePage() {
       const imageUrl = result.image_url || ""
       const metadata = result.metadata || {}
 
-      // Nettoyer l'image_id
+      // Nettoyer l'image_id pour obtenir le nom du fichier
       const cleanImageId = String(imageId).split("#")[0]
 
       // Construire l'URL complète
@@ -107,12 +110,12 @@ export default function HomePage() {
         }
       }
 
-      // CORRECTION: Chercher par filename dans la base MongoDB
+      // Chercher par filename dans la base MongoDB (même nom d'image)
       const localMatch = luminaires.find((luminaire: any) => {
         const localFilename = (luminaire.filename || luminaire["Nom du fichier"] || "").toLowerCase()
         const searchFilename = cleanImageId.toLowerCase()
-        // Correspondance exacte par filename
-        return localFilename === searchFilename || localFilename.includes(searchFilename.replace(/\.[^/.]+$/, ""))
+        // Correspondance exacte par nom de fichier
+        return localFilename === searchFilename
       })
 
       console.log(`🔍 Recherche: "${cleanImageId}" → ${localMatch ? `✅ Trouvé: ${localMatch._id}` : "❌ Pas trouvé"}`)
@@ -120,7 +123,7 @@ export default function HomePage() {
       return {
         imageId: cleanImageId,
         imageUrl: finalImageUrl,
-        // CORRECTION: Utiliser l'ID MongoDB pour créer le lien vers la page luminaire
+        // Utiliser l'ID MongoDB pour créer le lien vers la page luminaire
         luminaireUrl: localMatch ? `/luminaires/${localMatch._id}` : null,
         localMatch: localMatch,
         hasLocalMatch: !!localMatch,
@@ -187,12 +190,6 @@ export default function HomePage() {
   }
 
   const handleImageSearch = async (file: File) => {
-    // Vérifier si l'utilisateur peut effectuer une recherche
-    if (!canSearch) {
-      toast.error("Limite de recherches quotidiennes atteinte (3/3)")
-      return
-    }
-
     // Pour les utilisateurs non connectés, afficher la modal de connexion
     if (!user) {
       setShowLoginModal(true)
@@ -518,7 +515,7 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    // CORRECTION: Charger les luminaires depuis l'API MongoDB
+    // Charger les luminaires depuis l'API MongoDB
     const loadLuminaires = async () => {
       try {
         const response = await fetch("/api/luminaires?limit=10000") // Charger tous les luminaires
@@ -534,7 +531,7 @@ export default function HomePage() {
       }
     }
 
-    // CORRECTION: Charger la vidéo d'accueil depuis l'API
+    // Charger la vidéo d'accueil depuis l'API
     const loadWelcomeVideo = async () => {
       try {
         console.log("🎥 Chargement de la vidéo de bienvenue...")
@@ -665,7 +662,7 @@ export default function HomePage() {
                 style={{ backgroundColor: "#f2d895" }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
-                disabled={isSearching || !canSearch}
+                disabled={isSearching}
               >
                 <Upload className="w-5 h-5 mr-3" />
                 Téléverser une image
@@ -677,7 +674,7 @@ export default function HomePage() {
                 style={{ backgroundColor: "#f2d895" }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
-                disabled={isSearching || isCameraLoading || !canSearch}
+                disabled={isSearching || isCameraLoading}
               >
                 {isCameraLoading ? (
                   <>
@@ -691,16 +688,6 @@ export default function HomePage() {
                   </>
                 )}
               </Button>
-
-              {!canSearch && userData?.role === "free" && (
-                <div className="text-center text-red-600 text-sm bg-red-50 p-3 rounded-xl">
-                  Limite de recherches quotidiennes atteinte (3/3).
-                  <Link href="#" className="ml-1 underline font-medium">
-                    Passez à Premium
-                  </Link>{" "}
-                  pour des recherches illimitées.
-                </div>
-              )}
 
               <p className="text-xs text-slate-500 text-center leading-relaxed">
                 Notre IA analyse votre image et trouve les 10 luminaires les plus similaires dans notre collection
@@ -895,7 +882,7 @@ export default function HomePage() {
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                   size="sm"
-                  disabled={isSearching || !canSearch}
+                  disabled={isSearching}
                 >
                   {isSearching ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>

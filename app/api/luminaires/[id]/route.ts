@@ -157,12 +157,35 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
+    const luminairesCollection = db.collection("luminaires")
 
-    const result = await collection.deleteOne({ _id: new ObjectId(params.id) })
+    // Récupérer le luminaire avant suppression pour obtenir les infos du designer
+    const luminaire = await luminairesCollection.findOne({ _id: new ObjectId(params.id) })
+
+    if (!luminaire) {
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+    }
+
+    // Supprimer le luminaire
+    const result = await luminairesCollection.deleteOne({ _id: new ObjectId(params.id) })
 
     if (result.deletedCount === 0) {
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+    }
+
+    // Vérifier s'il reste d'autres luminaires pour ce designer
+    const designerName = luminaire.designer || luminaire["Artiste / Dates"]
+    if (designerName) {
+      const remainingLuminaires = await luminairesCollection.countDocuments({
+        $or: [{ designer: designerName }, { "Artiste / Dates": designerName }],
+      })
+
+      // Si plus aucun luminaire pour ce designer, supprimer aussi le designer
+      if (remainingLuminaires === 0) {
+        const designersCollection = db.collection("designers")
+        await designersCollection.deleteOne({ Nom: designerName })
+        console.log(`🗑️ Designer ${designerName} supprimé car plus de luminaires`)
+      }
     }
 
     console.log(`✅ Luminaire supprimé: ${params.id}`)

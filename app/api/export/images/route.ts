@@ -1,13 +1,13 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { GridFSBucket } from "mongodb"
 import archiver from "archiver"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    console.log("📦 API /api/export/images - Export de toutes les images")
+    console.log("📦 Début de l'export des images...")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
@@ -15,55 +15,68 @@ export async function GET(request: NextRequest) {
 
     // Créer un stream pour l'archive ZIP
     const archive = archiver("zip", {
-      zlib: { level: 9 }, // Compression maximale
+      zlib: { level: 9 },
     })
 
-    // Headers pour le téléchargement
-    const headers = new Headers()
-    headers.set("Content-Type", "application/zip")
-    headers.set(
-      "Content-Disposition",
-      `attachment; filename="images_export_${new Date().toISOString().split("T")[0]}.zip"`,
-    )
+    // Créer un stream de réponse
+    const chunks: Buffer[] = []
 
-    // Stream de réponse
-    const { readable, writable } = new TransformStream()
-    archive.pipe(writable)
+    archive.on("data", (chunk) => {
+      chunks.push(chunk)
+    })
+
+    archive.on("error", (err) => {
+      console.error("❌ Erreur lors de la création de l'archive:", err)
+      throw err
+    })
 
     // Récupérer tous les fichiers de GridFS
     const files = await bucket.find({}).toArray()
-    console.log(`📊 ${files.length} fichiers trouvés dans GridFS`)
-
-    let addedFiles = 0
+    console.log(`📁 ${files.length} fichiers trouvés dans GridFS`)
 
     // Ajouter chaque fichier à l'archive
     for (const file of files) {
       try {
         const downloadStream = bucket.openDownloadStream(file._id)
-        const chunks: Buffer[] = []
 
-        // Lire le fichier en chunks
+        // Convertir le stream en buffer
+        const buffers: Buffer[] = []
         for await (const chunk of downloadStream) {
-          chunks.push(chunk)
+          buffers.push(chunk)
         }
+        const fileBuffer = Buffer.concat(buffers)
 
-        const buffer = Buffer.concat(chunks)
-        archive.append(buffer, { name: file.filename })
-        addedFiles++
-        console.log(`✅ Ajouté: ${file.filename}`)
+        // Ajouter le fichier à l'archive avec son nom original
+        archive.append(fileBuffer, { name: file.filename })
+        console.log(`✅ Fichier ajouté: ${file.filename}`)
       } catch (error) {
-        console.error(`❌ Erreur pour ${file.filename}:`, error)
+        console.error(`❌ Erreur lors de l'ajout du fichier ${file.filename}:`, error)
       }
     }
 
-    console.log(`📦 ${addedFiles} fichiers ajoutés à l'archive`)
-
     // Finaliser l'archive
-    archive.finalize()
+    await archive.finalize()
 
-    return new Response(readable, { headers })
+    // Attendre que tous les chunks soient collectés
+    await new Promise((resolve) => {
+      archive.on("end", resolve)
+    })
+
+    // Créer la réponse avec le ZIP
+    const zipBuffer = Buffer.concat(chunks)
+
+    console.log(`✅ Archive créée: ${zipBuffer.length} bytes`)
+
+    return new NextResponse(zipBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="images_export_${new Date().toISOString().split("T")[0]}.zip"`,
+        "Content-Length": zipBuffer.length.toString(),
+      },
+    })
   } catch (error: any) {
-    console.error("❌ Erreur export images:", error)
+    console.error("❌ Erreur lors de l'export des images:", error)
     return NextResponse.json(
       {
         success: false,
