@@ -57,7 +57,7 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3">
-            <div className="relative w-16 h-16">
+            <div className="relative w-10 h-10">
               <Image
                 src={logoUrl || "/placeholder.svg"}
                 alt="Logo"

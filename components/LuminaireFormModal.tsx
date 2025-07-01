@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "sonner"
 
 interface LuminaireFormModalProps {
   isOpen: boolean
@@ -19,117 +18,92 @@ interface LuminaireFormModalProps {
 export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormModalProps) {
   const [formData, setFormData] = useState({
     nom: "",
-    artiste: "",
-    dates: "",
+    artist: "",
     annee: "",
-    specialite: "",
+    specialty: "",
     collaboration: "",
-    signe: "",
+    signed: "",
     description: "",
     dimensions: "",
-    materiaux: "",
+    materials: "",
     estimation: "",
   })
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setSelectedFile(file)
-    }
-  }
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
+    setUploading(true)
 
     try {
-      let imageFilename = ""
+      let filename = ""
 
-      // Upload de l'image si sélectionnée
-      if (selectedFile) {
+      // Upload de l'image si présente
+      if (imageFile) {
         const imageFormData = new FormData()
-        imageFormData.append("images", selectedFile)
+        imageFormData.append("images", imageFile)
 
-        const imageResponse = await fetch("/api/upload/images", {
+        const uploadResponse = await fetch("/api/upload/images", {
           method: "POST",
           body: imageFormData,
         })
 
-        const imageData = await imageResponse.json()
-        if (imageData.success && imageData.filenames && imageData.filenames.length > 0) {
-          imageFilename = imageData.filenames[0]
-        } else {
-          throw new Error("Erreur lors de l'upload de l'image")
+        const uploadResult = await uploadResponse.json()
+        if (uploadResult.success && uploadResult.filenames.length > 0) {
+          filename = uploadResult.filenames[0]
         }
       }
 
-      // Créer le luminaire avec toutes les données
+      // Préparer les données du luminaire
       const luminaireData = {
-        nom: formData.nom,
-        name: formData.nom, // Compatibilité
-        artiste: formData.artiste,
-        designer: formData.artiste, // Compatibilité
-        dates: formData.dates,
-        annee: Number.parseInt(formData.annee) || null,
-        year: Number.parseInt(formData.annee) || null, // Compatibilité
-        specialite: formData.specialite,
-        periode: formData.specialite, // Compatibilité
-        collaboration: formData.collaboration,
-        description: formData.collaboration, // Compatibilité
-        signe: formData.signe,
-        dimensions: formData.dimensions,
-        materiaux: formData.materiaux
-          .split(",")
-          .map((m) => m.trim())
-          .filter(Boolean),
-        estimation: formData.estimation,
-        image: imageFilename,
-        filename: imageFilename, // Compatibilité
-        "Nom du fichier": imageFilename, // Compatibilité CSV
-        "Nom luminaire": formData.nom, // Compatibilité CSV
-        "Artiste / Dates": formData.artiste, // Compatibilité CSV
-        Année: Number.parseInt(formData.annee) || null, // Compatibilité CSV
-        Spécialité: formData.specialite, // Compatibilité CSV
-        "Collaboration / Œuvre": formData.collaboration, // Compatibilité CSV
-        Signé: formData.signe, // Compatibilité CSV
-        Description: formData.description, // Compatibilité CSV
-        Dimensions: formData.dimensions, // Compatibilité CSV
-        Matériaux: formData.materiaux, // Compatibilité CSV
-        Estimation: formData.estimation, // Compatibilité CSV
+        "Nom luminaire": formData.nom,
+        "Artiste / Dates": formData.artist,
+        Année: formData.annee,
+        Spécialité: formData.specialty,
+        "Collaboration / Œuvre": formData.collaboration,
+        Signé: formData.signed,
+        Description: formData.description,
+        Dimensions: formData.dimensions,
+        Matériaux: formData.materials,
+        Estimation: formData.estimation,
+        "Nom du fichier": filename,
+        filename: filename,
+        images: filename ? [filename] : [],
         createdAt: new Date(),
         updatedAt: new Date(),
       }
 
-      await onSubmit(luminaireData)
+      onSubmit(luminaireData)
 
       // Reset du formulaire
       setFormData({
         nom: "",
-        artiste: "",
-        dates: "",
+        artist: "",
         annee: "",
-        specialite: "",
+        specialty: "",
         collaboration: "",
-        signe: "",
+        signed: "",
         description: "",
         dimensions: "",
-        materiaux: "",
+        materials: "",
         estimation: "",
       })
-      setSelectedFile(null)
-      onClose()
-    } catch (error: any) {
-      console.error("Erreur lors de la création:", error)
-      toast.error(error.message || "Erreur lors de la création du luminaire")
+      setImageFile(null)
+    } catch (error) {
+      console.error("❌ Erreur lors de la création:", error)
     } finally {
-      setIsSubmitting(false)
+      setUploading(false)
+    }
+  }
+
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setImageFile(file)
     }
   }
 
@@ -137,145 +111,131 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Ajouter un nouveau luminaire</DialogTitle>
+          <DialogTitle>Ajouter un luminaire</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nom du luminaire */}
           <div>
-            <Label htmlFor="nom">Nom du luminaire *</Label>
-            <Input id="nom" name="nom" value={formData.nom} onChange={handleInputChange} required />
+            <Label htmlFor="nom">Nom du luminaire</Label>
+            <Input
+              id="nom"
+              value={formData.nom}
+              onChange={(e) => handleChange("nom", e.target.value)}
+              placeholder="Nom du luminaire"
+            />
           </div>
 
-          {/* Artiste et Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="artiste">Artiste</Label>
-              <Input id="artiste" name="artiste" value={formData.artiste} onChange={handleInputChange} />
-            </div>
-            <div>
-              <Label htmlFor="dates">Dates</Label>
-              <Input
-                id="dates"
-                name="dates"
-                value={formData.dates}
-                onChange={handleInputChange}
-                placeholder="ex: 1920-1980"
-              />
-            </div>
+          <div>
+            <Label htmlFor="artist">Artiste / Dates</Label>
+            <Input
+              id="artist"
+              value={formData.artist}
+              onChange={(e) => handleChange("artist", e.target.value)}
+              placeholder="Artiste / Dates"
+            />
           </div>
 
-          {/* Année */}
           <div>
             <Label htmlFor="annee">Année</Label>
             <Input
               id="annee"
-              name="annee"
-              type="number"
               value={formData.annee}
-              onChange={handleInputChange}
-              placeholder="ex: 1950"
+              onChange={(e) => handleChange("annee", e.target.value)}
+              placeholder="Année"
             />
           </div>
 
-          {/* Spécialité */}
           <div>
-            <Label htmlFor="specialite">Spécialité</Label>
+            <Label htmlFor="specialty">Spécialité</Label>
             <Textarea
-              id="specialite"
-              name="specialite"
-              value={formData.specialite}
-              onChange={handleInputChange}
+              id="specialty"
+              value={formData.specialty}
+              onChange={(e) => handleChange("specialty", e.target.value)}
+              placeholder="Spécialité"
               rows={3}
             />
           </div>
 
-          {/* Collaboration / Œuvre */}
           <div>
             <Label htmlFor="collaboration">Collaboration / Œuvre</Label>
             <Textarea
               id="collaboration"
-              name="collaboration"
               value={formData.collaboration}
-              onChange={handleInputChange}
+              onChange={(e) => handleChange("collaboration", e.target.value)}
+              placeholder="Collaboration / Œuvre"
               rows={3}
             />
           </div>
 
-          {/* Signé */}
           <div>
-            <Label htmlFor="signe">Signé</Label>
-            <Input id="signe" name="signe" value={formData.signe} onChange={handleInputChange} />
+            <Label htmlFor="signed">Signé</Label>
+            <Input
+              id="signed"
+              value={formData.signed}
+              onChange={(e) => handleChange("signed", e.target.value)}
+              placeholder="Signé"
+            />
           </div>
 
-          {/* Description */}
           <div>
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              name="description"
               value={formData.description}
-              onChange={handleInputChange}
-              rows={4}
+              onChange={(e) => handleChange("description", e.target.value)}
+              placeholder="Description"
+              rows={3}
             />
           </div>
 
-          {/* Dimensions */}
           <div>
             <Label htmlFor="dimensions">Dimensions</Label>
             <Input
               id="dimensions"
-              name="dimensions"
               value={formData.dimensions}
-              onChange={handleInputChange}
-              placeholder="ex: H. 30 cm, L. 20 cm"
+              onChange={(e) => handleChange("dimensions", e.target.value)}
+              placeholder="Dimensions"
             />
           </div>
 
-          {/* Matériaux */}
           <div>
-            <Label htmlFor="materiaux">Matériaux</Label>
+            <Label htmlFor="materials">Matériaux</Label>
             <Textarea
-              id="materiaux"
-              name="materiaux"
-              value={formData.materiaux}
-              onChange={handleInputChange}
-              rows={2}
-              placeholder="Séparez par des virgules"
+              id="materials"
+              value={formData.materials}
+              onChange={(e) => handleChange("materials", e.target.value)}
+              placeholder="Matériaux"
+              rows={3}
             />
           </div>
 
-          {/* Estimation */}
           <div>
             <Label htmlFor="estimation">Estimation</Label>
             <Input
               id="estimation"
-              name="estimation"
               value={formData.estimation}
-              onChange={handleInputChange}
-              placeholder="ex: 1000-1500 €"
+              onChange={(e) => handleChange("estimation", e.target.value)}
+              placeholder="Estimation"
             />
           </div>
 
-          {/* Image */}
           <div>
             <Label htmlFor="image">Image du luminaire</Label>
-            <Input id="image" name="image" type="file" accept="image/*" onChange={handleFileChange} />
-            {selectedFile && <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {selectedFile.name}</p>}
+            <Input id="image" type="file" accept="image/*" onChange={handleImageChange} className="cursor-pointer" />
+            {imageFile && <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {imageFile.name}</p>}
           </div>
 
-          {/* Boutons */}
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Annuler
-            </Button>
+          <div className="flex gap-2 pt-4">
             <Button
               type="submit"
-              disabled={isSubmitting}
+              className="flex-1"
               style={{ backgroundColor: "#f2d895", color: "#000" }}
-              className="hover:opacity-90"
+              disabled={uploading}
             >
-              {isSubmitting ? "Création..." : "Créer le luminaire"}
+              {uploading ? "Création en cours..." : "Créer"}
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>
+              Annuler
             </Button>
           </div>
         </form>
