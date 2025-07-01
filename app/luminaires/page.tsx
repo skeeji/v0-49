@@ -34,7 +34,7 @@ export default function LuminairesPage() {
   const { userData } = useAuth()
   const isAdmin = userData?.role === "admin"
 
-  // CORRECTION: Fonction pour charger les luminaires avec scroll infini
+  // Fonction pour charger les luminaires avec scroll infini
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -200,6 +200,13 @@ export default function LuminairesPage() {
     }
   }, [luminaires])
 
+  // Initialiser la plage d'années avec les vraies valeurs
+  useEffect(() => {
+    if (yearBounds.min !== 1900 || yearBounds.max !== 2024) {
+      setYearRange([yearBounds.min, yearBounds.max])
+    }
+  }, [yearBounds])
+
   if (loading && luminaires.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -271,11 +278,9 @@ export default function LuminairesPage() {
         </div>
       </div>
 
-      {/* Filtres */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="lg:col-span-1">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
-        </div>
+      {/* Filtres - Première ligne */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
         <DropdownFilter
           label="Designer"
@@ -284,34 +289,33 @@ export default function LuminairesPage() {
           options={filterOptions.designers}
         />
 
-        <div className="flex items-center gap-2">
-          <select
-            value={`${sortField}-${sortDirection}`}
-            onChange={(e) => {
-              const [field, direction] = e.target.value.split("-")
-              setSortField(field)
-              setSortDirection(direction as "asc" | "desc")
-            }}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm w-full"
-          >
-            <option value="nom-asc">Nom A-Z</option>
-            <option value="nom-desc">Nom Z-A</option>
-            <option value="designer-asc">Designer A-Z</option>
-            <option value="designer-desc">Designer Z-A</option>
-            <option value="annee-asc">Année croissante</option>
-            <option value="annee-desc">Année décroissante</option>
-          </select>
-        </div>
+        <select
+          value={`${sortField}-${sortDirection}`}
+          onChange={(e) => {
+            const [field, direction] = e.target.value.split("-")
+            setSortField(field)
+            setSortDirection(direction as "asc" | "desc")
+          }}
+          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+        >
+          <option value="nom-asc">Nom A-Z</option>
+          <option value="nom-desc">Nom Z-A</option>
+          <option value="designer-asc">Designer A-Z</option>
+          <option value="designer-desc">Designer Z-A</option>
+          <option value="annee-asc">Année croissante</option>
+          <option value="annee-desc">Année décroissante</option>
+        </select>
+      </div>
 
-        <div className="lg:col-span-1">
-          <RangeSlider
-            min={yearBounds.min}
-            max={yearBounds.max}
-            value={yearRange}
-            onChange={setYearRange}
-            label="Chronologie"
-          />
-        </div>
+      {/* Filtres - Deuxième ligne : Slider chronologique */}
+      <div className="mb-8">
+        <RangeSlider
+          min={yearBounds.min}
+          max={yearBounds.max}
+          value={yearRange}
+          onChange={setYearRange}
+          label="Chronologie"
+        />
       </div>
 
       {/* Grille des luminaires */}

@@ -74,10 +74,10 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
     return (
       <div className="space-y-4">
         {items.map((item) => {
-          const itemId = item.id || item._id
-          const itemName = item.name || item.nom || "Nom du luminaire"
-          const itemDesigner = item.artist || item.designer || "Non renseigné"
-          const itemYear = item.year || item.annee || "Non renseigné"
+          const itemId = String(item.id || item._id || "")
+          const itemName = String(item.name || item.nom || "Nom du luminaire")
+          const itemDesigner = String(item.artist || item.designer || "Non renseigné")
+          const itemYear = String(item.year || item.annee || "Non renseigné")
           const itemSpecialty = item.specialty || item.specialite
           const itemCollaboration = item.collaboration
           const itemMaterials = item.materials || item.materiaux
@@ -85,7 +85,7 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
           const itemEstimation = item.estimation
 
           return (
-            <div key={itemId} id={`luminaire-${itemId}`} className="bg-white rounded-xl p-6 shadow-lg">
+            <div key={itemId} className="bg-white rounded-xl p-6 shadow-lg">
               <div className="flex flex-col md:flex-row gap-6">
                 <Link
                   href={`/luminaires/${itemId}`}
@@ -98,7 +98,8 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                     className="object-cover"
                     onError={(e) => {
                       console.log("❌ Erreur chargement image:", getImageUrl(item))
-                      e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+                      const target = e.target as HTMLImageElement
+                      target.src = "/placeholder.svg?height=300&width=300"
                     }}
                   />
                 </Link>
@@ -136,14 +137,14 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                   {itemSpecialty && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
-                      <p className="text-gray-600">{itemSpecialty}</p>
+                      <p className="text-gray-600">{String(itemSpecialty)}</p>
                     </div>
                   )}
 
                   {itemCollaboration && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Collaboration / Œuvre</label>
-                      <p className="text-gray-600">{itemCollaboration}</p>
+                      <p className="text-gray-600">{String(itemCollaboration)}</p>
                     </div>
                   )}
 
@@ -151,7 +152,7 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Matériaux</label>
                       <p className="text-gray-600">
-                        {Array.isArray(itemMaterials) ? itemMaterials.join(", ") : itemMaterials}
+                        {Array.isArray(itemMaterials) ? itemMaterials.join(", ") : String(itemMaterials)}
                       </p>
                     </div>
                   )}
@@ -159,14 +160,14 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                   {itemDimensions && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Dimensions</label>
-                      <p className="text-gray-900">{itemDimensions}</p>
+                      <p className="text-gray-900">{String(itemDimensions)}</p>
                     </div>
                   )}
 
                   {itemEstimation && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Estimation</label>
-                      <p className="text-gray-900">{itemEstimation}</p>
+                      <p className="text-gray-900">{String(itemEstimation)}</p>
                     </div>
                   )}
                 </div>
@@ -180,30 +181,34 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
     )
   }
 
-  // Déterminer les classes de grille en fonction du nombre de colonnes
-  const gridColumnsClass =
-    {
-      3: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4",
-      4: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5",
-      5: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6",
-      6: "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8",
-      8: "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10",
-    }[columns] || "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+  // Correction du mapping des colonnes pour afficher le bon nombre
+  const getGridClass = (cols: number) => {
+    switch (cols) {
+      case 3:
+        return "grid-cols-2 sm:grid-cols-3"
+      case 4:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+      case 5:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+      case 6:
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+      case 8:
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+      default:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+    }
+  }
 
   return (
-    <div className={`grid ${gridColumnsClass} gap-2 md:gap-3`}>
+    <div className={`grid ${getGridClass(columns)} gap-2 md:gap-3`}>
       {items.map((item) => {
-        const itemId = item.id || item._id
-        const itemName = item.name || item.nom || "Nom du luminaire"
-        const itemDesigner = item.artist || item.designer || "Artiste non renseigné"
-        const itemYear = item.year || item.annee || "Année inconnue"
+        const itemId = String(item.id || item._id || "")
+        const itemName = String(item.name || item.nom || "Nom du luminaire")
+        const itemDesigner = String(item.artist || item.designer || "Artiste non renseigné")
+        const itemYear = String(item.year || item.annee || "Année inconnue")
 
         return (
-          <div
-            key={itemId}
-            id={`luminaire-${itemId}`}
-            className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
-          >
+          <div key={itemId} className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow">
             <Link href={`/luminaires/${itemId}`}>
               <div className="aspect-square relative bg-gray-100 cursor-pointer hover:scale-105 transition-transform">
                 <Image
@@ -213,7 +218,8 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                   className="object-cover"
                   onError={(e) => {
                     console.log("❌ Erreur chargement image:", getImageUrl(item))
-                    e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+                    const target = e.target as HTMLImageElement
+                    target.src = "/placeholder.svg?height=300&width=300"
                   }}
                 />
 
