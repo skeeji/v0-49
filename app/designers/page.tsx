@@ -267,7 +267,7 @@ export default function DesignersPage() {
 
                       <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
 
-                      <p className="text-gray-600 mb-4">
+                      <p className="text-gray-600 mb-4 font-serif">
                         {designer.count} luminaire{designer.count > 1 ? "s" : ""}
                       </p>
 
@@ -288,7 +288,12 @@ export default function DesignersPage() {
                         ))}
                       </div>
 
-                      <span className="text-orange-500 hover:text-orange-600 font-medium">Voir le profil →</span>
+                      <span
+                        className="font-medium font-serif hover:opacity-80 transition-opacity"
+                        style={{ color: "#f2d895" }}
+                      >
+                        Voir le designer →
+                      </span>
                     </div>
                   </div>
                 </Link>
@@ -301,7 +306,7 @@ export default function DesignersPage() {
                 {isLoadingMore && (
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="text-gray-600">Chargement...</span>
+                    <span className="text-gray-600 font-serif">Chargement...</span>
                   </div>
                 )}
               </div>
@@ -309,7 +314,7 @@ export default function DesignersPage() {
 
             {!hasMore && displayedDesigners.length > 0 && (
               <div className="text-center py-8 text-gray-500">
-                <p>Tous les designers ont été chargés</p>
+                <p className="font-serif">Tous les designers ont été chargés</p>
               </div>
             )}
           </>

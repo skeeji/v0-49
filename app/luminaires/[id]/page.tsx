@@ -50,7 +50,10 @@ export default function LuminaireDetailPage() {
             name: String(result.data["Nom luminaire"] || result.data.nom || ""),
             filename: String(result.data["Nom du fichier"] || result.data.filename || ""),
             description: String(result.data["Description"] || result.data.description || ""),
-            dimensions: String(result.data["Dimensions"] || result.data.dimensions || ""),
+            dimensions:
+              result.data["Dimensions"] && String(result.data["Dimensions"]) !== "[object Object]"
+                ? String(result.data["Dimensions"])
+                : "",
             materials: String(result.data["Matériaux"] || result.data.materiaux || ""),
             estimation: String(result.data["Estimation"] || result.data.estimation || ""),
           }
@@ -230,85 +233,51 @@ export default function LuminaireDetailPage() {
       addField("Matériaux", luminaire.materials)
       addField("Estimation", luminaire.estimation)
 
-      // Ajouter l'image si disponible
+      // Ajouter l'image si disponible - Version simplifiée
       if (luminaire.image) {
         try {
-          // Utiliser fetch pour récupérer l'image
-          const imageResponse = await fetch(luminaire.image)
-          if (imageResponse.ok) {
-            const imageBlob = await imageResponse.blob()
+          // Créer un élément image temporaire
+          const tempImg = document.createElement("img")
+          tempImg.crossOrigin = "anonymous"
 
-            // Créer une URL temporaire pour le blob
-            const imageUrl = URL.createObjectURL(imageBlob)
+          // Promesse pour charger l'image
+          await new Promise<void>((resolve) => {
+            tempImg.onload = () => {
+              try {
+                // Créer un canvas
+                const canvas = document.createElement("canvas")
+                const ctx = canvas.getContext("2d")
 
-            // Créer l'élément image
-            const img = new Image()
+                if (ctx) {
+                  // Définir la taille du canvas
+                  canvas.width = 100
+                  canvas.height = 100
 
-            // Promesse pour attendre le chargement de l'image
-            await new Promise<void>((resolve, reject) => {
-              img.onload = () => {
-                try {
-                  // Créer un canvas pour redimensionner l'image
-                  const canvas = document.createElement("canvas")
-                  const ctx = canvas.getContext("2d")
-
-                  if (!ctx) {
-                    resolve()
-                    return
-                  }
-
-                  // Calculer les dimensions pour maintenir le ratio
-                  const maxWidth = 120
-                  const maxHeight = 120
-                  let { width, height } = img
-
-                  if (width > height) {
-                    if (width > maxWidth) {
-                      height = (height * maxWidth) / width
-                      width = maxWidth
-                    }
-                  } else {
-                    if (height > maxHeight) {
-                      width = (width * maxHeight) / height
-                      height = maxHeight
-                    }
-                  }
-
-                  canvas.width = width
-                  canvas.height = height
-
-                  // Dessiner l'image redimensionnée
-                  ctx.drawImage(img, 0, 0, width, height)
+                  // Dessiner l'image
+                  ctx.drawImage(tempImg, 0, 0, 100, 100)
 
                   // Convertir en base64
-                  const imgData = canvas.toDataURL("image/jpeg", 0.8)
+                  const dataURL = canvas.toDataURL("image/jpeg", 0.7)
 
                   // Ajouter au PDF
-                  pdf.addImage(imgData, "JPEG", 20, yPos + 10, width, height)
-
-                  // Nettoyer l'URL temporaire
-                  URL.revokeObjectURL(imageUrl)
-
-                  resolve()
-                } catch (error) {
-                  console.error("❌ Erreur traitement image:", error)
-                  URL.revokeObjectURL(imageUrl)
-                  resolve()
+                  pdf.addImage(dataURL, "JPEG", 20, yPos + 10, 100, 100)
                 }
+              } catch (error) {
+                console.error("❌ Erreur traitement image PDF:", error)
               }
+              resolve()
+            }
 
-              img.onerror = () => {
-                console.error("❌ Erreur chargement image pour PDF")
-                URL.revokeObjectURL(imageUrl)
-                resolve()
-              }
+            tempImg.onerror = () => {
+              console.error("❌ Erreur chargement image PDF")
+              resolve()
+            }
 
-              // Charger l'image
-              img.src = imageUrl
-            })
-          }
+            // Charger l'image
+            tempImg.src = luminaire.image
+          })
         } catch (error) {
-          console.error("❌ Erreur récupération image:", error)
+          console.error("❌ Erreur ajout image PDF:", error)
         }
       }
 

@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { GalleryGrid } from "@/components/GalleryGrid"
+import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
 
 export default function DesignerDetailPage() {
@@ -16,6 +17,9 @@ export default function DesignerDetailPage() {
   const [description, setDescription] = useState("")
   const [collaboration, setCollaboration] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const { userData } = useAuth()
+
+  const canEdit = userData?.role === "admin"
 
   useEffect(() => {
     if (!params.slug) return
@@ -77,8 +81,10 @@ export default function DesignerDetailPage() {
     fetchDesignerData()
   }, [params.slug])
 
-  // Fonctions pour mettre à jour les descriptions
+  // Fonctions pour mettre à jour les descriptions (seulement pour admin)
   const updateDescription = (newDescription: string) => {
+    if (!canEdit) return
+
     setDescription(newDescription)
     if (designerLuminaires.length > 0) {
       const fullDesignerField = designerLuminaires[0].artist
@@ -89,6 +95,8 @@ export default function DesignerDetailPage() {
   }
 
   const updateCollaboration = (newCollaboration: string) => {
+    if (!canEdit) return
+
     setCollaboration(newCollaboration)
     if (designerLuminaires.length > 0) {
       const fullDesignerField = designerLuminaires[0].artist
@@ -99,17 +107,18 @@ export default function DesignerDetailPage() {
   }
 
   const updateLuminaire = (id: string, updates: any) => {
+    if (!canEdit) return
     setDesignerLuminaires((prev) => prev.map((lum) => (lum.id === id ? { ...lum, ...updates } : lum)))
   }
 
   if (isLoading) {
-    return <div className="text-center py-8">Chargement...</div>
+    return <div className="text-center py-8 font-serif">Chargement...</div>
   }
 
   if (!designer) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
-        <p>Designer non trouvé.</p>
+        <p className="font-serif">Designer non trouvé.</p>
         <Link href="/designers">
           <Button className="mt-4">Retour</Button>
         </Link>
@@ -122,12 +131,20 @@ export default function DesignerDetailPage() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <Link href="/designers">
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+            <Button variant="outline" className="flex items-center gap-2 bg-transparent font-serif">
               <ArrowLeft className="w-4 h-4" />
               Retour aux designers
             </Button>
           </Link>
         </div>
+
+        {!canEdit && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
+            <p className="font-serif">
+              Mode lecture seule. Seuls les administrateurs peuvent modifier les informations.
+            </p>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl p-8 shadow-lg mb-8">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
@@ -151,25 +168,25 @@ export default function DesignerDetailPage() {
                 ) : null}
                 <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
                   <div className="text-6xl text-gray-400 mb-2">👤</div>
-                  <span className="text-sm text-gray-500">Image non disponible</span>
+                  <span className="text-sm text-gray-500 font-serif">Image non disponible</span>
                 </div>
               </div>
             </div>
 
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-4xl font-serif text-gray-900 mb-4">{designer.nom}</h1>
-              <p className="text-lg text-gray-600 mb-6">
+              <p className="text-lg text-gray-600 mb-6 font-serif">
                 {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
               </p>
 
               <div className="bg-orange-50 rounded-lg p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Spécialité</h3>
-                <EditableField value={description} onSave={updateDescription} multiline />
+                <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Spécialité</h3>
+                <EditableField value={description} onSave={updateDescription} multiline disabled={!canEdit} />
               </div>
 
               <div className="bg-orange-50 rounded-lg p-4 mt-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Collaboration / Œuvre</h3>
-                <EditableField value={collaboration} onSave={updateCollaboration} multiline />
+                <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Collaboration / Œuvre</h3>
+                <EditableField value={collaboration} onSave={updateCollaboration} multiline disabled={!canEdit} />
               </div>
             </div>
           </div>
@@ -181,7 +198,7 @@ export default function DesignerDetailPage() {
             <GalleryGrid items={designerLuminaires} viewMode="grid" onItemUpdate={updateLuminaire} />
           ) : (
             <div className="text-center py-12">
-              <p>Aucun luminaire trouvé.</p>
+              <p className="font-serif">Aucun luminaire trouvé.</p>
             </div>
           )}
         </div>
