@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -14,6 +13,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface DeleteLuminaireButtonProps {
   luminaireId: string
@@ -31,15 +32,17 @@ export function DeleteLuminaireButton({ luminaireId, luminaireName, onDelete }: 
         method: "DELETE",
       })
 
-      const result = await response.json()
+      const data = await response.json()
 
-      if (result.success) {
+      if (data.success) {
+        toast.success("Luminaire supprimé avec succès")
         onDelete()
       } else {
-        console.error("❌ Erreur lors de la suppression:", result.error)
+        throw new Error(data.error || "Erreur lors de la suppression")
       }
-    } catch (error) {
-      console.error("❌ Erreur lors de la suppression:", error)
+    } catch (error: any) {
+      console.error("Erreur lors de la suppression:", error)
+      toast.error(error.message || "Erreur lors de la suppression")
     } finally {
       setIsDeleting(false)
     }
@@ -48,22 +51,22 @@ export function DeleteLuminaireButton({ luminaireId, luminaireName, onDelete }: 
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm" className="gap-2">
-          <Trash2 className="w-4 h-4" />
-          Supprimer
+        <Button variant="destructive" size="sm" disabled={isDeleting}>
+          <Trash2 className="w-4 h-4 mr-2" />
+          {isDeleting ? "Suppression..." : "Supprimer"}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Supprimer le luminaire</AlertDialogTitle>
+          <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
           <AlertDialogDescription>
             Êtes-vous sûr de vouloir supprimer le luminaire "{luminaireName}" ? Cette action est irréversible.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Annuler</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
-            {isDeleting ? "Suppression..." : "Supprimer"}
+          <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+            Supprimer définitivement
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
