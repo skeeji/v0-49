@@ -58,8 +58,8 @@ export default function LuminaireDetailPage() {
           setLuminaire(formattedLuminaire)
           console.log("✅ Luminaire formaté:", formattedLuminaire)
 
-          // Charger les luminaires similaires (6 images)
-          const allLuminairesResponse = await fetch("/api/luminaires?limit=200")
+          // Charger TOUS les luminaires pour trouver les 6 plus proches
+          const allLuminairesResponse = await fetch("/api/luminaires?limit=9999")
           const allLuminairesData = await allLuminairesResponse.json()
 
           if (allLuminairesData.success) {
@@ -86,19 +86,40 @@ export default function LuminaireDetailPage() {
   const findSimilarLuminaires = (current: any, all: any[]) => {
     const currentYear = Number.parseInt(current.year) || 0
 
-    return all
+    // Filtrer et scorer tous les luminaires
+    const scored = all
       .filter((item) => String(item._id) !== String(current._id))
       .map((item) => {
         let score = 0
 
         const itemArtist = String(item["Artiste / Dates"] || item.designer || "")
-        if (itemArtist && current.artist && itemArtist === current.artist) score += 3
-
         const itemSpecialty = String(item["Spécialité"] || item.periode || "")
-        if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 2
-
         const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
-        if (currentYear > 0 && itemYear > 0 && Math.abs(currentYear - itemYear) <= 10) score += 1
+
+        // Score par artiste (poids le plus élevé)
+        if (itemArtist && current.artist && itemArtist === current.artist) score += 5
+
+        // Score par spécialité
+        if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 3
+
+        // Score par proximité d'année
+        if (currentYear > 0 && itemYear > 0) {
+          const yearDiff = Math.abs(currentYear - itemYear)
+          if (yearDiff <= 5) score += 3
+          else if (yearDiff <= 10) score += 2
+          else if (yearDiff <= 20) score += 1
+        }
+
+        // Score par nom similaire (mots-clés communs)
+        if (current.name && item["Nom luminaire"]) {
+          const currentWords = current.name.toLowerCase().split(/\s+/)
+          const itemWords = String(item["Nom luminaire"]).toLowerCase().split(/\s+/)
+          const commonWords = currentWords.filter(
+            (word) =>
+              word.length > 3 && itemWords.some((itemWord) => itemWord.includes(word) || word.includes(itemWord)),
+          )
+          score += commonWords.length
+        }
 
         return {
           ...item,
@@ -110,9 +131,24 @@ export default function LuminaireDetailPage() {
           similarityScore: score,
         }
       })
+
+    // Trier par score décroissant et prendre les 6 premiers
+    const topSimilar = scored
       .filter((item) => item.similarityScore > 0)
       .sort((a, b) => b.similarityScore - a.similarityScore)
       .slice(0, 6)
+
+    // Si moins de 6, compléter avec des luminaires aléatoires
+    if (topSimilar.length < 6) {
+      const remaining = scored
+        .filter((item) => item.similarityScore === 0)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 6 - topSimilar.length)
+
+      return [...topSimilar, ...remaining]
+    }
+
+    return topSimilar
   }
 
   const handleUpdate = async (field: string, value: string) => {
@@ -197,53 +233,82 @@ export default function LuminaireDetailPage() {
       // Ajouter l'image si disponible
       if (luminaire.image) {
         try {
-          // Créer une nouvelle image
-          const img = new Image()
-          img.crossOrigin = "anonymous"
+          // Utiliser fetch pour récupérer l'image
+          const imageResponse = await fetch(luminaire.image)
+          if (imageResponse.ok) {
+            const imageBlob = await imageResponse.blob()
 
-          // Attendre que l'image soit chargée
-          await new Promise((resolve, reject) => {
-            img.onload = () => {
-              try {
-                // Créer un canvas pour dessiner l'image
-                const canvas = document.createElement("canvas")
-                const ctx = canvas.getContext("2d")
+            // Créer une URL temporaire pour le blob
+            const imageUrl = URL.createObjectURL(imageBlob)
 
-                if (!ctx) {
-                  resolve(null)
-                  return
+            // Créer l'élément image
+            const img = new Image()
+
+            // Promesse pour attendre le chargement de l'image
+            await new Promise<void>((resolve, reject) => {
+              img.onload = () => {
+                try {
+                  // Créer un canvas pour redimensionner l'image
+                  const canvas = document.createElement("canvas")
+                  const ctx = canvas.getContext("2d")
+
+                  if (!ctx) {
+                    resolve()
+                    return
+                  }
+
+                  // Calculer les dimensions pour maintenir le ratio
+                  const maxWidth = 120
+                  const maxHeight = 120
+                  let { width, height } = img
+
+                  if (width > height) {
+                    if (width > maxWidth) {
+                      height = (height * maxWidth) / width
+                      width = maxWidth
+                    }
+                  } else {
+                    if (height > maxHeight) {
+                      width = (width * maxHeight) / height
+                      height = maxHeight
+                    }
+                  }
+
+                  canvas.width = width
+                  canvas.height = height
+
+                  // Dessiner l'image redimensionnée
+                  ctx.drawImage(img, 0, 0, width, height)
+
+                  // Convertir en base64
+                  const imgData = canvas.toDataURL("image/jpeg", 0.8)
+
+                  // Ajouter au PDF
+                  pdf.addImage(imgData, "JPEG", 20, yPos + 10, width, height)
+
+                  // Nettoyer l'URL temporaire
+                  URL.revokeObjectURL(imageUrl)
+
+                  resolve()
+                } catch (error) {
+                  console.error("❌ Erreur traitement image:", error)
+                  URL.revokeObjectURL(imageUrl)
+                  resolve()
                 }
-
-                // Définir la taille du canvas
-                canvas.width = 150
-                canvas.height = 150
-
-                // Dessiner l'image sur le canvas
-                ctx.drawImage(img, 0, 0, 150, 150)
-
-                // Convertir en base64
-                const imgData = canvas.toDataURL("image/jpeg", 0.8)
-
-                // Ajouter l'image au PDF
-                pdf.addImage(imgData, "JPEG", 20, yPos + 10, 150, 150)
-
-                resolve(null)
-              } catch (error) {
-                console.error("❌ Erreur traitement canvas:", error)
-                resolve(null)
               }
-            }
 
-            img.onerror = (error) => {
-              console.error("❌ Erreur chargement image:", error)
-              resolve(null)
-            }
+              img.onerror = () => {
+                console.error("❌ Erreur chargement image pour PDF")
+                URL.revokeObjectURL(imageUrl)
+                resolve()
+              }
 
-            // Charger l'image
-            img.src = luminaire.image
-          })
+              // Charger l'image
+              img.src = imageUrl
+            })
+          }
         } catch (error) {
-          console.error("❌ Erreur ajout image PDF:", error)
+          console.error("❌ Erreur récupération image:", error)
         }
       }
 
