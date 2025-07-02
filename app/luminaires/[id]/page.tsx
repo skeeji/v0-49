@@ -172,13 +172,13 @@ export default function LuminairePage() {
   const images = luminaire.images || []
   const nom = luminaire.nom || luminaire["Nom de l'objet"] || "Sans nom"
   const designer = luminaire.designer || luminaire["Artiste / Dates"] || "Designer inconnu"
-  const annee = luminaire.annee || luminaire.year || luminaire["Année"]
-  const description = luminaire.description || luminaire["Description / Commentaire"]
-  const dimensions = luminaire.dimensions || luminaire["Dimensions (H x L x P en cm)"]
-  const materiaux = luminaire.materiaux || luminaire["Matériaux"]
-  const couleur = luminaire.couleur || luminaire["Couleur dominante"]
-  const style = luminaire.style || luminaire["Style / Mouvement"]
-  const prix = luminaire.prix || luminaire["Prix (estimation en €)"]
+  const annee = luminaire.annee || luminaire.year || luminaire["Année"] || null
+  const description = luminaire.description || luminaire["Description / Commentaire"] || null
+  const dimensions = luminaire.dimensions || luminaire["Dimensions (H x L x P en cm)"] || null
+  const materiaux = luminaire.materiaux || luminaire["Matériaux"] || null
+  const couleur = luminaire.couleur || luminaire["Couleur dominante"] || null
+  const style = luminaire.style || luminaire["Style / Mouvement"] || null
+  const prix = luminaire.prix || luminaire["Prix (estimation en €)"] || null
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -293,7 +293,7 @@ export default function LuminairePage() {
 
             {annee && (
               <Badge variant="secondary" className="mb-4">
-                {String(annee)}
+                {annee.toString()}
               </Badge>
             )}
           </div>

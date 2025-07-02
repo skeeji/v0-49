@@ -1,99 +1,85 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Menu, X, Home, Upload, Lightbulb, Users, Clock } from "lucide-react"
+import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/AuthContext"
 
-const navigation = [
-  { name: "Accueil", href: "/", icon: Home },
-  { name: "Import", href: "/import", icon: Upload },
-  { name: "Luminaires", href: "/luminaires", icon: Lightbulb },
-  { name: "Designers", href: "/designers", icon: Users },
-  { name: "Chronologie", href: "/chronologie", icon: Clock },
-]
+interface DrawerNavProps {
+  isOpen: boolean
+  onClose: () => void
+  navItems: Array<{ href: string; label: string }>
+}
 
-export function DrawerNav() {
-  const [isOpen, setIsOpen] = useState(false)
-  const pathname = usePathname()
+export function DrawerNav({ isOpen, onClose, navItems }: DrawerNavProps) {
+  const { user, signInWithGoogle, logout } = useAuth()
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "unset"
+    }
+
+    return () => {
+      document.body.style.overflow = "unset"
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
 
   return (
     <>
-      {/* Bouton menu mobile */}
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="fixed top-4 left-4 z-50 lg:hidden bg-white/90 backdrop-blur-sm text-dark hover:bg-white"
-        size="sm"
-      >
-        <Menu className="w-5 h-5" />
-      </Button>
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={onClose} />
 
-      {/* Navigation desktop */}
-      <nav className="hidden lg:block fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-40">
-        <div className="p-6">
-          <h2 className="text-2xl font-playfair text-dark mb-8">Galerie Luminaires</h2>
-          <ul className="space-y-2">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
-              return (
-                <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      isActive ? "bg-orange text-white" : "text-dark hover:bg-cream"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {item.name}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
+      {/* Drawer */}
+      <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg z-50 transform transition-transform duration-300">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold">Menu</h2>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
         </div>
-      </nav>
 
-      {/* Drawer mobile */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-playfair text-dark">Galerie Luminaires</h2>
-                <Button onClick={() => setIsOpen(false)} variant="ghost" size="sm">
-                  <X className="w-5 h-5" />
+        <div className="p-4">
+          <nav className="space-y-4">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block py-2 px-4 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={onClose}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="mt-8 pt-4 border-t">
+            {user ? (
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600">
+                  <div className="font-medium">{user.displayName || "Utilisateur"}</div>
+                  <div className="text-xs">{user.email}</div>
+                </div>
+                <Button onClick={logout} variant="outline" className="w-full bg-transparent">
+                  Se déconnecter
                 </Button>
               </div>
-              <ul className="space-y-2">
-                {navigation.map((item) => {
-                  const Icon = item.icon
-                  const isActive = pathname === item.href
-                  return (
-                    <li key={item.name}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                          isActive ? "bg-orange text-white" : "text-dark hover:bg-cream"
-                        }`}
-                      >
-                        <Icon className="w-5 h-5" />
-                        {item.name}
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
+            ) : (
+              <Button
+                onClick={signInWithGoogle}
+                className="w-full text-white font-medium"
+                style={{ backgroundColor: "#f2d895" }}
+              >
+                Connexion
+              </Button>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Contenu principal avec marge sur desktop */}
-      <div className="lg:ml-64">{/* Le contenu des pages sera rendu ici */}</div>
+      </div>
     </>
   )
 }

@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext"
 
 export function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const [logo, setLogo] = useState("")
+  const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
   const { user, userData, signInWithGoogle } = useAuth()
   const pathname = usePathname()
 
@@ -20,18 +20,20 @@ export function Header() {
       try {
         const response = await fetch("/api/logo")
         if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.logo && data.logo._id) {
-            setLogo(`/api/images/${data.logo._id}`)
+          const contentType = response.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const data = await response.json()
+            if (data.success && data.logo && data.logo._id) {
+              setLogoUrl(`/api/images/${data.logo._id}`)
+            }
           } else {
-            setLogo("/placeholder-logo.svg")
+            // L'API retourne directement l'image
+            setLogoUrl("/api/logo")
           }
-        } else {
-          setLogo("/placeholder-logo.svg")
         }
       } catch (error) {
         console.error("Erreur lors du chargement du logo:", error)
-        setLogo("/placeholder-logo.svg")
+        setLogoUrl("/placeholder-logo.svg")
       }
     }
 
@@ -61,7 +63,7 @@ export function Header() {
             <Link href="/" className="flex items-center">
               <div className="w-16 h-16 relative">
                 <Image
-                  src={logo || "/placeholder-logo.svg"}
+                  src={logoUrl || "/placeholder.svg"}
                   alt="Logo"
                   fill
                   className="object-contain"
