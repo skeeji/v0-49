@@ -39,7 +39,6 @@ export function Header() {
   }, [])
 
   const navItems = [
-    { href: "/", label: "Accueil" },
     { href: "/luminaires", label: "Luminaires" },
     { href: "/designers", label: "Designers" },
     { href: "/chronologie", label: "Chronologie" },
@@ -76,13 +75,15 @@ export function Header() {
             {/* Navigation desktop */}
             <nav className="hidden md:flex items-center space-x-8">
               {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-gray-700 hover:text-gray-900 font-medium transition-colors font-serif"
-                >
-                  {item.label}
-                </Link>
+                <div key={item.href} className="relative">
+                  <Link
+                    href={item.href}
+                    className="text-gray-700 hover:text-gray-900 font-medium transition-colors font-serif py-4 block"
+                  >
+                    {item.label}
+                  </Link>
+                  <div className="absolute bottom-0 left-0 right-0 h-px" style={{ backgroundColor: "#f2d895" }}></div>
+                </div>
               ))}
             </nav>
 
