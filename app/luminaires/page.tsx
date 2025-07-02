@@ -62,7 +62,8 @@ export default function LuminairesPage() {
         const params = new URLSearchParams({
           page: page.toString(),
           limit: "50",
-          search: searchTerm, // La recherche se fait sur TOUS les luminaires
+          // La recherche se fait sur TOUS les luminaires, pas de filtre par année
+          search: searchTerm,
           designer: selectedDesigner,
           sortField,
           sortDirection,

@@ -193,7 +193,12 @@ export default function HomePage() {
       return
     }
 
-    // Tous les utilisateurs connectés peuvent faire des recherches
+    // Incrémenter le compteur de recherches pour les utilisateurs "free"
+    if (userData?.role === "free") {
+      const canProceed = await incrementSearchCount()
+      if (!canProceed) return
+    }
+
     setIsSearching(true)
     setSearchResults([])
 
@@ -609,6 +614,16 @@ export default function HomePage() {
               Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
             </p>
           </div>
+
+          {/* Message pour les utilisateurs "free" */}
+          {userData?.role === "free" && (
+            <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+              <p className="flex items-center text-sm text-amber-800">
+                <span className="mr-2">ℹ️</span>
+                <span>Compte gratuit : {3 - (userData.searchCount || 0)}/3 recherches restantes aujourd'hui</span>
+              </p>
+            </div>
+          )}
 
           {/* Affichage de l'image après recherche */}
           {capturedImage && !isSearching && searchResults.length > 0 && (
