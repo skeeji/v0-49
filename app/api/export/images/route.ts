@@ -6,68 +6,41 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET() {
   try {
-    console.log("📦 Début de l'export des images...")
+    console.log("📦 Début de l'export des images depuis le bucket 'uploads'...")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Essayer directement GridFS avec le bucket "uploads"
+    // Utiliser le bucket GridFS "uploads"
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    let files: any[] = []
-    try {
-      files = await bucket.find({}).toArray()
-      console.log(`📊 ${files.length} fichiers trouvés dans GridFS bucket "uploads"`)
-
-      // Afficher les détails des premiers fichiers
-      files.slice(0, 5).forEach((file, index) => {
-        console.log(`Fichier ${index + 1}:`, {
-          filename: file.filename,
-          length: file.length,
-          contentType: file.contentType,
-          uploadDate: file.uploadDate,
-        })
-      })
-    } catch (gridfsError) {
-      console.error("❌ Erreur GridFS:", gridfsError)
-    }
+    // Récupérer tous les fichiers du bucket
+    const files = await bucket.find({}).toArray()
+    console.log(`📊 ${files.length} fichiers trouvés dans le bucket "uploads"`)
 
     if (files.length === 0) {
-      // Essayer avec d'autres noms de buckets
-      const bucketNames = ["fs", "images", "files"]
-
-      for (const bucketName of bucketNames) {
-        try {
-          const altBucket = new GridFSBucket(db, { bucketName })
-          const altFiles = await altBucket.find({}).toArray()
-          if (altFiles.length > 0) {
-            files = altFiles
-            console.log(`📊 ${files.length} fichiers trouvés dans le bucket "${bucketName}"`)
-            break
-          }
-        } catch (error) {
-          console.log(`❌ Bucket "${bucketName}" non accessible`)
-        }
-      }
+      console.log("❌ Aucun fichier trouvé dans le bucket uploads")
+      return NextResponse.json({ error: "Aucune image trouvée dans le bucket uploads" }, { status: 404 })
     }
 
-    if (files.length === 0) {
-      console.log("❌ Aucun fichier trouvé dans GridFS")
-      return NextResponse.json({ error: "Aucune image trouvée dans GridFS" }, { status: 404 })
+    // Filtrer pour ne garder que les fichiers .jpg (insensible à la casse)
+    const jpgFiles = files.filter((file) => {
+      const filename = file.filename || ""
+      return filename.toLowerCase().endsWith(".jpg")
+    })
+
+    console.log(`📊 ${jpgFiles.length} fichiers .jpg trouvés sur ${files.length} fichiers totaux`)
+
+    if (jpgFiles.length === 0) {
+      return NextResponse.json({ error: "Aucun fichier .jpg trouvé dans le bucket uploads" }, { status: 404 })
     }
 
-    // Traiter tous les fichiers trouvés
+    // Traiter tous les fichiers .jpg
     const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
 
-    for (const file of files) {
+    for (const file of jpgFiles) {
       try {
         console.log(`📁 Traitement du fichier: ${file.filename} (${file.length} bytes)`)
-
-        // Vérifier que c'est bien une image
-        if (file.contentType && !file.contentType.startsWith("image/")) {
-          console.log(`⚠️ Fichier ignoré (pas une image): ${file.filename} - ${file.contentType}`)
-          continue
-        }
 
         const downloadStream = bucket.openDownloadStream(file._id)
         const chunks: Buffer[] = []
@@ -84,13 +57,6 @@ export async function GET() {
           continue
         }
 
-        // Vérifier que c'est bien une image en regardant les premiers bytes
-        const isValidImage = isImageBuffer(buffer)
-        if (!isValidImage) {
-          console.log(`⚠️ Fichier ignoré (pas une image valide): ${file.filename}`)
-          continue
-        }
-
         const safeFilename = file.filename || `image_${file._id}.jpg`
         const crc32 = calculateCRC32(buffer)
 
@@ -100,18 +66,22 @@ export async function GET() {
           crc32: crc32,
         })
 
-        console.log(`✅ Image valide ajoutée: ${safeFilename} (${buffer.length} bytes)`)
+        console.log(`✅ Fichier .jpg ajouté: ${safeFilename} (${buffer.length} bytes)`)
       } catch (fileError) {
         console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
       }
     }
 
     if (fileData.length === 0) {
-      return NextResponse.json({ error: "Aucune image valide trouvée" }, { status: 404 })
+      return NextResponse.json({ error: "Aucun fichier .jpg valide trouvé" }, { status: 404 })
     }
 
     // Créer le ZIP
     const zipBuffer = createZipBuffer(fileData)
+
+    // Générer le nom du fichier avec la date actuelle
+    const today = new Date().toISOString().split("T")[0] // Format AAAA-MM-JJ
+    const filename = `images_export_${today}.zip`
 
     console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images`)
 
@@ -119,7 +89,7 @@ export async function GET() {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="images_export_${new Date().toISOString().split("T")[0]}.zip"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
         "Content-Length": zipBuffer.length.toString(),
         "Cache-Control": "no-cache",
       },
@@ -134,31 +104,6 @@ export async function GET() {
       { status: 500 },
     )
   }
-}
-
-// Fonction pour vérifier si un buffer contient une image valide
-function isImageBuffer(buffer: Buffer): boolean {
-  if (buffer.length < 4) return false
-
-  // Vérifier les signatures de fichiers image
-  const header = buffer.subarray(0, 4)
-
-  // JPEG
-  if (header[0] === 0xff && header[1] === 0xd8) return true
-
-  // PNG
-  if (header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4e && header[3] === 0x47) return true
-
-  // GIF
-  if (header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46) return true
-
-  // WebP
-  if (buffer.length >= 12) {
-    const webpHeader = buffer.subarray(8, 12)
-    if (header.toString() === "RIFF" && webpHeader.toString() === "WEBP") return true
-  }
-
-  return false
 }
 
 function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: number }>): Buffer {
@@ -176,7 +121,7 @@ function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: nu
     localHeader.writeUInt16LE(0, 6) // General purpose bit flag
     localHeader.writeUInt16LE(0, 8) // Compression method (stored)
 
-    // Date et heure actuelles
+    // Date et heure actuelles en format DOS
     const now = new Date()
     const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
     const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
