@@ -62,7 +62,7 @@ export default function LuminairesPage() {
         const params = new URLSearchParams({
           page: page.toString(),
           limit: "50",
-          search: searchTerm, // La recherche se fait sur TOUS les luminaires
+          search: searchTerm,
           designer: selectedDesigner,
           sortField,
           sortDirection,
@@ -118,7 +118,7 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, ...(sliderModified ? [yearRange] : [])])
+  }, [loadLuminaires])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -226,10 +226,10 @@ export default function LuminairesPage() {
 
   // Initialiser la plage d'années avec les vraies valeurs SANS déclencher de rechargement
   useEffect(() => {
-    if (allLuminaires.length > 0 && yearRange[0] === 1165 && yearRange[1] === 2025 && !sliderModified) {
+    if (allLuminaires.length > 0 && !sliderModified) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
-  }, [yearBounds, allLuminaires.length, yearRange, sliderModified])
+  }, [yearBounds, allLuminaires.length, sliderModified])
 
   // Fonction pour gérer le changement manuel du slider par l'utilisateur
   const handleYearRangeChange = (newRange: number[]) => {

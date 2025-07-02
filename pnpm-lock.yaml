@@ -132,7 +132,7 @@ importers:
         specifier: latest
         version: 1.4.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       jspdf:
-        specifier: latest
+        specifier: ^3.0.1
         version: 3.0.1
       jszip:
         specifier: latest
