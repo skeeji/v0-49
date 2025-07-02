@@ -366,9 +366,9 @@ export default function LuminaireDetailPage() {
             )}
           </div>
 
-          {/* Informations avec scroll - même hauteur que l'image */}
+          {/* Informations avec scroll - même hauteur que l'image - Fix mobile */}
           <div className="aspect-square bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="h-full overflow-y-auto p-6">
+            <div className="h-full overflow-y-auto p-6" style={{ WebkitOverflowScrolling: "touch" }}>
               <div className="space-y-6 font-serif">
                 <EditableField
                   value={String(luminaire.name || "")}

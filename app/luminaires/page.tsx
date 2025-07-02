@@ -24,7 +24,7 @@ export default function LuminairesPage() {
   // États pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
-  const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
+  const [yearRange, setYearRange] = useState<number[]>([1165, 2025])
   const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -210,14 +210,14 @@ export default function LuminairesPage() {
 
   // Options pour les filtres (calculées à partir de TOUTES les données)
   const filterOptions = useMemo(() => {
-    const designers = [...new Set(allLuminaires.map((l) => l.designer).filter(Boolean))].sort()
+    const designers = [...new Set(allLuminaires.map((l) => l["Artiste / Dates"] || l.designer).filter(Boolean))].sort()
     return { designers }
   }, [allLuminaires])
 
   // Calculer la plage d'années disponibles (à partir de TOUTES les données)
   const yearBounds = useMemo(() => {
-    const years = allLuminaires.map((l) => l.annee || l.year).filter(Boolean)
-    if (years.length === 0) return { min: 1900, max: 2024 }
+    const years = allLuminaires.map((l) => l.annee || l.year || l["Année"]).filter(Boolean)
+    if (years.length === 0) return { min: 1165, max: 2025 }
     return {
       min: Math.min(...years),
       max: Math.max(...years),
@@ -226,7 +226,7 @@ export default function LuminairesPage() {
 
   // Initialiser la plage d'années avec les vraies valeurs SANS déclencher de rechargement
   useEffect(() => {
-    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024 && !sliderModified) {
+    if (allLuminaires.length > 0 && yearRange[0] === 1165 && yearRange[1] === 2025 && !sliderModified) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
   }, [yearBounds, allLuminaires.length, yearRange, sliderModified])
@@ -329,8 +329,8 @@ export default function LuminairesPage() {
           }}
           className="px-3 py-2 border border-gray-300 rounded-md text-sm"
         >
-          <option value="nom-asc">Nom A-Z</option>
-          <option value="nom-desc">Nom Z-A</option>
+          <option value="nom-asc">Nom luminaire A-Z</option>
+          <option value="nom-desc">Nom luminaire Z-A</option>
           <option value="designer-asc">Designer A-Z</option>
           <option value="designer-desc">Designer Z-A</option>
           <option value="annee-asc">Année croissante</option>
