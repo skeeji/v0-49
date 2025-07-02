@@ -21,7 +21,7 @@ export async function GET() {
     }
 
     // Créer un ZIP simple sans dépendances externes
-    const fileData: Array<{ name: string; data: Buffer }> = []
+    const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
 
     // Traiter chaque fichier
     for (const file of files) {
@@ -38,9 +38,13 @@ export async function GET() {
         const buffer = Buffer.concat(chunks)
         const safeFilename = file.filename || `image_${file._id}.jpg`
 
+        // Calculer le CRC32
+        const crc32 = calculateCRC32(buffer)
+
         fileData.push({
           name: safeFilename,
           data: buffer,
+          crc32: crc32,
         })
 
         console.log(`✅ Fichier traité: ${safeFilename} (${buffer.length} bytes)`)
@@ -58,7 +62,7 @@ export async function GET() {
     const centralDirectory: Buffer[] = []
     let offset = 0
 
-    fileData.forEach(({ name, data }) => {
+    fileData.forEach(({ name, data, crc32 }) => {
       // Local file header
       const nameBuffer = Buffer.from(name, "utf8")
       const localHeader = Buffer.alloc(30 + nameBuffer.length)
@@ -67,9 +71,15 @@ export async function GET() {
       localHeader.writeUInt16LE(20, 4) // Version needed to extract
       localHeader.writeUInt16LE(0, 6) // General purpose bit flag
       localHeader.writeUInt16LE(0, 8) // Compression method (stored)
-      localHeader.writeUInt16LE(0, 10) // Last mod file time
-      localHeader.writeUInt16LE(0, 12) // Last mod file date
-      localHeader.writeUInt32LE(0, 14) // CRC-32
+
+      // Date et heure actuelles
+      const now = new Date()
+      const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
+      const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
+
+      localHeader.writeUInt16LE(dosTime, 10) // Last mod file time
+      localHeader.writeUInt16LE(dosDate, 12) // Last mod file date
+      localHeader.writeUInt32LE(crc32, 14) // CRC-32
       localHeader.writeUInt32LE(data.length, 18) // Compressed size
       localHeader.writeUInt32LE(data.length, 22) // Uncompressed size
       localHeader.writeUInt16LE(nameBuffer.length, 26) // File name length
@@ -86,9 +96,9 @@ export async function GET() {
       centralEntry.writeUInt16LE(20, 6) // Version needed to extract
       centralEntry.writeUInt16LE(0, 8) // General purpose bit flag
       centralEntry.writeUInt16LE(0, 10) // Compression method
-      centralEntry.writeUInt16LE(0, 12) // Last mod file time
-      centralEntry.writeUInt16LE(0, 14) // Last mod file date
-      centralEntry.writeUInt32LE(0, 16) // CRC-32
+      centralEntry.writeUInt16LE(dosTime, 12) // Last mod file time
+      centralEntry.writeUInt16LE(dosDate, 14) // Last mod file date
+      centralEntry.writeUInt32LE(crc32, 16) // CRC-32
       centralEntry.writeUInt32LE(data.length, 20) // Compressed size
       centralEntry.writeUInt32LE(data.length, 24) // Uncompressed size
       centralEntry.writeUInt16LE(nameBuffer.length, 28) // File name length
@@ -127,6 +137,7 @@ export async function GET() {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="images_export_${new Date().toISOString().split("T")[0]}.zip"`,
         "Content-Length": zipBuffer.length.toString(),
+        "Cache-Control": "no-cache",
       },
     })
   } catch (error) {
@@ -139,4 +150,22 @@ export async function GET() {
       { status: 500 },
     )
   }
+}
+
+// Fonction pour calculer le CRC32
+function calculateCRC32(buffer: Buffer): number {
+  const crcTable: number[] = []
+  for (let i = 0; i < 256; i++) {
+    let crc = i
+    for (let j = 0; j < 8; j++) {
+      crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
+    }
+    crcTable[i] = crc
+  }
+
+  let crc = 0xffffffff
+  for (let i = 0; i < buffer.length; i++) {
+    crc = crcTable[(crc ^ buffer[i]) & 0xff] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xffffffff) >>> 0
 }
