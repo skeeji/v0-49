@@ -39,6 +39,7 @@ export function Header() {
   }, [])
 
   const navItems = [
+    { href: "/", label: "Accueil" },
     { href: "/luminaires", label: "Luminaires" },
     { href: "/designers", label: "Designers" },
     { href: "/chronologie", label: "Chronologie" },
@@ -50,12 +51,12 @@ export function Header() {
 
   return (
     <>
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 h-20">
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex items-center justify-between h-full">
             {/* Logo */}
             <Link href="/" className="flex items-center">
-              <div className="w-12 h-12 relative">
+              <div className="w-16 h-16 relative">
                 {logo ? (
                   <Image
                     src={logo || "/placeholder.svg"}
@@ -75,15 +76,13 @@ export function Header() {
             {/* Navigation desktop */}
             <nav className="hidden md:flex items-center space-x-8">
               {navItems.map((item) => (
-                <div key={item.href} className="relative">
-                  <Link
-                    href={item.href}
-                    className="text-gray-700 hover:text-gray-900 font-medium transition-colors font-serif py-4 block"
-                  >
-                    {item.label}
-                  </Link>
-                  <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-300"></div>
-                </div>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-gray-700 hover:text-gray-900 font-medium transition-colors font-serif"
+                >
+                  {item.label}
+                </Link>
               ))}
             </nav>
 
@@ -131,7 +130,7 @@ export function Header() {
               ) : (
                 <Button
                   onClick={signInWithGoogle}
-                  className="text-black font-medium px-6 py-2 rounded-lg transition-all duration-200 hover:shadow-lg"
+                  className="text-white font-medium px-6 py-2 rounded-lg transition-all duration-200 hover:shadow-lg"
                   style={{ backgroundColor: "#f2d895" }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}

@@ -5,96 +5,74 @@ import JSZip from "jszip"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📦 Export de toutes les images...")
+    console.log("📦 Début de l'export des images...")
 
     const { db } = await connectToDatabase()
     const bucket = new GridFSBucket(db, { bucketName: "images" })
 
-    // Récupérer tous les fichiers images
+    // Récupérer tous les fichiers
     const files = await bucket.find({}).toArray()
-    console.log(`📊 ${files.length} images trouvées dans GridFS`)
+    console.log(`📊 ${files.length} fichiers trouvés dans GridFS`)
 
     if (files.length === 0) {
-      return NextResponse.json({ success: false, error: "Aucune image trouvée" }, { status: 404 })
+      return NextResponse.json({ error: "Aucune image trouvée" }, { status: 404 })
     }
 
     // Créer un ZIP
     const zip = new JSZip()
-    let processedCount = 0
 
-    // Ajouter chaque image au ZIP
+    // Ajouter chaque fichier au ZIP
     for (const file of files) {
       try {
-        console.log(`📁 Traitement ${file.filename} (${processedCount + 1}/${files.length})`)
+        console.log(`📁 Traitement du fichier: ${file.filename}`)
 
         // Créer un stream pour lire le fichier depuis GridFS
         const downloadStream = bucket.openDownloadStream(file._id)
+
+        // Convertir le stream en buffer
         const chunks: Buffer[] = []
 
-        // Lire le fichier en chunks
-        await new Promise<void>((resolve, reject) => {
-          downloadStream.on("data", (chunk: Buffer) => {
+        await new Promise((resolve, reject) => {
+          downloadStream.on("data", (chunk) => {
             chunks.push(chunk)
           })
 
           downloadStream.on("end", () => {
-            resolve()
+            resolve(null)
           })
 
-          downloadStream.on("error", (error: Error) => {
-            console.error(`❌ Erreur lecture ${file.filename}:`, error)
+          downloadStream.on("error", (error) => {
             reject(error)
           })
         })
 
         const buffer = Buffer.concat(chunks)
 
-        // Nettoyer le nom de fichier pour éviter les problèmes
-        const safeFilename = file.filename.replace(/[^a-zA-Z0-9.-]/g, "_")
-
-        // Ajouter au ZIP
-        zip.file(safeFilename, buffer)
-        processedCount++
-
-        console.log(`✅ ${file.filename} ajouté (${buffer.length} bytes)`)
-      } catch (error) {
-        console.error(`❌ Erreur avec ${file.filename}:`, error)
-        // Continuer avec les autres fichiers
+        // Ajouter le fichier au ZIP
+        zip.file(file.filename, buffer)
+        console.log(`✅ Fichier ajouté au ZIP: ${file.filename} (${buffer.length} bytes)`)
+      } catch (fileError) {
+        console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
+        // Continuer avec les autres fichiers même si un échoue
       }
     }
 
-    console.log(`🗜️ Génération du ZIP avec ${processedCount} images...`)
-
     // Générer le ZIP
-    const zipBuffer = await zip.generateAsync({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-      compressionOptions: {
-        level: 6,
-      },
-    })
-
+    console.log("🗜️ Génération du fichier ZIP...")
+    const zipBuffer = await zip.generateAsync({ type: "nodebuffer" })
     console.log(`✅ ZIP généré: ${zipBuffer.length} bytes`)
 
-    // Retourner le ZIP avec les bons headers
+    // Retourner le ZIP
     return new NextResponse(zipBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="images_export_${new Date().toISOString().split("T")[0]}.zip"`,
         "Content-Length": zipBuffer.length.toString(),
-        "Cache-Control": "no-cache",
       },
     })
-  } catch (error: any) {
-    console.error("❌ Erreur export images:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erreur lors de l'export des images",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+  } catch (error) {
+    console.error("❌ Erreur lors de l'export des images:", error)
+    return NextResponse.json({ error: "Erreur lors de l'export des images" }, { status: 500 })
   }
 }
