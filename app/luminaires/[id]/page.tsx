@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
-import { ArrowLeft, Edit, Save, X } from "lucide-react"
+import { ArrowLeft, Edit, Save, X, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -46,6 +46,7 @@ export default function LuminairePage() {
   const router = useRouter()
   const { userData } = useAuth()
   const [luminaire, setLuminaire] = useState<Luminaire | null>(null)
+  const [similarLuminaires, setSimilarLuminaires] = useState<Luminaire[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -61,7 +62,6 @@ export default function LuminairePage() {
       try {
         setLoading(true)
         setError(null)
-
         const response = await fetch(`/api/luminaires/${params.id}`)
 
         if (!response.ok) {
@@ -73,9 +73,9 @@ export default function LuminairePage() {
         if (data.success && data.luminaire) {
           setLuminaire(data.luminaire)
           setEditedData(data.luminaire)
-        } else if (data.success && data.data) {
-          setLuminaire(data.data)
-          setEditedData(data.data)
+
+          // Charger les luminaires similaires
+          loadSimilarLuminaires(data.luminaire)
         } else {
           setError(data.error || "Luminaire non trouvé")
         }
@@ -91,6 +91,32 @@ export default function LuminairePage() {
       loadLuminaire()
     }
   }, [params.id])
+
+  const loadSimilarLuminaires = async (currentLuminaire: Luminaire) => {
+    try {
+      const designer = currentLuminaire.designer || currentLuminaire["Artiste / Dates"]
+      const style = currentLuminaire.style || currentLuminaire["Style / Mouvement"]
+
+      if (!designer && !style) return
+
+      const searchParams = new URLSearchParams()
+      if (designer) searchParams.append("designer", designer)
+      if (style) searchParams.append("style", style)
+      searchParams.append("limit", "4")
+
+      const response = await fetch(`/api/luminaires?${searchParams}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.luminaires) {
+          // Exclure le luminaire actuel et limiter à 3 résultats
+          const filtered = data.luminaires.filter((l: Luminaire) => l._id !== currentLuminaire._id).slice(0, 3)
+          setSimilarLuminaires(filtered)
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des luminaires similaires:", error)
+    }
+  }
 
   const handleSave = async () => {
     if (!luminaire) return
@@ -134,6 +160,24 @@ export default function LuminairePage() {
     setLightboxOpen(true)
   }
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: nom,
+          text: `Découvrez ce luminaire: ${nom} par ${designer}`,
+          url: window.location.href,
+        })
+      } catch (error) {
+        console.error("Erreur lors du partage:", error)
+      }
+    } else {
+      // Fallback: copier l'URL
+      navigator.clipboard.writeText(window.location.href)
+      toast.success("Lien copié dans le presse-papiers")
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -169,10 +213,9 @@ export default function LuminairePage() {
     )
   }
 
-  // Convertir toutes les valeurs en strings pour éviter l'erreur React #31
   const images = luminaire.images || []
-  const nom = String(luminaire.nom || luminaire["Nom de l'objet"] || "Sans nom")
-  const designer = String(luminaire.designer || luminaire["Artiste / Dates"] || "Designer inconnu")
+  const nom = luminaire.nom || luminaire["Nom de l'objet"] || "Sans nom"
+  const designer = luminaire.designer || luminaire["Artiste / Dates"] || "Designer inconnu"
   const annee = luminaire.annee || luminaire.year || luminaire["Année"]
   const description = luminaire.description || luminaire["Description / Commentaire"]
   const dimensions = luminaire.dimensions || luminaire["Dimensions (H x L x P en cm)"]
@@ -191,6 +234,10 @@ export default function LuminairePage() {
         </Button>
 
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleShare}>
+            <Share2 className="w-4 h-4" />
+          </Button>
+
           <FavoriteToggleButton luminaireId={luminaire._id} initialFavorite={luminaire.isFavorite} />
 
           {isAdmin && (
@@ -273,12 +320,12 @@ export default function LuminairePage() {
           )}
         </div>
 
-        {/* Informations */}
+        {/* Informations - Scrollable sur mobile */}
         <div className="space-y-6 max-h-screen overflow-y-auto lg:max-h-none lg:overflow-visible">
           <div>
             <EditableField
               label="Nom"
-              value={isEditing ? String(editedData.nom || editedData["Nom de l'objet"] || "") : nom}
+              value={isEditing ? editedData.nom || editedData["Nom de l'objet"] || "" : nom}
               isEditing={isEditing}
               onChange={(value) => setEditedData({ ...editedData, nom: value })}
               className="text-3xl font-serif text-gray-900 mb-2"
@@ -286,7 +333,7 @@ export default function LuminairePage() {
 
             <EditableField
               label="Designer"
-              value={isEditing ? String(editedData.designer || editedData["Artiste / Dates"] || "") : designer}
+              value={isEditing ? editedData.designer || editedData["Artiste / Dates"] || "" : designer}
               isEditing={isEditing}
               onChange={(value) => setEditedData({ ...editedData, designer: value })}
               className="text-xl text-gray-600 mb-4"
@@ -294,7 +341,7 @@ export default function LuminairePage() {
 
             {annee && (
               <Badge variant="secondary" className="mb-4">
-                {String(annee)}
+                {annee}
               </Badge>
             )}
           </div>
@@ -306,9 +353,7 @@ export default function LuminairePage() {
                 <EditableField
                   label="Description"
                   value={
-                    isEditing
-                      ? String(editedData.description || editedData["Description / Commentaire"] || "")
-                      : String(description)
+                    isEditing ? editedData.description || editedData["Description / Commentaire"] || "" : description
                   }
                   isEditing={isEditing}
                   onChange={(value) => setEditedData({ ...editedData, description: value })}
@@ -329,8 +374,8 @@ export default function LuminairePage() {
                       label="Dimensions"
                       value={
                         isEditing
-                          ? String(editedData.dimensions || editedData["Dimensions (H x L x P en cm)"] || "")
-                          : String(dimensions)
+                          ? editedData.dimensions || editedData["Dimensions (H x L x P en cm)"] || ""
+                          : dimensions
                       }
                       isEditing={isEditing}
                       onChange={(value) => setEditedData({ ...editedData, dimensions: value })}
@@ -344,9 +389,7 @@ export default function LuminairePage() {
                     <span className="font-medium text-gray-700">Matériaux:</span>
                     <EditableField
                       label="Matériaux"
-                      value={
-                        isEditing ? String(editedData.materiaux || editedData["Matériaux"] || "") : String(materiaux)
-                      }
+                      value={isEditing ? editedData.materiaux || editedData["Matériaux"] || "" : materiaux}
                       isEditing={isEditing}
                       onChange={(value) => setEditedData({ ...editedData, materiaux: value })}
                       className="ml-2"
@@ -359,11 +402,7 @@ export default function LuminairePage() {
                     <span className="font-medium text-gray-700">Couleur:</span>
                     <EditableField
                       label="Couleur"
-                      value={
-                        isEditing
-                          ? String(editedData.couleur || editedData["Couleur dominante"] || "")
-                          : String(couleur)
-                      }
+                      value={isEditing ? editedData.couleur || editedData["Couleur dominante"] || "" : couleur}
                       isEditing={isEditing}
                       onChange={(value) => setEditedData({ ...editedData, couleur: value })}
                       className="ml-2"
@@ -376,9 +415,7 @@ export default function LuminairePage() {
                     <span className="font-medium text-gray-700">Style:</span>
                     <EditableField
                       label="Style"
-                      value={
-                        isEditing ? String(editedData.style || editedData["Style / Mouvement"] || "") : String(style)
-                      }
+                      value={isEditing ? editedData.style || editedData["Style / Mouvement"] || "" : style}
                       isEditing={isEditing}
                       onChange={(value) => setEditedData({ ...editedData, style: value })}
                       className="ml-2"
@@ -406,6 +443,56 @@ export default function LuminairePage() {
           </Card>
         </div>
       </div>
+
+      {/* Luminaires similaires */}
+      {similarLuminaires.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-2xl font-serif font-bold mb-6">Luminaires similaires</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {similarLuminaires.map((similar) => {
+              const similarImages = similar.images || []
+              const similarNom = similar.nom || similar["Nom de l'objet"] || "Sans nom"
+              const similarDesigner = similar.designer || similar["Artiste / Dates"] || "Designer inconnu"
+              const similarAnnee = similar.annee || similar.year || similar["Année"]
+
+              return (
+                <Card
+                  key={similar._id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => router.push(`/luminaires/${similar._id}`)}
+                >
+                  <div className="aspect-square relative bg-gray-100 rounded-t-lg overflow-hidden">
+                    {similarImages.length > 0 ? (
+                      <Image
+                        src={`/api/images/${similarImages[0]}`}
+                        alt={similarNom}
+                        fill
+                        className="object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg"
+                        }}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-gray-400">Pas d'image</p>
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold text-lg mb-1 line-clamp-2">{similarNom}</h3>
+                    <p className="text-gray-600 text-sm mb-2">{similarDesigner}</p>
+                    {similarAnnee && (
+                      <Badge variant="secondary" className="text-xs">
+                        {similarAnnee}
+                      </Badge>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightboxOpen && images.length > 0 && (

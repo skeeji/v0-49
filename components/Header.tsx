@@ -59,9 +59,9 @@ export function Header() {
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 h-20">
         <div className="container mx-auto px-4 h-full">
           <div className="flex items-center justify-between h-full">
-            {/* Logo - Taille augmentée */}
+            {/* Logo - Taille encore plus grande */}
             <Link href="/" className="flex items-center">
-              <div className="w-24 h-24 relative">
+              <div className="w-32 h-32 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
                   alt="Logo"
