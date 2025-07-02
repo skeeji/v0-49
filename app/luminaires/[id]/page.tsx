@@ -62,8 +62,6 @@ export default function LuminairePage() {
         setLoading(true)
         setError(null)
 
-        console.log("Loading luminaire with ID:", params.id)
-
         const response = await fetch(`/api/luminaires/${params.id}`)
 
         if (!response.ok) {
@@ -71,11 +69,13 @@ export default function LuminairePage() {
         }
 
         const data = await response.json()
-        console.log("API Response:", data)
 
-        if (data.success) {
-          setLuminaire(data.luminaire || data.data)
-          setEditedData(data.luminaire || data.data)
+        if (data.success && data.luminaire) {
+          setLuminaire(data.luminaire)
+          setEditedData(data.luminaire)
+        } else if (data.success && data.data) {
+          setLuminaire(data.data)
+          setEditedData(data.data)
         } else {
           setError(data.error || "Luminaire non trouvé")
         }
@@ -293,7 +293,7 @@ export default function LuminairePage() {
 
             {annee && (
               <Badge variant="secondary" className="mb-4">
-                {annee}
+                {String(annee)}
               </Badge>
             )}
           </div>

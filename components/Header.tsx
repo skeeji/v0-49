@@ -21,12 +21,17 @@ export function Header() {
         const response = await fetch("/api/logo")
         if (response.ok) {
           const data = await response.json()
-          if (data.success && data.logo) {
+          if (data.success && data.logo && data.logo._id) {
             setLogo(`/api/images/${data.logo._id}`)
+          } else {
+            setLogo("/placeholder-logo.svg")
           }
+        } else {
+          setLogo("/placeholder-logo.svg")
         }
       } catch (error) {
         console.error("Erreur lors du chargement du logo:", error)
+        setLogo("/placeholder-logo.svg")
       }
     }
 
@@ -55,19 +60,15 @@ export function Header() {
             {/* Logo */}
             <Link href="/" className="flex items-center">
               <div className="w-16 h-16 relative">
-                {logo ? (
-                  <Image
-                    src={logo || "/placeholder.svg"}
-                    alt="Logo"
-                    fill
-                    className="object-contain"
-                    onError={(e) => {
-                      e.currentTarget.src = "/placeholder-logo.svg"
-                    }}
-                  />
-                ) : (
-                  <Image src="/placeholder-logo.svg" alt="Logo" fill className="object-contain" />
-                )}
+                <Image
+                  src={logo || "/placeholder-logo.svg"}
+                  alt="Logo"
+                  fill
+                  className="object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder-logo.svg"
+                  }}
+                />
               </div>
             </Link>
 
