@@ -38,9 +38,6 @@ export default function HomePage() {
 
   const { user, userData, incrementSearchCount } = useAuth()
 
-  // Autoriser la recherche pour tous les utilisateurs connectés
-  const canSearch = !user || userData?.role !== "free" || (userData?.searchCount || 0) < 3
-
   const callImageSimilarityAPI = async (file: File) => {
     try {
       console.log("🚀 Appel API de similarité d'images...")

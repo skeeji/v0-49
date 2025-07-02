@@ -8,7 +8,6 @@ import { RangeSlider } from "@/components/RangeSlider"
 import { Button } from "@/components/ui/button"
 import { Grid, List, Plus } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
-import { CSVExportButton } from "@/components/CSVExportButton"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 
@@ -63,13 +62,14 @@ export default function LuminairesPage() {
         const params = new URLSearchParams({
           page: page.toString(),
           limit: "50",
+          // La recherche se fait sur TOUS les luminaires, pas de filtre par année
           search: searchTerm,
           designer: selectedDesigner,
           sortField,
           sortDirection,
         })
 
-        // N'ajoute AUCUN paramètre de yearRange si le slider n'a pas été modifié manuellement
+        // Ajouter les filtres d'année seulement si le slider a été modifié manuellement
         if (sliderModified) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
@@ -115,7 +115,7 @@ export default function LuminairesPage() {
     loadAllLuminaires()
   }, [loadAllLuminaires])
 
-  // Charger les luminaires au montage et lors des changements de filtres (SANS yearRange si slider pas modifié)
+  // Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
@@ -275,17 +275,14 @@ export default function LuminairesPage() {
 
         <div className="flex items-center gap-4 mt-4 lg:mt-0">
           {isAdmin && (
-            <>
-              <Button
-                onClick={() => setIsModalOpen(true)}
-                style={{ backgroundColor: "#f2d895", color: "#000" }}
-                className="hover:opacity-90"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Ajouter
-              </Button>
-              <CSVExportButton data={luminaires} filename="luminaires" />
-            </>
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              style={{ backgroundColor: "#f2d895", color: "#000" }}
+              className="hover:opacity-90"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Ajouter
+            </Button>
           )}
 
           <div className="flex items-center gap-2">
