@@ -25,6 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const formattedLuminaire = {
       _id: luminaire._id.toString(),
       id: luminaire._id.toString(),
+
       // Champs principaux avec fallback
       nom: luminaire.nom || luminaire["Nom luminaire"] || "",
       name: luminaire.nom || luminaire["Nom luminaire"] || "",
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       signe: luminaire.signe || luminaire["Signé"] || "",
       signed: luminaire.signe || luminaire["Signé"] || "",
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
+
       // Autres champs
       materiaux: luminaire.materiaux || [],
       materials: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : "",
@@ -48,6 +50,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       isFavorite: luminaire.isFavorite || false,
       createdAt: luminaire.createdAt,
       updatedAt: luminaire.updatedAt,
+
       // Champs CSV originaux
       "Artiste / Dates": luminaire["Artiste / Dates"] || "",
       Spécialité: luminaire["Spécialité"] || "",
