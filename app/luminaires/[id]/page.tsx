@@ -61,6 +61,9 @@ export default function LuminairePage() {
       try {
         setLoading(true)
         setError(null)
+
+        console.log("Loading luminaire with ID:", params.id)
+
         const response = await fetch(`/api/luminaires/${params.id}`)
 
         if (!response.ok) {
@@ -68,10 +71,11 @@ export default function LuminairePage() {
         }
 
         const data = await response.json()
+        console.log("API Response:", data)
 
-        if (data.success && data.luminaire) {
-          setLuminaire(data.luminaire)
-          setEditedData(data.luminaire)
+        if (data.success) {
+          setLuminaire(data.luminaire || data.data)
+          setEditedData(data.luminaire || data.data)
         } else {
           setError(data.error || "Luminaire non trouvé")
         }

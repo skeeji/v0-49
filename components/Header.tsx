@@ -4,22 +4,15 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { Menu, User, LogOut } from "lucide-react"
+import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DrawerNav } from "@/components/DrawerNav"
 import { useAuth } from "@/contexts/AuthContext"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 export function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [logo, setLogo] = useState("")
-  const { user, userData, signInWithGoogle, logout } = useAuth()
+  const { user, userData, signInWithGoogle } = useAuth()
   const pathname = usePathname()
 
   useEffect(() => {
@@ -97,46 +90,7 @@ export function Header() {
 
             {/* Actions utilisateur */}
             <div className="flex items-center space-x-4">
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center space-x-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                        {user.photoURL ? (
-                          <Image
-                            src={user.photoURL || "/placeholder.svg"}
-                            alt={user.displayName || "User"}
-                            width={32}
-                            height={32}
-                            className="rounded-full"
-                          />
-                        ) : (
-                          <User className="w-4 h-4" />
-                        )}
-                      </div>
-                      <span className="hidden sm:block text-sm font-medium">
-                        {user.displayName || user.email?.split("@")[0]}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <div className="px-2 py-1.5 text-sm text-gray-500">
-                      <div className="font-medium text-gray-900">{user.displayName || "Utilisateur"}</div>
-                      <div className="text-xs">{user.email}</div>
-                      <div className="text-xs mt-1">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                          {userData?.role || "free"}
-                        </span>
-                      </div>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={logout}>
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Se déconnecter
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
+              {!user && (
                 <Button
                   onClick={signInWithGoogle}
                   className="text-white font-medium px-6 py-2 rounded-lg transition-all duration-200 hover:shadow-lg"

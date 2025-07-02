@@ -17,8 +17,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Aucune image trouvée" }, { status: 404 })
     }
 
-    // Créer un array pour stocker tous les fichiers
-    const fileBuffers: { name: string; buffer: Buffer }[] = []
+    // Importer JSZip
+    const JSZip = require("jszip")
+    const zip = new JSZip()
 
     // Traiter chaque fichier
     for (const file of files) {
@@ -34,54 +35,26 @@ export async function GET(request: NextRequest) {
         }
 
         const buffer = Buffer.concat(chunks)
-        fileBuffers.push({
-          name: file.filename || `image_${file._id}.jpg`,
-          buffer: buffer,
-        })
+        const safeFilename = file.filename || `image_${file._id}.jpg`
 
-        console.log(`✅ Fichier traité: ${file.filename} (${buffer.length} bytes)`)
+        zip.file(safeFilename, buffer)
+        console.log(`✅ Fichier ajouté au ZIP: ${safeFilename} (${buffer.length} bytes)`)
       } catch (fileError) {
         console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
       }
     }
 
-    if (fileBuffers.length === 0) {
-      return NextResponse.json({ error: "Aucune image n'a pu être traitée" }, { status: 500 })
-    }
-
-    // Créer un ZIP simple sans JSZip
-    const archiver = require("archiver")
-    const { Readable } = require("stream")
-
-    // Créer un stream pour le ZIP
-    const archive = archiver("zip", {
-      zlib: { level: 6 },
+    // Générer le ZIP
+    console.log("🗜️ Génération du fichier ZIP...")
+    const zipBuffer = await zip.generateAsync({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+      compressionOptions: {
+        level: 6,
+      },
     })
 
-    const chunks: Buffer[] = []
-
-    // Collecter les chunks du ZIP
-    archive.on("data", (chunk: Buffer) => {
-      chunks.push(chunk)
-    })
-
-    // Ajouter tous les fichiers au ZIP
-    fileBuffers.forEach(({ name, buffer }) => {
-      archive.append(buffer, { name })
-    })
-
-    // Finaliser le ZIP
-    archive.finalize()
-
-    // Attendre que le ZIP soit terminé
-    await new Promise<void>((resolve, reject) => {
-      archive.on("end", () => resolve())
-      archive.on("error", (err: Error) => reject(err))
-    })
-
-    const zipBuffer = Buffer.concat(chunks)
-
-    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileBuffers.length} images`)
+    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes`)
 
     // Retourner le ZIP
     return new NextResponse(zipBuffer, {
