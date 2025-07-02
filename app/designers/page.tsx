@@ -4,12 +4,17 @@ import { useState, useEffect, useCallback } from "react"
 import { useInView } from "react-intersection-observer"
 import Image from "next/image"
 import Link from "next/link"
+import { SearchBar } from "@/components/SearchBar"
+import { SortSelector } from "@/components/SortSelector"
 import { useAuth } from "@/contexts/AuthContext"
 import { Loader2 } from "lucide-react"
 
 export default function DesignersPage() {
   const [designers, setDesigners] = useState([])
+  const [filteredDesigners, setFilteredDesigners] = useState([])
   const [displayedDesigners, setDisplayedDesigners] = useState([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [sortBy, setSortBy] = useState("name-asc")
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -45,6 +50,8 @@ export default function DesignersPage() {
                 luminaires: [],
                 image: "",
                 slug: encodeURIComponent(designerName),
+                // Extraire les années depuis "Artiste / Dates"
+                years: [],
               }
             }
 
@@ -56,6 +63,15 @@ export default function DesignersPage() {
                 : "/placeholder.svg",
               name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
             })
+
+            // Extraire les années du champ "Artiste / Dates"
+            const artistDates = luminaire["Artiste / Dates"] || luminaire.designer || ""
+            const yearMatches = artistDates.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g)
+            if (yearMatches) {
+              acc[designerName].years = [
+                ...new Set([...acc[designerName].years, ...yearMatches.map((y) => Number.parseInt(y))]),
+              ]
+            }
 
             return acc
           }, {})
@@ -94,8 +110,10 @@ export default function DesignersPage() {
           if (userData?.role === "free") {
             const limitedDesigners = designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
             setDesigners(limitedDesigners)
+            setFilteredDesigners(limitedDesigners)
           } else {
             setDesigners(designersArray)
+            setFilteredDesigners(designersArray)
           }
         }
       } catch (error) {
@@ -108,6 +126,41 @@ export default function DesignersPage() {
     fetchData()
   }, [userData])
 
+  // Filtrer et trier
+  useEffect(() => {
+    let filtered = [...designers]
+
+    if (searchTerm) {
+      filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    }
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "name-asc":
+          return a.name.localeCompare(b.name)
+        case "name-desc":
+          return b.name.localeCompare(a.name)
+        case "year-asc":
+          const minYearA = a.years.length > 0 ? Math.min(...a.years) : 9999
+          const minYearB = b.years.length > 0 ? Math.min(...b.years) : 9999
+          return minYearA - minYearB
+        case "year-desc":
+          const maxYearA = a.years.length > 0 ? Math.max(...a.years) : 0
+          const maxYearB = b.years.length > 0 ? Math.max(...b.years) : 0
+          return maxYearB - maxYearA
+        case "count-desc":
+          return b.count - a.count
+        default:
+          return 0
+      }
+    })
+
+    setFilteredDesigners(filtered)
+    setPage(0)
+    setHasMore(true)
+    setDisplayedDesigners([])
+  }, [designers, searchTerm, sortBy])
+
   // Charger plus d'éléments
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore) return
@@ -117,7 +170,7 @@ export default function DesignersPage() {
     setTimeout(() => {
       const startIndex = page * ITEMS_PER_PAGE
       const endIndex = startIndex + ITEMS_PER_PAGE
-      const newItems = designers.slice(startIndex, endIndex)
+      const newItems = filteredDesigners.slice(startIndex, endIndex)
 
       if (page === 0) {
         setDisplayedDesigners(newItems)
@@ -126,10 +179,10 @@ export default function DesignersPage() {
       }
 
       setPage((prev) => prev + 1)
-      setHasMore(endIndex < designers.length)
+      setHasMore(endIndex < filteredDesigners.length)
       setIsLoadingMore(false)
     }, 300)
-  }, [page, designers, isLoadingMore, hasMore])
+  }, [page, filteredDesigners, isLoadingMore, hasMore])
 
   // Charger plus quand on arrive en bas
   useEffect(() => {
@@ -140,10 +193,10 @@ export default function DesignersPage() {
 
   // Charger la première page
   useEffect(() => {
-    if (designers.length > 0 && displayedDesigners.length === 0) {
+    if (filteredDesigners.length > 0 && displayedDesigners.length === 0) {
       loadMore()
     }
-  }, [designers, displayedDesigners.length, loadMore])
+  }, [filteredDesigners, displayedDesigners.length, loadMore])
 
   if (isLoading) {
     return (
@@ -159,7 +212,7 @@ export default function DesignersPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-8">Designers ({designers.length})</h1>
+        <h1 className="text-4xl font-serif text-gray-900 mb-8">Designers ({filteredDesigners.length})</h1>
 
         {/* Message pour les utilisateurs "free" */}
         {userData?.role === "free" && (
@@ -176,6 +229,25 @@ export default function DesignersPage() {
             </p>
           </div>
         )}
+
+        {/* Filtres */}
+        <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un designer..." />
+
+            <SortSelector
+              value={sortBy}
+              onChange={setSortBy}
+              options={[
+                { value: "name-asc", label: "Nom A → Z" },
+                { value: "name-desc", label: "Nom Z → A" },
+                { value: "year-asc", label: "Année croissante" },
+                { value: "year-desc", label: "Année décroissante" },
+                { value: "count-desc", label: "Nb de luminaires" },
+              ]}
+            />
+          </div>
+        </div>
 
         {/* Grille des designers */}
         {displayedDesigners.length === 0 && !isLoading ? (
