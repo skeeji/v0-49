@@ -169,16 +169,17 @@ export default function LuminairePage() {
     )
   }
 
+  // Convertir toutes les valeurs en strings pour éviter l'erreur React #31
   const images = luminaire.images || []
-  const nom = luminaire.nom || luminaire["Nom de l'objet"] || "Sans nom"
-  const designer = luminaire.designer || luminaire["Artiste / Dates"] || "Designer inconnu"
-  const annee = luminaire.annee || luminaire.year || luminaire["Année"] || null
-  const description = luminaire.description || luminaire["Description / Commentaire"] || null
-  const dimensions = luminaire.dimensions || luminaire["Dimensions (H x L x P en cm)"] || null
-  const materiaux = luminaire.materiaux || luminaire["Matériaux"] || null
-  const couleur = luminaire.couleur || luminaire["Couleur dominante"] || null
-  const style = luminaire.style || luminaire["Style / Mouvement"] || null
-  const prix = luminaire.prix || luminaire["Prix (estimation en €)"] || null
+  const nom = String(luminaire.nom || luminaire["Nom de l'objet"] || "Sans nom")
+  const designer = String(luminaire.designer || luminaire["Artiste / Dates"] || "Designer inconnu")
+  const annee = luminaire.annee || luminaire.year || luminaire["Année"]
+  const description = luminaire.description || luminaire["Description / Commentaire"]
+  const dimensions = luminaire.dimensions || luminaire["Dimensions (H x L x P en cm)"]
+  const materiaux = luminaire.materiaux || luminaire["Matériaux"]
+  const couleur = luminaire.couleur || luminaire["Couleur dominante"]
+  const style = luminaire.style || luminaire["Style / Mouvement"]
+  const prix = luminaire.prix || luminaire["Prix (estimation en €)"]
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -272,12 +273,12 @@ export default function LuminairePage() {
           )}
         </div>
 
-        {/* Informations - Scrollable sur mobile */}
+        {/* Informations */}
         <div className="space-y-6 max-h-screen overflow-y-auto lg:max-h-none lg:overflow-visible">
           <div>
             <EditableField
               label="Nom"
-              value={isEditing ? editedData.nom || editedData["Nom de l'objet"] || "" : nom}
+              value={isEditing ? String(editedData.nom || editedData["Nom de l'objet"] || "") : nom}
               isEditing={isEditing}
               onChange={(value) => setEditedData({ ...editedData, nom: value })}
               className="text-3xl font-serif text-gray-900 mb-2"
@@ -285,7 +286,7 @@ export default function LuminairePage() {
 
             <EditableField
               label="Designer"
-              value={isEditing ? editedData.designer || editedData["Artiste / Dates"] || "" : designer}
+              value={isEditing ? String(editedData.designer || editedData["Artiste / Dates"] || "") : designer}
               isEditing={isEditing}
               onChange={(value) => setEditedData({ ...editedData, designer: value })}
               className="text-xl text-gray-600 mb-4"
@@ -293,7 +294,7 @@ export default function LuminairePage() {
 
             {annee && (
               <Badge variant="secondary" className="mb-4">
-                {annee.toString()}
+                {String(annee)}
               </Badge>
             )}
           </div>
@@ -305,7 +306,9 @@ export default function LuminairePage() {
                 <EditableField
                   label="Description"
                   value={
-                    isEditing ? editedData.description || editedData["Description / Commentaire"] || "" : description
+                    isEditing
+                      ? String(editedData.description || editedData["Description / Commentaire"] || "")
+                      : String(description)
                   }
                   isEditing={isEditing}
                   onChange={(value) => setEditedData({ ...editedData, description: value })}
@@ -326,8 +329,8 @@ export default function LuminairePage() {
                       label="Dimensions"
                       value={
                         isEditing
-                          ? editedData.dimensions || editedData["Dimensions (H x L x P en cm)"] || ""
-                          : dimensions
+                          ? String(editedData.dimensions || editedData["Dimensions (H x L x P en cm)"] || "")
+                          : String(dimensions)
                       }
                       isEditing={isEditing}
                       onChange={(value) => setEditedData({ ...editedData, dimensions: value })}
@@ -341,7 +344,9 @@ export default function LuminairePage() {
                     <span className="font-medium text-gray-700">Matériaux:</span>
                     <EditableField
                       label="Matériaux"
-                      value={isEditing ? editedData.materiaux || editedData["Matériaux"] || "" : materiaux}
+                      value={
+                        isEditing ? String(editedData.materiaux || editedData["Matériaux"] || "") : String(materiaux)
+                      }
                       isEditing={isEditing}
                       onChange={(value) => setEditedData({ ...editedData, materiaux: value })}
                       className="ml-2"
@@ -354,7 +359,11 @@ export default function LuminairePage() {
                     <span className="font-medium text-gray-700">Couleur:</span>
                     <EditableField
                       label="Couleur"
-                      value={isEditing ? editedData.couleur || editedData["Couleur dominante"] || "" : couleur}
+                      value={
+                        isEditing
+                          ? String(editedData.couleur || editedData["Couleur dominante"] || "")
+                          : String(couleur)
+                      }
                       isEditing={isEditing}
                       onChange={(value) => setEditedData({ ...editedData, couleur: value })}
                       className="ml-2"
@@ -367,7 +376,9 @@ export default function LuminairePage() {
                     <span className="font-medium text-gray-700">Style:</span>
                     <EditableField
                       label="Style"
-                      value={isEditing ? editedData.style || editedData["Style / Mouvement"] || "" : style}
+                      value={
+                        isEditing ? String(editedData.style || editedData["Style / Mouvement"] || "") : String(style)
+                      }
                       isEditing={isEditing}
                       onChange={(value) => setEditedData({ ...editedData, style: value })}
                       className="ml-2"

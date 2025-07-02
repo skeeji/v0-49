@@ -1,8 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { GridFSBucket } from "mongodb"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log("📦 Début de l'export des images...")
 
@@ -17,9 +17,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Aucune image trouvée" }, { status: 404 })
     }
 
-    // Utiliser JSZip directement
-    const JSZip = require("jszip")
-    const zip = new JSZip()
+    // Créer un simple ZIP avec les données
+    const fileData: Array<{ name: string; data: Buffer }> = []
 
     // Traiter chaque fichier
     for (const file of files) {
@@ -29,7 +28,6 @@ export async function GET(request: NextRequest) {
         const downloadStream = bucket.openDownloadStream(file._id)
         const chunks: Buffer[] = []
 
-        // Lire le fichier
         for await (const chunk of downloadStream) {
           chunks.push(chunk)
         }
@@ -37,26 +35,34 @@ export async function GET(request: NextRequest) {
         const buffer = Buffer.concat(chunks)
         const safeFilename = file.filename || `image_${file._id}.jpg`
 
-        // Ajouter au ZIP
-        zip.file(safeFilename, buffer)
+        fileData.push({
+          name: safeFilename,
+          data: buffer,
+        })
 
-        console.log(`✅ Fichier ajouté: ${safeFilename} (${buffer.length} bytes)`)
+        console.log(`✅ Fichier traité: ${safeFilename} (${buffer.length} bytes)`)
       } catch (fileError) {
         console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
       }
     }
 
-    // Générer le ZIP
-    console.log("🗜️ Génération du ZIP...")
-    const zipBuffer = await zip.generateAsync({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-      compressionOptions: {
-        level: 6,
-      },
+    if (fileData.length === 0) {
+      return NextResponse.json({ error: "Aucune image n'a pu être traitée" }, { status: 500 })
+    }
+
+    // Créer un ZIP simple
+    const AdmZip = require("adm-zip")
+    const zip = new AdmZip()
+
+    // Ajouter chaque fichier au ZIP
+    fileData.forEach(({ name, data }) => {
+      zip.addFile(name, data)
     })
 
-    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes`)
+    // Générer le buffer du ZIP
+    const zipBuffer = zip.toBuffer()
+
+    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images`)
 
     // Retourner le ZIP
     return new NextResponse(zipBuffer, {
@@ -65,7 +71,6 @@ export async function GET(request: NextRequest) {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="images_export_${new Date().toISOString().split("T")[0]}.zip"`,
         "Content-Length": zipBuffer.length.toString(),
-        "Cache-Control": "no-cache",
       },
     })
   } catch (error) {
