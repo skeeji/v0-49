@@ -4,13 +4,12 @@ import { useState, useEffect, useMemo } from "react"
 import { GalleryGrid } from "@/components/GalleryGrid"
 import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
-import { RangeSlider } from "@/components/RangeSlider"
 import { SortSelector } from "@/components/SortSelector"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { RangeSlider } from "@/components/RangeSlider"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
-import { RoleGuard } from "@/components/RoleGuard"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 
 interface Luminaire {
   _id: string
@@ -27,10 +26,7 @@ interface Luminaire {
   couleurs?: string[]
   filename?: string
   "Nom du fichier"?: string
-  images?: string[]
   isFavorite?: boolean
-  createdAt?: string
-  updatedAt?: string
 }
 
 export default function LuminairesPage() {
@@ -41,31 +37,26 @@ export default function LuminairesPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("")
   const [selectedMaterial, setSelectedMaterial] = useState("")
   const [selectedColor, setSelectedColor] = useState("")
-  const [yearRange, setYearRange] = useState<[number, number]>([1900, 2024])
-  const [sliderModified, setSliderModified] = useState(false)
   const [sortBy, setSortBy] = useState("nom")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [yearRange, setYearRange] = useState([1800, 2024])
+  const [sliderModified, setSliderModified] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const itemsPerPage = 50
-
   const { userData } = useAuth()
 
-  // Récupérer tous les luminaires au chargement initial
+  const canAdd = userData?.role === "admin"
+
+  // Récupérer tous les luminaires
   useEffect(() => {
     async function fetchLuminaires() {
-      setIsLoading(true)
       try {
-        console.log("🔍 Chargement de tous les luminaires...")
+        setIsLoading(true)
         const response = await fetch("/api/luminaires?limit=9999")
         const data = await response.json()
 
         if (data.success) {
-          console.log(`✅ ${data.luminaires.length} luminaires chargés`)
           setLuminaires(data.luminaires)
-          setTotalCount(data.luminaires.length)
+          console.log(`✅ ${data.luminaires.length} luminaires chargés`)
         }
       } catch (error) {
         console.error("❌ Erreur lors du chargement des luminaires:", error)
@@ -81,22 +72,18 @@ export default function LuminairesPage() {
   const processedLuminaires = useMemo(() => {
     let filtered = [...luminaires]
 
-    // Filtrage par recherche (recherche dans tous les luminaires, pas de limite par slider)
+    // Filtrage par terme de recherche
     if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase()
+      const term = searchTerm.toLowerCase()
       filtered = filtered.filter((luminaire) => {
-        const nom = String(luminaire.nom || luminaire["Nom luminaire"] || "").toLowerCase()
-        const designer = String(luminaire.designer || luminaire["Artiste / Dates"] || "").toLowerCase()
-        const periode = String(luminaire.periode || luminaire["Spécialité"] || "").toLowerCase()
-        const materiaux = Array.isArray(luminaire.materiaux)
-          ? luminaire.materiaux.join(" ").toLowerCase()
-          : String(luminaire["Matériaux"] || "").toLowerCase()
+        const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
+        const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
+        const periode = luminaire.periode || luminaire["Spécialité"] || ""
 
         return (
-          nom.includes(searchLower) ||
-          designer.includes(searchLower) ||
-          periode.includes(searchLower) ||
-          materiaux.includes(searchLower)
+          nom.toLowerCase().includes(term) ||
+          designer.toLowerCase().includes(term) ||
+          periode.toLowerCase().includes(term)
         )
       })
     }
@@ -104,7 +91,7 @@ export default function LuminairesPage() {
     // Filtrage par designer
     if (selectedDesigner) {
       filtered = filtered.filter((luminaire) => {
-        const designer = String(luminaire.designer || luminaire["Artiste / Dates"] || "")
+        const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
         return designer === selectedDesigner
       })
     }
@@ -112,7 +99,7 @@ export default function LuminairesPage() {
     // Filtrage par période
     if (selectedPeriod) {
       filtered = filtered.filter((luminaire) => {
-        const periode = String(luminaire.periode || luminaire["Spécialité"] || "")
+        const periode = luminaire.periode || luminaire["Spécialité"] || ""
         return periode === selectedPeriod
       })
     }
@@ -120,63 +107,51 @@ export default function LuminairesPage() {
     // Filtrage par matériau
     if (selectedMaterial) {
       filtered = filtered.filter((luminaire) => {
-        if (Array.isArray(luminaire.materiaux)) {
-          return luminaire.materiaux.includes(selectedMaterial)
-        }
-        const materiaux = String(luminaire["Matériaux"] || "")
-        return materiaux.includes(selectedMaterial)
+        const materiaux = luminaire.materiaux || []
+        const materiauxString = luminaire["Matériaux"] || ""
+        return (
+          materiaux.includes(selectedMaterial) || materiauxString.toLowerCase().includes(selectedMaterial.toLowerCase())
+        )
       })
     }
 
     // Filtrage par couleur
     if (selectedColor) {
       filtered = filtered.filter((luminaire) => {
-        if (Array.isArray(luminaire.couleurs)) {
-          return luminaire.couleurs.includes(selectedColor)
-        }
-        return false
+        const couleurs = luminaire.couleurs || []
+        return couleurs.includes(selectedColor)
       })
     }
 
     // Filtrage par année SEULEMENT si le slider a été modifié
     if (sliderModified) {
       filtered = filtered.filter((luminaire) => {
-        const annee = luminaire.annee || Number.parseInt(String(luminaire["Année"] || "0"))
+        const annee = luminaire.annee || Number.parseInt(luminaire["Année"] || "0")
         return annee >= yearRange[0] && annee <= yearRange[1]
       })
     }
 
     // Tri
     filtered.sort((a, b) => {
-      let aValue: string | number = ""
-      let bValue: string | number = ""
-
       switch (sortBy) {
         case "nom":
-          aValue = String(a.nom || a["Nom luminaire"] || "").toLowerCase()
-          bValue = String(b.nom || b["Nom luminaire"] || "").toLowerCase()
-          break
+          const nomA = a.nom || a["Nom luminaire"] || ""
+          const nomB = b.nom || b["Nom luminaire"] || ""
+          return nomA.localeCompare(nomB)
         case "designer":
-          aValue = String(a.designer || a["Artiste / Dates"] || "").toLowerCase()
-          bValue = String(b.designer || b["Artiste / Dates"] || "").toLowerCase()
-          break
+          const designerA = a.designer || a["Artiste / Dates"] || ""
+          const designerB = b.designer || b["Artiste / Dates"] || ""
+          return designerA.localeCompare(designerB)
         case "annee":
-          aValue = a.annee || Number.parseInt(String(a["Année"] || "0"))
-          bValue = b.annee || Number.parseInt(String(b["Année"] || "0"))
-          break
+          const anneeA = a.annee || Number.parseInt(a["Année"] || "0")
+          const anneeB = b.annee || Number.parseInt(b["Année"] || "0")
+          return anneeA - anneeB
         case "periode":
-          aValue = String(a.periode || a["Spécialité"] || "").toLowerCase()
-          bValue = String(b.periode || b["Spécialité"] || "").toLowerCase()
-          break
+          const periodeA = a.periode || a["Spécialité"] || ""
+          const periodeB = b.periode || b["Spécialité"] || ""
+          return periodeA.localeCompare(periodeB)
         default:
-          aValue = String(a.nom || a["Nom luminaire"] || "").toLowerCase()
-          bValue = String(b.nom || b["Nom luminaire"] || "").toLowerCase()
-      }
-
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortOrder === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
-      } else {
-        return sortOrder === "asc" ? (aValue as number) - (bValue as number) : (bValue as number) - (aValue as number)
+          return 0
       }
     })
 
@@ -188,57 +163,61 @@ export default function LuminairesPage() {
     selectedPeriod,
     selectedMaterial,
     selectedColor,
+    sortBy,
     yearRange,
     sliderModified,
-    sortBy,
-    sortOrder,
   ])
 
-  // Pagination
-  const paginatedLuminaires = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    return processedLuminaires.slice(startIndex, startIndex + itemsPerPage)
-  }, [processedLuminaires, currentPage])
-
   // Extraire les options uniques pour les filtres
-  const filterOptions = useMemo(() => {
-    const designers = new Set<string>()
-    const periods = new Set<string>()
-    const materials = new Set<string>()
-    const colors = new Set<string>()
-
+  const designers = useMemo(() => {
+    const designerSet = new Set<string>()
     luminaires.forEach((luminaire) => {
-      const designer = String(luminaire.designer || luminaire["Artiste / Dates"] || "").trim()
-      const periode = String(luminaire.periode || luminaire["Spécialité"] || "").trim()
-
-      if (designer) designers.add(designer)
-      if (periode) periods.add(periode)
-
-      if (Array.isArray(luminaire.materiaux)) {
-        luminaire.materiaux.forEach((mat) => materials.add(mat))
-      } else if (luminaire["Matériaux"]) {
-        String(luminaire["Matériaux"])
-          .split(",")
-          .forEach((mat) => materials.add(mat.trim()))
-      }
-
-      if (Array.isArray(luminaire.couleurs)) {
-        luminaire.couleurs.forEach((color) => colors.add(color))
+      const designer = luminaire.designer || luminaire["Artiste / Dates"]
+      if (designer && designer.trim()) {
+        designerSet.add(designer.trim())
       }
     })
-
-    return {
-      designers: Array.from(designers).sort(),
-      periods: Array.from(periods).sort(),
-      materials: Array.from(materials).sort(),
-      colors: Array.from(colors).sort(),
-    }
+    return Array.from(designerSet).sort()
   }, [luminaires])
 
-  const handleYearRangeChange = (newRange: [number, number]) => {
+  const periods = useMemo(() => {
+    const periodSet = new Set<string>()
+    luminaires.forEach((luminaire) => {
+      const periode = luminaire.periode || luminaire["Spécialité"]
+      if (periode && periode.trim()) {
+        periodSet.add(periode.trim())
+      }
+    })
+    return Array.from(periodSet).sort()
+  }, [luminaires])
+
+  const materials = useMemo(() => {
+    const materialSet = new Set<string>()
+    luminaires.forEach((luminaire) => {
+      if (luminaire.materiaux) {
+        luminaire.materiaux.forEach((material) => materialSet.add(material))
+      }
+      if (luminaire["Matériaux"]) {
+        const materiaux = luminaire["Matériaux"].split(",").map((m) => m.trim())
+        materiaux.forEach((material) => materialSet.add(material))
+      }
+    })
+    return Array.from(materialSet).sort()
+  }, [luminaires])
+
+  const colors = useMemo(() => {
+    const colorSet = new Set<string>()
+    luminaires.forEach((luminaire) => {
+      if (luminaire.couleurs) {
+        luminaire.couleurs.forEach((color) => colorSet.add(color))
+      }
+    })
+    return Array.from(colorSet).sort()
+  }, [luminaires])
+
+  const handleSliderChange = (newRange: number[]) => {
     setYearRange(newRange)
     setSliderModified(true)
-    setCurrentPage(1)
   }
 
   const resetFilters = () => {
@@ -247,12 +226,14 @@ export default function LuminairesPage() {
     setSelectedPeriod("")
     setSelectedMaterial("")
     setSelectedColor("")
-    setYearRange([1900, 2024])
+    setYearRange([1800, 2024])
     setSliderModified(false)
-    setCurrentPage(1)
   }
 
-  const totalPages = Math.ceil(processedLuminaires.length / itemsPerPage)
+  const handleLuminaireAdded = () => {
+    // Recharger les luminaires après ajout
+    window.location.reload()
+  }
 
   if (isLoading) {
     return (
@@ -268,105 +249,89 @@ export default function LuminairesPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Luminaires</h1>
+          <h1 className="text-3xl font-bold mb-2">Galerie des Luminaires</h1>
           <p className="text-gray-600">
-            {processedLuminaires.length} luminaire{processedLuminaires.length > 1 ? "s" : ""} trouvé
-            {processedLuminaires.length > 1 ? "s" : ""} sur {totalCount}
+            {processedLuminaires.length} luminaire{processedLuminaires.length > 1 ? "s" : ""} sur {luminaires.length}
           </p>
         </div>
-
-        <RoleGuard allowedRoles={["admin"]}>
+        {canAdd && (
           <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Ajouter un luminaire
           </Button>
-        </RoleGuard>
+        )}
+      </div>
+
+      {/* Barre de recherche */}
+      <div className="mb-6">
+        <SearchBar
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Rechercher par nom, designer ou période..."
+        />
       </div>
 
       {/* Filtres */}
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-          <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <DropdownFilter
+          label="Designer"
+          value={selectedDesigner}
+          onChange={setSelectedDesigner}
+          options={designers}
+          placeholder="Tous les designers"
+        />
+        <DropdownFilter
+          label="Période"
+          value={selectedPeriod}
+          onChange={setSelectedPeriod}
+          options={periods}
+          placeholder="Toutes les périodes"
+        />
+        <DropdownFilter
+          label="Matériau"
+          value={selectedMaterial}
+          onChange={setSelectedMaterial}
+          options={materials}
+          placeholder="Tous les matériaux"
+        />
+        <DropdownFilter
+          label="Couleur"
+          value={selectedColor}
+          onChange={setSelectedColor}
+          options={colors}
+          placeholder="Toutes les couleurs"
+        />
+        <SortSelector value={sortBy} onChange={setSortBy} />
+      </div>
 
-          <DropdownFilter
-            label="Designer"
-            value={selectedDesigner}
-            onChange={setSelectedDesigner}
-            options={filterOptions.designers}
-          />
+      {/* Slider d'années */}
+      <div className="mb-6">
+        <RangeSlider min={1800} max={2024} value={yearRange} onChange={handleSliderChange} label="Filtrer par année" />
+        {sliderModified && (
+          <p className="text-sm text-gray-600 mt-2">
+            Affichage des luminaires de {yearRange[0]} à {yearRange[1]}
+          </p>
+        )}
+      </div>
 
-          <DropdownFilter
-            label="Période"
-            value={selectedPeriod}
-            onChange={setSelectedPeriod}
-            options={filterOptions.periods}
-          />
-
-          <DropdownFilter
-            label="Matériau"
-            value={selectedMaterial}
-            onChange={setSelectedMaterial}
-            options={filterOptions.materials}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <RangeSlider label="Année" min={1900} max={2024} value={yearRange} onChange={handleYearRangeChange} />
-
-          <SortSelector sortBy={sortBy} sortOrder={sortOrder} onSortChange={setSortBy} onOrderChange={setSortOrder} />
-        </div>
-
-        <div className="flex justify-between items-center">
-          <Button variant="outline" onClick={resetFilters}>
-            Réinitialiser les filtres
-          </Button>
-
-          {sliderModified && (
-            <p className="text-sm text-gray-600">
-              Filtrage par année actif: {yearRange[0]} - {yearRange[1]}
-            </p>
-          )}
-        </div>
+      {/* Bouton de reset */}
+      <div className="mb-6">
+        <Button variant="outline" onClick={resetFilters}>
+          Réinitialiser les filtres
+        </Button>
       </div>
 
       {/* Grille des luminaires */}
-      <GalleryGrid luminaires={paginatedLuminaires} />
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4 mt-8">
-          <Button
-            variant="outline"
-            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-          >
-            Précédent
-          </Button>
-
-          <span className="text-sm text-gray-600">
-            Page {currentPage} sur {totalPages}
-          </span>
-
-          <Button
-            variant="outline"
-            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
-          >
-            Suivant
-          </Button>
-        </div>
-      )}
+      <GalleryGrid luminaires={processedLuminaires} />
 
       {/* Modal d'ajout */}
-      <LuminaireFormModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSuccess={() => {
-          setShowAddModal(false)
-          // Recharger les luminaires
-          window.location.reload()
-        }}
-      />
+      {showAddModal && (
+        <LuminaireFormModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={handleLuminaireAdded}
+        />
+      )}
     </div>
   )
 }
