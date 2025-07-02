@@ -17,59 +17,71 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Aucune image trouvée" }, { status: 404 })
     }
 
-    // Importer JSZip dynamiquement
-    const JSZip = (await import("jszip")).default
+    // Créer un array pour stocker tous les fichiers
+    const fileBuffers: { name: string; buffer: Buffer }[] = []
 
-    // Créer un ZIP
-    const zip = new JSZip()
-
-    // Ajouter chaque fichier au ZIP
+    // Traiter chaque fichier
     for (const file of files) {
       try {
         console.log(`📁 Traitement du fichier: ${file.filename}`)
 
-        // Créer un stream pour lire le fichier depuis GridFS
         const downloadStream = bucket.openDownloadStream(file._id)
-
-        // Convertir le stream en buffer
         const chunks: Buffer[] = []
 
-        await new Promise<void>((resolve, reject) => {
-          downloadStream.on("data", (chunk) => {
-            chunks.push(chunk)
-          })
-
-          downloadStream.on("end", () => {
-            resolve()
-          })
-
-          downloadStream.on("error", (error) => {
-            reject(error)
-          })
-        })
+        // Lire le fichier
+        for await (const chunk of downloadStream) {
+          chunks.push(chunk)
+        }
 
         const buffer = Buffer.concat(chunks)
+        fileBuffers.push({
+          name: file.filename || `image_${file._id}.jpg`,
+          buffer: buffer,
+        })
 
-        // Ajouter le fichier au ZIP avec un nom sécurisé
-        const safeFilename = file.filename || `image_${file._id}.jpg`
-        zip.file(safeFilename, buffer)
-        console.log(`✅ Fichier ajouté au ZIP: ${safeFilename} (${buffer.length} bytes)`)
+        console.log(`✅ Fichier traité: ${file.filename} (${buffer.length} bytes)`)
       } catch (fileError) {
         console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
-        // Continuer avec les autres fichiers même si un échoue
       }
     }
 
-    // Générer le ZIP
-    console.log("🗜️ Génération du fichier ZIP...")
-    const zipBuffer = await zip.generateAsync({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-      compressionOptions: {
-        level: 6,
-      },
+    if (fileBuffers.length === 0) {
+      return NextResponse.json({ error: "Aucune image n'a pu être traitée" }, { status: 500 })
+    }
+
+    // Créer un ZIP simple sans JSZip
+    const archiver = require("archiver")
+    const { Readable } = require("stream")
+
+    // Créer un stream pour le ZIP
+    const archive = archiver("zip", {
+      zlib: { level: 6 },
     })
-    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes`)
+
+    const chunks: Buffer[] = []
+
+    // Collecter les chunks du ZIP
+    archive.on("data", (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
+
+    // Ajouter tous les fichiers au ZIP
+    fileBuffers.forEach(({ name, buffer }) => {
+      archive.append(buffer, { name })
+    })
+
+    // Finaliser le ZIP
+    archive.finalize()
+
+    // Attendre que le ZIP soit terminé
+    await new Promise<void>((resolve, reject) => {
+      archive.on("end", () => resolve())
+      archive.on("error", (err: Error) => reject(err))
+    })
+
+    const zipBuffer = Buffer.concat(chunks)
+
+    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileBuffers.length} images`)
 
     // Retourner le ZIP
     return new NextResponse(zipBuffer, {

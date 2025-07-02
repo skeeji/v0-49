@@ -60,10 +60,16 @@ export default function LuminairePage() {
     const loadLuminaire = async () => {
       try {
         setLoading(true)
+        setError(null)
         const response = await fetch(`/api/luminaires/${params.id}`)
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
         const data = await response.json()
 
-        if (data.success) {
+        if (data.success && data.luminaire) {
           setLuminaire(data.luminaire)
           setEditedData(data.luminaire)
         } else {
@@ -71,7 +77,7 @@ export default function LuminairePage() {
         }
       } catch (err: any) {
         console.error("❌ Erreur chargement luminaire:", err)
-        setError("Erreur lors du chargement")
+        setError(err.message || "Erreur lors du chargement")
       } finally {
         setLoading(false)
       }
@@ -137,11 +143,22 @@ export default function LuminairePage() {
     )
   }
 
-  if (error || !luminaire) {
+  if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <p className="text-red-600 mb-4">Erreur: {error}</p>
+          <Button onClick={() => router.push("/luminaires")}>Retour aux luminaires</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!luminaire) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Luminaire non trouvé</p>
           <Button onClick={() => router.push("/luminaires")}>Retour aux luminaires</Button>
         </div>
       </div>

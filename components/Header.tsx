@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { Menu, User, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DrawerNav } from "@/components/DrawerNav"
@@ -19,6 +20,7 @@ export function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [logo, setLogo] = useState("")
   const { user, userData, signInWithGoogle, logout } = useAuth()
+  const pathname = usePathname()
 
   useEffect(() => {
     const loadLogo = async () => {
@@ -46,6 +48,10 @@ export function Header() {
 
   if (userData?.role === "admin") {
     navItems.push({ href: "/import", label: "Import" })
+  }
+
+  const isActivePage = (href: string) => {
+    return pathname === href || pathname.startsWith(href + "/")
   }
 
   return (
@@ -82,7 +88,9 @@ export function Header() {
                   >
                     {item.label}
                   </Link>
-                  <div className="absolute bottom-0 left-0 right-0 h-px" style={{ backgroundColor: "#f2d895" }}></div>
+                  {isActivePage(item.href) && (
+                    <div className="absolute bottom-0 left-0 right-0 h-px" style={{ backgroundColor: "#f2d895" }}></div>
+                  )}
                 </div>
               ))}
             </nav>
