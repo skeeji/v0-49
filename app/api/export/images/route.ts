@@ -5,29 +5,31 @@ import JSZip from "jszip"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📦 Début export des images...")
+    console.log("📦 Début de l'export des images...")
 
     const { db } = await connectToDatabase()
     const bucket = new GridFSBucket(db, { bucketName: "images" })
 
-    // Récupérer tous les fichiers images
+    // Récupérer tous les fichiers
     const files = await bucket.find({}).toArray()
-    console.log(`📊 ${files.length} images trouvées dans GridFS`)
+    console.log(`📊 ${files.length} fichiers trouvés dans GridFS`)
 
     if (files.length === 0) {
-      return NextResponse.json({ success: false, error: "Aucune image trouvée" }, { status: 404 })
+      return NextResponse.json({ error: "Aucune image trouvée" }, { status: 404 })
     }
 
     // Créer un ZIP
     const zip = new JSZip()
 
-    // Ajouter chaque image au ZIP
+    // Ajouter chaque fichier au ZIP
     for (const file of files) {
       try {
-        console.log(`📁 Ajout de ${file.filename} au ZIP...`)
+        console.log(`📁 Traitement du fichier: ${file.filename}`)
 
-        // Lire le fichier depuis GridFS
+        // Créer un stream pour lire le fichier depuis GridFS
         const downloadStream = bucket.openDownloadStream(file._id)
+
+        // Convertir le stream en buffer
         const chunks: Buffer[] = []
 
         await new Promise((resolve, reject) => {
@@ -40,35 +42,24 @@ export async function GET(request: NextRequest) {
           })
 
           downloadStream.on("error", (error) => {
-            console.error(`❌ Erreur lecture ${file.filename}:`, error)
             reject(error)
           })
         })
 
         const buffer = Buffer.concat(chunks)
 
-        // Ajouter au ZIP avec un nom de fichier sécurisé
-        const safeFilename = file.filename.replace(/[^a-zA-Z0-9.-]/g, "_")
-        zip.file(safeFilename, buffer)
-
-        console.log(`✅ ${file.filename} ajouté au ZIP (${buffer.length} bytes)`)
-      } catch (error) {
-        console.error(`❌ Erreur traitement ${file.filename}:`, error)
-        // Continuer avec les autres fichiers
+        // Ajouter le fichier au ZIP
+        zip.file(file.filename, buffer)
+        console.log(`✅ Fichier ajouté au ZIP: ${file.filename} (${buffer.length} bytes)`)
+      } catch (fileError) {
+        console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
+        // Continuer avec les autres fichiers même si un échoue
       }
     }
 
-    console.log("🗜️ Génération du ZIP...")
-
     // Générer le ZIP
-    const zipBuffer = await zip.generateAsync({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-      compressionOptions: {
-        level: 6,
-      },
-    })
-
+    console.log("🗜️ Génération du fichier ZIP...")
+    const zipBuffer = await zip.generateAsync({ type: "nodebuffer" })
     console.log(`✅ ZIP généré: ${zipBuffer.length} bytes`)
 
     // Retourner le ZIP
@@ -80,8 +71,8 @@ export async function GET(request: NextRequest) {
         "Content-Length": zipBuffer.length.toString(),
       },
     })
-  } catch (error: any) {
-    console.error("❌ Erreur export images:", error)
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  } catch (error) {
+    console.error("❌ Erreur lors de l'export des images:", error)
+    return NextResponse.json({ error: "Erreur lors de l'export des images" }, { status: 500 })
   }
 }

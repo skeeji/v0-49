@@ -36,7 +36,7 @@ export default function HomePage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const { user } = useAuth()
+  const { user, userData, incrementSearchCount } = useAuth()
 
   const callImageSimilarityAPI = async (file: File) => {
     try {
