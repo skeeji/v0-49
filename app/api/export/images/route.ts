@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { GridFSBucket } from "mongodb"
-import JSZip from "jszip"
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +17,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Aucune image trouvée" }, { status: 404 })
     }
 
+    // Importer JSZip dynamiquement
+    const JSZip = (await import("jszip")).default
+
     // Créer un ZIP
     const zip = new JSZip()
 
@@ -32,13 +34,13 @@ export async function GET(request: NextRequest) {
         // Convertir le stream en buffer
         const chunks: Buffer[] = []
 
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
           downloadStream.on("data", (chunk) => {
             chunks.push(chunk)
           })
 
           downloadStream.on("end", () => {
-            resolve(null)
+            resolve()
           })
 
           downloadStream.on("error", (error) => {
