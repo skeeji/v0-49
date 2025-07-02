@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import clientPromise from "@/lib/mongodb"
 import { GridFSBucket } from "mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET() {
   try {
     console.log("📦 Début de l'export des images...")
 
-    const { db } = await connectToDatabase()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
     const bucket = new GridFSBucket(db, { bucketName: "images" })
 
     // Récupérer tous les fichiers

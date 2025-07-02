@@ -94,7 +94,6 @@ export default function LuminaireDetailPage() {
       .filter((item) => String(item._id) !== String(current._id))
       .map((item) => {
         let score = 0
-
         const itemArtist = String(item["Artiste / Dates"] || item.designer || "")
         const itemSpecialty = String(item["Spécialité"] || item.periode || "")
         const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
@@ -171,7 +170,6 @@ export default function LuminaireDetailPage() {
     }
 
     const keyToUpdate = keyMapping[field] || field
-
     setLuminaire((prev: any) => ({ ...prev, [field]: String(value) }))
 
     try {
