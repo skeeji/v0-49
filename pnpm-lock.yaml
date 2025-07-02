@@ -132,7 +132,7 @@ importers:
         specifier: latest
         version: 1.4.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       jspdf:
-        specifier: ^3.0.1
+        specifier: latest
         version: 3.0.1
       kerberos:
         specifier: ^2.2.2
