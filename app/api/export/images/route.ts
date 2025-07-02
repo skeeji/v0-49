@@ -10,15 +10,64 @@ export async function GET() {
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "images" })
 
-    // Récupérer tous les fichiers
-    const files = await bucket.find({}).toArray()
-    console.log(`📊 ${files.length} fichiers trouvés dans GridFS`)
+    // Essayer différents buckets possibles
+    const possibleBuckets = ["images", "fs", "uploads"]
+    let files: any[] = []
+    let usedBucket = ""
+
+    for (const bucketName of possibleBuckets) {
+      try {
+        const bucket = new GridFSBucket(db, { bucketName })
+        const bucketFiles = await bucket.find({}).toArray()
+        if (bucketFiles.length > 0) {
+          files = bucketFiles
+          usedBucket = bucketName
+          console.log(`📊 ${files.length} fichiers trouvés dans le bucket "${bucketName}"`)
+          break
+        }
+      } catch (bucketError) {
+        console.log(`❌ Bucket "${bucketName}" non accessible`)
+      }
+    }
+
+    // Si aucun fichier trouvé dans GridFS, essayer la collection directe
+    if (files.length === 0) {
+      console.log("🔍 Recherche dans les collections directes...")
+      const collections = await db.listCollections().toArray()
+      console.log(
+        "📋 Collections disponibles:",
+        collections.map((c) => c.name),
+      )
+
+      // Chercher dans les collections qui pourraient contenir des images
+      const imageCollections = collections.filter(
+        (c) => c.name.includes("image") || c.name.includes("file") || c.name.includes("upload"),
+      )
+
+      for (const collection of imageCollections) {
+        const docs = await db.collection(collection.name).find({}).toArray()
+        if (docs.length > 0) {
+          console.log(`📊 ${docs.length} documents trouvés dans "${collection.name}"`)
+          // Convertir les documents en format GridFS-like
+          files = docs.map((doc) => ({
+            _id: doc._id,
+            filename: doc.filename || doc.name || `image_${doc._id}`,
+            length: doc.length || 0,
+            uploadDate: doc.uploadDate || new Date(),
+          }))
+          usedBucket = collection.name
+          break
+        }
+      }
+    }
 
     if (files.length === 0) {
+      console.log("❌ Aucune image trouvée dans aucune collection")
       return NextResponse.json({ error: "Aucune image trouvée" }, { status: 404 })
     }
+
+    console.log(`✅ Utilisation du bucket/collection: "${usedBucket}"`)
 
     // Créer un ZIP simple sans dépendances externes
     const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
@@ -28,14 +77,29 @@ export async function GET() {
       try {
         console.log(`📁 Traitement du fichier: ${file.filename}`)
 
-        const downloadStream = bucket.openDownloadStream(file._id)
-        const chunks: Buffer[] = []
+        let buffer: Buffer
 
-        for await (const chunk of downloadStream) {
-          chunks.push(chunk)
+        if (usedBucket.includes(".")) {
+          // C'est un bucket GridFS standard
+          const bucket = new GridFSBucket(db, { bucketName: usedBucket.split(".")[0] })
+          const downloadStream = bucket.openDownloadStream(file._id)
+          const chunks: Buffer[] = []
+
+          for await (const chunk of downloadStream) {
+            chunks.push(chunk)
+          }
+          buffer = Buffer.concat(chunks)
+        } else {
+          // C'est une collection directe, essayer de récupérer les données
+          const doc = await db.collection(usedBucket).findOne({ _id: file._id })
+          if (doc && doc.data) {
+            buffer = Buffer.from(doc.data)
+          } else {
+            console.log(`⚠️ Pas de données pour ${file.filename}`)
+            continue
+          }
         }
 
-        const buffer = Buffer.concat(chunks)
         const safeFilename = file.filename || `image_${file._id}.jpg`
 
         // Calculer le CRC32
