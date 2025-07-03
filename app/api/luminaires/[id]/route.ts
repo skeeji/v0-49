@@ -59,22 +59,25 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params
+    const data = await request.json()
+
     if (!id || !ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, error: "ID de luminaire invalide" }, { status: 400 })
     }
-
-    const data = await request.json()
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const updateData = {
-      ...data,
-      updatedAt: new Date(),
-    }
-
-    const result = await collection.updateOne({ _id: new ObjectId(id) }, { $set: updateData })
+    const result = await collection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          ...data,
+          updatedAt: new Date(),
+        },
+      },
+    )
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
@@ -83,30 +86,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ success: true, message: "Luminaire mis à jour avec succès" })
   } catch (error: any) {
     console.error(`❌ Erreur mise à jour luminaire ${params.id}:`, error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const { id } = params
-    if (!id || !ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, error: "ID de luminaire invalide" }, { status: 400 })
-    }
-
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
-
-    const result = await collection.deleteOne({ _id: new ObjectId(id) })
-
-    if (result.deletedCount === 0) {
-      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
-    }
-
-    return NextResponse.json({ success: true, message: "Luminaire supprimé avec succès" })
-  } catch (error: any) {
-    console.error(`❌ Erreur suppression luminaire ${params.id}:`, error)
     return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
   }
 }

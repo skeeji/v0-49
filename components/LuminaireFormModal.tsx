@@ -4,33 +4,38 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
+import { Textarea } from "@/components/ui/textarea"
+import { Upload, Check, X } from "lucide-react"
 
 interface LuminaireFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: any) => Promise<any>
+  onSuccess: () => void
 }
 
-export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormModalProps) {
+export function LuminaireFormModal({ isOpen, onClose, onSuccess }: LuminaireFormModalProps) {
+  const [step, setStep] = useState(1)
+  const [luminaireId, setLuminaireId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Données du formulaire
   const [formData, setFormData] = useState({
     nom: "",
     designer: "",
     annee: "",
     periode: "",
-    collaboration: "",
-    description: "",
     editeur: "",
+    description: "",
+    collaboration: "",
     signe: "",
     dimensions: "",
-    estimation: "",
     materiaux: "",
+    estimation: "",
   })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [currentStep, setCurrentStep] = useState(1)
-  const [luminaireId, setLuminaireId] = useState<string | null>(null)
+
+  // Images
   const [luminaireImage, setLuminaireImage] = useState<File | null>(null)
   const [designerImage, setDesignerImage] = useState<File | null>(null)
 
@@ -39,53 +44,64 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
   }
 
   const handleStep1Submit = async () => {
-    if (!formData.nom.trim()) {
-      toast.error("Le nom du luminaire est requis")
+    if (!formData.nom || !formData.designer) {
+      setError("Le nom et le designer sont obligatoires")
       return
     }
 
-    setIsSubmitting(true)
+    setLoading(true)
+    setError(null)
+
     try {
-      // Créer le luminaire
-      const result = await onSubmit({
-        nom: formData.nom,
-        designer: formData.designer,
-        annee: formData.annee ? Number.parseInt(formData.annee) : null,
-        periode: formData.periode,
-        collaboration: formData.collaboration,
-        description: formData.description,
-        editeur: formData.editeur,
-        signe: formData.signe,
-        dimensions: formData.dimensions,
-        estimation: formData.estimation,
-        materiaux: formData.materiaux ? formData.materiaux.split(",").map((m) => m.trim()) : [],
+      const response = await fetch("/api/luminaires", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: formData.nom,
+          designer: formData.designer,
+          annee: formData.annee ? Number.parseInt(formData.annee) : null,
+          periode: formData.periode,
+          editeur: formData.editeur,
+          description: formData.description,
+          collaboration: formData.collaboration,
+          signe: formData.signe,
+          dimensions: formData.dimensions,
+          materiaux: formData.materiaux
+            .split(",")
+            .map((m) => m.trim())
+            .filter(Boolean),
+          estimation: formData.estimation,
+        }),
       })
+
+      const result = await response.json()
 
       if (result.success) {
         setLuminaireId(result.id)
-        setCurrentStep(2)
-        toast.success("Luminaire créé ! Ajoutez maintenant l'image du luminaire.")
+        setStep(2)
       } else {
-        throw new Error(result.error)
+        throw new Error(result.error || "Erreur lors de la création")
       }
-    } catch (error: any) {
-      toast.error("Erreur lors de la création : " + error.message)
+    } catch (err: any) {
+      setError(err.message)
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
   const handleStep2Submit = async () => {
-    if (!luminaireImage) {
-      toast.error("Veuillez sélectionner une image pour le luminaire")
+    if (!luminaireImage || !luminaireId) {
+      setError("Veuillez sélectionner une image")
       return
     }
 
-    setIsSubmitting(true)
+    setLoading(true)
+    setError(null)
+
     try {
       const formData = new FormData()
       formData.append("image", luminaireImage)
-      formData.append("luminaireId", luminaireId!)
+      formData.append("luminaireId", luminaireId)
 
       const response = await fetch("/api/luminaires/associate-image", {
         method: "POST",
@@ -95,69 +111,80 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       const result = await response.json()
 
       if (result.success) {
-        setCurrentStep(3)
-        toast.success("Image du luminaire ajoutée ! Ajoutez maintenant l'image du designer (optionnel).")
+        setStep(3)
       } else {
-        throw new Error(result.error)
+        throw new Error(result.error || "Erreur lors de l'upload")
       }
-    } catch (error: any) {
-      toast.error("Erreur lors de l'upload : " + error.message)
+    } catch (err: any) {
+      setError(err.message)
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
   const handleStep3Submit = async () => {
-    setIsSubmitting(true)
+    if (!designerImage || !luminaireId) {
+      // Pas d'image designer, on termine
+      handleComplete()
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
     try {
-      if (designerImage) {
-        const formData = new FormData()
-        formData.append("image", designerImage)
-        formData.append("luminaireId", luminaireId!)
+      const formData = new FormData()
+      formData.append("image", designerImage)
+      formData.append("luminaireId", luminaireId)
 
-        const response = await fetch("/api/luminaires/associate-designer-image", {
-          method: "POST",
-          body: formData,
-        })
+      const response = await fetch("/api/luminaires/associate-designer-image", {
+        method: "POST",
+        body: formData,
+      })
 
-        const result = await response.json()
+      const result = await response.json()
 
-        if (!result.success) {
-          throw new Error(result.error)
-        }
-
-        toast.success("Image du designer ajoutée !")
+      if (result.success) {
+        handleComplete()
+      } else {
+        throw new Error(result.error || "Erreur lors de l'upload")
       }
-
-      // Fermer le modal et réinitialiser
-      handleClose()
-      toast.success("Luminaire créé avec succès !")
-    } catch (error: any) {
-      toast.error("Erreur lors de l'upload : " + error.message)
+    } catch (err: any) {
+      setError(err.message)
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
-  const handleClose = () => {
+  const handleComplete = () => {
+    resetForm()
+    onSuccess()
+  }
+
+  const resetForm = () => {
+    setStep(1)
+    setLuminaireId(null)
+    setLoading(false)
+    setError(null)
     setFormData({
       nom: "",
       designer: "",
       annee: "",
       periode: "",
-      collaboration: "",
-      description: "",
       editeur: "",
+      description: "",
+      collaboration: "",
       signe: "",
       dimensions: "",
-      estimation: "",
       materiaux: "",
+      estimation: "",
     })
-    setCurrentStep(1)
-    setLuminaireId(null)
     setLuminaireImage(null)
     setDesignerImage(null)
-    setIsSubmitting(false)
+  }
+
+  const handleClose = () => {
+    resetForm()
     onClose()
   }
 
@@ -166,53 +193,65 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {currentStep === 1 && "Créer un nouveau luminaire"}
-            {currentStep === 2 && "Ajouter l'image du luminaire"}
-            {currentStep === 3 && "Ajouter l'image du designer (optionnel)"}
+            Ajouter un luminaire - Étape {step}/3
+            {step === 1 && " : Informations"}
+            {step === 2 && " : Image du luminaire"}
+            {step === 3 && " : Image du designer (optionnel)"}
           </DialogTitle>
         </DialogHeader>
 
-        {currentStep === 1 && (
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800 text-sm">
+            <div className="flex items-center gap-2">
+              <X className="w-4 h-4" />
+              {error}
+            </div>
+          </div>
+        )}
+
+        {step === 1 && (
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="nom">Nom du luminaire *</Label>
-              <Input
-                id="nom"
-                value={formData.nom}
-                onChange={(e) => handleInputChange("nom", e.target.value)}
-                placeholder="Nom du luminaire"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="nom">Nom du luminaire *</Label>
+                <Input
+                  id="nom"
+                  value={formData.nom}
+                  onChange={(e) => handleInputChange("nom", e.target.value)}
+                  placeholder="Nom du luminaire"
+                />
+              </div>
+              <div>
+                <Label htmlFor="designer">Designer *</Label>
+                <Input
+                  id="designer"
+                  value={formData.designer}
+                  onChange={(e) => handleInputChange("designer", e.target.value)}
+                  placeholder="Nom du designer"
+                />
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="designer">Artiste / Dates</Label>
-              <Input
-                id="designer"
-                value={formData.designer}
-                onChange={(e) => handleInputChange("designer", e.target.value)}
-                placeholder="Artiste / Dates"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="annee">Année</Label>
-              <Input
-                id="annee"
-                type="number"
-                value={formData.annee}
-                onChange={(e) => handleInputChange("annee", e.target.value)}
-                placeholder="Année"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="periode">Spécialité</Label>
-              <Input
-                id="periode"
-                value={formData.periode}
-                onChange={(e) => handleInputChange("periode", e.target.value)}
-                placeholder="Spécialité"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="annee">Année</Label>
+                <Input
+                  id="annee"
+                  type="number"
+                  value={formData.annee}
+                  onChange={(e) => handleInputChange("annee", e.target.value)}
+                  placeholder="1950"
+                />
+              </div>
+              <div>
+                <Label htmlFor="periode">Spécialité/Période</Label>
+                <Input
+                  id="periode"
+                  value={formData.periode}
+                  onChange={(e) => handleInputChange("periode", e.target.value)}
+                  placeholder="Art Déco, Moderniste..."
+                />
+              </div>
             </div>
 
             <div>
@@ -221,7 +260,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                 id="editeur"
                 value={formData.editeur}
                 onChange={(e) => handleInputChange("editeur", e.target.value)}
-                placeholder="Editeur"
+                placeholder="Nom de l'éditeur"
               />
             </div>
 
@@ -231,7 +270,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                 id="description"
                 value={formData.description}
                 onChange={(e) => handleInputChange("description", e.target.value)}
-                placeholder="Description"
+                placeholder="Description du luminaire"
                 rows={3}
               />
             </div>
@@ -242,38 +281,39 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                 id="collaboration"
                 value={formData.collaboration}
                 onChange={(e) => handleInputChange("collaboration", e.target.value)}
-                placeholder="Collaboration / Œuvre"
+                placeholder="Informations sur la collaboration"
                 rows={2}
               />
             </div>
 
-            <div>
-              <Label htmlFor="signe">Signé</Label>
-              <Input
-                id="signe"
-                value={formData.signe}
-                onChange={(e) => handleInputChange("signe", e.target.value)}
-                placeholder="Signé"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="signe">Signé</Label>
+                <Input
+                  id="signe"
+                  value={formData.signe}
+                  onChange={(e) => handleInputChange("signe", e.target.value)}
+                  placeholder="Oui/Non"
+                />
+              </div>
+              <div>
+                <Label htmlFor="dimensions">Dimensions</Label>
+                <Input
+                  id="dimensions"
+                  value={formData.dimensions}
+                  onChange={(e) => handleInputChange("dimensions", e.target.value)}
+                  placeholder="H x L x P cm"
+                />
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="dimensions">Dimensions</Label>
-              <Input
-                id="dimensions"
-                value={formData.dimensions}
-                onChange={(e) => handleInputChange("dimensions", e.target.value)}
-                placeholder="Dimensions"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="materiaux">Matériaux (séparés par des virgules)</Label>
+              <Label htmlFor="materiaux">Matériaux</Label>
               <Input
                 id="materiaux"
                 value={formData.materiaux}
                 onChange={(e) => handleInputChange("materiaux", e.target.value)}
-                placeholder="Métal, Verre, Plastique..."
+                placeholder="Métal, Verre, Bois... (séparés par des virgules)"
               />
             </div>
 
@@ -283,7 +323,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                 id="estimation"
                 value={formData.estimation}
                 onChange={(e) => handleInputChange("estimation", e.target.value)}
-                placeholder="Estimation"
+                placeholder="Prix estimé"
               />
             </div>
 
@@ -291,54 +331,86 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               <Button variant="outline" onClick={handleClose}>
                 Annuler
               </Button>
-              <Button onClick={handleStep1Submit} disabled={isSubmitting}>
-                {isSubmitting ? "Création..." : "Créer le luminaire"}
+              <Button onClick={handleStep1Submit} disabled={loading}>
+                {loading ? "Création..." : "Suivant"}
               </Button>
             </div>
           </div>
         )}
 
-        {currentStep === 2 && (
+        {step === 2 && (
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="luminaire-image">Image du luminaire *</Label>
-              <Input
-                id="luminaire-image"
+            <div className="text-center">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 text-sm mb-4">
+                <div className="flex items-center gap-2 justify-center">
+                  <Check className="w-4 h-4" />
+                  Luminaire créé avec succès !
+                </div>
+              </div>
+              <p className="text-gray-600 mb-4">Maintenant, ajoutez l'image du luminaire</p>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setLuminaireImage(e.target.files?.[0] || null)}
+                className="hidden"
+                id="luminaire-image"
               />
+              <label htmlFor="luminaire-image" className="cursor-pointer">
+                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">
+                  {luminaireImage ? luminaireImage.name : "Cliquez pour sélectionner une image"}
+                </p>
+              </label>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={handleClose}>
                 Annuler
               </Button>
-              <Button onClick={handleStep2Submit} disabled={isSubmitting || !luminaireImage}>
-                {isSubmitting ? "Upload..." : "Ajouter l'image"}
+              <Button onClick={handleStep2Submit} disabled={loading || !luminaireImage}>
+                {loading ? "Upload..." : "Suivant"}
               </Button>
             </div>
           </div>
         )}
 
-        {currentStep === 3 && (
+        {step === 3 && (
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="designer-image">Image du designer (optionnel)</Label>
-              <Input
-                id="designer-image"
+            <div className="text-center">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 text-sm mb-4">
+                <div className="flex items-center gap-2 justify-center">
+                  <Check className="w-4 h-4" />
+                  Image du luminaire ajoutée !
+                </div>
+              </div>
+              <p className="text-gray-600 mb-4">Ajoutez une image du designer (optionnel)</p>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setDesignerImage(e.target.files?.[0] || null)}
+                className="hidden"
+                id="designer-image"
               />
+              <label htmlFor="designer-image" className="cursor-pointer">
+                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">
+                  {designerImage ? designerImage.name : "Cliquez pour sélectionner une image du designer"}
+                </p>
+              </label>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => handleStep3Submit()}>
-                Passer cette étape
+              <Button variant="outline" onClick={handleComplete}>
+                Ignorer
               </Button>
-              <Button onClick={handleStep3Submit} disabled={isSubmitting}>
-                {isSubmitting ? "Upload..." : designerImage ? "Ajouter l'image" : "Terminer"}
+              <Button onClick={handleStep3Submit} disabled={loading}>
+                {loading ? "Upload..." : "Terminer"}
               </Button>
             </div>
           </div>

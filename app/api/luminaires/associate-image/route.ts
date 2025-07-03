@@ -1,72 +1,71 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
-import { GridFSBucket } from "mongodb"
+import { GridFSBucket, ObjectId } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
-    const image = formData.get("image") as File
-    const luminaireId = formData.get("luminaireId") as string
+    const file = formData.get("image") as File | null
+    const luminaireId = formData.get("luminaireId") as string | null
 
-    if (!image || !luminaireId) {
-      return NextResponse.json({ success: false, error: "Image et ID luminaire requis" }, { status: 400 })
+    if (!file || !luminaireId) {
+      return NextResponse.json({ error: "Fichier ou ID du luminaire manquant" }, { status: 400 })
     }
 
-    if (!ObjectId.isValid(luminaireId)) {
-      return NextResponse.json({ success: false, error: "ID luminaire invalide" }, { status: 400 })
-    }
+    console.log(`🖼️ Association de l'image ${file.name} au luminaire ${luminaireId}`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    const luminairesCollection = db.collection("luminaires")
 
-    // Convertir le fichier en buffer
-    const bytes = await image.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-
-    // Générer un nom de fichier unique
-    const timestamp = Date.now()
-    const filename = `luminaire_${luminaireId}_${timestamp}_${image.name}`
-
-    // Upload vers GridFS
-    const uploadStream = bucket.openUploadStream(filename, {
+    // 1. Upload du fichier
+    const uploadStream = bucket.openUploadStream(file.name, {
       metadata: {
-        originalName: image.name,
-        contentType: image.type,
-        luminaireId: luminaireId,
-        uploadedAt: new Date(),
+        type: "luminaire-image",
+        originalName: file.name,
+        uploadDate: new Date(),
       },
     })
 
-    await new Promise((resolve, reject) => {
-      uploadStream.end(buffer, (error) => {
+    const buffer = await file.arrayBuffer()
+    const uint8Array = new Uint8Array(buffer)
+
+    await new Promise<void>((resolve, reject) => {
+      uploadStream.end(uint8Array, (error) => {
         if (error) reject(error)
-        else resolve(uploadStream.id)
+        else resolve()
       })
     })
 
-    // Mettre à jour le luminaire avec le nom du fichier
-    const collection = db.collection("luminaires")
-    await collection.updateOne(
+    console.log(`✅ Fichier uploadé avec l'ID GridFS: ${uploadStream.id}`)
+
+    // 2. Association avec le luminaire
+    const result = await luminairesCollection.updateOne(
       { _id: new ObjectId(luminaireId) },
       {
-        $push: { images: filename },
-        $set: { updatedAt: new Date() },
+        $set: {
+          imageUploaded: true,
+          imageId: uploadStream.id,
+          images: [file.name],
+          filename: file.name,
+          "Nom du fichier": file.name,
+          updatedAt: new Date(),
+        },
       },
     )
 
-    console.log(`✅ Image associée au luminaire ${luminaireId}: ${filename}`)
+    if (result.matchedCount === 0) {
+      throw new Error("Impossible de trouver le luminaire pour l'associer.")
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Image associée avec succès",
-      filename: filename,
-    })
+    console.log(`✅ Association réussie pour le luminaire ${luminaireId}`)
+
+    return NextResponse.json({ success: true, message: "Image associée avec succès." })
   } catch (error: any) {
-    console.error("❌ Erreur association image:", error)
+    console.error("❌ Erreur d'association d'image:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
