@@ -39,13 +39,15 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     setUploading(true)
 
     try {
-      // Étape 1: Préparer et créer le luminaire (uniquement les données texte)
+      // MODIFICATION 2: Préparer et créer le luminaire avec champs séparés
       const luminaireData = {
         nom: formData.nom,
         designer: formData.artist,
         annee: formData.annee ? Number.parseInt(formData.annee) : null,
         periode: formData.specialty,
-        description: formData.collaboration,
+        // MODIFICATION 2: Champs complètement séparés
+        collaboration: formData.collaboration, // Collaboration reste collaboration
+        description: formData.description, // Description reste description
         signe: formData.signed,
         dimensions: formData.dimensions,
         editeur: formData.editeur,
@@ -232,6 +234,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
             />
           </div>
 
+          {/* MODIFICATION 2: Champs Collaboration et Description complètement séparés */}
           <div>
             <Label htmlFor="collaboration">Collaboration / Œuvre</Label>
             <Textarea
@@ -244,16 +247,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           </div>
 
           <div>
-            <Label htmlFor="signed">Signé</Label>
-            <Input
-              id="signed"
-              value={formData.signed}
-              onChange={(e) => handleChange("signed", e.target.value)}
-              placeholder="Signé"
-            />
-          </div>
-
-          <div>
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -261,6 +254,16 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               onChange={(e) => handleChange("description", e.target.value)}
               placeholder="Description"
               rows={3}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="signed">Signé</Label>
+            <Input
+              id="signed"
+              value={formData.signed}
+              onChange={(e) => handleChange("signed", e.target.value)}
+              placeholder="Signé"
             />
           </div>
 
