@@ -12,7 +12,7 @@ import { toast } from "sonner"
 interface LuminaireFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: any) => Promise<any>
+  onSubmit: (data: any) => Promise<any> // Le type de retour est maintenant une Promise
 }
 
 export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormModalProps) {
@@ -22,15 +22,15 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     annee: "",
     specialty: "",
     collaboration: "",
-    description: "",
+    description: "", // Champ description distinct
     signed: "",
     dimensions: "",
     materials: "",
     estimation: "",
-    editeur: "",
+    editeur: "", // NOUVEAU CHAMP
   })
   const [luminaireImageFile, setLuminaireImageFile] = useState<File | null>(null)
-  const [designerImageFile, setDesignerImageFile] = useState<File | null>(null)
+  const [designerImageFile, setDesignerImageFile] = useState<File | null>(null) // NOUVELLE IMAGE
   const [uploading, setUploading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,7 +68,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       if (!createResponse.success) {
         throw new Error(createResponse.error || "Erreur lors de la création du luminaire.")
       }
-
       const newLuminaireId = createResponse.id
       console.log("✅ Luminaire créé avec l'ID:", newLuminaireId)
 
@@ -93,6 +92,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         const designerImageFormData = new FormData()
         designerImageFormData.append("image", designerImageFile)
         designerImageFormData.append("luminaireId", newLuminaireId)
+        // Note: On utilise une nouvelle route dédiée
         const designerAssocResponse = await fetch("/api/luminaires/associate-designer-image", {
           method: "POST",
           body: designerImageFormData,
@@ -174,6 +174,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
             />
           </div>
 
+          {/* NOUVEAU CHAMP EDITEUR */}
           <div>
             <Label htmlFor="editeur">Editeur</Label>
             <Input
@@ -244,12 +245,14 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
             />
           </div>
 
+          {/* UPLOAD IMAGE LUMINAIRE */}
           <div>
             <Label htmlFor="luminaire-image">Image du luminaire</Label>
             <Input id="luminaire-image" type="file" accept="image/*" onChange={handleLuminaireImageChange} />
             {luminaireImageFile && <p className="text-sm text-gray-600 mt-1">Fichier: {luminaireImageFile.name}</p>}
           </div>
 
+          {/* NOUVEAU UPLOAD IMAGE DESIGNER */}
           <div>
             <Label htmlFor="designer-image">Image du designer</Label>
             <Input id="designer-image" type="file" accept="image/*" onChange={handleDesignerImageChange} />

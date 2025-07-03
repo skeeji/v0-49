@@ -31,9 +31,11 @@ export default function LuminaireDetailPage() {
         console.log("🔍 Chargement luminaire ID:", params.id)
 
         const response = await fetch(`/api/luminaires/${params.id}`)
+
         if (!response.ok) throw new Error("Luminaire non trouvé")
 
         const result = await response.json()
+
         console.log("📊 Réponse API luminaire:", result)
 
         if (result.success) {
@@ -56,7 +58,7 @@ export default function LuminaireDetailPage() {
                 : "",
             materials: String(result.data["Matériaux"] || result.data.materiaux || ""),
             estimation: String(result.data["Estimation"] || result.data.estimation || ""),
-            editeur: String(result.data.editeur || ""),
+            editeur: String(result.data["Editeur"] || result.data.editeur || ""),
           }
 
           setLuminaire(formattedLuminaire)
@@ -169,7 +171,7 @@ export default function LuminaireDetailPage() {
       dimensions: "Dimensions",
       materials: "Matériaux",
       estimation: "Estimation",
-      editeur: "editeur",
+      editeur: "Editeur", // AJOUT DU CHAMP EDITEUR
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -182,6 +184,7 @@ export default function LuminaireDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [keyToUpdate]: value }),
       })
+
       console.log("✅ Luminaire mis à jour:", field, value)
     } catch (error) {
       console.error("❌ Erreur de mise à jour:", error)
@@ -204,6 +207,7 @@ export default function LuminaireDetailPage() {
     if (!luminaire) return
 
     setGeneratingPDF(true)
+
     try {
       const pdf = new jsPDF()
 
@@ -233,7 +237,7 @@ export default function LuminaireDetailPage() {
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
       addField("Estimation", luminaire.estimation)
-      addField("Editeur", luminaire.editeur)
+      addField("Editeur", luminaire.editeur) // AJOUT DANS LE PDF
 
       // Ajouter l'image si disponible - Version simplifiée
       if (luminaire.image) {
@@ -267,6 +271,7 @@ export default function LuminaireDetailPage() {
               } catch (error) {
                 console.error("❌ Erreur traitement image PDF:", error)
               }
+
               resolve()
             }
 
@@ -334,6 +339,7 @@ export default function LuminaireDetailPage() {
                 {generatingPDF ? "Génération..." : "PDF"}
               </Button>
             )}
+
             <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
           </div>
         </div>
@@ -475,6 +481,7 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
+                  {/* NOUVEAU CHAMP EDITEUR */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
                     <EditableField
