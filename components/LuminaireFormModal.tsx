@@ -13,81 +13,42 @@ import { toast } from "sonner"
 interface LuminaireFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: any) => Promise<any>
+  onSuccess: () => void
 }
 
-export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormModalProps) {
+export function LuminaireFormModal({ isOpen, onClose, onSuccess }: LuminaireFormModalProps) {
   const [formData, setFormData] = useState({
     nom: "",
     artist: "",
     annee: "",
     specialty: "",
     collaboration: "",
-    signed: "",
     description: "",
+    signed: "",
     dimensions: "",
     materials: "",
     estimation: "",
+    editeur: "",
   })
-  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [luminaireImageFile, setLuminaireImageFile] = useState<File | null>(null)
+  const [designerImageFile, setDesignerImageFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setUploading(true)
 
+    const fullFormData = new FormData()
+    Object.entries(formData).forEach(([key, value]) => fullFormData.append(key, value))
+    if (luminaireImageFile) fullFormData.append("luminaireImage", luminaireImageFile)
+    if (designerImageFile) fullFormData.append("designerImage", designerImageFile)
+
     try {
-      // Étape 1: Préparer et créer le luminaire (uniquement les données texte)
-      const luminaireData = {
-        nom: formData.nom,
-        designer: formData.artist,
-        annee: formData.annee ? Number.parseInt(formData.annee) : null,
-        periode: formData.specialty,
-        description: formData.collaboration,
-        signe: formData.signed,
-        dimensions: formData.dimensions,
-        materiaux: formData.materials
-          .split(",")
-          .map((m) => m.trim())
-          .filter(Boolean),
-        estimation: formData.estimation,
-        // On ajoute aussi les champs compatibles CSV pour la cohérence
-        "Nom luminaire": formData.nom,
-        "Artiste / Dates": formData.artist,
-        Année: formData.annee,
-        Spécialité: formData.specialty,
-        "Collaboration / Œuvre": formData.collaboration,
-        Signé: formData.signed,
-      }
+      const response = await fetch("/api/luminaires/create-full", { method: "POST", body: fullFormData })
+      const result = await response.json()
+      if (!result.success) throw new Error(result.error)
 
-      console.log("📊 Création du luminaire (données texte)...", luminaireData)
-      const createResponse = await onSubmit(luminaireData)
-
-      if (!createResponse.success) {
-        throw new Error(createResponse.error || "Erreur lors de la création du luminaire.")
-      }
-
-      const newLuminaireId = createResponse.id
-      console.log("✅ Luminaire créé avec l'ID:", newLuminaireId)
-
-      // Étape 2: Si une image est sélectionnée, l'uploader et l'associer
-      if (imageFile) {
-        console.log(`🖼️ Upload et association de l'image pour l'ID ${newLuminaireId}...`)
-        const imageFormData = new FormData()
-        imageFormData.append("image", imageFile)
-        imageFormData.append("luminaireId", newLuminaireId)
-
-        const assocResponse = await fetch("/api/luminaires/associate-image", {
-          method: "POST",
-          body: imageFormData,
-        })
-
-        const assocResult = await assocResponse.json()
-        if (!assocResult.success) {
-          throw new Error(assocResult.error || "Erreur lors de l'association de l'image.")
-        }
-        console.log("✅ Image associée avec succès !")
-      }
+      toast.success("Luminaire ajouté avec succès !")
 
       // Reset du formulaire
       setFormData({
@@ -96,17 +57,19 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         annee: "",
         specialty: "",
         collaboration: "",
-        signed: "",
         description: "",
+        signed: "",
         dimensions: "",
         materials: "",
         estimation: "",
+        editeur: "",
       })
-      setImageFile(null)
+      setLuminaireImageFile(null)
+      setDesignerImageFile(null)
+
+      onSuccess()
       onClose()
-      // Le toast de succès est déjà dans la page parente, pas besoin de le répéter ici.
     } catch (error: any) {
-      console.error("❌ Erreur dans le processus de création:", error)
       toast.error(error.message || "Une erreur est survenue.")
     } finally {
       setUploading(false)
@@ -115,14 +78,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      console.log("📁 Fichier sélectionné:", file.name, file.size, "bytes")
-      setImageFile(file)
-    }
   }
 
   return (
@@ -134,7 +89,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="nom">Nom du luminaire</Label>
+            <Label htmlFor="nom">Nom du luminaire *</Label>
             <Input
               id="nom"
               value={formData.nom}
@@ -172,7 +127,17 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               value={formData.specialty}
               onChange={(e) => handleChange("specialty", e.target.value)}
               placeholder="Spécialité"
-              rows={3}
+              rows={2}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="editeur">Editeur</Label>
+            <Input
+              id="editeur"
+              value={formData.editeur}
+              onChange={(e) => handleChange("editeur", e.target.value)}
+              placeholder="Editeur"
             />
           </div>
 
@@ -183,17 +148,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               value={formData.collaboration}
               onChange={(e) => handleChange("collaboration", e.target.value)}
               placeholder="Collaboration / Œuvre"
-              rows={3}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="signed">Signé</Label>
-            <Input
-              id="signed"
-              value={formData.signed}
-              onChange={(e) => handleChange("signed", e.target.value)}
-              placeholder="Signé"
+              rows={2}
             />
           </div>
 
@@ -205,6 +160,16 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               onChange={(e) => handleChange("description", e.target.value)}
               placeholder="Description"
               rows={3}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="signed">Signé</Label>
+            <Input
+              id="signed"
+              value={formData.signed}
+              onChange={(e) => handleChange("signed", e.target.value)}
+              placeholder="Signé"
             />
           </div>
 
@@ -240,22 +205,44 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           </div>
 
           <div>
-            <Label htmlFor="image">Image du luminaire</Label>
-            <Input id="image" type="file" accept="image/*" onChange={handleImageChange} className="cursor-pointer" />
-            {imageFile && <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {imageFile.name}</p>}
+            <Label htmlFor="luminaireImage">Image du Luminaire</Label>
+            <Input
+              id="luminaireImage"
+              type="file"
+              accept="image/*"
+              onChange={(e) => e.target.files && setLuminaireImageFile(e.target.files[0])}
+              className="cursor-pointer"
+            />
+            {luminaireImageFile && (
+              <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {luminaireImageFile.name}</p>
+            )}
           </div>
 
-          <div className="flex gap-2 pt-4">
-            <Button
-              type="submit"
-              className="flex-1"
-              style={{ backgroundColor: "#f2d895", color: "#000" }}
-              disabled={uploading}
-            >
-              {uploading ? "Création en cours..." : "Créer"}
-            </Button>
+          <div>
+            <Label htmlFor="designerImage">Image du Designer (optionnel)</Label>
+            <Input
+              id="designerImage"
+              type="file"
+              accept="image/*"
+              onChange={(e) => e.target.files && setDesignerImageFile(e.target.files[0])}
+              className="cursor-pointer"
+            />
+            {designerImageFile && (
+              <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {designerImageFile.name}</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>
               Annuler
+            </Button>
+            <Button
+              type="submit"
+              disabled={uploading}
+              style={{ backgroundColor: "#f2d895", color: "#000" }}
+              className="hover:opacity-90"
+            >
+              {uploading ? "Création..." : "Créer le Luminaire"}
             </Button>
           </div>
         </form>
