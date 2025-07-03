@@ -23,13 +23,15 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     annee: "",
     specialty: "",
     collaboration: "",
-    signed: "",
     description: "",
+    signed: "",
     dimensions: "",
     materials: "",
     estimation: "",
+    editeur: "",
   })
-  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [luminaireImageFile, setLuminaireImageFile] = useState<File | null>(null)
+  const [designerImageFile, setDesignerImageFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,13 +39,14 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     setUploading(true)
 
     try {
-      // Étape 1: Préparer et créer le luminaire (uniquement les données texte)
+      // Étape 1: Créer le luminaire avec les données texte
       const luminaireData = {
         nom: formData.nom,
         designer: formData.artist,
         annee: formData.annee ? Number.parseInt(formData.annee) : null,
         periode: formData.specialty,
-        description: formData.collaboration,
+        description: formData.description,
+        collaboration: formData.collaboration,
         signe: formData.signed,
         dimensions: formData.dimensions,
         materiaux: formData.materials
@@ -51,7 +54,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           .map((m) => m.trim())
           .filter(Boolean),
         estimation: formData.estimation,
-        // On ajoute aussi les champs compatibles CSV pour la cohérence
+        editeur: formData.editeur,
         "Nom luminaire": formData.nom,
         "Artiste / Dates": formData.artist,
         Année: formData.annee,
@@ -70,23 +73,36 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       const newLuminaireId = createResponse.id
       console.log("✅ Luminaire créé avec l'ID:", newLuminaireId)
 
-      // Étape 2: Si une image est sélectionnée, l'uploader et l'associer
-      if (imageFile) {
-        console.log(`🖼️ Upload et association de l'image pour l'ID ${newLuminaireId}...`)
+      // Étape 2: Uploader l'image du luminaire si elle existe
+      if (luminaireImageFile) {
+        console.log(`🖼️ Upload de l'image du luminaire...`)
         const imageFormData = new FormData()
-        imageFormData.append("image", imageFile)
+        imageFormData.append("image", luminaireImageFile)
         imageFormData.append("luminaireId", newLuminaireId)
-
         const assocResponse = await fetch("/api/luminaires/associate-image", {
           method: "POST",
           body: imageFormData,
         })
-
         const assocResult = await assocResponse.json()
-        if (!assocResult.success) {
-          throw new Error(assocResult.error || "Erreur lors de l'association de l'image.")
-        }
-        console.log("✅ Image associée avec succès !")
+        if (!assocResult.success) throw new Error(assocResult.error || "Erreur d'association de l'image luminaire.")
+        console.log("✅ Image du luminaire associée !")
+      }
+
+      // Étape 3: Uploader l'image du designer si elle existe
+      if (designerImageFile) {
+        console.log(`👨‍🎨 Upload de l'image du designer...`)
+        const designerImageFormData = new FormData()
+        designerImageFormData.append("image", designerImageFile)
+        designerImageFormData.append("luminaireId", newLuminaireId)
+        // Note: On utilise une nouvelle route dédiée
+        const designerAssocResponse = await fetch("/api/luminaires/associate-designer-image", {
+          method: "POST",
+          body: designerImageFormData,
+        })
+        const designerAssocResult = await designerAssocResponse.json()
+        if (!designerAssocResult.success)
+          throw new Error(designerAssocResult.error || "Erreur d'association de l'image designer.")
+        console.log("✅ Image du designer associée !")
       }
 
       // Reset du formulaire
@@ -96,15 +112,16 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         annee: "",
         specialty: "",
         collaboration: "",
-        signed: "",
         description: "",
+        signed: "",
         dimensions: "",
         materials: "",
         estimation: "",
+        editeur: "",
       })
-      setImageFile(null)
+      setLuminaireImageFile(null)
+      setDesignerImageFile(null)
       onClose()
-      // Le toast de succès est déjà dans la page parente, pas besoin de le répéter ici.
     } catch (error: any) {
       console.error("❌ Erreur dans le processus de création:", error)
       toast.error(error.message || "Une erreur est survenue.")
@@ -117,12 +134,14 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLuminaireImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      console.log("📁 Fichier sélectionné:", file.name, file.size, "bytes")
-      setImageFile(file)
-    }
+    if (file) setLuminaireImageFile(file)
+  }
+
+  const handleDesignerImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) setDesignerImageFile(file)
   }
 
   return (
@@ -188,6 +207,17 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           </div>
 
           <div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleChange("description", e.target.value)}
+              placeholder="Description"
+              rows={3}
+            />
+          </div>
+
+          <div>
             <Label htmlFor="signed">Signé</Label>
             <Input
               id="signed"
@@ -198,13 +228,12 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleChange("description", e.target.value)}
-              placeholder="Description"
-              rows={3}
+            <Label htmlFor="editeur">Editeur</Label>
+            <Input
+              id="editeur"
+              value={formData.editeur}
+              onChange={(e) => handleChange("editeur", e.target.value)}
+              placeholder="Editeur"
             />
           </div>
 
@@ -240,9 +269,27 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           </div>
 
           <div>
-            <Label htmlFor="image">Image du luminaire</Label>
-            <Input id="image" type="file" accept="image/*" onChange={handleImageChange} className="cursor-pointer" />
-            {imageFile && <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {imageFile.name}</p>}
+            <Label htmlFor="luminaire-image">Image du luminaire</Label>
+            <Input
+              id="luminaire-image"
+              type="file"
+              accept="image/*"
+              onChange={handleLuminaireImageChange}
+              className="cursor-pointer"
+            />
+            {luminaireImageFile && <p className="text-sm text-gray-600 mt-1">Fichier: {luminaireImageFile.name}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="designer-image">Image du designer</Label>
+            <Input
+              id="designer-image"
+              type="file"
+              accept="image/*"
+              onChange={handleDesignerImageChange}
+              className="cursor-pointer"
+            />
+            {designerImageFile && <p className="text-sm text-gray-600 mt-1">Fichier: {designerImageFile.name}</p>}
           </div>
 
           <div className="flex gap-2 pt-4">
