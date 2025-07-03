@@ -4,7 +4,7 @@ import { ObjectId, GridFSBucket } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-// FORMATEUR DE DONNÉES CENTRALISÉ POUR LA COHÉRENCE
+// FORMATEUR DE DONNÉES UNIQUE POUR GARANTIR LA COHÉRENCE PARTOUT
 const formatLuminaire = (luminaire: any) => {
   if (!luminaire) return null
   return {
@@ -22,12 +22,11 @@ const formatLuminaire = (luminaire: any) => {
     estimation: luminaire.estimation || "",
     editeur: luminaire.editeur || "",
     materiaux: Array.isArray(luminaire.materiaux) ? luminaire.materiaux : [],
-    images: Array.isArray(luminaire.images) ? luminaire.images : [],
     image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
   }
 }
 
-// FONCTION GET UNIFIÉE
+// FONCTION GET UNIFIÉE (LISTE + DÉTAIL)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -43,10 +42,12 @@ export async function GET(request: NextRequest) {
       if (!luminaire) return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
 
       const formatted = formatLuminaire(luminaire)
+
       const similarFilter: any = { _id: { $ne: new ObjectId(id) } }
       const orConditions = []
       if (formatted.periode) orConditions.push({ periode: formatted.periode })
-      if (formatted.materiaux.length > 0) orConditions.push({ materiaux: { $in: formatted.materiaux } })
+      if (formatted.materiaux && formatted.materiaux.length > 0)
+        orConditions.push({ materiaux: { $in: formatted.materiaux } })
       if (orConditions.length > 0) similarFilter.$or = orConditions
 
       const similarRaw = await collection.find(similarFilter).limit(6).toArray()
@@ -60,11 +61,6 @@ export async function GET(request: NextRequest) {
     // CAS : PAGE GALERIE (LISTE)
     const page = Number(searchParams.get("page") || "1")
     const limit = Number(searchParams.get("limit") || "50")
-    const search = searchParams.get("search") || ""
-    const designer = searchParams.get("designer") || ""
-    const periode = searchParams.get("periode") || ""
-    const materiaux = searchParams.get("materiaux") || ""
-    const couleurs = searchParams.get("couleurs") || ""
     const sliderModified = searchParams.get("sliderModified") === "true"
     const yearMin = searchParams.get("yearMin")
     const yearMax = searchParams.get("yearMax")
@@ -72,44 +68,6 @@ export async function GET(request: NextRequest) {
     const sortDirection = searchParams.get("sortDirection") || "asc"
 
     const filter: any = {}
-
-    if (search) {
-      filter.$or = [
-        { nom: { $regex: search, $options: "i" } },
-        { designer: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { "Nom luminaire": { $regex: search, $options: "i" } },
-        { "Artiste / Dates": { $regex: search, $options: "i" } },
-        { Spécialité: { $regex: search, $options: "i" } },
-        { "Collaboration / Œuvre": { $regex: search, $options: "i" } },
-      ]
-    }
-
-    if (designer) {
-      filter.$and = filter.$and || []
-      filter.$and.push({
-        $or: [
-          { designer: { $regex: designer, $options: "i" } },
-          { "Artiste / Dates": { $regex: designer, $options: "i" } },
-        ],
-      })
-    }
-
-    if (periode) {
-      filter.$and = filter.$and || []
-      filter.$and.push({
-        $or: [{ periode: { $regex: periode, $options: "i" } }, { Spécialité: { $regex: periode, $options: "i" } }],
-      })
-    }
-
-    if (materiaux) {
-      filter.materiaux = { $in: [new RegExp(materiaux, "i")] }
-    }
-
-    if (couleurs) {
-      filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
-    }
-
     if (sliderModified && yearMin && yearMax) {
       filter.annee = { $gte: Number(yearMin), $lte: Number(yearMax) }
     }
@@ -128,49 +86,46 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .toArray()
 
-    // Calculer les options de filtres
-    const allLuminaires = await collection.find({}).limit(1000).toArray()
-    const designers = [...new Set(allLuminaires.map((l) => l.designer || l["Artiste / Dates"]).filter(Boolean))].sort()
-    const periodes = [...new Set(allLuminaires.map((l) => l.periode || l["Spécialité"]).filter(Boolean))].sort()
-    const allMateriaux = [...new Set(allLuminaires.flatMap((l) => l.materiaux || []).filter(Boolean))].sort()
-    const allCouleurs = [...new Set(allLuminaires.flatMap((l) => l.couleurs || []).filter(Boolean))].sort()
-
     return NextResponse.json({
       success: true,
       luminaires: luminairesRaw.map(formatLuminaire),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasMore: page * limit < total,
-      },
-      filters: {
-        designers,
-        periodes,
-        materiaux: allMateriaux,
-        couleurs: allCouleurs,
-      },
+      pagination: { page, limit, total, hasMore: page * limit < total },
     })
   } catch (error: any) {
-    console.error("❌ Erreur GET:", error)
     return NextResponse.json({ success: false, error: "Erreur serveur GET" }, { status: 500 })
   }
 }
 
-// FONCTION POST UNIFIÉE
+// FONCTION POST "TOUT-EN-UN"
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
-    const imageFile = formData.get("image") as File | null
+    const luminaireImage = formData.get("luminaireImage") as File | null
+    const designerImage = formData.get("designerImage") as File | null
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    const designersCollection = db.collection("designers")
+    const luminairesCollection = db.collection("luminaires")
 
+    // 1. Gérer le designer et son image
+    const designerName = formData.get("designer") as string
+    if (designerName) {
+      const updatePayload: any = { $set: { Nom: designerName } }
+      if (designerImage) {
+        const filename = designerImage.name
+        const uploadStream = bucket.openUploadStream(filename)
+        uploadStream.end(new Uint8Array(await designerImage.arrayBuffer()))
+        updatePayload.$set.imagedesigner = filename
+      }
+      await designersCollection.updateOne({ Nom: designerName }, updatePayload, { upsert: true })
+    }
+
+    // 2. Créer le document du luminaire
     const luminaireData: any = { createdAt: new Date(), updatedAt: new Date() }
     formData.forEach((value, key) => {
-      if (key !== "image") luminaireData[key] = value
+      if (!["luminaireImage", "designerImage"].includes(key)) luminaireData[key] = value
     })
     if (luminaireData.annee) luminaireData.annee = Number(luminaireData.annee)
     if (luminaireData.materiaux && typeof luminaireData.materiaux === "string") {
@@ -180,31 +135,20 @@ export async function POST(request: NextRequest) {
         .filter(Boolean)
     }
 
-    const result = await collection.insertOne(luminaireData)
-    const newId = result.insertedId
+    const luminaireResult = await luminairesCollection.insertOne(luminaireData)
+    const newLuminaireId = luminaireResult.insertedId
 
-    if (imageFile) {
-      const bucket = new GridFSBucket(db, { bucketName: "uploads" })
-      const uploadStream = bucket.openUploadStream(imageFile.name)
-      const buffer = await imageFile.arrayBuffer()
-      uploadStream.end(new Uint8Array(buffer))
-
-      await collection.updateOne(
-        { _id: newId },
-        {
-          $set: {
-            images: [imageFile.name],
-            filename: imageFile.name,
-            "Nom du fichier": imageFile.name,
-          },
-        },
-      )
+    // 3. Gérer l'image du luminaire et l'associer
+    if (luminaireImage) {
+      const filename = luminaireImage.name
+      const uploadStream = bucket.openUploadStream(filename)
+      uploadStream.end(new Uint8Array(await luminaireImage.arrayBuffer()))
+      await luminairesCollection.updateOne({ _id: newLuminaireId }, { $set: { images: [filename], filename } })
     }
 
-    return NextResponse.json({ success: true, message: "Luminaire créé", id: newId })
+    return NextResponse.json({ success: true, message: "Opération réussie", id: newLuminaireId })
   } catch (error: any) {
-    console.error("❌ Erreur POST:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur POST" }, { status: 500 })
+    return NextResponse.json({ success: false, error: "Erreur serveur POST: " + error.message }, { status: 500 })
   }
 }
 
@@ -214,18 +158,17 @@ export async function PUT(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
     if (!id || !ObjectId.isValid(id))
-      return NextResponse.json({ success: false, error: "ID manquant ou invalide" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "ID manquant" }, { status: 400 })
 
     const updates = await request.json()
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
-
-    await collection.updateOne({ _id: new ObjectId(id) }, { $set: { ...updates, updatedAt: new Date() } })
+    await db
+      .collection("luminaires")
+      .updateOne({ _id: new ObjectId(id) }, { $set: { ...updates, updatedAt: new Date() } })
 
     return NextResponse.json({ success: true, message: "Luminaire mis à jour" })
   } catch (error: any) {
-    console.error("❌ Erreur PUT:", error)
     return NextResponse.json({ success: false, error: "Erreur serveur PUT" }, { status: 500 })
   }
 }

@@ -24,15 +24,16 @@ export function LuminaireFormModal({
     designer: "",
     annee: "",
     periode: "",
+    editeur: "",
     collaboration: "",
     description: "",
     signe: "",
     dimensions: "",
-    materiaux: "",
     estimation: "",
-    editeur: "",
+    materiaux: "",
   })
-  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [luminaireImageFile, setLuminaireImageFile] = useState<File | null>(null)
+  const [designerImageFile, setDesignerImageFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,13 +42,13 @@ export function LuminaireFormModal({
 
     const fullFormData = new FormData()
     Object.entries(formData).forEach(([key, value]) => fullFormData.append(key, value))
-    if (imageFile) fullFormData.append("image", imageFile)
+    if (luminaireImageFile) fullFormData.append("luminaireImage", luminaireImageFile)
+    if (designerImageFile) fullFormData.append("designerImage", designerImageFile)
 
     try {
-      // On appelle directement la route POST principale
       const response = await fetch("/api/luminaires", { method: "POST", body: fullFormData })
       const result = await response.json()
-      if (!result.success) throw new Error(result.error || "Erreur inconnue.")
+      if (!result.success) throw new Error(result.error || "Une erreur est survenue lors de la création.")
 
       toast.success("Luminaire ajouté avec succès !")
 
@@ -57,15 +58,16 @@ export function LuminaireFormModal({
         designer: "",
         annee: "",
         periode: "",
+        editeur: "",
         collaboration: "",
         description: "",
         signe: "",
         dimensions: "",
-        materiaux: "",
         estimation: "",
-        editeur: "",
+        materiaux: "",
       })
-      setImageFile(null)
+      setLuminaireImageFile(null)
+      setDesignerImageFile(null)
 
       onSuccess()
       onClose()
@@ -82,11 +84,11 @@ export function LuminaireFormModal({
         <DialogHeader>
           <DialogTitle>Ajouter un luminaire</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-1">
           <div>
-            <Label htmlFor="nom">Nom *</Label>
+            <Label>Nom du luminaire *</Label>
             <Input
-              id="nom"
+              name="nom"
               value={formData.nom}
               onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
               required
@@ -94,18 +96,27 @@ export function LuminaireFormModal({
           </div>
 
           <div>
-            <Label htmlFor="designer">Designer</Label>
+            <Label>Designer</Label>
             <Input
-              id="designer"
+              name="designer"
               value={formData.designer}
               onChange={(e) => setFormData({ ...formData, designer: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="annee">Année</Label>
+            <Label>Image du Designer</Label>
             <Input
-              id="annee"
+              type="file"
+              accept="image/*"
+              onChange={(e) => e.target.files && setDesignerImageFile(e.target.files[0])}
+            />
+          </div>
+
+          <div>
+            <Label>Année</Label>
+            <Input
+              name="annee"
               type="number"
               value={formData.annee}
               onChange={(e) => setFormData({ ...formData, annee: e.target.value })}
@@ -113,89 +124,88 @@ export function LuminaireFormModal({
           </div>
 
           <div>
-            <Label htmlFor="periode">Spécialité</Label>
+            <Label>Spécialité</Label>
             <Input
-              id="periode"
+              name="periode"
               value={formData.periode}
               onChange={(e) => setFormData({ ...formData, periode: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="editeur">Editeur</Label>
+            <Label>Editeur</Label>
             <Input
-              id="editeur"
+              name="editeur"
               value={formData.editeur}
               onChange={(e) => setFormData({ ...formData, editeur: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="collaboration">Collaboration / Œuvre</Label>
+            <Label>Collaboration / Œuvre</Label>
             <Textarea
-              id="collaboration"
+              name="collaboration"
               value={formData.collaboration}
               onChange={(e) => setFormData({ ...formData, collaboration: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label>Description</Label>
             <Textarea
-              id="description"
+              name="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="signe">Signé</Label>
+            <Label>Signé</Label>
             <Input
-              id="signe"
+              name="signe"
               value={formData.signe}
               onChange={(e) => setFormData({ ...formData, signe: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="dimensions">Dimensions</Label>
+            <Label>Dimensions</Label>
             <Input
-              id="dimensions"
+              name="dimensions"
               value={formData.dimensions}
               onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="estimation">Estimation</Label>
+            <Label>Estimation</Label>
             <Input
-              id="estimation"
+              name="estimation"
               value={formData.estimation}
               onChange={(e) => setFormData({ ...formData, estimation: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="materiaux">Matériaux (séparés par virgule)</Label>
+            <Label>Matériaux (séparés par virgule)</Label>
             <Input
-              id="materiaux"
+              name="materiaux"
               value={formData.materiaux}
               onChange={(e) => setFormData({ ...formData, materiaux: e.target.value })}
             />
           </div>
 
           <div>
-            <Label htmlFor="image">Image</Label>
+            <Label>Image du Luminaire</Label>
             <Input
-              id="image"
               type="file"
               accept="image/*"
-              onChange={(e) => e.target.files && setImageFile(e.target.files[0])}
+              onChange={(e) => e.target.files && setLuminaireImageFile(e.target.files[0])}
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>
               Annuler
             </Button>
             <Button type="submit" disabled={uploading}>
