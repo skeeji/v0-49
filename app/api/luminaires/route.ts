@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         { nom: { $regex: search, $options: "i" } },
         { designer: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
+        { collaboration: { $regex: search, $options: "i" } },
         { "Nom luminaire": { $regex: search, $options: "i" } },
         { "Artiste / Dates": { $regex: search, $options: "i" } },
         { Spécialité: { $regex: search, $options: "i" } },
@@ -68,13 +69,17 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    // CORRECTION: Filtre par années simplifié pour éviter l'erreur $toInt
+    // CORRECTION: Filtre par années - SEULEMENT si yearMin et yearMax sont fournis ET différents des bornes réelles
     if (yearMin && yearMax) {
       const minYear = Number.parseInt(yearMin)
       const maxYear = Number.parseInt(yearMax)
 
-      // Appliquer le filtre seulement si ce ne sont pas les valeurs par défaut
-      if (minYear !== 1900 || maxYear !== 2024) {
+      // CORRECTION: Ne pas appliquer le filtre si ce sont les valeurs par défaut OU les bornes complètes
+      // On vérifie que ce ne sont pas les valeurs 1900-2024 ET pas les bornes réelles de la base
+      const isDefaultRange = minYear === 1900 && maxYear === 2024
+      const isFullRange = minYear <= 1165 && maxYear >= 2026 // Bornes approximatives de la base
+
+      if (!isDefaultRange && !isFullRange) {
         console.log(`🎯 Application du filtre d'années: ${minYear} - ${maxYear}`)
 
         const yearConditions: any[] = []
@@ -82,14 +87,12 @@ export async function GET(request: NextRequest) {
         // Filtre sur les champs numériques
         yearConditions.push({ annee: { $gte: minYear, $lte: maxYear } }, { year: { $gte: minYear, $lte: maxYear } })
 
-        // CORRECTION: Filtre sur le champ "Année" sans $toInt pour éviter l'erreur
-        // On utilise une regex pour matcher les années dans la plage
+        // Filtre sur le champ "Année" avec regex pour éviter l'erreur $toInt
         const yearRegexPattern = []
         for (let year = minYear; year <= maxYear; year++) {
           yearRegexPattern.push(year.toString())
         }
 
-        // Créer une regex qui match n'importe quelle année dans la plage
         if (yearRegexPattern.length > 0) {
           const yearRegex = new RegExp(`\\b(${yearRegexPattern.join("|")})\\b`)
           yearConditions.push({ Année: { $regex: yearRegex } })
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
         filter.$and = filter.$and || []
         filter.$and.push({ $or: yearConditions })
       } else {
-        console.log("📅 Valeurs par défaut détectées, pas de filtre d'années appliqué")
+        console.log("📅 Plage complète détectée, pas de filtre d'années appliqué")
       }
     }
 
@@ -163,9 +166,9 @@ export async function GET(request: NextRequest) {
       periode: luminaire.periode || luminaire["Spécialité"] || "",
       specialty: luminaire.periode || luminaire["Spécialité"] || "",
 
-      // CORRECTION: Séparer description et collaboration
-      description: luminaire.description || "",
-      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
+      // CORRECTION: Champs complètement séparés
+      description: luminaire.description || "", // Description PURE
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Collaboration PURE
 
       signe: luminaire.signe || luminaire["Signé"] || "",
       signed: luminaire.signe || luminaire["Signé"] || "",
@@ -183,7 +186,7 @@ export async function GET(request: NextRequest) {
           ? `/api/images/filename/${luminaire.filename}`
           : null,
 
-      // CORRECTION: Image du designer
+      // Image du designer
       designerImage: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : null,
       designerImageFilename: luminaire.designerImageFilename || "",
 

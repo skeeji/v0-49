@@ -35,11 +35,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       periode: luminaire.periode || luminaire["Spécialité"] || "",
       signe: luminaire.signe || luminaire["Signé"] || "",
 
-      // CORRECTION: Champs séparés et distincts
-      description: luminaire.description || "", // Description PROPRE
-      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Collaboration PROPRE
-      dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-      estimation: luminaire.estimation || luminaire["Estimation"] || "",
+      // CORRECTION: Champs complètement séparés - AUCUN MÉLANGE
+      description: luminaire.description || "", // Description PURE - ne prend JAMAIS collaboration
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Collaboration PURE - ne prend JAMAIS description
+
+      // Autres champs étendus
+      dimensions: luminaire.dimensions || "",
+      estimation: luminaire.estimation || "",
       editeur: luminaire.editeur || "",
       materiaux: luminaire.materiaux || [],
 
@@ -68,9 +70,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
       Signé: luminaire["Signé"] || "",
       "Nom du fichier": luminaire["Nom du fichier"] || "",
-      Dimensions: luminaire["Dimensions"] || "",
-      Estimation: luminaire["Estimation"] || "",
-      Matériaux: luminaire["Matériaux"] || "",
     }
 
     return NextResponse.json({
@@ -105,11 +104,41 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
+    // CORRECTION: Mapping correct pour éviter les mélanges
+    const mappedUpdates: any = {}
+
+    // Copier tous les champs sans transformation
+    Object.keys(updates).forEach((key) => {
+      mappedUpdates[key] = updates[key]
+    })
+
+    // Synchroniser avec les champs CSV seulement pour certains champs
+    if (updates.nom) {
+      mappedUpdates["Nom luminaire"] = updates.nom
+    }
+    if (updates.designer) {
+      mappedUpdates["Artiste / Dates"] = updates.designer
+    }
+    if (updates.annee) {
+      mappedUpdates["Année"] = updates.annee.toString()
+    }
+    if (updates.periode) {
+      mappedUpdates["Spécialité"] = updates.periode
+    }
+    if (updates.signe) {
+      mappedUpdates["Signé"] = updates.signe
+    }
+    // CORRECTION: Collaboration synchronise avec CSV, mais description reste séparée
+    if (updates.collaboration) {
+      mappedUpdates["Collaboration / Œuvre"] = updates.collaboration
+    }
+    // Description reste complètement séparée - pas de synchronisation CSV
+
     const result = await collection.updateOne(
       { _id: new ObjectId(params.id) },
       {
         $set: {
-          ...updates,
+          ...mappedUpdates,
           updatedAt: new Date(),
         },
       },
