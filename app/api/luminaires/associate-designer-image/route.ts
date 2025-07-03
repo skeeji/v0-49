@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "uploads" }) // Même bucket pour l'export
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
     const luminairesCollection = db.collection("luminaires")
 
     // Upload

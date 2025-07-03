@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -94,7 +93,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         const designerImageFormData = new FormData()
         designerImageFormData.append("image", designerImageFile)
         designerImageFormData.append("luminaireId", newLuminaireId)
-        // Note: On utilise une nouvelle route dédiée
         const designerAssocResponse = await fetch("/api/luminaires/associate-designer-image", {
           method: "POST",
           body: designerImageFormData,
@@ -105,22 +103,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         console.log("✅ Image du designer associée !")
       }
 
-      // Reset du formulaire
-      setFormData({
-        nom: "",
-        artist: "",
-        annee: "",
-        specialty: "",
-        collaboration: "",
-        description: "",
-        signed: "",
-        dimensions: "",
-        materials: "",
-        estimation: "",
-        editeur: "",
-      })
-      setLuminaireImageFile(null)
-      setDesignerImageFile(null)
       onClose()
     } catch (error: any) {
       console.error("❌ Erreur dans le processus de création:", error)
@@ -150,7 +132,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         <DialogHeader>
           <DialogTitle>Ajouter un luminaire</DialogTitle>
         </DialogHeader>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="nom">Nom du luminaire</Label>
@@ -177,53 +158,19 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
             <Label htmlFor="annee">Année</Label>
             <Input
               id="annee"
-              type="number"
               value={formData.annee}
               onChange={(e) => handleChange("annee", e.target.value)}
-              placeholder="Année"
+              placeholder="1950"
             />
           </div>
 
           <div>
             <Label htmlFor="specialty">Spécialité</Label>
-            <Textarea
+            <Input
               id="specialty"
               value={formData.specialty}
               onChange={(e) => handleChange("specialty", e.target.value)}
               placeholder="Spécialité"
-              rows={3}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="collaboration">Collaboration / Œuvre</Label>
-            <Textarea
-              id="collaboration"
-              value={formData.collaboration}
-              onChange={(e) => handleChange("collaboration", e.target.value)}
-              placeholder="Collaboration / Œuvre"
-              rows={3}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleChange("description", e.target.value)}
-              placeholder="Description"
-              rows={3}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="signed">Signé</Label>
-            <Input
-              id="signed"
-              value={formData.signed}
-              onChange={(e) => handleChange("signed", e.target.value)}
-              placeholder="Signé"
             />
           </div>
 
@@ -238,6 +185,36 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           </div>
 
           <div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleChange("description", e.target.value)}
+              placeholder="Description"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="collaboration">Collaboration / Œuvre</Label>
+            <Textarea
+              id="collaboration"
+              value={formData.collaboration}
+              onChange={(e) => handleChange("collaboration", e.target.value)}
+              placeholder="Collaboration / Œuvre"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="signed">Signé</Label>
+            <Input
+              id="signed"
+              value={formData.signed}
+              onChange={(e) => handleChange("signed", e.target.value)}
+              placeholder="Signé"
+            />
+          </div>
+
+          <div>
             <Label htmlFor="dimensions">Dimensions</Label>
             <Input
               id="dimensions"
@@ -248,13 +225,12 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           </div>
 
           <div>
-            <Label htmlFor="materials">Matériaux (séparés par des virgules)</Label>
-            <Textarea
+            <Label htmlFor="materials">Matériaux</Label>
+            <Input
               id="materials"
               value={formData.materials}
               onChange={(e) => handleChange("materials", e.target.value)}
-              placeholder="Bronze, Verre, Cristal"
-              rows={2}
+              placeholder="Métal, Verre, Plastique"
             />
           </div>
 
@@ -270,35 +246,18 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
 
           <div>
             <Label htmlFor="luminaire-image">Image du luminaire</Label>
-            <Input
-              id="luminaire-image"
-              type="file"
-              accept="image/*"
-              onChange={handleLuminaireImageChange}
-              className="cursor-pointer"
-            />
+            <Input id="luminaire-image" type="file" accept="image/*" onChange={handleLuminaireImageChange} />
             {luminaireImageFile && <p className="text-sm text-gray-600 mt-1">Fichier: {luminaireImageFile.name}</p>}
           </div>
 
           <div>
             <Label htmlFor="designer-image">Image du designer</Label>
-            <Input
-              id="designer-image"
-              type="file"
-              accept="image/*"
-              onChange={handleDesignerImageChange}
-              className="cursor-pointer"
-            />
+            <Input id="designer-image" type="file" accept="image/*" onChange={handleDesignerImageChange} />
             {designerImageFile && <p className="text-sm text-gray-600 mt-1">Fichier: {designerImageFile.name}</p>}
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button
-              type="submit"
-              className="flex-1"
-              style={{ backgroundColor: "#f2d895", color: "#000" }}
-              disabled={uploading}
-            >
+            <Button type="submit" disabled={uploading}>
               {uploading ? "Création en cours..." : "Créer"}
             </Button>
             <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>

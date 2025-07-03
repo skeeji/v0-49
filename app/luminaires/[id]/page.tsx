@@ -44,7 +44,7 @@ export default function LuminaireDetailPage() {
             image: result.data.filename ? `/api/images/filename/${result.data.filename}` : null,
             artist: String(result.data["Artiste / Dates"] || result.data.designer || ""),
             specialty: String(result.data["Spécialité"] || result.data.periode || ""),
-            collaboration: String(result.data["Collaboration / Œuvre"] || result.data.description || ""),
+            collaboration: String(result.data["Collaboration / Œuvre"] || result.data.collaboration || ""),
             year: String(result.data.annee || result.data["Année"] || ""),
             signed: String(result.data["Signé"] || result.data.signe || ""),
             name: String(result.data["Nom luminaire"] || result.data.nom || ""),
@@ -56,6 +56,7 @@ export default function LuminaireDetailPage() {
                 : "",
             materials: String(result.data["Matériaux"] || result.data.materiaux || ""),
             estimation: String(result.data["Estimation"] || result.data.estimation || ""),
+            editeur: String(result.data.editeur || ""),
           }
 
           setLuminaire(formattedLuminaire)
@@ -168,6 +169,7 @@ export default function LuminaireDetailPage() {
       dimensions: "Dimensions",
       materials: "Matériaux",
       estimation: "Estimation",
+      editeur: "editeur",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -231,6 +233,7 @@ export default function LuminaireDetailPage() {
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
       addField("Estimation", luminaire.estimation)
+      addField("Editeur", luminaire.editeur)
 
       // Ajouter l'image si disponible - Version simplifiée
       if (luminaire.image) {
@@ -468,6 +471,16 @@ export default function LuminaireDetailPage() {
                       value={String(luminaire.estimation || "")}
                       onSave={(v) => handleUpdate("estimation", v)}
                       placeholder="Estimation"
+                      disabled={!canEdit}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
+                    <EditableField
+                      value={String(luminaire.editeur || "")}
+                      onSave={(v) => handleUpdate("editeur", v)}
+                      placeholder="Editeur"
                       disabled={!canEdit}
                     />
                   </div>
