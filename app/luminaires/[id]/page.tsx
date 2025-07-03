@@ -37,42 +37,15 @@ export default function LuminaireDetailPage() {
         console.log("📊 Réponse API luminaire:", result)
 
         if (result.success) {
-          const formattedLuminaire = {
-            ...result.data,
-            id: String(result.data._id || ""),
-            _id: String(result.data._id || ""),
-            image: result.data.filename ? `/api/images/filename/${result.data.filename}` : null,
-            designerImage: result.data.designerImageFilename
-              ? `/api/images/filename/${result.data.designerImageFilename}`
-              : null,
-            nom: String(result.data["Nom luminaire"] || result.data.nom || ""),
-            designer: String(result.data["Artiste / Dates"] || result.data.designer || ""),
-            editeur: String(result.data["Editeur"] || result.data.editeur || ""),
-            annee: String(result.data.annee || result.data["Année"] || ""),
-            dimensions: String(result.data["Dimensions"] || result.data.dimensions || ""),
-            estimation: String(result.data["Estimation"] || result.data.estimation || ""),
-            collaboration: String(result.data["Collaboration / Œuvre"] || result.data.collaboration || ""),
-            description: String(result.data["Description"] || result.data.description || ""),
-            materiaux: Array.isArray(result.data.materiaux)
-              ? result.data.materiaux
-              : result.data["Matériaux"]
-                ? String(result.data["Matériaux"])
-                    .split(",")
-                    .map((m: string) => m.trim())
-                : [],
-            signed: String(result.data["Signé"] || result.data.signe || ""),
-            specialty: String(result.data["Spécialité"] || result.data.periode || ""),
-          }
-
-          setLuminaire(formattedLuminaire)
-          console.log("✅ Luminaire formaté:", formattedLuminaire)
+          setLuminaire(result.data)
+          console.log("✅ Luminaire chargé:", result.data)
 
           // Charger TOUS les luminaires pour trouver les 6 plus proches
           const allLuminairesResponse = await fetch("/api/luminaires?limit=9999")
           const allLuminairesData = await allLuminairesResponse.json()
 
           if (allLuminairesData.success) {
-            const similar = findSimilarLuminaires(formattedLuminaire, allLuminairesData.luminaires)
+            const similar = findSimilarLuminaires(result.data, allLuminairesData.luminaires)
             setSimilarLuminaires(similar)
             console.log("✅ Luminaires similaires:", similar.length)
           }
@@ -97,7 +70,7 @@ export default function LuminaireDetailPage() {
 
     // Filtrer et scorer tous les luminaires
     const scored = all
-      .filter((item) => String(item._id) !== String(current._id))
+      .filter((item) => String(item._id) !== String(current.id))
       .map((item) => {
         let score = 0
 
@@ -117,17 +90,6 @@ export default function LuminaireDetailPage() {
           if (yearDiff <= 5) score += 3
           else if (yearDiff <= 10) score += 2
           else if (yearDiff <= 20) score += 1
-        }
-
-        // Score par nom similaire (mots-clés communs)
-        if (current.nom && item["Nom luminaire"]) {
-          const currentWords = current.nom.toLowerCase().split(/\s+/)
-          const itemWords = String(item["Nom luminaire"]).toLowerCase().split(/\s+/)
-          const commonWords = currentWords.filter(
-            (word) =>
-              word.length > 3 && itemWords.some((itemWord) => itemWord.includes(word) || word.includes(itemWord)),
-          )
-          score += commonWords.length
         }
 
         return {
@@ -164,7 +126,6 @@ export default function LuminaireDetailPage() {
     if (!canEdit || !luminaire) return
 
     const keyMapping: { [key: string]: string } = {
-      nom: "Nom luminaire",
       designer: "Artiste / Dates",
       editeur: "Editeur",
       annee: "Année",
@@ -172,8 +133,7 @@ export default function LuminaireDetailPage() {
       estimation: "Estimation",
       collaboration: "Collaboration / Œuvre",
       description: "Description",
-      signed: "Signé",
-      specialty: "Spécialité",
+      nom: "Nom luminaire",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -181,7 +141,7 @@ export default function LuminaireDetailPage() {
     setLuminaire((prev: any) => ({ ...prev, [field]: String(value) }))
 
     try {
-      await fetch(`/api/luminaires/${luminaire._id}`, {
+      await fetch(`/api/luminaires/${luminaire.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [keyToUpdate]: value }),
@@ -197,8 +157,8 @@ export default function LuminaireDetailPage() {
 
     const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
     const newFavorites = isFavorite
-      ? favorites.filter((id: string) => String(id) !== String(luminaire._id))
-      : [...favorites, String(luminaire._id)]
+      ? favorites.filter((id: string) => String(id) !== String(luminaire.id))
+      : [...favorites, String(luminaire.id)]
 
     localStorage.setItem("favorites", JSON.stringify(newFavorites))
     setIsFavorite(!isFavorite)
@@ -236,35 +196,24 @@ export default function LuminaireDetailPage() {
       addField("Collaboration / Œuvre", luminaire.collaboration)
       addField("Description", luminaire.description)
       addField("Matériaux", Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : "")
-      addField("Signé", luminaire.signed)
 
-      // Ajouter l'image si disponible - Version simplifiée
+      // Ajouter l'image si disponible
       if (luminaire.image) {
         try {
-          // Créer un élément image temporaire
           const tempImg = document.createElement("img")
           tempImg.crossOrigin = "anonymous"
 
-          // Promesse pour charger l'image
           await new Promise<void>((resolve) => {
             tempImg.onload = () => {
               try {
-                // Créer un canvas
                 const canvas = document.createElement("canvas")
                 const ctx = canvas.getContext("2d")
 
                 if (ctx) {
-                  // Définir la taille du canvas
                   canvas.width = 100
                   canvas.height = 100
-
-                  // Dessiner l'image
                   ctx.drawImage(tempImg, 0, 0, 100, 100)
-
-                  // Convertir en base64
                   const dataURL = canvas.toDataURL("image/jpeg", 0.7)
-
-                  // Ajouter au PDF
                   pdf.addImage(dataURL, "JPEG", 20, yPos + 10, 100, 100)
                 }
               } catch (error) {
@@ -278,7 +227,6 @@ export default function LuminaireDetailPage() {
               resolve()
             }
 
-            // Charger l'image
             tempImg.src = luminaire.image
           })
         } catch (error) {
@@ -286,7 +234,6 @@ export default function LuminaireDetailPage() {
         }
       }
 
-      // Sauvegarder le PDF
       pdf.save(`${String(luminaire.nom || "luminaire")}.pdf`)
     } catch (error) {
       console.error("❌ Erreur génération PDF:", error)
@@ -348,56 +295,27 @@ export default function LuminaireDetailPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
-          {/* Colonne Images */}
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">Image du Luminaire</h3>
-              <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
-                {luminaire.image ? (
-                  <Image
-                    src={luminaire.image || "/placeholder.svg"}
-                    alt={luminaire.nom}
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      console.log("❌ Erreur chargement image:", luminaire.image)
-                      e.currentTarget.src = "/placeholder.svg"
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    <div className="text-center">
-                      <div className="text-6xl text-gray-400 mb-2">🏮</div>
-                      <span className="text-sm">Image non disponible</span>
-                    </div>
-                  </div>
-                )}
+          {/* Colonne Image Luminaire (UNIQUEMENT) */}
+          <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
+            {luminaire.image ? (
+              <Image
+                src={luminaire.image || "/placeholder.svg"}
+                alt={String(luminaire.nom || "Luminaire")}
+                fill
+                className="object-cover"
+                onError={(e) => {
+                  console.log("❌ Erreur chargement image:", luminaire.image)
+                  e.currentTarget.src = "/placeholder.svg"
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-6xl text-gray-400 mb-2">🏮</div>
+                  <span className="text-sm text-gray-500">Image non disponible</span>
+                </div>
               </div>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">Image du Designer</h3>
-              <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
-                {luminaire.designerImage ? (
-                  <Image
-                    src={luminaire.designerImage || "/placeholder.svg"}
-                    alt={`Image de ${luminaire.designer}`}
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      console.log("❌ Erreur chargement image designer:", luminaire.designerImage)
-                      e.currentTarget.src = "/placeholder.svg"
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    <div className="text-center">
-                      <div className="text-6xl text-gray-400 mb-2">👤</div>
-                      <span className="text-sm">Image non disponible</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Colonne Informations */}
@@ -413,6 +331,7 @@ export default function LuminaireDetailPage() {
                 />
 
                 <div className="space-y-4">
+                  {/* CORRECTION: Chaque champ affiche sa propre valeur, sans fallback */}
                   <InfoRow
                     label="Artiste / Dates"
                     value={luminaire.designer}
@@ -463,13 +382,6 @@ export default function LuminaireDetailPage() {
                     onSave={handleUpdate}
                     canEdit={canEdit}
                     multiline
-                  />
-                  <InfoRow
-                    label="Signé"
-                    value={luminaire.signed}
-                    fieldName="signed"
-                    onSave={handleUpdate}
-                    canEdit={canEdit}
                   />
 
                   <div>
@@ -523,7 +435,7 @@ export default function LuminaireDetailPage() {
   )
 }
 
-// Composant d'aide pour garder le code propre
+// Helper component
 const InfoRow = ({ label, value, fieldName, onSave, canEdit, multiline = false }: any) => (
   <div>
     <label className="block text-sm font-bold text-gray-700 mb-1">{label}</label>

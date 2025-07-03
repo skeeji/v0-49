@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       })
       const buffer = Buffer.from(await imageFile.arrayBuffer())
       await new Promise((resolve, reject) => {
-        uploadStream.end(buffer, (error: any, file: any) => (error ? reject(error) : resolve(file)))
+        uploadStream.end(buffer, (error, file) => (error ? reject(error) : resolve(file)))
       })
       console.log(`✅ Image designer uploadée sur GridFS: ${imageFile.name}`)
     }

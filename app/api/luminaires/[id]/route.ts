@@ -6,75 +6,38 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log(`🔍 API /api/luminaires/${params.id} - Récupération du luminaire`)
+    const { id } = params
+    if (!id || !ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, error: "ID invalide." }, { status: 400 })
+    }
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
-
-    const luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
+    const luminaire = await db.collection("luminaires").findOne({ _id: new ObjectId(id) })
 
     if (!luminaire) {
-      console.log(`❌ Luminaire non trouvé: ${params.id}`)
-      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé." }, { status: 404 })
     }
 
-    console.log(`✅ Luminaire trouvé: ${luminaire.nom || luminaire["Nom luminaire"]}`)
-
-    // Formater le luminaire avec tous les champs
-    const formattedLuminaire = {
-      _id: luminaire._id.toString(),
+    // CORRECTION: Retourner des champs propres et indépendants
+    const formattedData = {
       id: luminaire._id.toString(),
-
-      // Champs principaux avec fallback
       nom: luminaire.nom || luminaire["Nom luminaire"] || "",
-      name: luminaire.nom || luminaire["Nom luminaire"] || "",
       designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      artist: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
-      year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
-      periode: luminaire.periode || luminaire["Spécialité"] || "",
-      specialty: luminaire.periode || luminaire["Spécialité"] || "",
-      description: luminaire.description || luminaire["Collaboration / Œuvre"] || "",
-      collaboration: luminaire.description || luminaire["Collaboration / Œuvre"] || "",
-      signe: luminaire.signe || luminaire["Signé"] || "",
-      signed: luminaire.signe || luminaire["Signé"] || "",
-      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
-
-      // Autres champs
+      editeur: luminaire.editeur || "",
+      annee: luminaire.annee || luminaire["Année"] || "",
+      description: luminaire.description || "", // Champ indépendant
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Champ indépendant
+      dimensions: luminaire.dimensions || "",
+      estimation: luminaire.estimation || "",
       materiaux: luminaire.materiaux || [],
-      materials: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : "",
-      couleurs: luminaire.couleurs || [],
-      dimensions: luminaire.dimensions || {},
-      images: luminaire.images || [],
-      isFavorite: luminaire.isFavorite || false,
-      createdAt: luminaire.createdAt,
-      updatedAt: luminaire.updatedAt,
-
-      // Champs CSV originaux
-      "Artiste / Dates": luminaire["Artiste / Dates"] || "",
-      Spécialité: luminaire["Spécialité"] || "",
-      "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
-      "Nom luminaire": luminaire["Nom luminaire"] || "",
-      Année: luminaire["Année"] || "",
-      Signé: luminaire["Signé"] || "",
-      "Nom du fichier": luminaire["Nom du fichier"] || "",
+      image: luminaire.filename ? `/api/images/filename/${luminaire.filename}` : null,
+      // Pas besoin de renvoyer l'image du designer ici
     }
 
-    return NextResponse.json({
-      success: true,
-      data: formattedLuminaire,
-    })
+    return NextResponse.json({ success: true, data: formattedData })
   } catch (error: any) {
-    console.error(`❌ Erreur récupération luminaire ${params.id}:`, error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erreur lors de la récupération du luminaire",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: false, error: "Erreur serveur." }, { status: 500 })
   }
 }
 

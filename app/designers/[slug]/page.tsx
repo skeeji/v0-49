@@ -30,7 +30,7 @@ export default function DesignerDetailPage() {
     async function fetchDesignerData() {
       setIsLoading(true)
       try {
-        // Utiliser l'API designer spécifique
+        // CORRECTION: On utilise une API dédiée qui retourne les infos du designer ET son image
         const response = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
         const result = await response.json()
 
@@ -43,7 +43,6 @@ export default function DesignerDetailPage() {
           const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
             ...lum,
             id: lum._id,
-            // CORRECTION: Utiliser le nom du fichier pour l'image
             image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
             artist: lum["Artiste / Dates"] || lum.designer || "",
             year: lum.annee || lum["Année"] || "",
@@ -157,14 +156,15 @@ export default function DesignerDetailPage() {
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             <div className="w-48 h-48 relative flex-shrink-0">
               <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 overflow-hidden">
-                {designer.imagedesigner ? (
+                {/* CORRECTION: Utiliser le bon nom de champ de l'API */}
+                {designer.designerImage ? (
                   <Image
-                    src={`/api/images/filename/${designer.imagedesigner}`}
+                    src={designer.designerImage || "/placeholder.svg"}
                     alt={designer.nom}
                     fill
                     className="object-cover"
                     onError={(e) => {
-                      console.log("❌ Erreur chargement image designer:", designer.imagedesigner)
+                      console.log("❌ Erreur chargement image designer:", designer.designerImage)
                       e.currentTarget.style.display = "none"
                       const nextElement = e.currentTarget.nextElementSibling as HTMLElement
                       if (nextElement) {
@@ -173,7 +173,7 @@ export default function DesignerDetailPage() {
                     }}
                   />
                 ) : null}
-                <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
+                <div className={`text-center ${designer.designerImage ? "hidden" : ""}`}>
                   <div className="text-6xl text-gray-400 mb-2">👤</div>
                   <span className="text-sm text-gray-500 font-serif">Image non disponible</span>
                 </div>
