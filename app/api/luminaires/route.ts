@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import { ObjectId, GridFSBucket } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-// FORMATEUR CENTRALISÉ POUR LA COHÉRENCE DES DONNÉES
+// FORMATEUR DE DONNÉES CENTRALISÉ POUR LA COHÉRENCE
 const formatLuminaire = (luminaire: any) => {
   if (!luminaire) return null
   return {
@@ -24,11 +24,10 @@ const formatLuminaire = (luminaire: any) => {
     materiaux: Array.isArray(luminaire.materiaux) ? luminaire.materiaux : [],
     images: Array.isArray(luminaire.images) ? luminaire.images : [],
     image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
-    createdAt: luminaire.createdAt,
-    updatedAt: luminaire.updatedAt,
   }
 }
 
+// FONCTION GET UNIFIÉE
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -38,33 +37,27 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get("id")
 
     if (id) {
-      // CAS PAGE DE DÉTAIL
-      if (!ObjectId.isValid(id)) {
-        return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
-      }
-
+      // CAS : PAGE DE DÉTAIL
+      if (!ObjectId.isValid(id)) return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
       const luminaire = await collection.findOne({ _id: new ObjectId(id) })
-      if (!luminaire) {
-        return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
-      }
+      if (!luminaire) return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
 
       const formatted = formatLuminaire(luminaire)
       const similarFilter: any = { _id: { $ne: new ObjectId(id) } }
       const orConditions = []
-
       if (formatted.periode) orConditions.push({ periode: formatted.periode })
       if (formatted.materiaux.length > 0) orConditions.push({ materiaux: { $in: formatted.materiaux } })
       if (orConditions.length > 0) similarFilter.$or = orConditions
 
-      const similarRaw = await collection.find(similarFilter).limit(4).toArray()
+      const similarRaw = await collection.find(similarFilter).limit(6).toArray()
       return NextResponse.json({
         success: true,
         luminaire: formatted,
-        similar: similarRaw.map(formatLuminaire).filter(Boolean),
+        similar: similarRaw.map(formatLuminaire),
       })
     }
 
-    // CAS PAGE GALERIE
+    // CAS : PAGE GALERIE (LISTE)
     const page = Number(searchParams.get("page") || "1")
     const limit = Number(searchParams.get("limit") || "50")
     const search = searchParams.get("search") || ""
@@ -78,7 +71,6 @@ export async function GET(request: NextRequest) {
     const sortField = searchParams.get("sortField") || "nom"
     const sortDirection = searchParams.get("sortDirection") || "asc"
 
-    // Construire le filtre de recherche
     const filter: any = {}
 
     if (search) {
@@ -118,36 +110,15 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    // Filtre par années - seulement si le slider a été modifié
     if (sliderModified && yearMin && yearMax) {
-      const min = Number.parseInt(yearMin)
-      const max = Number.parseInt(yearMax)
-      filter.$or = [
-        { annee: { $gte: min, $lte: max } },
-        { year: { $gte: min, $lte: max } },
-        { Année: { $gte: yearMin, $lte: yearMax } },
-      ]
+      filter.annee = { $gte: Number(yearMin), $lte: Number(yearMax) }
     }
 
-    // Construire le tri
     const sort: any = {}
     const direction = sortDirection === "desc" ? -1 : 1
-
-    switch (sortField) {
-      case "annee":
-        sort.annee = direction
-        sort.year = direction
-        sort["Année"] = direction
-        break
-      case "designer":
-        sort.designer = direction
-        sort["Artiste / Dates"] = direction
-        break
-      default:
-        sort.nom = direction
-        sort["Nom luminaire"] = direction
-        break
-    }
+    if (sortField === "annee") sort.annee = direction
+    else if (sortField === "designer") sort.designer = direction
+    else sort.nom = direction
 
     const total = await collection.countDocuments(filter)
     const luminairesRaw = await collection
@@ -166,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      luminaires: luminairesRaw.map(formatLuminaire).filter(Boolean),
+      luminaires: luminairesRaw.map(formatLuminaire),
       pagination: {
         page,
         limit,
@@ -182,49 +153,84 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error("❌ Erreur API /api/luminaires:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+    console.error("❌ Erreur GET:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur GET" }, { status: 500 })
   }
 }
 
+// FONCTION POST UNIFIÉE
 export async function POST(request: NextRequest) {
   try {
-    console.log("📥 API /api/luminaires POST - Création d'un luminaire")
-
-    const data = await request.json()
-    console.log("📊 Données reçues:", data)
+    const formData = await request.formData()
+    const imageFile = formData.get("image") as File | null
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const luminaire = {
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const luminaireData: any = { createdAt: new Date(), updatedAt: new Date() }
+    formData.forEach((value, key) => {
+      if (key !== "image") luminaireData[key] = value
+    })
+    if (luminaireData.annee) luminaireData.annee = Number(luminaireData.annee)
+    if (luminaireData.materiaux && typeof luminaireData.materiaux === "string") {
+      luminaireData.materiaux = luminaireData.materiaux
+        .split(",")
+        .map((m: string) => m.trim())
+        .filter(Boolean)
     }
 
-    const result = await collection.insertOne(luminaire)
-    console.log("✅ Luminaire créé avec l'ID:", result.insertedId)
+    const result = await collection.insertOne(luminaireData)
+    const newId = result.insertedId
 
-    return NextResponse.json({
-      success: true,
-      message: "Luminaire créé avec succès",
-      id: result.insertedId,
-    })
+    if (imageFile) {
+      const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+      const uploadStream = bucket.openUploadStream(imageFile.name)
+      const buffer = await imageFile.arrayBuffer()
+      uploadStream.end(new Uint8Array(buffer))
+
+      await collection.updateOne(
+        { _id: newId },
+        {
+          $set: {
+            images: [imageFile.name],
+            filename: imageFile.name,
+            "Nom du fichier": imageFile.name,
+          },
+        },
+      )
+    }
+
+    return NextResponse.json({ success: true, message: "Luminaire créé", id: newId })
   } catch (error: any) {
-    console.error("❌ Erreur création luminaire:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erreur lors de la création du luminaire",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+    console.error("❌ Erreur POST:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur POST" }, { status: 500 })
   }
 }
 
+// FONCTION PUT UNIFIÉE
+export async function PUT(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+    if (!id || !ObjectId.isValid(id))
+      return NextResponse.json({ success: false, error: "ID manquant ou invalide" }, { status: 400 })
+
+    const updates = await request.json()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
+    await collection.updateOne({ _id: new ObjectId(id) }, { $set: { ...updates, updatedAt: new Date() } })
+
+    return NextResponse.json({ success: true, message: "Luminaire mis à jour" })
+  } catch (error: any) {
+    console.error("❌ Erreur PUT:", error)
+    return NextResponse.json({ success: false, error: "Erreur serveur PUT" }, { status: 500 })
+  }
+}
+
+// FONCTION DELETE UNIFIÉE
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
