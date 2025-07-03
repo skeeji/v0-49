@@ -180,7 +180,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour créer un nouveau luminaire
+  // Fonction pour créer un nouveau luminaire - MODIFIÉE POUR RETOURNER LA RÉPONSE
   const handleCreateLuminaire = useCallback(
     async (luminaireData: any) => {
       try {
@@ -200,9 +200,15 @@ export default function LuminairesPage() {
         } else {
           throw new Error(data.error)
         }
+
+        // AJOUTER CETTE LIGNE - On retourne la réponse de l'API
+        return data
       } catch (err: any) {
         console.error("❌ Erreur création:", err)
         toast.error("Erreur lors de la création")
+
+        // AJOUTER CETTE LIGNE - On retourne aussi en cas d'erreur
+        return { success: false, error: err.message }
       }
     },
     [loadLuminaires, loadAllLuminaires],

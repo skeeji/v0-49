@@ -13,7 +13,7 @@ import { toast } from "sonner"
 interface LuminaireFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: any) => void
+  onSubmit: (data: any) => Promise<any>
 }
 
 export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormModalProps) {
@@ -37,34 +37,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     setUploading(true)
 
     try {
-      let filename = ""
-
-      // Upload de l'image si présente
-      if (imageFile) {
-        console.log("📤 Upload de l'image:", imageFile.name)
-
-        const imageFormData = new FormData()
-        imageFormData.append("images", imageFile)
-
-        const uploadResponse = await fetch("/api/upload/images", {
-          method: "POST",
-          body: imageFormData,
-        })
-
-        const uploadResult = await uploadResponse.json()
-        console.log("📤 Résultat upload:", uploadResult)
-
-        if (uploadResult.success) {
-          // Utiliser le nom du fichier original
-          filename = imageFile.name
-          console.log("✅ Image uploadée avec succès:", filename)
-        } else {
-          console.error("❌ Erreur upload:", uploadResult)
-          throw new Error(uploadResult.error || "Erreur lors de l'upload de l'image")
-        }
-      }
-
-      // Préparer les données du luminaire
+      // Étape 1: Préparer et créer le luminaire (uniquement les données texte)
       const luminaireData = {
         nom: formData.nom,
         designer: formData.artist,
@@ -78,23 +51,43 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
           .map((m) => m.trim())
           .filter(Boolean),
         estimation: formData.estimation,
-        filename: filename,
-        images: filename ? [filename] : [],
-        // Champs CSV pour compatibilité
+        // On ajoute aussi les champs compatibles CSV pour la cohérence
         "Nom luminaire": formData.nom,
         "Artiste / Dates": formData.artist,
         Année: formData.annee,
         Spécialité: formData.specialty,
         "Collaboration / Œuvre": formData.collaboration,
         Signé: formData.signed,
-        "Nom du fichier": filename,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       }
 
-      console.log("📊 Données luminaire à créer:", luminaireData)
+      console.log("📊 Création du luminaire (données texte)...", luminaireData)
+      const createResponse = await onSubmit(luminaireData)
 
-      await onSubmit(luminaireData)
+      if (!createResponse.success) {
+        throw new Error(createResponse.error || "Erreur lors de la création du luminaire.")
+      }
+
+      const newLuminaireId = createResponse.id
+      console.log("✅ Luminaire créé avec l'ID:", newLuminaireId)
+
+      // Étape 2: Si une image est sélectionnée, l'uploader et l'associer
+      if (imageFile) {
+        console.log(`🖼️ Upload et association de l'image pour l'ID ${newLuminaireId}...`)
+        const imageFormData = new FormData()
+        imageFormData.append("image", imageFile)
+        imageFormData.append("luminaireId", newLuminaireId)
+
+        const assocResponse = await fetch("/api/luminaires/associate-image", {
+          method: "POST",
+          body: imageFormData,
+        })
+
+        const assocResult = await assocResponse.json()
+        if (!assocResult.success) {
+          throw new Error(assocResult.error || "Erreur lors de l'association de l'image.")
+        }
+        console.log("✅ Image associée avec succès !")
+      }
 
       // Reset du formulaire
       setFormData({
@@ -111,10 +104,10 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       })
       setImageFile(null)
       onClose()
-      toast.success("Luminaire créé avec succès")
+      // Le toast de succès est déjà dans la page parente, pas besoin de le répéter ici.
     } catch (error: any) {
-      console.error("❌ Erreur lors de la création:", error)
-      toast.error(error.message || "Erreur lors de la création du luminaire")
+      console.error("❌ Erreur dans le processus de création:", error)
+      toast.error(error.message || "Une erreur est survenue.")
     } finally {
       setUploading(false)
     }
