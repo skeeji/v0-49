@@ -1,54 +1,75 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { GridFSBucket, ObjectId } from "mongodb"
+import { ObjectId } from "mongodb"
+import { GridFSBucket } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
-    const file = formData.get("image") as File | null
-    const luminaireId = formData.get("luminaireId") as string | null
+    const image = formData.get("image") as File
+    const luminaireId = formData.get("luminaireId") as string
 
-    if (!file || !luminaireId) {
-      return NextResponse.json({ error: "Fichier ou ID du luminaire manquant" }, { status: 400 })
+    if (!image || !luminaireId) {
+      return NextResponse.json({ success: false, error: "Image et ID luminaire requis" }, { status: 400 })
+    }
+
+    if (!ObjectId.isValid(luminaireId)) {
+      return NextResponse.json({ success: false, error: "ID luminaire invalide" }, { status: 400 })
     }
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "uploads" }) // Même bucket pour l'export
-    const luminairesCollection = db.collection("luminaires")
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    // Upload
-    const uploadStream = bucket.openUploadStream(file.name, {
-      metadata: { type: "designer-image", originalName: file.name, uploadDate: new Date() },
+    // Convertir le fichier en buffer
+    const bytes = await image.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+
+    // Générer un nom de fichier unique
+    const timestamp = Date.now()
+    const filename = `designer_${luminaireId}_${timestamp}_${image.name}`
+
+    // Upload vers GridFS
+    const uploadStream = bucket.openUploadStream(filename, {
+      metadata: {
+        originalName: image.name,
+        contentType: image.type,
+        luminaireId: luminaireId,
+        type: "designer",
+        uploadedAt: new Date(),
+      },
     })
-    const buffer = await file.arrayBuffer()
-    await new Promise<void>((resolve, reject) => {
-      uploadStream.end(new Uint8Array(buffer), (error) => {
+
+    await new Promise((resolve, reject) => {
+      uploadStream.end(buffer, (error) => {
         if (error) reject(error)
-        else resolve()
+        else resolve(uploadStream.id)
       })
     })
 
-    // Association
-    const result = await luminairesCollection.updateOne(
+    // Mettre à jour le luminaire avec le nom du fichier du designer
+    const collection = db.collection("luminaires")
+    await collection.updateOne(
       { _id: new ObjectId(luminaireId) },
       {
         $set: {
-          designerImageId: uploadStream.id,
-          designerImageFilename: file.name,
+          designerImageFilename: filename,
           updatedAt: new Date(),
         },
       },
     )
 
-    if (result.matchedCount === 0) {
-      throw new Error("Impossible de trouver le luminaire pour associer l'image du designer.")
-    }
+    console.log(`✅ Image designer associée au luminaire ${luminaireId}: ${filename}`)
 
-    return NextResponse.json({ success: true, message: "Image designer associée." })
+    return NextResponse.json({
+      success: true,
+      message: "Image designer associée avec succès",
+      filename: filename,
+    })
   } catch (error: any) {
+    console.error("❌ Erreur association image designer:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
