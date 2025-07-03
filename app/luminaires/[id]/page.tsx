@@ -42,20 +42,26 @@ export default function LuminaireDetailPage() {
             id: String(result.data._id || ""),
             _id: String(result.data._id || ""),
             image: result.data.filename ? `/api/images/filename/${result.data.filename}` : null,
-            artist: String(result.data["Artiste / Dates"] || result.data.designer || ""),
-            specialty: String(result.data["Spécialité"] || result.data.periode || ""),
-            collaboration: String(result.data["Collaboration / Œuvre"] || result.data.description || ""),
-            year: String(result.data.annee || result.data["Année"] || ""),
-            signed: String(result.data["Signé"] || result.data.signe || ""),
-            name: String(result.data["Nom luminaire"] || result.data.nom || ""),
-            filename: String(result.data["Nom du fichier"] || result.data.filename || ""),
-            description: String(result.data["Description"] || result.data.description || ""),
-            dimensions:
-              result.data["Dimensions"] && String(result.data["Dimensions"]) !== "[object Object]"
-                ? String(result.data["Dimensions"])
-                : "",
-            materials: String(result.data["Matériaux"] || result.data.materiaux || ""),
+            designerImage: result.data.designerImageFilename
+              ? `/api/images/filename/${result.data.designerImageFilename}`
+              : null,
+            nom: String(result.data["Nom luminaire"] || result.data.nom || ""),
+            designer: String(result.data["Artiste / Dates"] || result.data.designer || ""),
+            editeur: String(result.data["Editeur"] || result.data.editeur || ""),
+            annee: String(result.data.annee || result.data["Année"] || ""),
+            dimensions: String(result.data["Dimensions"] || result.data.dimensions || ""),
             estimation: String(result.data["Estimation"] || result.data.estimation || ""),
+            collaboration: String(result.data["Collaboration / Œuvre"] || result.data.collaboration || ""),
+            description: String(result.data["Description"] || result.data.description || ""),
+            materiaux: Array.isArray(result.data.materiaux)
+              ? result.data.materiaux
+              : result.data["Matériaux"]
+                ? String(result.data["Matériaux"])
+                    .split(",")
+                    .map((m: string) => m.trim())
+                : [],
+            signed: String(result.data["Signé"] || result.data.signe || ""),
+            specialty: String(result.data["Spécialité"] || result.data.periode || ""),
           }
 
           setLuminaire(formattedLuminaire)
@@ -87,7 +93,7 @@ export default function LuminaireDetailPage() {
   }, [params.id])
 
   const findSimilarLuminaires = (current: any, all: any[]) => {
-    const currentYear = Number.parseInt(current.year) || 0
+    const currentYear = Number.parseInt(current.annee) || 0
 
     // Filtrer et scorer tous les luminaires
     const scored = all
@@ -100,7 +106,7 @@ export default function LuminaireDetailPage() {
         const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
 
         // Score par artiste (poids le plus élevé)
-        if (itemArtist && current.artist && itemArtist === current.artist) score += 5
+        if (itemArtist && current.designer && itemArtist === current.designer) score += 5
 
         // Score par spécialité
         if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 3
@@ -114,8 +120,8 @@ export default function LuminaireDetailPage() {
         }
 
         // Score par nom similaire (mots-clés communs)
-        if (current.name && item["Nom luminaire"]) {
-          const currentWords = current.name.toLowerCase().split(/\s+/)
+        if (current.nom && item["Nom luminaire"]) {
+          const currentWords = current.nom.toLowerCase().split(/\s+/)
           const itemWords = String(item["Nom luminaire"]).toLowerCase().split(/\s+/)
           const commonWords = currentWords.filter(
             (word) =>
@@ -158,16 +164,16 @@ export default function LuminaireDetailPage() {
     if (!canEdit || !luminaire) return
 
     const keyMapping: { [key: string]: string } = {
-      artist: "Artiste / Dates",
-      specialty: "Spécialité",
-      collaboration: "Collaboration / Œuvre",
-      name: "Nom luminaire",
-      year: "Année",
-      signed: "Signé",
-      description: "Description",
+      nom: "Nom luminaire",
+      designer: "Artiste / Dates",
+      editeur: "Editeur",
+      annee: "Année",
       dimensions: "Dimensions",
-      materials: "Matériaux",
       estimation: "Estimation",
+      collaboration: "Collaboration / Œuvre",
+      description: "Description",
+      signed: "Signé",
+      specialty: "Spécialité",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -207,7 +213,7 @@ export default function LuminaireDetailPage() {
 
       // Titre
       pdf.setFontSize(20)
-      pdf.text(String(luminaire.name || "Luminaire sans nom"), 20, 30)
+      pdf.text(String(luminaire.nom || "Luminaire sans nom"), 20, 30)
 
       // Informations
       pdf.setFontSize(12)
@@ -222,15 +228,15 @@ export default function LuminaireDetailPage() {
         }
       }
 
-      addField("Artiste / Dates", luminaire.artist)
-      addField("Année", luminaire.year)
-      addField("Spécialité", luminaire.specialty)
-      addField("Collaboration / Œuvre", luminaire.collaboration)
-      addField("Signé", luminaire.signed)
-      addField("Description", luminaire.description)
+      addField("Artiste / Dates", luminaire.designer)
+      addField("Editeur", luminaire.editeur)
+      addField("Année", luminaire.annee)
       addField("Dimensions", luminaire.dimensions)
-      addField("Matériaux", luminaire.materials)
       addField("Estimation", luminaire.estimation)
+      addField("Collaboration / Œuvre", luminaire.collaboration)
+      addField("Description", luminaire.description)
+      addField("Matériaux", Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : "")
+      addField("Signé", luminaire.signed)
 
       // Ajouter l'image si disponible - Version simplifiée
       if (luminaire.image) {
@@ -281,7 +287,7 @@ export default function LuminaireDetailPage() {
       }
 
       // Sauvegarder le PDF
-      pdf.save(`${String(luminaire.name || "luminaire")}.pdf`)
+      pdf.save(`${String(luminaire.nom || "luminaire")}.pdf`)
     } catch (error) {
       console.error("❌ Erreur génération PDF:", error)
     } finally {
@@ -342,134 +348,135 @@ export default function LuminaireDetailPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
-          {/* Image du luminaire */}
-          <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
-            {luminaire.image ? (
-              <Image
-                src={luminaire.image || "/placeholder.svg"}
-                alt={String(luminaire.name || "Luminaire")}
-                fill
-                className="object-cover"
-                onError={(e) => {
-                  console.log("❌ Erreur chargement image:", luminaire.image)
-                  e.currentTarget.src = "/placeholder.svg"
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-6xl text-gray-400 mb-2">🏮</div>
-                  <span className="text-sm text-gray-500">Image non disponible</span>
-                </div>
+          {/* Colonne Images */}
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold mb-2">Image du Luminaire</h3>
+              <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
+                {luminaire.image ? (
+                  <Image
+                    src={luminaire.image || "/placeholder.svg"}
+                    alt={luminaire.nom}
+                    fill
+                    className="object-cover"
+                    onError={(e) => {
+                      console.log("❌ Erreur chargement image:", luminaire.image)
+                      e.currentTarget.src = "/placeholder.svg"
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="text-center">
+                      <div className="text-6xl text-gray-400 mb-2">🏮</div>
+                      <span className="text-sm">Image non disponible</span>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Image du Designer</h3>
+              <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
+                {luminaire.designerImage ? (
+                  <Image
+                    src={luminaire.designerImage || "/placeholder.svg"}
+                    alt={`Image de ${luminaire.designer}`}
+                    fill
+                    className="object-cover"
+                    onError={(e) => {
+                      console.log("❌ Erreur chargement image designer:", luminaire.designerImage)
+                      e.currentTarget.src = "/placeholder.svg"
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="text-center">
+                      <div className="text-6xl text-gray-400 mb-2">👤</div>
+                      <span className="text-sm">Image non disponible</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Informations avec scroll - même hauteur que l'image */}
+          {/* Colonne Informations */}
           <div className="aspect-square bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="h-full overflow-y-auto p-6">
               <div className="space-y-6 font-serif">
                 <EditableField
-                  value={String(luminaire.name || "")}
-                  onSave={(v) => handleUpdate("name", v)}
+                  value={String(luminaire.nom || "")}
+                  onSave={(v) => handleUpdate("nom", v)}
                   className="text-2xl font-serif text-gray-900"
                   placeholder="Nom du luminaire"
                   disabled={!canEdit}
                 />
 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Artiste / Dates</label>
-                    <EditableField
-                      value={String(luminaire.artist || "")}
-                      onSave={(v) => handleUpdate("artist", v)}
-                      placeholder="Artiste / Dates"
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
-                    <EditableField
-                      value={String(luminaire.year || "")}
-                      onSave={(v) => handleUpdate("year", v)}
-                      placeholder="Année"
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Spécialité</label>
-                    <EditableField
-                      value={String(luminaire.specialty || "")}
-                      onSave={(v) => handleUpdate("specialty", v)}
-                      placeholder="Spécialité"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
-                    <EditableField
-                      value={String(luminaire.collaboration || "")}
-                      onSave={(v) => handleUpdate("collaboration", v)}
-                      placeholder="Collaboration / Œuvre"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
-                    <EditableField
-                      value={String(luminaire.signed || "")}
-                      onSave={(v) => handleUpdate("signed", v)}
-                      placeholder="Signé"
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                    <EditableField
-                      value={String(luminaire.description || "")}
-                      onSave={(v) => handleUpdate("description", v)}
-                      placeholder="Description"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
-                    <EditableField
-                      value={String(luminaire.dimensions || "")}
-                      onSave={(v) => handleUpdate("dimensions", v)}
-                      placeholder="Dimensions"
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  <InfoRow
+                    label="Artiste / Dates"
+                    value={luminaire.designer}
+                    fieldName="designer"
+                    onSave={handleUpdate}
+                    canEdit={canEdit}
+                  />
+                  <InfoRow
+                    label="Editeur"
+                    value={luminaire.editeur}
+                    fieldName="editeur"
+                    onSave={handleUpdate}
+                    canEdit={canEdit}
+                  />
+                  <InfoRow
+                    label="Année"
+                    value={luminaire.annee}
+                    fieldName="annee"
+                    onSave={handleUpdate}
+                    canEdit={canEdit}
+                  />
+                  <InfoRow
+                    label="Dimensions"
+                    value={luminaire.dimensions}
+                    fieldName="dimensions"
+                    onSave={handleUpdate}
+                    canEdit={canEdit}
+                  />
+                  <InfoRow
+                    label="Estimation"
+                    value={luminaire.estimation}
+                    fieldName="estimation"
+                    onSave={handleUpdate}
+                    canEdit={canEdit}
+                  />
+                  <InfoRow
+                    label="Collaboration / Œuvre"
+                    value={luminaire.collaboration}
+                    fieldName="collaboration"
+                    onSave={handleUpdate}
+                    canEdit={canEdit}
+                    multiline
+                  />
+                  <InfoRow
+                    label="Description"
+                    value={luminaire.description}
+                    fieldName="description"
+                    onSave={handleUpdate}
+                    canEdit={canEdit}
+                    multiline
+                  />
+                  <InfoRow
+                    label="Signé"
+                    value={luminaire.signed}
+                    fieldName="signed"
+                    onSave={handleUpdate}
+                    canEdit={canEdit}
+                  />
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
-                    <EditableField
-                      value={String(luminaire.materials || "")}
-                      onSave={(v) => handleUpdate("materials", v)}
-                      placeholder="Matériaux"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
-                    <EditableField
-                      value={String(luminaire.estimation || "")}
-                      onSave={(v) => handleUpdate("estimation", v)}
-                      placeholder="Estimation"
-                      disabled={!canEdit}
-                    />
+                    <p className="text-gray-800 pt-1">
+                      {Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : ""}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -515,3 +522,17 @@ export default function LuminaireDetailPage() {
     </div>
   )
 }
+
+// Composant d'aide pour garder le code propre
+const InfoRow = ({ label, value, fieldName, onSave, canEdit, multiline = false }: any) => (
+  <div>
+    <label className="block text-sm font-bold text-gray-700 mb-1">{label}</label>
+    <EditableField
+      value={value || ""}
+      onSave={(v: string) => onSave(fieldName, v)}
+      placeholder="Non spécifié"
+      disabled={!canEdit}
+      multiline={multiline}
+    />
+  </div>
+)

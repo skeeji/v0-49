@@ -6,103 +6,81 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET() {
   try {
-    console.log("📦 Début de l'export des images depuis le bucket 'uploads'...")
+    console.log("📦 Début de l'export de TOUTES les images associées...")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-
-    // Utiliser le bucket GridFS "uploads"
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    const luminairesCollection = db.collection("luminaires")
 
-    // Récupérer tous les fichiers du bucket
-    const files = await bucket.find({}).toArray()
-    console.log(`📊 ${files.length} fichiers trouvés dans le bucket "uploads"`)
+    // Étape 1: Récupérer tous les noms de fichiers depuis la collection luminaires
+    const luminairesWithImages = await luminairesCollection
+      .find(
+        {
+          $or: [
+            { "Nom du fichier": { $exists: true, $ne: "" } },
+            { filename: { $exists: true, $ne: "" } },
+            { designerImageFilename: { $exists: true, $ne: "" } },
+          ],
+        },
+        {
+          projection: { "Nom du fichier": 1, filename: 1, designerImageFilename: 1 },
+        },
+      )
+      .toArray()
 
-    if (files.length === 0) {
-      console.log("❌ Aucun fichier trouvé dans le bucket uploads")
-      return NextResponse.json({ error: "Aucune image trouvée dans le bucket uploads" }, { status: 404 })
-    }
-
-    // Filtrer pour ne garder que les fichiers .jpg (insensible à la casse)
-    const jpgFiles = files.filter((file) => {
-      const filename = file.filename || ""
-      return filename.toLowerCase().endsWith(".jpg")
+    // Étape 2: Créer une liste unique de tous les noms de fichiers
+    const filenames = new Set<string>()
+    luminairesWithImages.forEach((lum) => {
+      if (lum["Nom du fichier"]) filenames.add(lum["Nom du fichier"])
+      if (lum.filename) filenames.add(lum.filename)
+      if (lum.designerImageFilename) filenames.add(lum.designerImageFilename)
     })
 
-    console.log(`📊 ${jpgFiles.length} fichiers .jpg trouvés sur ${files.length} fichiers totaux`)
+    const uniqueFilenames = Array.from(filenames)
+    console.log(`📊 ${uniqueFilenames.length} noms de fichiers uniques à exporter.`)
 
-    if (jpgFiles.length === 0) {
-      return NextResponse.json({ error: "Aucun fichier .jpg trouvé dans le bucket uploads" }, { status: 404 })
+    if (uniqueFilenames.length === 0) {
+      return NextResponse.json({ error: "Aucune image associée trouvée." }, { status: 404 })
     }
 
-    // Traiter tous les fichiers .jpg
+    // Étape 3: Télécharger chaque fichier depuis GridFS et préparer pour le ZIP
     const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
-
-    for (const file of jpgFiles) {
+    for (const filename of uniqueFilenames) {
       try {
-        console.log(`📁 Traitement du fichier: ${file.filename} (${file.length} bytes)`)
-
-        const downloadStream = bucket.openDownloadStream(file._id)
+        const downloadStream = bucket.openDownloadStreamByName(filename)
         const chunks: Buffer[] = []
-
         for await (const chunk of downloadStream) {
           chunks.push(chunk)
         }
-
         const buffer = Buffer.concat(chunks)
-
-        // Vérifier que le buffer n'est pas vide
-        if (buffer.length === 0) {
-          console.log(`⚠️ Fichier vide ignoré: ${file.filename}`)
-          continue
+        if (buffer.length > 0) {
+          fileData.push({ name: filename, data: buffer, crc32: calculateCRC32(buffer) })
         }
-
-        const safeFilename = file.filename || `image_${file._id}.jpg`
-        const crc32 = calculateCRC32(buffer)
-
-        fileData.push({
-          name: safeFilename,
-          data: buffer,
-          crc32: crc32,
-        })
-
-        console.log(`✅ Fichier .jpg ajouté: ${safeFilename} (${buffer.length} bytes)`)
-      } catch (fileError) {
-        console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
+      } catch (e) {
+        console.error(`❌ Impossible de télécharger le fichier ${filename} depuis GridFS.`)
       }
     }
 
     if (fileData.length === 0) {
-      return NextResponse.json({ error: "Aucun fichier .jpg valide trouvé" }, { status: 404 })
+      return NextResponse.json({ error: "Aucun fichier valide n'a pu être récupéré." }, { status: 404 })
     }
 
-    // Créer le ZIP
+    // Étape 4: Créer et envoyer le ZIP (en utilisant votre fonction existante)
     const zipBuffer = createZipBuffer(fileData)
-
-    // Générer le nom du fichier avec la date actuelle
-    const today = new Date().toISOString().split("T")[0] // Format AAAA-MM-JJ
-    const filename = `images_export_${today}.zip`
-
-    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images`)
+    const today = new Date().toISOString().split("T")[0]
+    const zipFilename = `export_images_completes_${today}.zip`
 
     return new NextResponse(zipBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": zipBuffer.length.toString(),
-        "Cache-Control": "no-cache",
+        "Content-Disposition": `attachment; filename="${zipFilename}"`,
       },
     })
   } catch (error) {
-    console.error("❌ Erreur lors de l'export des images:", error)
-    return NextResponse.json(
-      {
-        error: "Erreur lors de l'export des images",
-        details: error instanceof Error ? error.message : "Erreur inconnue",
-      },
-      { status: 500 },
-    )
+    console.error("❌ Erreur critique lors de l'export ZIP:", error)
+    return NextResponse.json({ error: "Erreur serveur." }, { status: 500 })
   }
 }
 
@@ -153,7 +131,7 @@ function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: nu
     centralEntry.writeUInt16LE(nameBuffer.length, 28) // File name length
     centralEntry.writeUInt16LE(0, 30) // Extra field length
     centralEntry.writeUInt16LE(0, 32) // File comment length
-    centralEntry.writeUInt16LE(0, 34) // Disk number start
+    localHeader.writeUInt16LE(0, 34) // Disk number start
     centralEntry.writeUInt16LE(0, 36) // Internal file attributes
     centralEntry.writeUInt32LE(0, 38) // External file attributes
     centralEntry.writeUInt32LE(offset, 42) // Relative offset of local header
