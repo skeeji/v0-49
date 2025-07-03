@@ -1,13 +1,69 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
+// --- UN FORMATEUR UNIQUE POUR GARANTIR LA COHÉRENCE ---
+const formatLuminaire = (luminaire: any) => {
+  if (!luminaire) return null
+  return {
+    _id: luminaire._id.toString(),
+    id: luminaire._id.toString(),
+    nom: luminaire.nom || luminaire["Nom luminaire"] || "",
+    designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
+    annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+    periode: luminaire.periode || luminaire["Spécialité"] || "", // Pour la recherche de similaires
+    specialite: luminaire.periode || luminaire["Spécialité"] || "",
+    collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
+    signe: luminaire.signe || luminaire["Signé"] || "",
+    description: luminaire.description || "",
+    dimensions: luminaire.dimensions || "",
+    estimation: luminaire.estimation || "",
+    editeur: luminaire.editeur || "",
+    materiaux: luminaire.materiaux || [], // Garanti d'être un tableau
+    images: luminaire.images || [], // Garanti d'être un tableau
+    image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
+    designerImage: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : null,
+    createdAt: luminaire.createdAt,
+    updatedAt: luminaire.updatedAt,
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 API /api/luminaires - Récupération des luminaires")
-
     const { searchParams } = new URL(request.url)
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
+    // --- LOGIQUE POUR LA PAGE DE DÉTAIL (ID) ---
+    const id = searchParams.get("id")
+    if (id) {
+      if (!ObjectId.isValid(id)) {
+        return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+      }
+      const luminaire = await collection.findOne({ _id: new ObjectId(id) })
+      if (!luminaire) {
+        return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+      }
+
+      const formatted = formatLuminaire(luminaire)
+
+      // Logique pour les luminaires similaires
+      const similarFilter: any = { _id: { $ne: new ObjectId(id) } }
+      const orConditions = []
+      if (formatted.periode) orConditions.push({ periode: formatted.periode })
+      if (formatted.materiaux.length > 0) orConditions.push({ materiaux: { $in: formatted.materiaux } })
+      if (orConditions.length > 0) similarFilter.$or = orConditions
+
+      const similarLuminairesRaw = await collection.find(similarFilter).limit(4).toArray()
+      const similarLuminaires = similarLuminairesRaw.map(formatLuminaire)
+
+      return NextResponse.json({ success: true, luminaire: formatted, similar: similarLuminaires })
+    }
+
+    // --- LOGIQUE POUR LA PAGE GALERIE (LISTE) ---
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "50")
     const search = searchParams.get("search") || ""
@@ -19,14 +75,11 @@ export async function GET(request: NextRequest) {
     const yearMax = searchParams.get("yearMax")
     const sortField = searchParams.get("sortField") || "nom"
     const sortDirection = searchParams.get("sortDirection") || "asc"
+    const sliderModified = searchParams.get("sliderModified") === "true"
 
     console.log(
-      `📊 Paramètres: page=${page}, limit=${limit}, search="${search}", yearMin=${yearMin}, yearMax=${yearMax}, sortField=${sortField}`,
+      `📊 Paramètres: page=${page}, limit=${limit}, search="${search}", yearMin=${yearMin}, yearMax=${yearMax}, sortField=${sortField}, sliderModified=${sliderModified}`,
     )
-
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
 
     // Construire le filtre de recherche
     const filter: any = {}
@@ -68,41 +121,20 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    // Filtre par années - ne pas filtrer si les valeurs par défaut sont utilisées
-    if (yearMin && yearMax && !(yearMin === "1900" && yearMax === "2024")) {
-      const yearConditions: any[] = []
-      const minYear = Number.parseInt(yearMin)
-      const maxYear = Number.parseInt(yearMax)
-
-      yearConditions.push(
-        { annee: { $gte: minYear, $lte: maxYear } },
-        { year: { $gte: minYear, $lte: maxYear } },
+    // Filtre par années - seulement si le slider a été modifié
+    if (sliderModified && yearMin && yearMax) {
+      const min = Number.parseInt(yearMin)
+      const max = Number.parseInt(yearMax)
+      filter.$or = [
+        { annee: { $gte: min, $lte: max } },
+        { year: { $gte: min, $lte: max } },
         { Année: { $gte: yearMin, $lte: yearMax } },
-      )
-
-      filter.$and = filter.$and || []
-      filter.$and.push({ $or: yearConditions })
-    } else if (yearMin && yearMin !== "1900") {
-      const minYear = Number.parseInt(yearMin)
-      const yearConditions: any[] = []
-
-      yearConditions.push({ annee: { $gte: minYear } }, { year: { $gte: minYear } }, { Année: { $gte: yearMin } })
-
-      filter.$and = filter.$and || []
-      filter.$and.push({ $or: yearConditions })
-    } else if (yearMax && yearMax !== "2024") {
-      const maxYear = Number.parseInt(yearMax)
-      const yearConditions: any[] = []
-
-      yearConditions.push({ annee: { $lte: maxYear } }, { year: { $lte: maxYear } }, { Année: { $lte: yearMax } })
-
-      filter.$and = filter.$and || []
-      filter.$and.push({ $or: yearConditions })
+      ]
     }
 
     console.log("🔍 Filtre MongoDB:", JSON.stringify(filter, null, 2))
 
-    // NOUVEAU CODE - Logique de tri simplifiée
+    // Logique de tri simplifiée
     const sort: any = {}
     const direction = sortDirection === "desc" ? -1 : 1
 
@@ -117,68 +149,23 @@ export async function GET(request: NextRequest) {
         sort["Artiste / Dates"] = direction
         break
       default:
-        // Tri par nom par défaut
         sort.nom = direction
         sort["Nom luminaire"] = direction
         break
     }
 
     const total = await collection.countDocuments(filter)
-    const luminaires = await collection
+    const luminairesRaw = await collection
       .find(filter)
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit)
       .toArray()
 
-    console.log(`📊 ${luminaires.length} luminaires récupérés pour la page ${page}`)
+    console.log(`📊 ${luminairesRaw.length} luminaires récupérés pour la page ${page}`)
 
-    // Formater les luminaires pour l'affichage
-    const formattedLuminaires = luminaires.map((luminaire) => ({
-      _id: luminaire._id.toString(),
-      id: luminaire._id.toString(),
-
-      // Champs principaux avec fallback sur les champs CSV
-      nom: luminaire.nom || luminaire["Nom luminaire"] || "",
-      name: luminaire.nom || luminaire["Nom luminaire"] || "",
-      designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      artist: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
-      year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
-      periode: luminaire.periode || luminaire["Spécialité"] || "",
-      specialty: luminaire.periode || luminaire["Spécialité"] || "",
-      description: luminaire.description || "",
-      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
-      signe: luminaire.signe || luminaire["Signé"] || "",
-      signed: luminaire.signe || luminaire["Signé"] || "",
-      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
-
-      // Champs corrigés et ajoutés
-      dimensions: luminaire.dimensions || "",
-      estimation: luminaire.estimation || "",
-      editeur: luminaire.editeur || "",
-
-      // Chemins des images
-      image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
-      designerImage: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : null,
-
-      // Autres champs
-      materiaux: luminaire.materiaux || [],
-      couleurs: luminaire.couleurs || [],
-      images: luminaire.images || [],
-      isFavorite: luminaire.isFavorite || false,
-      createdAt: luminaire.createdAt,
-      updatedAt: luminaire.updatedAt,
-
-      // Champs CSV originaux
-      "Artiste / Dates": luminaire["Artiste / Dates"] || "",
-      Spécialité: luminaire["Spécialité"] || "",
-      "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
-      "Nom luminaire": luminaire["Nom luminaire"] || "",
-      Année: luminaire["Année"] || "",
-      Signé: luminaire["Signé"] || "",
-      "Nom du fichier": luminaire["Nom du fichier"] || "",
-    }))
+    // On utilise le même formateur ici pour éviter l'erreur .map !
+    const luminaires = luminairesRaw.map(formatLuminaire)
 
     // Calculer les options de filtres
     const allLuminaires = await collection.find({}).limit(1000).toArray()
@@ -187,9 +174,9 @@ export async function GET(request: NextRequest) {
     const allMateriaux = [...new Set(allLuminaires.flatMap((l) => l.materiaux || []).filter(Boolean))].sort()
     const allCouleurs = [...new Set(allLuminaires.flatMap((l) => l.couleurs || []).filter(Boolean))].sort()
 
-    const response = {
+    return NextResponse.json({
       success: true,
-      luminaires: formattedLuminaires,
+      luminaires: luminaires,
       pagination: {
         page,
         limit,
@@ -203,19 +190,10 @@ export async function GET(request: NextRequest) {
         materiaux: allMateriaux,
         couleurs: allCouleurs,
       },
-    }
-
-    return NextResponse.json(response)
+    })
   } catch (error: any) {
     console.error("❌ Erreur API /api/luminaires:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erreur lors de la récupération des luminaires",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
   }
 }
 
@@ -257,6 +235,48 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+    const data = await request.json()
+
+    if (!id || !ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+    }
+
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
+    const result = await collection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          ...data,
+          updatedAt: new Date(),
+        },
+      },
+    )
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, message: "Luminaire mis à jour avec succès" })
+  } catch (error: any) {
+    console.error("❌ Erreur mise à jour luminaire:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la mise à jour du luminaire",
+        details: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -270,7 +290,7 @@ export async function DELETE(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const result = await collection.deleteOne({ _id: new (require("mongodb").ObjectId)(id) })
+    const result = await collection.deleteOne({ _id: new ObjectId(id) })
 
     if (result.deletedCount === 0) {
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
