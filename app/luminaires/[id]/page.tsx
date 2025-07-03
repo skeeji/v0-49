@@ -45,21 +45,21 @@ export default function LuminaireDetailPage() {
             image: result.data.image || (result.data.filename ? `/api/images/filename/${result.data.filename}` : null),
 
             // Champs principaux
-            artist: String(result.data.designer || ""),
-            specialty: String(result.data.periode || ""),
-            year: String(result.data.annee || ""),
-            signed: String(result.data.signe || ""),
-            name: String(result.data.nom || ""),
+            artist: String(result.data.designer || result.data["Artiste / Dates"] || ""),
+            specialty: String(result.data.periode || result.data["Spécialité"] || ""),
+            year: String(result.data.annee || result.data["Année"] || ""),
+            signed: String(result.data.signe || result.data["Signé"] || ""),
+            name: String(result.data.nom || result.data["Nom luminaire"] || ""),
 
-            // CORRECTION: Champs séparés et distincts
-            description: String(result.data.description || ""), // Description propre
-            collaboration: String(result.data.collaboration || ""), // Collaboration propre
-            dimensions: String(result.data.dimensions || ""), // Dimensions propres
-            estimation: String(result.data.estimation || ""), // Estimation propre
-            editeur: String(result.data.editeur || ""), // Editeur propre
+            // CORRECTION: Champs séparés et distincts - IMPORTANT
+            description: String(result.data.description || ""), // Description PROPRE
+            collaboration: String(result.data.collaboration || result.data["Collaboration / Œuvre"] || ""), // Collaboration PROPRE
+            dimensions: String(result.data.dimensions || result.data["Dimensions"] || ""),
+            estimation: String(result.data.estimation || result.data["Estimation"] || ""),
+            editeur: String(result.data.editeur || ""),
             materials: Array.isArray(result.data.materiaux)
               ? result.data.materiaux.join(", ")
-              : String(result.data.materials || ""),
+              : String(result.data.materiaux || result.data["Matériaux"] || ""),
           }
 
           setLuminaire(formattedLuminaire)
@@ -164,13 +164,13 @@ export default function LuminaireDetailPage() {
     const keyMapping: { [key: string]: string } = {
       artist: "designer",
       specialty: "periode",
-      collaboration: "collaboration",
+      collaboration: "collaboration", // CORRECTION: collaboration reste collaboration
+      description: "description", // CORRECTION: description reste description
       name: "nom",
       year: "annee",
       signed: "signe",
-      description: "description",
       dimensions: "dimensions",
-      materials: "materials",
+      materials: "materiaux",
       estimation: "estimation",
       editeur: "editeur",
     }
@@ -426,6 +426,7 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
+                  {/* CORRECTION: Collaboration et Description sont SÉPARÉS */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
                     <EditableField

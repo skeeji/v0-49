@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    // CORRECTION: Filtre par années UNIQUEMENT si yearMin et yearMax sont fournis ET différents des valeurs par défaut
+    // CORRECTION: Filtre par années simplifié pour éviter l'erreur $toInt
     if (yearMin && yearMax) {
       const minYear = Number.parseInt(yearMin)
       const maxYear = Number.parseInt(yearMax)
@@ -78,20 +78,22 @@ export async function GET(request: NextRequest) {
         console.log(`🎯 Application du filtre d'années: ${minYear} - ${maxYear}`)
 
         const yearConditions: any[] = []
-        yearConditions.push(
-          { annee: { $gte: minYear, $lte: maxYear } },
-          { year: { $gte: minYear, $lte: maxYear } },
-          {
-            $and: [
-              { Année: { $exists: true, $ne: null, $ne: "" } },
-              {
-                $expr: {
-                  $and: [{ $gte: [{ $toInt: "$Année" }, minYear] }, { $lte: [{ $toInt: "$Année" }, maxYear] }],
-                },
-              },
-            ],
-          },
-        )
+
+        // Filtre sur les champs numériques
+        yearConditions.push({ annee: { $gte: minYear, $lte: maxYear } }, { year: { $gte: minYear, $lte: maxYear } })
+
+        // CORRECTION: Filtre sur le champ "Année" sans $toInt pour éviter l'erreur
+        // On utilise une regex pour matcher les années dans la plage
+        const yearRegexPattern = []
+        for (let year = minYear; year <= maxYear; year++) {
+          yearRegexPattern.push(year.toString())
+        }
+
+        // Créer une regex qui match n'importe quelle année dans la plage
+        if (yearRegexPattern.length > 0) {
+          const yearRegex = new RegExp(`\\b(${yearRegexPattern.join("|")})\\b`)
+          yearConditions.push({ Année: { $regex: yearRegex } })
+        }
 
         filter.$and = filter.$and || []
         filter.$and.push({ $or: yearConditions })
@@ -160,13 +162,16 @@ export async function GET(request: NextRequest) {
       year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
       periode: luminaire.periode || luminaire["Spécialité"] || "",
       specialty: luminaire.periode || luminaire["Spécialité"] || "",
-      description: luminaire.description || luminaire["Collaboration / Œuvre"] || "",
-      collaboration: luminaire.description || luminaire["Collaboration / Œuvre"] || "",
+
+      // CORRECTION: Séparer description et collaboration
+      description: luminaire.description || "",
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
+
       signe: luminaire.signe || luminaire["Signé"] || "",
       signed: luminaire.signe || luminaire["Signé"] || "",
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
 
-      // CORRECTION: Champs étendus avec valeurs par défaut
+      // Champs étendus
       editeur: luminaire.editeur || "",
       dimensions: luminaire.dimensions || "",
       estimation: luminaire.estimation || "",

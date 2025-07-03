@@ -1,12 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log(`🔍 API /api/luminaires/${params.id} - Récupération du luminaire`)
+    console.log("🔍 API /api/luminaires/[id] - Récupération luminaire ID:", params.id)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+    }
 
     const client = await clientPromise
     const db = client.db(DBNAME)
@@ -15,66 +19,58 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
 
     if (!luminaire) {
-      console.log(`❌ Luminaire non trouvé: ${params.id}`)
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log(`✅ Luminaire trouvé: ${luminaire.nom || luminaire["Nom luminaire"]}`)
+    console.log("✅ Luminaire trouvé:", luminaire._id)
 
-    // CORRECTION: Formater le luminaire avec TOUS les champs séparés
+    // CORRECTION: Formater le luminaire avec tous les champs distincts
     const formattedLuminaire = {
       _id: luminaire._id.toString(),
-      id: luminaire._id.toString(),
 
       // Champs principaux
       nom: luminaire.nom || luminaire["Nom luminaire"] || "",
-      name: luminaire.nom || luminaire["Nom luminaire"] || "",
       designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      artist: luminaire.designer || luminaire["Artiste / Dates"] || "",
       annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
-      year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
       periode: luminaire.periode || luminaire["Spécialité"] || "",
-      specialty: luminaire.periode || luminaire["Spécialité"] || "",
-
-      // CORRECTION: Champs séparés - ne plus mélanger description et collaboration
-      description: luminaire.description || "", // Champ description propre
-      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Champ collaboration propre
-
       signe: luminaire.signe || luminaire["Signé"] || "",
-      signed: luminaire.signe || luminaire["Signé"] || "",
-      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
 
-      // CORRECTION: Champs étendus avec leurs vraies valeurs
+      // CORRECTION: Champs séparés et distincts
+      description: luminaire.description || "", // Description PROPRE
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Collaboration PROPRE
+      dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
+      estimation: luminaire.estimation || luminaire["Estimation"] || "",
       editeur: luminaire.editeur || "",
-      dimensions: luminaire.dimensions || "",
-      estimation: luminaire.estimation || "",
+      materiaux: luminaire.materiaux || [],
 
-      // Image du luminaire
+      // Image
+      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
       image: luminaire.images?.[0]
         ? `/api/images/filename/${luminaire.images[0]}`
         : luminaire.filename
           ? `/api/images/filename/${luminaire.filename}`
           : null,
 
-      // Matériaux formatés
-      materiaux: luminaire.materiaux || [],
-      materials: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.materiaux || "",
+      // Image du designer
+      designerImageFilename: luminaire.designerImageFilename || "",
 
       // Autres champs
-      couleurs: luminaire.couleurs || [],
       images: luminaire.images || [],
-      isFavorite: luminaire.isFavorite || false,
+      couleurs: luminaire.couleurs || [],
       createdAt: luminaire.createdAt,
       updatedAt: luminaire.updatedAt,
 
-      // Champs CSV originaux (pour compatibilité)
+      // Champs CSV originaux pour compatibilité
+      "Nom luminaire": luminaire["Nom luminaire"] || "",
       "Artiste / Dates": luminaire["Artiste / Dates"] || "",
+      Année: luminaire["Année"] || "",
       Spécialité: luminaire["Spécialité"] || "",
       "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
-      "Nom luminaire": luminaire["Nom luminaire"] || "",
-      Année: luminaire["Année"] || "",
       Signé: luminaire["Signé"] || "",
       "Nom du fichier": luminaire["Nom du fichier"] || "",
+      Dimensions: luminaire["Dimensions"] || "",
+      Estimation: luminaire["Estimation"] || "",
+      Matériaux: luminaire["Matériaux"] || "",
     }
 
     return NextResponse.json({
@@ -82,7 +78,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       data: formattedLuminaire,
     })
   } catch (error: any) {
-    console.error(`❌ Erreur récupération luminaire ${params.id}:`, error)
+    console.error("❌ Erreur API /api/luminaires/[id]:", error)
     return NextResponse.json(
       {
         success: false,
@@ -96,68 +92,24 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log(`📝 API /api/luminaires/${params.id} - Mise à jour du luminaire`)
+    console.log("📝 API /api/luminaires/[id] PUT - Mise à jour luminaire ID:", params.id)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+    }
 
     const updates = await request.json()
-    console.log("📊 Mises à jour:", updates)
+    console.log("📊 Mises à jour reçues:", updates)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Mapper les champs pour la mise à jour
-    const mappedUpdates: any = { ...updates }
-
-    // Synchroniser les champs principaux avec les champs CSV
-    if (updates.name) {
-      mappedUpdates.nom = updates.name
-      mappedUpdates["Nom luminaire"] = updates.name
-    }
-    if (updates.artist) {
-      mappedUpdates.designer = updates.artist
-      mappedUpdates["Artiste / Dates"] = updates.artist
-    }
-    if (updates.year) {
-      mappedUpdates.annee = Number.parseInt(updates.year)
-      mappedUpdates["Année"] = updates.year.toString()
-    }
-    if (updates.specialty) {
-      mappedUpdates.periode = updates.specialty
-      mappedUpdates["Spécialité"] = updates.specialty
-    }
-    if (updates.collaboration) {
-      mappedUpdates.collaboration = updates.collaboration
-      mappedUpdates["Collaboration / Œuvre"] = updates.collaboration
-    }
-    if (updates.signed) {
-      mappedUpdates.signe = updates.signed
-      mappedUpdates["Signé"] = updates.signed
-    }
-    // CORRECTION: Ajouter les nouveaux champs
-    if (updates.description) {
-      mappedUpdates.description = updates.description
-    }
-    if (updates.dimensions) {
-      mappedUpdates.dimensions = updates.dimensions
-    }
-    if (updates.estimation) {
-      mappedUpdates.estimation = updates.estimation
-    }
-    if (updates.editeur) {
-      mappedUpdates.editeur = updates.editeur
-    }
-    if (updates.materials) {
-      mappedUpdates.materiaux = updates.materials
-        .split(",")
-        .map((m: string) => m.trim())
-        .filter(Boolean)
-    }
-
     const result = await collection.updateOne(
       { _id: new ObjectId(params.id) },
       {
         $set: {
-          ...mappedUpdates,
+          ...updates,
           updatedAt: new Date(),
         },
       },
@@ -167,14 +119,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log(`✅ Luminaire mis à jour: ${params.id}`)
+    console.log("✅ Luminaire mis à jour avec succès")
 
     return NextResponse.json({
       success: true,
       message: "Luminaire mis à jour avec succès",
     })
   } catch (error: any) {
-    console.error(`❌ Erreur mise à jour luminaire ${params.id}:`, error)
+    console.error("❌ Erreur API /api/luminaires/[id] PUT:", error)
     return NextResponse.json(
       {
         success: false,
@@ -188,7 +140,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log(`🗑️ API /api/luminaires/${params.id} - Suppression du luminaire`)
+    console.log("🗑️ API /api/luminaires/[id] DELETE - Suppression luminaire ID:", params.id)
+
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
+    }
 
     const client = await clientPromise
     const db = client.db(DBNAME)
@@ -200,14 +156,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log(`✅ Luminaire supprimé: ${params.id}`)
+    console.log("✅ Luminaire supprimé avec succès")
 
     return NextResponse.json({
       success: true,
       message: "Luminaire supprimé avec succès",
     })
   } catch (error: any) {
-    console.error(`❌ Erreur suppression luminaire ${params.id}:`, error)
+    console.error("❌ Erreur API /api/luminaires/[id] DELETE:", error)
     return NextResponse.json(
       {
         success: false,

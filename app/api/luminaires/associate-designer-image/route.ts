@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "images" })
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
     // Générer un nom de fichier unique pour l'image du designer
     const timestamp = Date.now()
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Image designer uploadée: ${designerImageFilename}`)
 
-    // Mettre à jour le luminaire avec le nom du fichier de l'image du designer
+    // CORRECTION: Mettre à jour le luminaire avec le nom du fichier de l'image du designer
     const luminairesCollection = db.collection("luminaires")
     const updateResult = await luminairesCollection.updateOne(
       { _id: new ObjectId(luminaireId) },
@@ -73,6 +73,32 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`✅ Luminaire ${luminaireId} mis à jour avec l'image designer: ${designerImageFilename}`)
+
+    // CORRECTION: Aussi mettre à jour la collection designers-data si elle existe
+    try {
+      const designersCollection = db.collection("designers-data")
+
+      // Récupérer le nom du designer depuis le luminaire
+      const luminaire = await luminairesCollection.findOne({ _id: new ObjectId(luminaireId) })
+      if (luminaire) {
+        const designerName = luminaire.designer || luminaire["Artiste / Dates"]
+        if (designerName) {
+          await designersCollection.updateOne(
+            { Nom: designerName },
+            {
+              $set: {
+                imagedesigner: designerImageFilename,
+                updatedAt: new Date(),
+              },
+            },
+            { upsert: true },
+          )
+          console.log(`✅ Collection designers-data mise à jour pour: ${designerName}`)
+        }
+      }
+    } catch (error) {
+      console.log("⚠️ Erreur mise à jour designers-data (non critique):", error)
+    }
 
     return NextResponse.json({
       success: true,
