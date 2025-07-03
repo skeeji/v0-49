@@ -37,7 +37,7 @@ export default function LuminaireDetailPage() {
         console.log("📊 Réponse API luminaire:", result)
 
         if (result.success) {
-          // CORRECTION: Formater le luminaire avec tous les champs COMPLÈTEMENT séparés
+          // CORRECTION: Formater le luminaire avec tous les champs séparés
           const formattedLuminaire = {
             ...result.data,
             id: String(result.data._id || ""),
@@ -51,10 +51,9 @@ export default function LuminaireDetailPage() {
             signed: String(result.data.signe || result.data["Signé"] || ""),
             name: String(result.data.nom || result.data["Nom luminaire"] || ""),
 
-            // CORRECTION: Champs COMPLÈTEMENT séparés - AUCUN lien entre eux
-            description: String(result.data.description || ""), // Description UNIQUEMENT depuis le champ description
-            collaboration: String(result.data.collaboration || result.data["Collaboration / Œuvre"] || ""), // Collaboration UNIQUEMENT depuis le champ collaboration
-
+            // CORRECTION: Champs séparés et distincts - IMPORTANT
+            description: String(result.data.description || ""), // Description PROPRE
+            collaboration: String(result.data.collaboration || result.data["Collaboration / Œuvre"] || ""), // Collaboration PROPRE
             dimensions: String(result.data.dimensions || result.data["Dimensions"] || ""),
             estimation: String(result.data.estimation || result.data["Estimation"] || ""),
             editeur: String(result.data.editeur || ""),
@@ -64,10 +63,7 @@ export default function LuminaireDetailPage() {
           }
 
           setLuminaire(formattedLuminaire)
-          console.log("✅ Luminaire formaté avec champs séparés:", {
-            description: formattedLuminaire.description,
-            collaboration: formattedLuminaire.collaboration,
-          })
+          console.log("✅ Luminaire formaté:", formattedLuminaire)
 
           // Charger TOUS les luminaires pour trouver les 6 plus proches
           const allLuminairesResponse = await fetch("/api/luminaires?limit=9999")
@@ -168,8 +164,8 @@ export default function LuminaireDetailPage() {
     const keyMapping: { [key: string]: string } = {
       artist: "designer",
       specialty: "periode",
-      collaboration: "collaboration", // CORRECTION: collaboration reste collaboration - AUCUN lien avec description
-      description: "description", // CORRECTION: description reste description - AUCUN lien avec collaboration
+      collaboration: "collaboration", // CORRECTION: collaboration reste collaboration
+      description: "description", // CORRECTION: description reste description
       name: "nom",
       year: "annee",
       signed: "signe",
@@ -189,7 +185,7 @@ export default function LuminaireDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [keyToUpdate]: value }),
       })
-      console.log(`✅ Luminaire mis à jour - ${field} (${keyToUpdate}):`, value)
+      console.log("✅ Luminaire mis à jour:", field, value)
     } catch (error) {
       console.error("❌ Erreur de mise à jour:", error)
     }
@@ -388,7 +384,7 @@ export default function LuminaireDetailPage() {
                 />
 
                 <div className="space-y-4">
-                  {/* CORRECTION: Champs COMPLÈTEMENT séparés avec leurs vraies valeurs distinctes */}
+                  {/* CORRECTION: Champs séparés avec leurs vraies valeurs */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Artiste / Dates</label>
                     <EditableField
@@ -430,11 +426,11 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
-                  {/* CORRECTION: Collaboration et Description sont COMPLÈTEMENT SÉPARÉS - AUCUN lien */}
+                  {/* CORRECTION: Collaboration et Description sont SÉPARÉS */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
                     <EditableField
-                      value={String(luminaire.collaboration || "")} // UNIQUEMENT depuis collaboration
+                      value={String(luminaire.collaboration || "")}
                       onSave={(v) => handleUpdate("collaboration", v)}
                       placeholder="Collaboration / Œuvre"
                       multiline
@@ -445,7 +441,7 @@ export default function LuminaireDetailPage() {
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
                     <EditableField
-                      value={String(luminaire.description || "")} // UNIQUEMENT depuis description
+                      value={String(luminaire.description || "")}
                       onSave={(v) => handleUpdate("description", v)}
                       placeholder="Description"
                       multiline

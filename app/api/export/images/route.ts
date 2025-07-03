@@ -1,109 +1,197 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
+import { GridFSBucket } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    console.log("📤 API /api/export/images - Export CSV avec TOUTES les données")
+    console.log("📦 Début de l'export des images depuis le bucket 'uploads'...")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
 
-    // Récupérer TOUS les luminaires avec TOUS les champs
-    const luminaires = await collection.find({}).toArray()
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour l'export CSV complet`)
+    // Utiliser le bucket GridFS "uploads"
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    // CORRECTION: Formater les données avec TOUS les champs pour l'export CSV
-    const csvData = luminaires.map((luminaire) => ({
-      // Champs principaux
-      ID: luminaire._id.toString(),
-      "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
-      "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
-      Année: luminaire.annee || luminaire["Année"] || "",
-      Spécialité: luminaire.periode || luminaire["Spécialité"] || "",
+    // Récupérer tous les fichiers du bucket
+    const files = await bucket.find({}).toArray()
+    console.log(`📊 ${files.length} fichiers trouvés dans le bucket "uploads"`)
 
-      // CORRECTION: Champs COMPLÈTEMENT séparés dans l'export
-      "Collaboration / Œuvre": luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
-      Description: luminaire.description || "", // Description SÉPARÉE de collaboration
-
-      Signé: luminaire.signe || luminaire["Signé"] || "",
-
-      // CORRECTION: TOUS les champs étendus dans l'export CSV
-      Editeur: luminaire.editeur || "",
-      Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-      Matériaux: Array.isArray(luminaire.materiaux)
-        ? luminaire.materiaux.join(", ")
-        : luminaire.materiaux || luminaire["Matériaux"] || "",
-      Estimation: luminaire.estimation || luminaire["Estimation"] || "",
-
-      // Images principales
-      "Nom du fichier": luminaire.filename || luminaire["Nom du fichier"] || "",
-      Images: Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.images || "",
-
-      // CORRECTION: Image du designer dans l'export CSV
-      "Image Designer": luminaire.designerImageFilename || luminaire.designerImage || "",
-
-      // Couleurs
-      Couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join(", ") : luminaire.couleurs || "",
-
-      // Métadonnées
-      Favori: luminaire.isFavorite ? "Oui" : "Non",
-      "Date création": luminaire.createdAt ? new Date(luminaire.createdAt).toLocaleDateString("fr-FR") : "",
-      "Date modification": luminaire.updatedAt ? new Date(luminaire.updatedAt).toLocaleDateString("fr-FR") : "",
-
-      // Champs techniques supplémentaires
-      "ID MongoDB": luminaire._id.toString(),
-      Statut: luminaire.status || "Actif",
-      Tags: Array.isArray(luminaire.tags) ? luminaire.tags.join(", ") : luminaire.tags || "",
-    }))
-
-    // Créer le contenu CSV
-    if (csvData.length === 0) {
-      return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 })
+    if (files.length === 0) {
+      console.log("❌ Aucun fichier trouvé dans le bucket uploads")
+      return NextResponse.json({ error: "Aucune image trouvée dans le bucket uploads" }, { status: 404 })
     }
 
-    // Créer les en-têtes CSV
-    const headers = Object.keys(csvData[0])
+    // Filtrer pour ne garder que les fichiers .jpg (insensible à la casse)
+    const jpgFiles = files.filter((file) => {
+      const filename = file.filename || ""
+      return filename.toLowerCase().endsWith(".jpg")
+    })
 
-    // Créer les lignes CSV avec échappement correct
-    const csvContent = [
-      headers.join(","),
-      ...csvData.map((row) =>
-        headers
-          .map((header) => {
-            const value = row[header as keyof typeof row] || ""
-            // Échapper les guillemets et virgules pour CSV
-            const cleanValue = String(value).replace(/"/g, '""')
-            return `"${cleanValue}"`
-          })
-          .join(","),
-      ),
-    ].join("\n")
+    console.log(`📊 ${jpgFiles.length} fichiers .jpg trouvés sur ${files.length} fichiers totaux`)
 
-    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
-    console.log(`📋 Colonnes exportées:`, headers)
+    if (jpgFiles.length === 0) {
+      return NextResponse.json({ error: "Aucun fichier .jpg trouvé dans le bucket uploads" }, { status: 404 })
+    }
 
-    // Retourner le CSV avec BOM UTF-8 pour Excel
-    const csvWithBOM = "\uFEFF" + csvContent
+    // Traiter tous les fichiers .jpg
+    const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
 
-    return new NextResponse(csvWithBOM, {
+    for (const file of jpgFiles) {
+      try {
+        console.log(`📁 Traitement du fichier: ${file.filename} (${file.length} bytes)`)
+
+        const downloadStream = bucket.openDownloadStream(file._id)
+        const chunks: Buffer[] = []
+
+        for await (const chunk of downloadStream) {
+          chunks.push(chunk)
+        }
+
+        const buffer = Buffer.concat(chunks)
+
+        // Vérifier que le buffer n'est pas vide
+        if (buffer.length === 0) {
+          console.log(`⚠️ Fichier vide ignoré: ${file.filename}`)
+          continue
+        }
+
+        const safeFilename = file.filename || `image_${file._id}.jpg`
+        const crc32 = calculateCRC32(buffer)
+
+        fileData.push({
+          name: safeFilename,
+          data: buffer,
+          crc32: crc32,
+        })
+
+        console.log(`✅ Fichier .jpg ajouté: ${safeFilename} (${buffer.length} bytes)`)
+      } catch (fileError) {
+        console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
+      }
+    }
+
+    if (fileData.length === 0) {
+      return NextResponse.json({ error: "Aucun fichier .jpg valide trouvé" }, { status: 404 })
+    }
+
+    // Créer le ZIP
+    const zipBuffer = createZipBuffer(fileData)
+
+    // Générer le nom du fichier avec la date actuelle
+    const today = new Date().toISOString().split("T")[0] // Format AAAA-MM-JJ
+    const filename = `images_export_${today}.zip`
+
+    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images`)
+
+    return new NextResponse(zipBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="luminaires-export-complet-${new Date().toISOString().split("T")[0]}.csv"`,
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": zipBuffer.length.toString(),
+        "Cache-Control": "no-cache",
       },
     })
-  } catch (error: any) {
-    console.error("❌ Erreur export CSV complet:", error)
+  } catch (error) {
+    console.error("❌ Erreur lors de l'export des images:", error)
     return NextResponse.json(
       {
-        success: false,
-        error: "Erreur lors de l'export CSV complet",
-        details: error.message,
+        error: "Erreur lors de l'export des images",
+        details: error instanceof Error ? error.message : "Erreur inconnue",
       },
       { status: 500 },
     )
   }
+}
+
+function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: number }>): Buffer {
+  const zipEntries: Buffer[] = []
+  const centralDirectory: Buffer[] = []
+  let offset = 0
+
+  fileData.forEach(({ name, data, crc32 }) => {
+    // Local file header
+    const nameBuffer = Buffer.from(name, "utf8")
+    const localHeader = Buffer.alloc(30 + nameBuffer.length)
+
+    localHeader.writeUInt32LE(0x04034b50, 0) // Local file header signature
+    localHeader.writeUInt16LE(20, 4) // Version needed to extract
+    localHeader.writeUInt16LE(0, 6) // General purpose bit flag
+    localHeader.writeUInt16LE(0, 8) // Compression method (stored)
+
+    // Date et heure actuelles en format DOS
+    const now = new Date()
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
+    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
+
+    localHeader.writeUInt16LE(dosTime, 10) // Last mod file time
+    localHeader.writeUInt16LE(dosDate, 12) // Last mod file date
+    localHeader.writeUInt32LE(crc32, 14) // CRC-32
+    localHeader.writeUInt32LE(data.length, 18) // Compressed size
+    localHeader.writeUInt32LE(data.length, 22) // Uncompressed size
+    localHeader.writeUInt16LE(nameBuffer.length, 26) // File name length
+    localHeader.writeUInt16LE(0, 28) // Extra field length
+    nameBuffer.copy(localHeader, 30)
+
+    zipEntries.push(localHeader)
+    zipEntries.push(data)
+
+    // Central directory entry
+    const centralEntry = Buffer.alloc(46 + nameBuffer.length)
+    centralEntry.writeUInt32LE(0x02014b50, 0) // Central file header signature
+    centralEntry.writeUInt16LE(20, 4) // Version made by
+    centralEntry.writeUInt16LE(20, 6) // Version needed to extract
+    centralEntry.writeUInt16LE(0, 8) // General purpose bit flag
+    centralEntry.writeUInt16LE(0, 10) // Compression method
+    centralEntry.writeUInt16LE(dosTime, 12) // Last mod file time
+    centralEntry.writeUInt16LE(dosDate, 14) // Last mod file date
+    centralEntry.writeUInt32LE(crc32, 16) // CRC-32
+    centralEntry.writeUInt32LE(data.length, 20) // Compressed size
+    centralEntry.writeUInt32LE(data.length, 24) // Uncompressed size
+    centralEntry.writeUInt16LE(nameBuffer.length, 28) // File name length
+    centralEntry.writeUInt16LE(0, 30) // Extra field length
+    centralEntry.writeUInt16LE(0, 32) // File comment length
+    centralEntry.writeUInt16LE(0, 34) // Disk number start
+    centralEntry.writeUInt16LE(0, 36) // Internal file attributes
+    centralEntry.writeUInt32LE(0, 38) // External file attributes
+    centralEntry.writeUInt32LE(offset, 42) // Relative offset of local header
+    nameBuffer.copy(centralEntry, 46)
+
+    centralDirectory.push(centralEntry)
+    offset += localHeader.length + data.length
+  })
+
+  // End of central directory record
+  const centralDirSize = centralDirectory.reduce((sum, entry) => sum + entry.length, 0)
+  const endOfCentralDir = Buffer.alloc(22)
+  endOfCentralDir.writeUInt32LE(0x06054b50, 0) // End of central dir signature
+  endOfCentralDir.writeUInt16LE(0, 4) // Number of this disk
+  endOfCentralDir.writeUInt16LE(0, 6) // Number of the disk with the start of the central directory
+  endOfCentralDir.writeUInt16LE(fileData.length, 8) // Total number of entries in the central directory on this disk
+  endOfCentralDir.writeUInt16LE(fileData.length, 10) // Total number of entries in the central directory
+  endOfCentralDir.writeUInt32LE(centralDirSize, 12) // Size of the central directory
+  endOfCentralDir.writeUInt32LE(offset, 16) // Offset of start of central directory
+  endOfCentralDir.writeUInt16LE(0, 20) // ZIP file comment length
+
+  return Buffer.concat([...zipEntries, ...centralDirectory, endOfCentralDir])
+}
+
+// Fonction pour calculer le CRC32
+function calculateCRC32(buffer: Buffer): number {
+  const crcTable: number[] = []
+  for (let i = 0; i < 256; i++) {
+    let crc = i
+    for (let j = 0; j < 8; j++) {
+      crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
+    }
+    crcTable[i] = crc
+  }
+
+  let crc = 0xffffffff
+  for (let i = 0; i < buffer.length; i++) {
+    crc = crcTable[(crc ^ buffer[i]) & 0xff] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xffffffff) >>> 0
 }
