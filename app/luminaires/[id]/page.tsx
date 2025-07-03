@@ -51,14 +51,11 @@ export default function LuminaireDetailPage() {
             signed: String(result.data["Signé"] || result.data.signe || ""),
             name: String(result.data["Nom luminaire"] || result.data.nom || ""),
             filename: String(result.data["Nom du fichier"] || result.data.filename || ""),
-            description: String(result.data["Description"] || result.data.description || ""),
-            dimensions:
-              result.data["Dimensions"] && String(result.data["Dimensions"]) !== "[object Object]"
-                ? String(result.data["Dimensions"])
-                : "",
-            materials: String(result.data["Matériaux"] || result.data.materiaux || ""),
-            estimation: String(result.data["Estimation"] || result.data.estimation || ""),
-            editeur: String(result.data["Editeur"] || result.data.editeur || ""),
+            description: String(result.data.description || ""),
+            dimensions: String(result.data.dimensions || ""),
+            materials: String(result.data.materials || result.data.materiaux || ""),
+            estimation: String(result.data.estimation || ""),
+            editeur: String(result.data.editeur || ""),
           }
 
           setLuminaire(formattedLuminaire)
@@ -171,7 +168,7 @@ export default function LuminaireDetailPage() {
       dimensions: "Dimensions",
       materials: "Matériaux",
       estimation: "Estimation",
-      editeur: "Editeur", // AJOUT DU CHAMP EDITEUR
+      editeur: "Editeur",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -184,7 +181,6 @@ export default function LuminaireDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [keyToUpdate]: value }),
       })
-
       console.log("✅ Luminaire mis à jour:", field, value)
     } catch (error) {
       console.error("❌ Erreur de mise à jour:", error)
@@ -237,7 +233,7 @@ export default function LuminaireDetailPage() {
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
       addField("Estimation", luminaire.estimation)
-      addField("Editeur", luminaire.editeur) // AJOUT DANS LE PDF
+      addField("Editeur", luminaire.editeur)
 
       // Ajouter l'image si disponible - Version simplifiée
       if (luminaire.image) {
@@ -339,7 +335,6 @@ export default function LuminaireDetailPage() {
                 {generatingPDF ? "Génération..." : "PDF"}
               </Button>
             )}
-
             <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
           </div>
         </div>
@@ -419,6 +414,27 @@ export default function LuminaireDetailPage() {
                   </div>
 
                   <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
+                    <EditableField
+                      value={String(luminaire.editeur || "")}
+                      onSave={(v) => handleUpdate("editeur", v)}
+                      placeholder="Editeur"
+                      disabled={!canEdit}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                    <EditableField
+                      value={String(luminaire.description || "")}
+                      onSave={(v) => handleUpdate("description", v)}
+                      placeholder="Description"
+                      multiline
+                      disabled={!canEdit}
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
                     <EditableField
                       value={String(luminaire.collaboration || "")}
@@ -435,17 +451,6 @@ export default function LuminaireDetailPage() {
                       value={String(luminaire.signed || "")}
                       onSave={(v) => handleUpdate("signed", v)}
                       placeholder="Signé"
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                    <EditableField
-                      value={String(luminaire.description || "")}
-                      onSave={(v) => handleUpdate("description", v)}
-                      placeholder="Description"
-                      multiline
                       disabled={!canEdit}
                     />
                   </div>
@@ -477,17 +482,6 @@ export default function LuminaireDetailPage() {
                       value={String(luminaire.estimation || "")}
                       onSave={(v) => handleUpdate("estimation", v)}
                       placeholder="Estimation"
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  {/* NOUVEAU CHAMP EDITEUR */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
-                    <EditableField
-                      value={String(luminaire.editeur || "")}
-                      onSave={(v) => handleUpdate("editeur", v)}
-                      placeholder="Editeur"
                       disabled={!canEdit}
                     />
                   </div>

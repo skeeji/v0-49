@@ -134,7 +134,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="nom">Nom du luminaire</Label>
+            <Label htmlFor="nom">Nom du luminaire *</Label>
             <Input
               id="nom"
               value={formData.nom}
@@ -231,7 +231,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               id="materials"
               value={formData.materials}
               onChange={(e) => handleChange("materials", e.target.value)}
-              placeholder="Métal, Verre, Plastique"
+              placeholder="Métal, Verre (séparés par des virgules)"
             />
           </div>
 

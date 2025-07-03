@@ -6,27 +6,30 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log(`🔍 API /api/luminaires/${params.id} - Récupération du luminaire`)
+    const { id } = params
+    if (!id || !ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, error: "ID de luminaire invalide" }, { status: 400 })
+    }
+
+    console.log(`🔍 API /api/luminaires/${id} - Récupération du luminaire`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
+    const luminaire = await collection.findOne({ _id: new ObjectId(id) })
 
     if (!luminaire) {
-      console.log(`❌ Luminaire non trouvé: ${params.id}`)
+      console.log(`❌ Luminaire non trouvé: ${id}`)
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
     console.log(`✅ Luminaire trouvé: ${luminaire.nom || luminaire["Nom luminaire"]}`)
 
-    // Formater le luminaire avec tous les champs
+    // --- LE FORMATEUR DE DONNÉES ESSENTIEL ---
     const formattedLuminaire = {
       _id: luminaire._id.toString(),
       id: luminaire._id.toString(),
-
-      // Champs principaux avec fallback
       nom: luminaire.nom || luminaire["Nom luminaire"] || "",
       name: luminaire.nom || luminaire["Nom luminaire"] || "",
       designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
@@ -35,23 +38,31 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
       periode: luminaire.periode || luminaire["Spécialité"] || "",
       specialty: luminaire.periode || luminaire["Spécialité"] || "",
-      description: luminaire.description || luminaire["Collaboration / Œuvre"] || "",
-      collaboration: luminaire.description || luminaire["Collaboration / Œuvre"] || "",
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
       signe: luminaire.signe || luminaire["Signé"] || "",
       signed: luminaire.signe || luminaire["Signé"] || "",
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
 
-      // Autres champs
+      // Champs qui posaient problème, maintenant corrigés
+      description: luminaire.description || "",
+      dimensions: luminaire.dimensions || "",
+      estimation: luminaire.estimation || "",
+      editeur: luminaire.editeur || "",
+
       materiaux: luminaire.materiaux || [],
       materials: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : "",
       couleurs: luminaire.couleurs || [],
-      dimensions: luminaire.dimensions || {},
-      images: luminaire.images || [],
+
+      // Chemins des images
+      images: luminaire.images || [], // Renvoie la liste des noms de fichiers
+      image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
+      designerImage: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : null,
+
       isFavorite: luminaire.isFavorite || false,
       createdAt: luminaire.createdAt,
       updatedAt: luminaire.updatedAt,
 
-      // Champs CSV originaux
+      // Champs CSV originaux pour compatibilité
       "Artiste / Dates": luminaire["Artiste / Dates"] || "",
       Spécialité: luminaire["Spécialité"] || "",
       "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
@@ -110,12 +121,28 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       mappedUpdates["Spécialité"] = updates.specialty
     }
     if (updates.collaboration) {
-      mappedUpdates.description = updates.collaboration
+      mappedUpdates.collaboration = updates.collaboration
       mappedUpdates["Collaboration / Œuvre"] = updates.collaboration
     }
     if (updates.signed) {
       mappedUpdates.signe = updates.signed
       mappedUpdates["Signé"] = updates.signed
+    }
+    // Ajout des nouveaux champs
+    if (updates.description) {
+      mappedUpdates.description = updates.description
+    }
+    if (updates.dimensions) {
+      mappedUpdates.dimensions = updates.dimensions
+    }
+    if (updates.materials) {
+      mappedUpdates.materials = updates.materials
+    }
+    if (updates.estimation) {
+      mappedUpdates.estimation = updates.estimation
+    }
+    if (updates.editeur) {
+      mappedUpdates.editeur = updates.editeur
     }
 
     const result = await collection.updateOne(
