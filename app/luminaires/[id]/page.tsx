@@ -31,11 +31,9 @@ export default function LuminaireDetailPage() {
         console.log("🔍 Chargement luminaire ID:", params.id)
 
         const response = await fetch(`/api/luminaires/${params.id}`)
-
         if (!response.ok) throw new Error("Luminaire non trouvé")
 
         const result = await response.json()
-
         console.log("📊 Réponse API luminaire:", result)
 
         if (result.success) {
@@ -46,16 +44,18 @@ export default function LuminaireDetailPage() {
             image: result.data.filename ? `/api/images/filename/${result.data.filename}` : null,
             artist: String(result.data["Artiste / Dates"] || result.data.designer || ""),
             specialty: String(result.data["Spécialité"] || result.data.periode || ""),
-            collaboration: String(result.data["Collaboration / Œuvre"] || result.data.collaboration || ""),
+            collaboration: String(result.data["Collaboration / Œuvre"] || result.data.description || ""),
             year: String(result.data.annee || result.data["Année"] || ""),
             signed: String(result.data["Signé"] || result.data.signe || ""),
             name: String(result.data["Nom luminaire"] || result.data.nom || ""),
             filename: String(result.data["Nom du fichier"] || result.data.filename || ""),
-            description: String(result.data.description || ""),
-            dimensions: String(result.data.dimensions || ""),
-            materials: String(result.data.materials || result.data.materiaux || ""),
-            estimation: String(result.data.estimation || ""),
-            editeur: String(result.data.editeur || ""),
+            description: String(result.data["Description"] || result.data.description || ""),
+            dimensions:
+              result.data["Dimensions"] && String(result.data["Dimensions"]) !== "[object Object]"
+                ? String(result.data["Dimensions"])
+                : "",
+            materials: String(result.data["Matériaux"] || result.data.materiaux || ""),
+            estimation: String(result.data["Estimation"] || result.data.estimation || ""),
           }
 
           setLuminaire(formattedLuminaire)
@@ -168,7 +168,6 @@ export default function LuminaireDetailPage() {
       dimensions: "Dimensions",
       materials: "Matériaux",
       estimation: "Estimation",
-      editeur: "Editeur",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -181,7 +180,6 @@ export default function LuminaireDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [keyToUpdate]: value }),
       })
-
       console.log("✅ Luminaire mis à jour:", field, value)
     } catch (error) {
       console.error("❌ Erreur de mise à jour:", error)
@@ -204,7 +202,6 @@ export default function LuminaireDetailPage() {
     if (!luminaire) return
 
     setGeneratingPDF(true)
-
     try {
       const pdf = new jsPDF()
 
@@ -234,7 +231,54 @@ export default function LuminaireDetailPage() {
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
       addField("Estimation", luminaire.estimation)
-      addField("Editeur", luminaire.editeur)
+
+      // Ajouter l'image si disponible - Version simplifiée
+      if (luminaire.image) {
+        try {
+          // Créer un élément image temporaire
+          const tempImg = document.createElement("img")
+          tempImg.crossOrigin = "anonymous"
+
+          // Promesse pour charger l'image
+          await new Promise<void>((resolve) => {
+            tempImg.onload = () => {
+              try {
+                // Créer un canvas
+                const canvas = document.createElement("canvas")
+                const ctx = canvas.getContext("2d")
+
+                if (ctx) {
+                  // Définir la taille du canvas
+                  canvas.width = 100
+                  canvas.height = 100
+
+                  // Dessiner l'image
+                  ctx.drawImage(tempImg, 0, 0, 100, 100)
+
+                  // Convertir en base64
+                  const dataURL = canvas.toDataURL("image/jpeg", 0.7)
+
+                  // Ajouter au PDF
+                  pdf.addImage(dataURL, "JPEG", 20, yPos + 10, 100, 100)
+                }
+              } catch (error) {
+                console.error("❌ Erreur traitement image PDF:", error)
+              }
+              resolve()
+            }
+
+            tempImg.onerror = () => {
+              console.error("❌ Erreur chargement image PDF")
+              resolve()
+            }
+
+            // Charger l'image
+            tempImg.src = luminaire.image
+          })
+        } catch (error) {
+          console.error("❌ Erreur ajout image PDF:", error)
+        }
+      }
 
       // Sauvegarder le PDF
       pdf.save(`${String(luminaire.name || "luminaire")}.pdf`)
@@ -287,7 +331,6 @@ export default function LuminaireDetailPage() {
                 {generatingPDF ? "Génération..." : "PDF"}
               </Button>
             )}
-
             <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
           </div>
         </div>
@@ -367,27 +410,6 @@ export default function LuminaireDetailPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
-                    <EditableField
-                      value={String(luminaire.editeur || "")}
-                      onSave={(v) => handleUpdate("editeur", v)}
-                      placeholder="Editeur"
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                    <EditableField
-                      value={String(luminaire.description || "")}
-                      onSave={(v) => handleUpdate("description", v)}
-                      placeholder="Description"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
                     <EditableField
                       value={String(luminaire.collaboration || "")}
@@ -404,6 +426,17 @@ export default function LuminaireDetailPage() {
                       value={String(luminaire.signed || "")}
                       onSave={(v) => handleUpdate("signed", v)}
                       placeholder="Signé"
+                      disabled={!canEdit}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                    <EditableField
+                      value={String(luminaire.description || "")}
+                      onSave={(v) => handleUpdate("description", v)}
+                      placeholder="Description"
+                      multiline
                       disabled={!canEdit}
                     />
                   </div>
