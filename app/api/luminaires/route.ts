@@ -102,34 +102,34 @@ export async function GET(request: NextRequest) {
 
     console.log("🔍 Filtre MongoDB:", JSON.stringify(filter, null, 2))
 
-    // Logique de tri simplifiée et corrigée
+    // NOUVEAU CODE - Logique de tri simplifiée
     const sort: any = {}
     const direction = sortDirection === "desc" ? -1 : 1
 
     switch (sortField) {
       case "annee":
         sort.annee = direction
-        sort.year = direction // Assure la compatibilité
-        sort["Année"] = direction // Assure la compatibilité
+        sort.year = direction
+        sort["Année"] = direction
         break
       case "designer":
         sort.designer = direction
-        sort["Artiste / Dates"] = direction // Assure la compatibilité
+        sort["Artiste / Dates"] = direction
         break
-      case "nom":
       default:
+        // Tri par nom par défaut
         sort.nom = direction
-        sort["Nom luminaire"] = direction // Assure la compatibilité
+        sort["Nom luminaire"] = direction
         break
     }
 
-    // Compter le total avec le filtre simple
     const total = await collection.countDocuments(filter)
-    console.log(`📊 Total luminaires trouvés: ${total}`)
-
-    // Récupérer les luminaires avec le filtre simple et le tri
-    const skip = (page - 1) * limit
-    const luminaires = await collection.find(filter).sort(sort).skip(skip).limit(limit).toArray()
+    const luminaires = await collection
+      .find(filter)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray()
 
     console.log(`📊 ${luminaires.length} luminaires récupérés pour la page ${page}`)
 
