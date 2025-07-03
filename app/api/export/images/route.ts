@@ -5,15 +5,15 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📤 API /api/export/images - Export CSV avec toutes les données")
+    console.log("📤 API /api/export/images - Export CSV avec TOUTES les données")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Récupérer TOUS les luminaires
+    // Récupérer TOUS les luminaires avec TOUS les champs
     const luminaires = await collection.find({}).toArray()
-    console.log(`📊 ${luminaires.length} luminaires trouvés pour l'export`)
+    console.log(`📊 ${luminaires.length} luminaires trouvés pour l'export CSV complet`)
 
     // CORRECTION: Formater les données avec TOUS les champs pour l'export CSV
     const csvData = luminaires.map((luminaire) => ({
@@ -24,24 +24,26 @@ export async function GET(request: NextRequest) {
       Année: luminaire.annee || luminaire["Année"] || "",
       Spécialité: luminaire.periode || luminaire["Spécialité"] || "",
 
-      // CORRECTION: Champs séparés dans l'export
+      // CORRECTION: Champs COMPLÈTEMENT séparés dans l'export
       "Collaboration / Œuvre": luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
-      Description: luminaire.description || "", // Description séparée
+      Description: luminaire.description || "", // Description SÉPARÉE de collaboration
 
       Signé: luminaire.signe || luminaire["Signé"] || "",
 
-      // CORRECTION: Tous les champs étendus dans l'export
+      // CORRECTION: TOUS les champs étendus dans l'export CSV
       Editeur: luminaire.editeur || "",
-      Dimensions: luminaire.dimensions || "",
-      Matériaux: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.materiaux || "",
-      Estimation: luminaire.estimation || "",
+      Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
+      Matériaux: Array.isArray(luminaire.materiaux)
+        ? luminaire.materiaux.join(", ")
+        : luminaire.materiaux || luminaire["Matériaux"] || "",
+      Estimation: luminaire.estimation || luminaire["Estimation"] || "",
 
-      // Images
+      // Images principales
       "Nom du fichier": luminaire.filename || luminaire["Nom du fichier"] || "",
       Images: Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.images || "",
 
-      // CORRECTION: Image du designer dans l'export
-      "Image Designer": luminaire.designerImageFilename || "",
+      // CORRECTION: Image du designer dans l'export CSV
+      "Image Designer": luminaire.designerImageFilename || luminaire.designerImage || "",
 
       // Couleurs
       Couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join(", ") : luminaire.couleurs || "",
@@ -50,6 +52,11 @@ export async function GET(request: NextRequest) {
       Favori: luminaire.isFavorite ? "Oui" : "Non",
       "Date création": luminaire.createdAt ? new Date(luminaire.createdAt).toLocaleDateString("fr-FR") : "",
       "Date modification": luminaire.updatedAt ? new Date(luminaire.updatedAt).toLocaleDateString("fr-FR") : "",
+
+      // Champs techniques supplémentaires
+      "ID MongoDB": luminaire._id.toString(),
+      Statut: luminaire.status || "Actif",
+      Tags: Array.isArray(luminaire.tags) ? luminaire.tags.join(", ") : luminaire.tags || "",
     }))
 
     // Créer le contenu CSV
@@ -60,36 +67,40 @@ export async function GET(request: NextRequest) {
     // Créer les en-têtes CSV
     const headers = Object.keys(csvData[0])
 
-    // Créer les lignes CSV
+    // Créer les lignes CSV avec échappement correct
     const csvContent = [
       headers.join(","),
       ...csvData.map((row) =>
         headers
           .map((header) => {
             const value = row[header as keyof typeof row] || ""
-            // Échapper les guillemets et virgules
-            return `"${String(value).replace(/"/g, '""')}"`
+            // Échapper les guillemets et virgules pour CSV
+            const cleanValue = String(value).replace(/"/g, '""')
+            return `"${cleanValue}"`
           })
           .join(","),
       ),
     ].join("\n")
 
     console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
+    console.log(`📋 Colonnes exportées:`, headers)
 
-    // Retourner le CSV
-    return new NextResponse(csvContent, {
+    // Retourner le CSV avec BOM UTF-8 pour Excel
+    const csvWithBOM = "\uFEFF" + csvContent
+
+    return new NextResponse(csvWithBOM, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="luminaires-export-${new Date().toISOString().split("T")[0]}.csv"`,
+        "Content-Disposition": `attachment; filename="luminaires-export-complet-${new Date().toISOString().split("T")[0]}.csv"`,
       },
     })
   } catch (error: any) {
-    console.error("❌ Erreur export CSV:", error)
+    console.error("❌ Erreur export CSV complet:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'export CSV",
+        error: "Erreur lors de l'export CSV complet",
         details: error.message,
       },
       { status: 500 },
