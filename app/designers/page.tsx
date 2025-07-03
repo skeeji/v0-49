@@ -9,9 +9,9 @@ import { useAuth } from "@/contexts/AuthContext"
 import { Loader2 } from "lucide-react"
 
 export default function DesignersPage() {
-  const [designers, setDesigners] = useState<any[]>([])
-  const [filteredDesigners, setFilteredDesigners] = useState<any[]>([])
-  const [displayedDesigners, setDisplayedDesigners] = useState<any[]>([])
+  const [designers, setDesigners] = useState([])
+  const [filteredDesigners, setFilteredDesigners] = useState([])
+  const [displayedDesigners, setDisplayedDesigners] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState("name-asc")
   const [isLoading, setIsLoading] = useState(true)
@@ -31,43 +31,47 @@ export default function DesignersPage() {
     async function fetchData() {
       setIsLoading(true)
       try {
+        // Charger tous les luminaires pour extraire TOUS les designers
         const luminairesResponse = await fetch("/api/luminaires?limit=10000")
         const luminairesData = await luminairesResponse.json()
 
         if (luminairesData.success) {
           console.log(`👨‍🎨 Extraction des designers depuis ${luminairesData.luminaires.length} luminaires`)
 
-          // CORRECTION: Grouper les luminaires et trouver l'image du designer en même temps
-          const designerGroups = luminairesData.luminaires.reduce((acc: any, lum: any) => {
-            const designerName = lum.designer || lum["Artiste / Dates"] || "Designer inconnu"
-            if (designerName === "Designer inconnu") return acc
+          // CORRECTION: Grouper les luminaires par designer et récupérer l'image du designer
+          const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
+            const designerName = luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"
 
             if (!acc[designerName]) {
               acc[designerName] = {
                 name: designerName,
                 count: 0,
                 luminaires: [],
-                // On cherche l'image du designer directement dans les données du luminaire
-                image: lum.designerImageFilename ? `/api/images/filename/${lum.designerImageFilename}` : "",
+                // CORRECTION: Récupérer l'image du designer depuis designerImageFilename
+                image: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : "",
                 slug: encodeURIComponent(designerName),
                 years: [],
               }
             }
 
             acc[designerName].count++
-            // Si on trouve une image de designer plus tard pour le même groupe, on la met à jour
-            if (lum.designerImageFilename && !acc[designerName].image) {
-              acc[designerName].image = `/api/images/filename/${lum.designerImageFilename}`
+
+            // CORRECTION: Si on trouve une image de designer, l'utiliser
+            if (luminaire.designerImageFilename && !acc[designerName].image) {
+              acc[designerName].image = `/api/images/filename/${luminaire.designerImageFilename}`
+              console.log(`🖼️ Image designer trouvée pour ${designerName}: ${luminaire.designerImageFilename}`)
             }
 
             acc[designerName].luminaires.push({
-              ...lum,
-              image: lum.filename ? `/api/images/filename/${lum.filename}` : "/placeholder.svg",
-              name: lum["Nom luminaire"] || lum.nom || "Sans nom",
+              ...luminaire,
+              image: luminaire["Nom du fichier"]
+                ? `/api/images/filename/${luminaire["Nom du fichier"]}`
+                : "/placeholder.svg",
+              name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
             })
 
             // Extraire les années du champ "Artiste / Dates"
-            const artistDates = lum["Artiste / Dates"] || lum.designer || ""
+            const artistDates = luminaire["Artiste / Dates"] || luminaire.designer || ""
             const yearMatches = artistDates.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g)
             if (yearMatches) {
               acc[designerName].years = [
@@ -80,18 +84,45 @@ export default function DesignersPage() {
 
           console.log(`👨‍🎨 ${Object.keys(designerGroups).length} designers uniques trouvés`)
 
+          // CORRECTION: Essayer aussi l'ancienne méthode en fallback
+          try {
+            const designersResponse = await fetch("/api/designers-data")
+            const designersResult = await designersResponse.json()
+
+            if (designersResult.success && designersResult.designers) {
+              console.log(`🖼️ ${designersResult.designers.length} images de designers disponibles (fallback)`)
+
+              // Associer les images aux designers qui n'en ont pas encore
+              Object.keys(designerGroups).forEach((designerName) => {
+                if (!designerGroups[designerName].image) {
+                  const designerInfo = designersResult.designers.find(
+                    (d: any) => d.Nom && d.Nom.toLowerCase().trim() === designerName.toLowerCase().trim(),
+                  )
+
+                  if (designerInfo && designerInfo.imagedesigner) {
+                    designerGroups[designerName].image = `/api/images/filename/${designerInfo.imagedesigner}`
+                    console.log(`🖼️ Image fallback trouvée pour ${designerName}: ${designerInfo.imagedesigner}`)
+                  }
+                }
+              })
+            }
+          } catch (error) {
+            console.error("❌ Erreur chargement données designers fallback:", error)
+          }
+
           const designersArray = Object.values(designerGroups).sort((a: any, b: any) => a.name.localeCompare(b.name))
 
           console.log(`✅ ${designersArray.length} designers finaux`)
 
           // Pour les utilisateurs "free", limiter à 10% des designers
-          const finalDesigners =
-            userData?.role === "free"
-              ? designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
-              : designersArray
-
-          setDesigners(finalDesigners)
-          setFilteredDesigners(finalDesigners)
+          if (userData?.role === "free") {
+            const limitedDesigners = designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
+            setDesigners(limitedDesigners)
+            setFilteredDesigners(limitedDesigners)
+          } else {
+            setDesigners(designersArray)
+            setFilteredDesigners(designersArray)
+          }
         }
       } catch (error) {
         console.error("❌ Erreur chargement données:", error)

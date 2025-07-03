@@ -48,7 +48,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour charger les luminaires avec scroll infini
+  // CORRECTION: Fonction pour charger les luminaires avec le slider corrigé
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -62,16 +62,19 @@ export default function LuminairesPage() {
         const params = new URLSearchParams({
           page: page.toString(),
           limit: "50",
-          search: searchTerm, // La recherche se fait sur TOUS les luminaires
+          search: searchTerm,
           designer: selectedDesigner,
           sortField,
           sortDirection,
         })
 
-        // Ajouter les filtres d'année seulement si le slider a été modifié manuellement
-        if (sliderModified) {
+        // CORRECTION: Ajouter les filtres d'année UNIQUEMENT si le slider a été modifié ET que les valeurs sont différentes des valeurs par défaut
+        if (sliderModified && (yearRange[0] !== 1900 || yearRange[1] !== 2024)) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
+          console.log(`🎯 Filtre d'années appliqué: ${yearRange[0]} - ${yearRange[1]}`)
+        } else {
+          console.log("📅 Pas de filtre d'années (slider non modifié ou valeurs par défaut)")
         }
 
         console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
@@ -118,7 +121,7 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, ...(sliderModified ? [yearRange] : [])])
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -180,7 +183,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour créer un nouveau luminaire - MODIFIÉE POUR RETOURNER LA RÉPONSE
+  // Fonction pour créer un nouveau luminaire
   const handleCreateLuminaire = useCallback(
     async (luminaireData: any) => {
       try {
@@ -201,13 +204,10 @@ export default function LuminairesPage() {
           throw new Error(data.error)
         }
 
-        // AJOUTER CETTE LIGNE - On retourne la réponse de l'API
         return data
       } catch (err: any) {
         console.error("❌ Erreur création:", err)
         toast.error("Erreur lors de la création")
-
-        // AJOUTER CETTE LIGNE - On retourne aussi en cas d'erreur
         return { success: false, error: err.message }
       }
     },
@@ -237,8 +237,9 @@ export default function LuminairesPage() {
     }
   }, [yearBounds, allLuminaires.length, yearRange, sliderModified])
 
-  // Fonction pour gérer le changement manuel du slider par l'utilisateur
+  // CORRECTION: Fonction pour gérer le changement manuel du slider par l'utilisateur
   const handleYearRangeChange = (newRange: number[]) => {
+    console.log(`🎛️ Slider modifié par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
     setSliderModified(true)
   }
@@ -275,6 +276,11 @@ export default function LuminairesPage() {
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
             {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
+            {sliderModified && (yearRange[0] !== 1900 || yearRange[1] !== 2024) && (
+              <span className="ml-2 text-orange-600">
+                (filtrés par années: {yearRange[0]} - {yearRange[1]})
+              </span>
+            )}
           </p>
         </div>
 
@@ -353,6 +359,20 @@ export default function LuminairesPage() {
           onChange={handleYearRangeChange}
           label="Chronologie"
         />
+        {sliderModified && (
+          <div className="mt-2 text-sm text-orange-600">
+            ⚠️ Filtre actif: {yearRange[0]} - {yearRange[1]}
+            <button
+              onClick={() => {
+                setYearRange([yearBounds.min, yearBounds.max])
+                setSliderModified(false)
+              }}
+              className="ml-2 underline hover:no-underline"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Grille des luminaires */}

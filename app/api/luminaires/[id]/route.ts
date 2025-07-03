@@ -6,38 +6,91 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
-    if (!id || !ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, error: "ID invalide." }, { status: 400 })
-    }
+    console.log(`🔍 API /api/luminaires/${params.id} - Récupération du luminaire`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const luminaire = await db.collection("luminaires").findOne({ _id: new ObjectId(id) })
+    const collection = db.collection("luminaires")
+
+    const luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
 
     if (!luminaire) {
-      return NextResponse.json({ success: false, error: "Luminaire non trouvé." }, { status: 404 })
+      console.log(`❌ Luminaire non trouvé: ${params.id}`)
+      return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    // CORRECTION: Retourner des champs propres et indépendants
-    const formattedData = {
+    console.log(`✅ Luminaire trouvé: ${luminaire.nom || luminaire["Nom luminaire"]}`)
+
+    // CORRECTION: Formater le luminaire avec TOUS les champs séparés
+    const formattedLuminaire = {
+      _id: luminaire._id.toString(),
       id: luminaire._id.toString(),
+
+      // Champs principaux
       nom: luminaire.nom || luminaire["Nom luminaire"] || "",
+      name: luminaire.nom || luminaire["Nom luminaire"] || "",
       designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
+      artist: luminaire.designer || luminaire["Artiste / Dates"] || "",
+      annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+      year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+      periode: luminaire.periode || luminaire["Spécialité"] || "",
+      specialty: luminaire.periode || luminaire["Spécialité"] || "",
+
+      // CORRECTION: Champs séparés - ne plus mélanger description et collaboration
+      description: luminaire.description || "", // Champ description propre
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Champ collaboration propre
+
+      signe: luminaire.signe || luminaire["Signé"] || "",
+      signed: luminaire.signe || luminaire["Signé"] || "",
+      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
+
+      // CORRECTION: Champs étendus avec leurs vraies valeurs
       editeur: luminaire.editeur || "",
-      annee: luminaire.annee || luminaire["Année"] || "",
-      description: luminaire.description || "", // Champ indépendant
-      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Champ indépendant
       dimensions: luminaire.dimensions || "",
       estimation: luminaire.estimation || "",
+
+      // Image du luminaire
+      image: luminaire.images?.[0]
+        ? `/api/images/filename/${luminaire.images[0]}`
+        : luminaire.filename
+          ? `/api/images/filename/${luminaire.filename}`
+          : null,
+
+      // Matériaux formatés
       materiaux: luminaire.materiaux || [],
-      image: luminaire.filename ? `/api/images/filename/${luminaire.filename}` : null,
-      // Pas besoin de renvoyer l'image du designer ici
+      materials: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.materiaux || "",
+
+      // Autres champs
+      couleurs: luminaire.couleurs || [],
+      images: luminaire.images || [],
+      isFavorite: luminaire.isFavorite || false,
+      createdAt: luminaire.createdAt,
+      updatedAt: luminaire.updatedAt,
+
+      // Champs CSV originaux (pour compatibilité)
+      "Artiste / Dates": luminaire["Artiste / Dates"] || "",
+      Spécialité: luminaire["Spécialité"] || "",
+      "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
+      "Nom luminaire": luminaire["Nom luminaire"] || "",
+      Année: luminaire["Année"] || "",
+      Signé: luminaire["Signé"] || "",
+      "Nom du fichier": luminaire["Nom du fichier"] || "",
     }
 
-    return NextResponse.json({ success: true, data: formattedData })
+    return NextResponse.json({
+      success: true,
+      data: formattedLuminaire,
+    })
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: "Erreur serveur." }, { status: 500 })
+    console.error(`❌ Erreur récupération luminaire ${params.id}:`, error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la récupération du luminaire",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -73,12 +126,31 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       mappedUpdates["Spécialité"] = updates.specialty
     }
     if (updates.collaboration) {
-      mappedUpdates.description = updates.collaboration
+      mappedUpdates.collaboration = updates.collaboration
       mappedUpdates["Collaboration / Œuvre"] = updates.collaboration
     }
     if (updates.signed) {
       mappedUpdates.signe = updates.signed
       mappedUpdates["Signé"] = updates.signed
+    }
+    // CORRECTION: Ajouter les nouveaux champs
+    if (updates.description) {
+      mappedUpdates.description = updates.description
+    }
+    if (updates.dimensions) {
+      mappedUpdates.dimensions = updates.dimensions
+    }
+    if (updates.estimation) {
+      mappedUpdates.estimation = updates.estimation
+    }
+    if (updates.editeur) {
+      mappedUpdates.editeur = updates.editeur
+    }
+    if (updates.materials) {
+      mappedUpdates.materiaux = updates.materials
+        .split(",")
+        .map((m: string) => m.trim())
+        .filter(Boolean)
     }
 
     const result = await collection.updateOne(

@@ -68,29 +68,41 @@ export async function GET(request: NextRequest) {
       filter.couleurs = { $in: [new RegExp(couleurs, "i")] }
     }
 
-    // CORRECTION: Appliquer le filtre de date UNIQUEMENT si les valeurs ne sont pas celles par défaut
-    const yearConditions: any[] = []
-    const defaultMin = "1900"
-    const defaultMax = "2024"
-
-    if (yearMin && yearMin !== defaultMin) {
+    // CORRECTION: Filtre par années UNIQUEMENT si yearMin et yearMax sont fournis ET différents des valeurs par défaut
+    if (yearMin && yearMax) {
       const minYear = Number.parseInt(yearMin)
-      yearConditions.push({ annee: { $gte: minYear } }, { year: { $gte: minYear } }, { Année: { $gte: yearMin } })
-    }
-
-    if (yearMax && yearMax !== defaultMax) {
       const maxYear = Number.parseInt(yearMax)
-      yearConditions.push({ annee: { $lte: maxYear } }, { year: { $lte: maxYear } }, { Année: { $lte: yearMax } })
-    }
 
-    if (yearConditions.length > 0) {
-      filter.$and = filter.$and || []
-      filter.$and.push({ $or: yearConditions })
+      // Appliquer le filtre seulement si ce ne sont pas les valeurs par défaut
+      if (minYear !== 1900 || maxYear !== 2024) {
+        console.log(`🎯 Application du filtre d'années: ${minYear} - ${maxYear}`)
+
+        const yearConditions: any[] = []
+        yearConditions.push(
+          { annee: { $gte: minYear, $lte: maxYear } },
+          { year: { $gte: minYear, $lte: maxYear } },
+          {
+            $and: [
+              { Année: { $exists: true, $ne: null, $ne: "" } },
+              {
+                $expr: {
+                  $and: [{ $gte: [{ $toInt: "$Année" }, minYear] }, { $lte: [{ $toInt: "$Année" }, maxYear] }],
+                },
+              },
+            ],
+          },
+        )
+
+        filter.$and = filter.$and || []
+        filter.$and.push({ $or: yearConditions })
+      } else {
+        console.log("📅 Valeurs par défaut détectées, pas de filtre d'années appliqué")
+      }
     }
 
     console.log("🔍 Filtre MongoDB:", JSON.stringify(filter, null, 2))
 
-    // Construire le tri - SEULS les tris par année excluent les luminaires sans année
+    // Construire le tri
     const sort: any = {}
     let sortFilter = filter
 
@@ -113,7 +125,6 @@ export async function GET(request: NextRequest) {
       sort.year = sortDirection === "desc" ? -1 : 1
       sort["Année"] = sortDirection === "desc" ? -1 : 1
     } else {
-      // Pour les autres tris (nom, designer), inclure TOUS les luminaires
       if (sortField === "nom") {
         sort.nom = sortDirection === "desc" ? -1 : 1
         sort["Nom luminaire"] = sortDirection === "desc" ? -1 : 1
@@ -155,16 +166,21 @@ export async function GET(request: NextRequest) {
       signed: luminaire.signe || luminaire["Signé"] || "",
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
 
-      // Nouveaux champs étendus
+      // CORRECTION: Champs étendus avec valeurs par défaut
       editeur: luminaire.editeur || "",
       dimensions: luminaire.dimensions || "",
       estimation: luminaire.estimation || "",
 
       // Image principale du luminaire
-      image: luminaire.images?.[0] ? `/api/images/filename/${luminaire.images[0]}` : null,
+      image: luminaire.images?.[0]
+        ? `/api/images/filename/${luminaire.images[0]}`
+        : luminaire.filename
+          ? `/api/images/filename/${luminaire.filename}`
+          : null,
 
-      // Image du designer
+      // CORRECTION: Image du designer
       designerImage: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : null,
+      designerImageFilename: luminaire.designerImageFilename || "",
 
       // Autres champs
       materiaux: luminaire.materiaux || [],
