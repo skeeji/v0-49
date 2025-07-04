@@ -14,7 +14,7 @@ export async function GET() {
     // Utiliser le bucket GridFS "uploads"
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    // CORRECTION 2: Récupérer TOUS les luminaires pour une logique unifiée
+    // CORRECTION 2A: Récupérer TOUS les luminaires pour une logique unifiée
     const luminairesCollection = db.collection("luminaires")
     const luminaires = await luminairesCollection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires trouvés pour l'export d'images`)
@@ -28,24 +28,25 @@ export async function GET() {
       return NextResponse.json({ error: "Aucune image trouvée dans le bucket uploads" }, { status: 404 })
     }
 
-    // CORRECTION 2: Logique universelle et unifiée pour TOUS les luminaires
-    const imagesToInclude = new Set<string>()
+    // CORRECTION 2A: Logique exhaustive et unifiée pour TOUS les luminaires
+    const luminaireImages = new Set<string>()
+    const designerImages = new Set<string>()
 
-    // Parcourir TOUS les luminaires sans distinction
+    // Parcourir TOUS les luminaires sans distinction (CSV + manuels)
     luminaires.forEach((luminaire) => {
       // Images principales du luminaire
       if (luminaire.filename) {
-        imagesToInclude.add(luminaire.filename)
-        console.log(`📸 Image principale ajoutée: ${luminaire.filename}`)
+        luminaireImages.add(luminaire.filename)
+        console.log(`📸 Image luminaire ajoutée: ${luminaire.filename}`)
       }
       if (luminaire.images && Array.isArray(luminaire.images)) {
         luminaire.images.forEach((img: string) => {
-          imagesToInclude.add(img)
-          console.log(`📸 Image supplémentaire ajoutée: ${img}`)
+          luminaireImages.add(img)
+          console.log(`📸 Image luminaire supplémentaire ajoutée: ${img}`)
         })
       }
 
-      // CORRECTION 2: Images designer - logique unifiée pour TOUS les cas
+      // CORRECTION 2A: Images designer - logique exhaustive pour TOUS les cas
       // Vérifier TOUS les champs possibles où l'image designer peut être stockée
       const designerImageFields = [
         luminaire.designerImageFilename,
@@ -53,46 +54,50 @@ export async function GET() {
         luminaire["designer.jpg"],
         luminaire.designer_image,
         luminaire.imageDesigner,
+        luminaire["Image Designer"],
       ]
 
       designerImageFields.forEach((designerImageField) => {
         if (designerImageField && typeof designerImageField === "string") {
-          imagesToInclude.add(designerImageField)
+          designerImages.add(designerImageField)
           console.log(
-            `👨‍🎨 Image designer ajoutée (unifiée): ${designerImageField} pour ${luminaire.designer || "designer inconnu"}`,
+            `👨‍🎨 Image designer ajoutée (exhaustive): ${designerImageField} pour ${luminaire.designer || "designer inconnu"}`,
           )
         }
       })
 
-      // CORRECTION 2: Recherche par nom de designer dans les fichiers
+      // CORRECTION 2A: Recherche par nom de designer dans les fichiers (pour les imports CSV)
       if (luminaire.designer) {
         const designerName = luminaire.designer.toLowerCase().replace(/\s+/g, "_")
         const possibleDesignerFiles = [
           `${designerName}.jpg`,
           `${luminaire.designer}.jpg`,
           `designer_${designerName}.jpg`,
+          `${luminaire.designer.replace(/\s+/g, "")}.jpg`,
         ]
 
         possibleDesignerFiles.forEach((possibleFile) => {
           // Vérifier si ce fichier existe dans le bucket
           const fileExists = files.some((file) => file.filename === possibleFile)
           if (fileExists) {
-            imagesToInclude.add(possibleFile)
-            console.log(`👨‍🎨 Image designer trouvée par nom: ${possibleFile}`)
+            designerImages.add(possibleFile)
+            console.log(`👨‍🎨 Image designer trouvée par nom (CSV): ${possibleFile}`)
           }
         })
       }
     })
 
-    console.log(`📋 ${imagesToInclude.size} images uniques à inclure dans l'export`)
+    console.log(`📋 ${luminaireImages.size} images de luminaires à inclure`)
+    console.log(`📋 ${designerImages.size} images de designers à inclure`)
 
-    // Filtrer pour ne garder que les fichiers .jpg qui sont dans notre liste
+    // Filtrer pour ne garder que les fichiers .jpg qui sont dans nos listes
     const jpgFiles = files.filter((file) => {
       const filename = file.filename || ""
       const isJpg = filename.toLowerCase().endsWith(".jpg")
-      const isIncluded = imagesToInclude.has(filename)
+      const isLuminaireImage = luminaireImages.has(filename)
+      const isDesignerImage = designerImages.has(filename)
 
-      if (isJpg && isIncluded) {
+      if (isJpg && (isLuminaireImage || isDesignerImage)) {
         console.log(`✅ Image incluse dans l'export: ${filename}`)
         return true
       }
@@ -108,7 +113,7 @@ export async function GET() {
       )
     }
 
-    // Traiter tous les fichiers .jpg sélectionnés
+    // CORRECTION 2B: Traiter tous les fichiers .jpg avec organisation en dossiers
     const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
 
     for (const file of jpgFiles) {
@@ -130,16 +135,27 @@ export async function GET() {
           continue
         }
 
-        const safeFilename = file.filename || `image_${file._id}.jpg`
+        const originalFilename = file.filename || `image_${file._id}.jpg`
+
+        // CORRECTION 2B: Organisation en dossiers dans le ZIP
+        let zipFilename: string
+        if (designerImages.has(originalFilename)) {
+          zipFilename = `designers/${originalFilename}`
+          console.log(`📁 Image designer organisée: ${zipFilename}`)
+        } else {
+          zipFilename = `luminaires/${originalFilename}`
+          console.log(`📁 Image luminaire organisée: ${zipFilename}`)
+        }
+
         const crc32 = calculateCRC32(buffer)
 
         fileData.push({
-          name: safeFilename,
+          name: zipFilename,
           data: buffer,
           crc32: crc32,
         })
 
-        console.log(`✅ Fichier .jpg ajouté: ${safeFilename} (${buffer.length} bytes)`)
+        console.log(`✅ Fichier .jpg ajouté: ${zipFilename} (${buffer.length} bytes)`)
       } catch (fileError) {
         console.error(`❌ Erreur avec le fichier ${file.filename}:`, fileError)
       }
@@ -154,10 +170,10 @@ export async function GET() {
 
     // Générer le nom du fichier avec la date actuelle
     const today = new Date().toISOString().split("T")[0] // Format AAAA-MM-JJ
-    const filename = `images_export_complet_${today}.zip`
+    const filename = `images_export_organise_${today}.zip`
 
     console.log(
-      `✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images (principales + designer unifiées)`,
+      `✅ ZIP organisé généré: ${zipBuffer.length} bytes avec ${fileData.length} images (luminaires/ + designers/)`,
     )
 
     return new NextResponse(zipBuffer, {

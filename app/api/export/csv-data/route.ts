@@ -11,12 +11,12 @@ export async function GET(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // CORRECTION 3: Nouvelle requête OBLIGATOIRE pour récupérer les données ACTUELLES
+    // CORRECTION 3: Source unique des données - requête OBLIGATOIRE pour récupérer les données ACTUELLES
     console.log("🔄 Récupération des données ACTUELLES depuis MongoDB...")
     const luminaires = await collection.find({}).toArray()
-    console.log(`📊 ${luminaires.length} luminaires récupérés avec données ACTUELLES`)
+    console.log(`📊 ${luminaires.length} luminaires récupérés avec données ACTUELLES et COMPLÈTES`)
 
-    // CORRECTION 3: Formater les données avec TOUS les champs ACTUELS
+    // CORRECTION 3: Mapping corrigé des champs avec vérification exhaustive
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
@@ -27,34 +27,40 @@ export async function GET(request: NextRequest) {
         "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
         Année: luminaire.annee || luminaire["Année"] || "",
 
-        // CORRECTION 3: Spécialité (champ manquant corrigé)
+        // CORRECTION 3: Spécialité - mapping corrigé avec toutes les possibilités
         Spécialité: luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || "",
 
-        // CORRECTION 3: Collaboration / Œuvre (champ manquant corrigé)
+        // CORRECTION 3: Collaboration / Œuvre - mapping corrigé avec toutes les possibilités
         "Collaboration / Œuvre": luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
         Description: luminaire.description || "", // Description SÉPARÉE
 
         Signé: luminaire.signe || luminaire["Signé"] || "",
 
-        // CORRECTION 3: Tous les champs étendus ACTUELS
+        // Champs étendus
         Editeur: luminaire.editeur || "",
 
-        // CORRECTION 3: Dimensions (champ manquant corrigé)
+        // CORRECTION 3: Dimensions - mapping corrigé
         Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
 
         Matériaux: Array.isArray(luminaire.materiaux)
           ? luminaire.materiaux.join(", ")
           : luminaire.materiaux || luminaire["Matériaux"] || "",
 
-        // CORRECTION 3: Prix/Estimation (champ manquant corrigé)
-        Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
+        // CORRECTION 3: Estimation - mapping corrigé avec toutes les possibilités
+        Estimation:
+          luminaire.estimation || luminaire.prix || luminaire["Prix (estimation)"] || luminaire["Estimation"] || "",
 
         // Images principales
         "Nom du fichier": luminaire.filename || luminaire["Nom du fichier"] || "",
         Images: Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.images || "",
 
-        // CORRECTION 3: Image Designer (champ manquant corrigé)
-        "Image Designer": luminaire.designerImageFilename || luminaire.designerImage || luminaire["designer.jpg"] || "",
+        // CORRECTION 3: Image Designer - mapping corrigé avec toutes les possibilités
+        "Image Designer":
+          luminaire.designerImageFilename ||
+          luminaire.designerImage ||
+          luminaire["designer.jpg"] ||
+          luminaire["Image Designer"] ||
+          "",
 
         // Couleurs
         Couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join(", ") : luminaire.couleurs || "",
@@ -151,6 +157,19 @@ export async function GET(request: NextRequest) {
               "sourceLumineuse",
               "voltage",
               "puissance",
+              "Nom luminaire",
+              "Artiste / Dates",
+              "Année",
+              "Spécialité",
+              "Collaboration / Œuvre",
+              "Signé",
+              "Dimensions",
+              "Matériaux",
+              "Estimation",
+              "Nom du fichier",
+              "designer.jpg",
+              "Image Designer",
+              "Prix (estimation)",
             ]
 
             if (!excludedKeys.includes(key) && luminaire[key] !== undefined && luminaire[key] !== null) {
@@ -190,10 +209,10 @@ export async function GET(request: NextRequest) {
     console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes ACTUELLES`)
     console.log(`📋 Colonnes exportées:`, headers)
 
-    // CORRECTION 3: Vérification des champs critiques
+    // CORRECTION 3: Vérification des champs critiques corrigés
     const criticalFields = ["Image Designer", "Spécialité", "Collaboration / Œuvre", "Dimensions", "Estimation"]
     criticalFields.forEach((field) => {
-      const hasData = csvData.some((row) => row[field as keyof typeof row])
+      const hasData = csvData.some((row) => row[field as keyof typeof row] && row[field as keyof typeof row] !== "")
       console.log(`🔍 Champ critique "${field}": ${hasData ? "✅ Données présentes" : "⚠️ Aucune donnée"}`)
     })
 

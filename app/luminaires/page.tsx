@@ -26,7 +26,7 @@ export default function LuminairesPage() {
   const [selectedDesigner, setSelectedDesigner] = useState("")
   const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
   const [sliderModified, setSliderModified] = useState(false)
-  const [isUserInteracting, setIsUserInteracting] = useState(false) // CORRECTION 1: Flag pour interaction utilisateur réelle
+  const [isInitializing, setIsInitializing] = useState(true) // CORRECTION 1A: Flag pour éviter le déclenchement à l'initialisation
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
@@ -49,7 +49,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // CORRECTION 1: Fonction pour charger les luminaires - empêcher le déclenchement automatique
+  // CORRECTION 1A: Fonction simplifiée pour charger les luminaires
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -69,23 +69,19 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // CORRECTION 1: Ajouter les filtres d'année UNIQUEMENT si le slider a été modifié par une interaction utilisateur réelle
-        if (sliderModified && isUserInteracting) {
+        // CORRECTION 1A: Logique simplifiée - appliquer le filtre si le slider a été modifié ET que l'initialisation est terminée
+        if (sliderModified && !isInitializing) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
-          console.log(
-            `🎯 Filtre d'années appliqué (interaction utilisateur confirmée): ${yearRange[0]} - ${yearRange[1]}`,
-          )
+          console.log(`🎯 Filtre d'années appliqué: ${yearRange[0]} - ${yearRange[1]}`)
         } else {
-          console.log("📅 Slider inactif - affichage de tous les luminaires")
+          console.log("📅 Affichage de tous les luminaires")
         }
 
         console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
 
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
-
-        console.log("📊 Données reçues:", data)
 
         if (data.success) {
           if (append && page > 1) {
@@ -112,7 +108,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange, isUserInteracting],
+    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange, isInitializing],
   )
 
   // Charger les données globales au montage
@@ -122,9 +118,20 @@ export default function LuminairesPage() {
 
   // Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
-    setCurrentPage(1)
-    loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange, isUserInteracting])
+    if (!isInitializing) {
+      setCurrentPage(1)
+      loadLuminaires(1, false)
+    }
+  }, [
+    searchTerm,
+    selectedDesigner,
+    sortField,
+    sortDirection,
+    sliderModified,
+    yearRange,
+    isInitializing,
+    loadLuminaires,
+  ])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -233,42 +240,30 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // CORRECTION 1: Initialiser la plage d'années SANS déclencher de rechargement
+  // CORRECTION 1A: Initialiser la plage d'années SANS déclencher de rechargement
   useEffect(() => {
-    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
-      // CORRECTION 1: Initialisation silencieuse sans déclencher d'événements
-      console.log(`📅 Initialisation silencieuse du slider: ${yearBounds.min} - ${yearBounds.max}`)
+    if (allLuminaires.length > 0 && isInitializing) {
       setYearRange([yearBounds.min, yearBounds.max])
-      // PAS de setSliderModified(true) ici - c'est la cause du bug
-    }
-  }, [yearBounds, allLuminaires.length, yearRange])
+      console.log(`📅 Initialisation silencieuse du slider: ${yearBounds.min} - ${yearBounds.max}`)
 
-  // CORRECTION 1: Fonction pour gérer UNIQUEMENT les changements manuels du slider avec vérification d'interaction
+      // Charger les données initiales une seule fois
+      loadLuminaires(1, false).then(() => {
+        setIsInitializing(false) // Marquer l'initialisation comme terminée
+        console.log("✅ Initialisation terminée - slider maintenant actif")
+      })
+    }
+  }, [yearBounds, allLuminaires.length, isInitializing, loadLuminaires])
+
+  // CORRECTION 1A: Fonction simplifiée pour gérer les changements du slider
   const handleYearRangeChange = (newRange: number[]) => {
-    // CORRECTION 1: Cette fonction ne doit être appelée QUE par une interaction utilisateur réelle
-    if (isUserInteracting) {
-      console.log(`🎛️ Slider modifié manuellement par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
+    if (!isInitializing) {
+      console.log(`🎛️ Slider modifié par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
       setYearRange(newRange)
       setSliderModified(true)
-    } else {
-      console.log(`⚠️ Changement de slider ignoré (pas d'interaction utilisateur): ${newRange[0]} - ${newRange[1]}`)
+      // Rechargement direct et systématique des données
+      setCurrentPage(1)
+      loadLuminaires(1, false)
     }
-  }
-
-  // CORRECTION 1: Gestionnaires d'événements pour détecter l'interaction utilisateur réelle
-  const handleSliderMouseDown = () => {
-    console.log("🖱️ Interaction utilisateur détectée (mousedown)")
-    setIsUserInteracting(true)
-  }
-
-  const handleSliderMouseUp = () => {
-    console.log("🖱️ Fin d'interaction utilisateur (mouseup)")
-    // Garder isUserInteracting à true pour permettre le filtrage
-  }
-
-  const handleSliderTouchStart = () => {
-    console.log("👆 Interaction utilisateur détectée (touchstart)")
-    setIsUserInteracting(true)
   }
 
   if (loading && luminaires.length === 0) {
@@ -302,12 +297,8 @@ export default function LuminairesPage() {
         <div>
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
+            {/* CORRECTION 1B: Suppression du texte de filtre dans le compteur */}
             {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
-            {sliderModified && isUserInteracting && (
-              <span className="ml-2 text-orange-600">
-                (filtrés par années: {yearRange[0]} - {yearRange[1]})
-              </span>
-            )}
           </p>
         </div>
 
@@ -379,36 +370,14 @@ export default function LuminairesPage() {
 
       {/* Filtres - Deuxième ligne : Slider chronologique */}
       <div className="mb-8">
-        <div onMouseDown={handleSliderMouseDown} onMouseUp={handleSliderMouseUp} onTouchStart={handleSliderTouchStart}>
-          <RangeSlider
-            min={yearBounds.min}
-            max={yearBounds.max}
-            value={yearRange}
-            onChange={handleYearRangeChange}
-            label="Chronologie"
-          />
-        </div>
-        {sliderModified && isUserInteracting && (
-          <div className="mt-2 text-sm text-orange-600">
-            ⚠️ Filtre actif: {yearRange[0]} - {yearRange[1]}
-            <button
-              onClick={() => {
-                setYearRange([yearBounds.min, yearBounds.max])
-                setSliderModified(false)
-                setIsUserInteracting(false)
-                console.log("🔄 Slider réinitialisé - filtre désactivé")
-              }}
-              className="ml-2 underline hover:no-underline"
-            >
-              Réinitialiser
-            </button>
-          </div>
-        )}
-        {(!sliderModified || !isUserInteracting) && (
-          <div className="mt-2 text-sm text-gray-500">
-            📅 Slider inactif - tous les luminaires affichés ({yearBounds.min} - {yearBounds.max})
-          </div>
-        )}
+        <RangeSlider
+          min={yearBounds.min}
+          max={yearBounds.max}
+          value={yearRange}
+          onChange={handleYearRangeChange}
+          label="Chronologie"
+        />
+        {/* CORRECTION 1B: Suppression complète des messages de statut du slider */}
       </div>
 
       {/* Grille des luminaires */}
