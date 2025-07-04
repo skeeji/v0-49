@@ -1,39 +1,60 @@
 import { type NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import { stringify } from "csv-stringify/sync"; // Assurez-vous que 'csv-stringify' est installé
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires";
 
+/**
+ * Formate une valeur pour l'inclure dans un champ CSV, en gérant les virgules et les guillemets.
+ * @param value La valeur à formater.
+ * @returns La valeur formatée et sécurisée pour le CSV.
+ */
+function formatCsvField(value: any): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  
+  let stringValue = String(value);
+  
+  // Si la valeur contient une virgule, un guillemet ou un saut de ligne,
+  // nous devons l'entourer de guillemets.
+  if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+    // Tout guillemet à l'intérieur doit être doublé.
+    stringValue = stringValue.replace(/"/g, '""');
+    return `"${stringValue}"`;
+  }
+  
+  return stringValue;
+}
+
 export async function GET(request: NextRequest) {
   try {
-    console.log("📤 Début de la génération de l'export CSV unifié...");
+    console.log("📤 Début de la génération de l'export CSV (méthode manuelle)...");
 
     const client = await clientPromise;
     const db = client.db(DBNAME);
     const collection = db.collection("luminaires");
 
-    // Étape 1: Récupérer TOUS les luminaires de la base
     const luminaires = await collection.find({}).toArray();
-    console.log(`📊 ${luminaires.length} luminaires récupérés de la base de données.`);
+    console.log(`📊 ${luminaires.length} luminaires récupérés.`);
 
-    // Étape 2: Mapper les données en utilisant la logique de fallback pour chaque champ
-    const dataForCsv = luminaires.map(luminaire => {
-      
-      // Logique pour les matériaux (gère les cas où c'est un tableau ou une chaîne)
+    // Définir les en-têtes dans l'ordre final souhaité
+    const headers = [
+      "ID", "Nom luminaire", "Artiste / Dates", "Année", "Editeur", "Spécialité", 
+      "Collaboration / Œuvre", "Description", "Signé", "Dimensions", "Matériaux", 
+      "Estimation", "Prix", "Image luminaire", "Image designer"
+    ];
+
+    // Mapper les données en utilisant la logique de fallback pour chaque champ
+    const dataRows = luminaires.map(luminaire => {
       const materiaux = Array.isArray(luminaire.materiaux) 
         ? luminaire.materiaux.join(", ") 
         : luminaire.Matériaux || luminaire.materiaux || "";
-
-      // Logique pour l'estimation et le prix (ils auront la même valeur)
       const estimation = luminaire.estimation || luminaire.Estimation || luminaire.prix || luminaire.Prix || "";
-
-      // Logique pour l'image principale du luminaire
       const imageLuminaire = luminaire.filename || (Array.isArray(luminaire.images) && luminaire.images.length > 0 ? luminaire.images[0] : "") || luminaire["Nom du fichier"] || "";
-
-      // Logique pour l'image du designer
       const imageDesigner = luminaire.designerImageFilename || luminaire["Image Designer"] || "";
 
-      return {
+      // Créer un objet de données correspondant aux en-têtes
+      const rowData = {
         "ID": luminaire._id ? luminaire._id.toString() : "",
         "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
         "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
@@ -46,32 +67,24 @@ export async function GET(request: NextRequest) {
         "Dimensions": luminaire.dimensions || luminaire["Dimensions"] || "",
         "Matériaux": materiaux,
         "Estimation": estimation,
-        "Prix": estimation, // La colonne Prix prend la valeur de l'Estimation
+        "Prix": estimation,
         "Image luminaire": imageLuminaire,
         "Image designer": imageDesigner,
       };
+      
+      // Transformer l'objet en tableau ordonné de valeurs formatées
+      return headers.map(header => formatCsvField(rowData[header as keyof typeof rowData]));
     });
 
-    // Étape 3: Définir les en-têtes dans l'ordre final souhaité
-    const headers = [
-      "ID", "Nom luminaire", "Artiste / Dates", "Année", "Editeur", "Spécialité", 
-      "Collaboration / Œuvre", "Description", "Signé", "Dimensions", "Matériaux", 
-      "Estimation", "Prix", "Image luminaire", "Image designer"
-    ];
-
-    // Étape 4: Générer le contenu CSV de manière sécurisée
-    const csvContent = stringify(dataForCsv, {
-      header: true,
-      columns: headers,
-      quoted: true,
-    });
-
-    console.log(`✅ CSV généré avec ${dataForCsv.length} lignes.`);
+    // Construire le contenu CSV manuellement
+    const headerRow = headers.join(',');
+    const contentRows = dataRows.map(row => row.join(',')).join('\n');
+    const csvContent = `${headerRow}\n${contentRows}`;
     
-    // Ajout du BOM UTF-8 pour une meilleure compatibilité avec Excel
-    const csvWithBOM = "\uFEFF" + csvContent;
+    console.log(`✅ CSV généré avec ${dataRows.length} lignes.`);
+    
+    const csvWithBOM = "\uFEFF" + csvContent; // BOM pour compatibilité Excel
 
-    // Étape 5: Retourner le fichier
     return new NextResponse(csvWithBOM, {
       status: 200,
       headers: {
