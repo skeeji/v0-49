@@ -5,7 +5,7 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📤 API /api/export/csv-data - Export CSV avec ordre précis des colonnes")
+    console.log("📤 API /api/export/csv-data - Export CSV avec logique de fallback")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
@@ -13,56 +13,74 @@ export async function GET(request: NextRequest) {
 
     // Récupérer toutes les données actuelles depuis MongoDB
     const luminaires = await collection.find({}).toArray()
-    console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV ordonné`)
+    console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV avec fallback`)
 
-    // Mapping des champs selon l'ordre précis demandé
+    // Mapping des champs avec logique de fallback pour chaque champ hétérogène
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
       return {
-        // Ordre précis selon les spécifications
-        "Nom luminaire": luminaire.nom || "",
-        "Artiste / Dates": luminaire.designer || "",
-        Editeur: luminaire.editeur || "",
-        Année: luminaire.annee || "",
-        Spécialité: luminaire.periode || "",
-        "Collaboration / Œuvre": luminaire.collaboration || "",
-        Description: luminaire.description || "",
-        Signé: luminaire.signe || "",
-        Dimensions: luminaire.dimensions || "",
-        Matériaux: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.materiaux || "",
-        Estimation: luminaire.estimation || "",
-        "Image luminaire": luminaire.filename || "",
-        "Image designer": luminaire.designerImageFilename || "",
+        // Champs avec logique de fallback (valeur1 || valeur2 || "")
+        "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
+        "Artiste / Dates": luminaire.designer || luminaire.artist || luminaire["Artiste / Dates"] || "",
+        Editeur: luminaire.editeur || luminaire.editor || luminaire["Editeur"] || "",
+        Année: luminaire.annee || luminaire.year || luminaire["Année"] || "",
+        Spécialité: luminaire.periode || luminaire.specialite || luminaire.specialty || luminaire["Spécialité"] || "",
+        "Collaboration / Œuvre":
+          luminaire.collaboration || luminaire.oeuvre || luminaire["Collaboration / Œuvre"] || "",
+        Description: luminaire.description || luminaire.desc || luminaire["Description"] || "",
+        Signé: luminaire.signe || luminaire.signed || luminaire["Signé"] || "",
+        Dimensions: luminaire.dimensions || luminaire.dimension || luminaire["Dimensions"] || "",
+        Matériaux: Array.isArray(luminaire.materiaux)
+          ? luminaire.materiaux.join(", ")
+          : luminaire.materiaux || luminaire.materials || luminaire["Matériaux"] || "",
+        Estimation:
+          luminaire.estimation ||
+          luminaire.prix ||
+          luminaire.price ||
+          luminaire["Estimation"] ||
+          luminaire["Prix (estimation)"] ||
+          "",
+        "Image luminaire":
+          luminaire.filename || luminaire.image || luminaire["Nom du fichier"] || luminaire["Image luminaire"] || "",
+        "Image Designer":
+          luminaire.designerImageFilename ||
+          luminaire.designerImage ||
+          luminaire["Image Designer"] ||
+          luminaire["designer.jpg"] ||
+          luminaire.image_designer ||
+          "",
 
-        // Champs supplémentaires
+        // Champs supplémentaires avec fallback
         ID: luminaire._id.toString(),
         Images: Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.images || "",
-        Couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join(", ") : luminaire.couleurs || "",
-        Prix: luminaire.prix || "",
-        Provenance: luminaire.provenance || "",
-        État: luminaire.etat || "",
-        Référence: luminaire.reference || "",
-        Notes: luminaire.notes || "",
-        Catégorie: luminaire.categorie || "",
+        Couleurs: Array.isArray(luminaire.couleurs)
+          ? luminaire.couleurs.join(", ")
+          : luminaire.couleurs || luminaire.colors || "",
+        Prix: luminaire.prix || luminaire.price || luminaire.estimation || "",
+        Provenance: luminaire.provenance || luminaire.origin || "",
+        État: luminaire.etat || luminaire.state || luminaire.condition || "",
+        Référence: luminaire.reference || luminaire.ref || "",
+        Notes: luminaire.notes || luminaire.note || "",
+        Catégorie: luminaire.categorie || luminaire.category || "",
         Style: luminaire.style || "",
-        Époque: luminaire.epoque || "",
-        Pays: luminaire.pays || "",
-        Ville: luminaire.ville || "",
-        Hauteur: luminaire.hauteur || "",
-        Largeur: luminaire.largeur || "",
-        Profondeur: luminaire.profondeur || "",
-        Diamètre: luminaire.diametre || "",
-        Poids: luminaire.poids || "",
-        "Type d'éclairage": luminaire.typeEclairage || "",
-        "Source lumineuse": luminaire.sourceLumineuse || "",
+        Époque: luminaire.epoque || luminaire.period || "",
+        Pays: luminaire.pays || luminaire.country || "",
+        Ville: luminaire.ville || luminaire.city || "",
+        Hauteur: luminaire.hauteur || luminaire.height || "",
+        Largeur: luminaire.largeur || luminaire.width || "",
+        Profondeur: luminaire.profondeur || luminaire.depth || "",
+        Diamètre: luminaire.diametre || luminaire.diameter || "",
+        Poids: luminaire.poids || luminaire.weight || "",
+        "Type d'éclairage": luminaire.typeEclairage || luminaire.lightingType || "",
+        "Source lumineuse": luminaire.sourceLumineuse || luminaire.lightSource || "",
         Voltage: luminaire.voltage || "",
-        Puissance: luminaire.puissance || "",
-        Musée: luminaire.musee || "",
+        Puissance: luminaire.puissance || luminaire.power || "",
+        Musée: luminaire.musee || luminaire.museum || "",
         Collection: luminaire.collection || "",
-        Exposition: luminaire.exposition || "",
+        Exposition: luminaire.exposition || luminaire.exhibition || "",
         Publication: luminaire.publication || "",
-        Bibliographie: luminaire.bibliographie || "",
+        Bibliographie: luminaire.bibliographie || luminaire.bibliography || "",
         Favori: luminaire.isFavorite ? "Oui" : "Non",
         Statut: luminaire.status || "Actif",
         Tags: Array.isArray(luminaire.tags) ? luminaire.tags.join(", ") : luminaire.tags || "",
@@ -76,7 +94,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 })
     }
 
-    // Créer les en-têtes CSV dans l'ordre précis
+    // Créer les en-têtes CSV
     const headers = Object.keys(csvData[0])
 
     // Créer le contenu CSV
@@ -93,22 +111,17 @@ export async function GET(request: NextRequest) {
       ),
     ].join("\n")
 
-    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes ordonnées`)
+    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes avec fallback`)
 
-    // Vérification des champs critiques
+    // Vérification des champs critiques avec fallback
     const criticalFields = [
       "Nom luminaire",
       "Artiste / Dates",
-      "Editeur",
-      "Année",
       "Spécialité",
-      "Collaboration / Œuvre",
-      "Description",
-      "Dimensions",
-      "Matériaux",
+      "Image Designer",
       "Estimation",
-      "Image luminaire",
-      "Image designer",
+      "Matériaux",
+      "Dimensions",
     ]
     criticalFields.forEach((field) => {
       const hasData = csvData.some((row) => row[field as keyof typeof row] && row[field as keyof typeof row] !== "")
@@ -122,15 +135,15 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="luminaires-export-ordonne-${new Date().toISOString().split("T")[0]}.csv"`,
+        "Content-Disposition": `attachment; filename="luminaires-export-fallback-${new Date().toISOString().split("T")[0]}.csv"`,
       },
     })
   } catch (error: any) {
-    console.error("❌ Erreur export CSV ordonné:", error)
+    console.error("❌ Erreur export CSV avec fallback:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'export CSV ordonné",
+        error: "Erreur lors de l'export CSV avec fallback",
         details: error.message,
       },
       { status: 500 },

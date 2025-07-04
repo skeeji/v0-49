@@ -25,7 +25,7 @@ export default function LuminairesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
   const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
-  const [sliderActive, setSliderActive] = useState(false)
+  const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
@@ -68,8 +68,8 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // Appliquer le filtre UNIQUEMENT si le slider est activé
-        if (sliderActive) {
+        // Appliquer le filtre UNIQUEMENT si le slider a été modifié
+        if (sliderModified) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
         }
@@ -99,7 +99,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection, sliderActive, yearRange],
+    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange],
   )
 
   // Charger les données globales au montage
@@ -111,7 +111,7 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderActive, yearRange])
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -226,10 +226,11 @@ export default function LuminairesPage() {
     }
   }, [yearBounds, allLuminaires.length, yearRange])
 
-  // Fonction pour gérer les changements du slider - activation manuelle uniquement
+  // 1. La fonction qui gère le changement doit mettre à jour l'état et indiquer que le filtre est actif.
   const handleYearRangeChange = (newRange: number[]) => {
+    console.log(`✅ Filtre appliqué par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
-    setSliderActive(true)
+    setSliderModified(true) // Indique qu'un filtre est maintenant actif
   }
 
   if (loading && luminaires.length === 0) {
@@ -335,20 +336,20 @@ export default function LuminairesPage() {
 
       {/* Filtres - Deuxième ligne : Slider chronologique */}
       <div className="mb-8">
+        {/* 2. L'appel au composant doit utiliser la prop "onValueCommit" */}
         <RangeSlider
           min={yearBounds.min}
           max={yearBounds.max}
           value={yearRange}
-          onChange={handleYearRangeChange}
-          label="Chronologie"
+          onValueCommit={handleYearRangeChange}
         />
-        {sliderActive && (
+        {sliderModified && (
           <div className="mt-2 text-sm text-orange-600">
             ⚠️ Filtre actif: {yearRange[0]} - {yearRange[1]}
             <button
               onClick={() => {
                 setYearRange([yearBounds.min, yearBounds.max])
-                setSliderActive(false)
+                setSliderModified(false)
               }}
               className="ml-2 underline hover:no-underline"
             >

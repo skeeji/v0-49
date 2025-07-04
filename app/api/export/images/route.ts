@@ -46,29 +46,25 @@ export async function GET() {
         })
       }
 
-      // Images designer - logique exhaustive pour TOUS les cas
-      // Vérifier TOUS les champs possibles où l'image designer peut être stockée
-      const designerImageFields = [
-        luminaire.designerImageFilename,
-        luminaire.designerImage,
-        luminaire["designer.jpg"],
-        luminaire.designer_image,
-        luminaire.imageDesigner,
-        luminaire["Image Designer"],
-        luminaire.designerImg,
+      // La liste de TOUS les champs où peut se trouver le nom de l'image du designer
+      const possibleDesignerImageFields = [
+        luminaire.designerImageFilename, // Création manuelle
+        luminaire.designerImage, // Autre cas
+        luminaire["Image Designer"], // Import CSV
+        luminaire["designer.jpg"], // Autre cas d'import
+        luminaire.image_designer, // Cas possible
         luminaire.designer_img,
         luminaire.imgDesigner,
-        luminaire.image_designer,
+        luminaire.designerImg,
         luminaire.designerPhoto,
         luminaire.photoDesigner,
       ]
 
-      designerImageFields.forEach((designerImageField) => {
-        if (designerImageField && typeof designerImageField === "string") {
-          designerImages.add(designerImageField)
-          console.log(
-            `👨‍🎨 Image designer ajoutée (exhaustive): ${designerImageField} pour ${luminaire.designer || "designer inconnu"}`,
-          )
+      // Boucle sur cette liste pour trouver une valeur valide
+      possibleDesignerImageFields.forEach((fieldName) => {
+        if (fieldName && typeof fieldName === "string") {
+          designerImages.add(fieldName)
+          console.log(`👨‍🎨 TROUVÉ: Image designer '${fieldName}' pour le luminaire '${luminaire.nom}'`)
         }
       })
 
@@ -178,11 +174,9 @@ export async function GET() {
 
     // Générer le nom du fichier avec la date actuelle
     const today = new Date().toISOString().split("T")[0] // Format AAAA-MM-JJ
-    const filename = `images_export_organise_${today}.zip`
+    const filename = `images_export_complet_${today}.zip`
 
-    console.log(
-      `✅ ZIP organisé généré: ${zipBuffer.length} bytes avec ${fileData.length} images (luminaires/ + designers/)`,
-    )
+    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images (luminaires/ + designers/)`)
 
     return new NextResponse(zipBuffer, {
       status: 200,
