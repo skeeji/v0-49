@@ -14,7 +14,7 @@ export async function GET() {
     // Utiliser le bucket GridFS "uploads"
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    // CORRECTION 3: Récupérer aussi les données des luminaires pour inclure les images designer
+    // CORRECTION 2: Récupérer TOUS les luminaires pour une logique unifiée
     const luminairesCollection = db.collection("luminaires")
     const luminaires = await luminairesCollection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires trouvés pour l'export d'images`)
@@ -28,21 +28,59 @@ export async function GET() {
       return NextResponse.json({ error: "Aucune image trouvée dans le bucket uploads" }, { status: 404 })
     }
 
-    // CORRECTION 3: Créer une liste des images à inclure (images principales + images designer)
+    // CORRECTION 2: Logique universelle et unifiée pour TOUS les luminaires
     const imagesToInclude = new Set<string>()
 
-    // Ajouter les images principales des luminaires
+    // Parcourir TOUS les luminaires sans distinction
     luminaires.forEach((luminaire) => {
+      // Images principales du luminaire
       if (luminaire.filename) {
         imagesToInclude.add(luminaire.filename)
+        console.log(`📸 Image principale ajoutée: ${luminaire.filename}`)
       }
       if (luminaire.images && Array.isArray(luminaire.images)) {
-        luminaire.images.forEach((img: string) => imagesToInclude.add(img))
+        luminaire.images.forEach((img: string) => {
+          imagesToInclude.add(img)
+          console.log(`📸 Image supplémentaire ajoutée: ${img}`)
+        })
       }
-      // CORRECTION 3: Ajouter les images designer
-      if (luminaire.designerImageFilename) {
-        imagesToInclude.add(luminaire.designerImageFilename)
-        console.log(`📸 Image designer ajoutée: ${luminaire.designerImageFilename}`)
+
+      // CORRECTION 2: Images designer - logique unifiée pour TOUS les cas
+      // Vérifier TOUS les champs possibles où l'image designer peut être stockée
+      const designerImageFields = [
+        luminaire.designerImageFilename,
+        luminaire.designerImage,
+        luminaire["designer.jpg"],
+        luminaire.designer_image,
+        luminaire.imageDesigner,
+      ]
+
+      designerImageFields.forEach((designerImageField) => {
+        if (designerImageField && typeof designerImageField === "string") {
+          imagesToInclude.add(designerImageField)
+          console.log(
+            `👨‍🎨 Image designer ajoutée (unifiée): ${designerImageField} pour ${luminaire.designer || "designer inconnu"}`,
+          )
+        }
+      })
+
+      // CORRECTION 2: Recherche par nom de designer dans les fichiers
+      if (luminaire.designer) {
+        const designerName = luminaire.designer.toLowerCase().replace(/\s+/g, "_")
+        const possibleDesignerFiles = [
+          `${designerName}.jpg`,
+          `${luminaire.designer}.jpg`,
+          `designer_${designerName}.jpg`,
+        ]
+
+        possibleDesignerFiles.forEach((possibleFile) => {
+          // Vérifier si ce fichier existe dans le bucket
+          const fileExists = files.some((file) => file.filename === possibleFile)
+          if (fileExists) {
+            imagesToInclude.add(possibleFile)
+            console.log(`👨‍🎨 Image designer trouvée par nom: ${possibleFile}`)
+          }
+        })
       }
     })
 
@@ -55,7 +93,7 @@ export async function GET() {
       const isIncluded = imagesToInclude.has(filename)
 
       if (isJpg && isIncluded) {
-        console.log(`✅ Image incluse: ${filename}`)
+        console.log(`✅ Image incluse dans l'export: ${filename}`)
         return true
       }
       return false
@@ -118,7 +156,9 @@ export async function GET() {
     const today = new Date().toISOString().split("T")[0] // Format AAAA-MM-JJ
     const filename = `images_export_complet_${today}.zip`
 
-    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images (principales + designer)`)
+    console.log(
+      `✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images (principales + designer unifiées)`,
+    )
 
     return new NextResponse(zipBuffer, {
       status: 200,

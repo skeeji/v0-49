@@ -2,225 +2,262 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { EditableField } from "@/components/EditableField"
-import { GalleryGrid } from "@/components/GalleryGrid"
-import { useAuth } from "@/contexts/AuthContext"
+import { ArrowLeft, Calendar, Palette, Star } from "lucide-react"
+import Link from "next/link"
 import Image from "next/image"
 
-export default function DesignerDetailPage() {
-  const params = useParams()
-  const [designer, setDesigner] = useState<any>(null)
-  const [designerLuminaires, setDesignerLuminaires] = useState<any[]>([])
-  const [description, setDescription] = useState("")
-  const [collaboration, setCollaboration] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const { userData } = useAuth()
+interface Designer {
+  name: string
+  image?: string
+  luminaires: any[]
+  totalCount: number
+  periods: string[]
+  yearRange: {
+    min: number
+    max: number
+  }
+}
 
-  const canEdit = userData?.role === "admin"
+export default function DesignerPage() {
+  const params = useParams()
+  const slug = params.slug as string
+  const [designer, setDesigner] = useState<Designer | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!params.slug) return
-
-    const designerSlug = decodeURIComponent(params.slug as string)
-    console.log("🔍 Designer slug:", designerSlug)
-
-    async function fetchDesignerData() {
-      setIsLoading(true)
+    const fetchDesigner = async () => {
       try {
-        // Utiliser l'API designer spécifique
-        const response = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
-        const result = await response.json()
+        setLoading(true)
+        setError(null)
 
-        console.log("📊 Réponse API designer:", result)
+        // Décoder le slug pour gérer les caractères spéciaux
+        const decodedSlug = decodeURIComponent(slug)
+        console.log(`🔍 Recherche du designer: "${decodedSlug}"`)
 
-        if (result.success) {
-          setDesigner(result.data.designer)
+        const response = await fetch(`/api/designers/${encodeURIComponent(decodedSlug)}`)
+        const data = await response.json()
 
-          // CORRECTION 2: Récupérer l'image du designer depuis les luminaires
-          const designerImageFilename = result.data.luminaires.find(
-            (lum: any) => lum.designerImageFilename,
-          )?.designerImageFilename
+        if (data.success && data.designer) {
+          console.log(`✅ Designer trouvé:`, data.designer)
 
-          // Adapter les données des luminaires pour GalleryGrid
-          const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
-            artist: lum["Artiste / Dates"] || lum.designer || "",
-            year: lum.annee || lum["Année"] || "",
-            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
-            specialty: lum["Spécialité"] || lum.periode || "",
-            collaboration: lum["Collaboration / Œuvre"] || lum.description || "",
-          }))
+          // CORRECTION 2: Rechercher l'image du designer dans les luminaires
+          if (!data.designer.image && data.designer.luminaires && data.designer.luminaires.length > 0) {
+            console.log(`🔍 Recherche de l'image designer dans les luminaires...`)
 
-          setDesignerLuminaires(adaptedLuminaires)
-          console.log("✅ Luminaires adaptés:", adaptedLuminaires.length)
+            // Chercher dans tous les luminaires de ce designer
+            for (const luminaire of data.designer.luminaires) {
+              const designerImageFields = [
+                luminaire.designerImageFilename,
+                luminaire.designerImage,
+                luminaire["designer.jpg"],
+                luminaire.designer_image,
+                luminaire.imageDesigner,
+              ]
 
-          // CORRECTION 2: Mettre à jour les données du designer avec l'image trouvée
-          if (designerImageFilename) {
-            setDesigner((prev) => ({
-              ...prev,
-              imagedesigner: designerImageFilename,
-            }))
-            console.log("✅ Image designer trouvée:", designerImageFilename)
+              for (const imageField of designerImageFields) {
+                if (imageField && typeof imageField === "string") {
+                  console.log(`📸 Image designer trouvée: ${imageField}`)
+                  data.designer.image = `/api/images/filename/${encodeURIComponent(imageField)}`
+                  break
+                }
+              }
+
+              if (data.designer.image) break
+            }
+
+            if (data.designer.image) {
+              console.log(`✅ Image designer assignée: ${data.designer.image}`)
+            } else {
+              console.log(`⚠️ Aucune image designer trouvée pour ${data.designer.name}`)
+            }
           }
 
-          // Charger les descriptions stockées localement
-          if (adaptedLuminaires.length > 0) {
-            const fullDesignerField = adaptedLuminaires[0].artist
-            const defaultSpecialty = adaptedLuminaires[0].specialty
-
-            // Récupérer toutes les collaborations/œuvres uniques pour ce designer
-            const allCollaborations = adaptedLuminaires
-              .map((lum) => lum.collaboration)
-              .filter((collab) => collab && collab.trim() !== "")
-              .filter((value, index, self) => self.indexOf(value) === index) // Supprimer les doublons
-              .join(" • ")
-
-            const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
-            const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
-
-            setDescription(storedDescriptions[fullDesignerField] || defaultSpecialty)
-            setCollaboration(storedCollaborations[fullDesignerField] || allCollaborations)
-          }
+          setDesigner(data.designer)
         } else {
-          console.error("❌ Erreur API:", result.error)
-          setDesigner(null)
+          throw new Error(data.error || "Designer non trouvé")
         }
-      } catch (error) {
-        console.error("❌ Erreur chargement données designer:", error)
-        setDesigner(null)
+      } catch (err: any) {
+        console.error("❌ Erreur chargement designer:", err)
+        setError(err.message)
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    fetchDesignerData()
-  }, [params.slug])
-
-  // Fonctions pour mettre à jour les descriptions (seulement pour admin)
-  const updateDescription = (newDescription: string) => {
-    if (!canEdit) return
-
-    setDescription(newDescription)
-    if (designerLuminaires.length > 0) {
-      const fullDesignerField = designerLuminaires[0].artist
-      const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
-      storedDescriptions[fullDesignerField] = newDescription
-      localStorage.setItem("designer-descriptions", JSON.stringify(storedDescriptions))
+    if (slug) {
+      fetchDesigner()
     }
-  }
+  }, [slug])
 
-  const updateCollaboration = (newCollaboration: string) => {
-    if (!canEdit) return
-
-    setCollaboration(newCollaboration)
-    if (designerLuminaires.length > 0) {
-      const fullDesignerField = designerLuminaires[0].artist
-      const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
-      storedCollaborations[fullDesignerField] = newCollaboration
-      localStorage.setItem("designer-collaborations", JSON.stringify(storedCollaborations))
-    }
-  }
-
-  const updateLuminaire = (id: string, updates: any) => {
-    if (!canEdit) return
-    setDesignerLuminaires((prev) => prev.map((lum) => (lum.id === id ? { ...lum, ...updates } : lum)))
-  }
-
-  if (isLoading) {
-    return <div className="text-center py-8 font-serif">Chargement...</div>
-  }
-
-  if (!designer) {
+  if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <p className="font-serif">Designer non trouvé.</p>
-        <Link href="/designers">
-          <Button className="mt-4">Retour</Button>
-        </Link>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Chargement du designer...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !designer) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Erreur: {error || "Designer non trouvé"}</p>
+          <Link href="/designers">
+            <Button variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Retour aux designers
+            </Button>
+          </Link>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <Link href="/designers">
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent font-serif">
-              <ArrowLeft className="w-4 h-4" />
-              Retour aux designers
-            </Button>
-          </Link>
-        </div>
+      {/* Navigation */}
+      <div className="mb-6">
+        <Link href="/designers">
+          <Button variant="outline" size="sm">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Retour aux designers
+          </Button>
+        </Link>
+      </div>
 
-        {!canEdit && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-            <p className="font-serif">
-              Mode lecture seule. Seuls les administrateurs peuvent modifier les informations.
-            </p>
+      {/* En-tête du designer */}
+      <div className="mb-8">
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          {/* Image du designer */}
+          <div className="flex-shrink-0">
+            {designer.image ? (
+              <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden bg-gray-100">
+                <Image
+                  src={designer.image || "/placeholder.svg"}
+                  alt={designer.name}
+                  fill
+                  className="object-cover"
+                  onError={(e) => {
+                    console.error(`❌ Erreur chargement image designer: ${designer.image}`)
+                    e.currentTarget.style.display = "none"
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="w-32 h-32 md:w-48 md:h-48 rounded-lg bg-gray-200 flex items-center justify-center">
+                <Palette className="w-12 h-12 text-gray-400" />
+              </div>
+            )}
           </div>
-        )}
 
-        <div className="bg-white rounded-xl p-8 shadow-lg mb-8">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-            <div className="w-48 h-48 relative flex-shrink-0">
-              <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 overflow-hidden">
-                {designer.imagedesigner ? (
-                  <Image
-                    src={`/api/images/filename/${designer.imagedesigner}`}
-                    alt={designer.nom}
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      console.log("❌ Erreur chargement image designer:", designer.imagedesigner)
-                      e.currentTarget.style.display = "none"
-                      const nextElement = e.currentTarget.nextElementSibling as HTMLElement
-                      if (nextElement) {
-                        nextElement.classList.remove("hidden")
-                      }
-                    }}
-                  />
-                ) : null}
-                <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
-                  <div className="text-6xl text-gray-400 mb-2">👤</div>
-                  <span className="text-sm text-gray-500 font-serif">Image non disponible</span>
+          {/* Informations du designer */}
+          <div className="flex-1">
+            <h1 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4">{designer.name}</h1>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-orange-500" />
+                <span className="text-gray-600">
+                  <strong>{designer.totalCount}</strong> luminaire{designer.totalCount > 1 ? "s" : ""}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-orange-500" />
+                <span className="text-gray-600">
+                  {designer.yearRange.min} - {designer.yearRange.max}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Palette className="w-5 h-5 text-orange-500" />
+                <span className="text-gray-600">
+                  {designer.periods.length} période{designer.periods.length > 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+
+            {/* Périodes */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Périodes</h3>
+              <div className="flex flex-wrap gap-2">
+                {designer.periods.map((period, index) => (
+                  <Badge key={index} variant="secondary">
+                    {period}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Luminaires du designer */}
+      <div>
+        <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires ({designer.totalCount})</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {designer.luminaires.map((luminaire) => (
+            <Card key={luminaire._id} className="group hover:shadow-lg transition-shadow">
+              <CardContent className="p-4">
+                {/* Image du luminaire */}
+                <div className="relative aspect-square mb-4 bg-gray-100 rounded-lg overflow-hidden">
+                  {luminaire.filename ? (
+                    <Image
+                      src={`/api/images/filename/${encodeURIComponent(luminaire.filename)}`}
+                      alt={luminaire.nom || "Luminaire"}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Palette className="w-12 h-12 text-gray-400" />
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
 
-            <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl font-serif text-gray-900 mb-4">{designer.nom}</h1>
-              <p className="text-lg text-gray-600 mb-6 font-serif">
-                {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
-              </p>
+                {/* Informations du luminaire */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{luminaire.nom || "Sans nom"}</h3>
 
-              <div className="bg-white rounded-lg p-4 border border-gray-200 mb-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Spécialité</h3>
-                <EditableField value={description} onSave={updateDescription} multiline disabled={!canEdit} />
-              </div>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    {luminaire.annee && (
+                      <p>
+                        <Calendar className="w-4 h-4 inline mr-1" />
+                        {luminaire.annee}
+                      </p>
+                    )}
 
-              <div className="bg-white rounded-lg p-4 border border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Collaboration / Œuvre</h3>
-                <EditableField value={collaboration} onSave={updateCollaboration} multiline disabled={!canEdit} />
-              </div>
-            </div>
-          </div>
-        </div>
+                    {luminaire.periode && (
+                      <p>
+                        <Badge variant="outline" className="text-xs">
+                          {luminaire.periode}
+                        </Badge>
+                      </p>
+                    )}
+                  </div>
 
-        <div className="bg-white rounded-xl p-8 shadow-lg">
-          <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires de {designer.nom}</h2>
-          {designerLuminaires.length > 0 ? (
-            <GalleryGrid items={designerLuminaires} viewMode="grid" onItemUpdate={updateLuminaire} />
-          ) : (
-            <div className="text-center py-12">
-              <p className="font-serif">Aucun luminaire trouvé.</p>
-            </div>
-          )}
+                  {/* Lien vers le détail */}
+                  <div className="mt-4">
+                    <Link href={`/luminaires/${luminaire._id}`}>
+                      <Button variant="outline" size="sm" className="w-full bg-transparent">
+                        Voir le détail
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     </div>
