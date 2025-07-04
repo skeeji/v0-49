@@ -25,7 +25,7 @@ export default function LuminairesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
   const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
-  const [sliderActive, setSliderActive] = useState(false) // CORRECTION: Flag simple pour le slider
+  const [sliderActive, setSliderActive] = useState(false)
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
@@ -48,7 +48,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // CORRECTION: Fonction simplifiée pour charger les luminaires
+  // Fonction pour charger les luminaires
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -68,11 +68,10 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // CORRECTION: Appliquer le filtre UNIQUEMENT si le slider est activé
+        // Appliquer le filtre UNIQUEMENT si le slider est activé
         if (sliderActive) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
-          console.log(`🎯 Filtre d'années appliqué: ${yearRange[0]} - ${yearRange[1]}`)
         }
 
         const response = await fetch(`/api/luminaires?${params}`)
@@ -220,18 +219,17 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // CORRECTION: Initialiser la plage d'années SANS activer le slider
+  // Initialiser la plage d'années SANS activer le slider
   useEffect(() => {
     if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
   }, [yearBounds, allLuminaires.length, yearRange])
 
-  // CORRECTION: Fonction pour gérer les changements du slider - activation manuelle uniquement
+  // Fonction pour gérer les changements du slider - activation manuelle uniquement
   const handleYearRangeChange = (newRange: number[]) => {
     setYearRange(newRange)
-    setSliderActive(true) // Activer le slider UNIQUEMENT lors d'un changement manuel
-    console.log(`🎛️ Slider activé manuellement: ${newRange[0]} - ${newRange[1]}`)
+    setSliderActive(true)
   }
 
   if (loading && luminaires.length === 0) {

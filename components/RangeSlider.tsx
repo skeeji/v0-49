@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
 import * as Slider from "@radix-ui/react-slider"
 
 interface RangeSliderProps {
@@ -12,34 +11,14 @@ interface RangeSliderProps {
 }
 
 export function RangeSlider({ min, max, value, onChange, label }: RangeSliderProps) {
-  const [localValue, setLocalValue] = useState<number[]>(value)
-  const isFirstRender = useRef(true)
-
-  // Synchroniser la valeur locale avec la valeur externe
-  useEffect(() => {
-    setLocalValue(value)
-  }, [value])
-
-  // Appliquer les changements après un délai pour éviter trop d'appels
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
-    const timer = setTimeout(() => {
-      onChange(localValue)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [localValue, onChange])
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-gray-700">{label}</label>
         <div className="flex items-center gap-2 text-xs">
-          <span className="px-2 py-1 bg-gray-50 rounded text-gray-600 font-mono">{localValue[0]}</span>
+          <span className="px-2 py-1 bg-gray-50 rounded text-gray-600 font-mono">{value[0]}</span>
           <span className="text-gray-400">—</span>
-          <span className="px-2 py-1 bg-gray-50 rounded text-gray-600 font-mono">{localValue[1]}</span>
+          <span className="px-2 py-1 bg-gray-50 rounded text-gray-600 font-mono">{value[1]}</span>
         </div>
       </div>
       <div className="relative pt-2">
@@ -48,8 +27,8 @@ export function RangeSlider({ min, max, value, onChange, label }: RangeSliderPro
           min={min}
           max={max}
           step={1}
-          value={localValue}
-          onValueChange={setLocalValue}
+          value={value}
+          onValueCommit={onChange}
         >
           <Slider.Track className="bg-gray-200 relative grow rounded-full h-2">
             <Slider.Range className="absolute rounded-full h-full" style={{ backgroundColor: "#f2d895" }} />
