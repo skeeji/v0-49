@@ -1,24 +1,24 @@
-import { NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { GridFSBucket } from "mongodb"
+import { NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import { GridFSBucket } from "mongodb";
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires";
 
 export async function GET() {
   try {
-    console.log("📦 Début de l'export d'images avec tri...")
+    console.log("📦 Début de l'export des images avec tri...");
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    const client = await clientPromise;
+    const db = client.db(DBNAME);
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" });
 
-    // --- ÉTAPE 1: CRÉER LES LISTES DE RÉFÉRENCE POUR LE TRI ---
-    console.log("📖 Lecture de la collection 'luminaires' pour créer les listes de référence...")
-    const luminairesCollection = db.collection("luminaires")
-    const allLuminaires = await luminairesCollection.find({}).toArray()
+    // ÉTAPE 1: CRÉER LES LISTES DE RÉFÉRENCE POUR LE TRI
+    console.log("📖 Lecture de la collection 'luminaires' pour créer les listes de référence...");
+    const luminairesCollection = db.collection("luminaires");
+    const allLuminaires = await luminairesCollection.find({}).toArray();
 
-    const designerImageFilenames = new Set<string>()
-    const luminaireImageFilenames = new Set<string>()
+    const designerImageFilenames = new Set<string>();
+    const luminaireImageFilenames = new Set<string>();
 
     allLuminaires.forEach(luminaire => {
       // Recherche exhaustive des images de DESIGNER
@@ -26,83 +26,81 @@ export async function GET() {
         luminaire.designerImageFilename,
         luminaire.designerImage,
         luminaire["Image Designer"],
-        luminaire["designer.jpg"], // Champs possibles selon l'origine des données
-      ]
+        luminaire["designer.jpg"],
+      ];
       possibleDesignerFields.forEach(fieldValue => {
         if (fieldValue && typeof fieldValue === "string") {
-          designerImageFilenames.add(fieldValue)
+          designerImageFilenames.add(fieldValue);
         }
-      })
+      });
 
       // Recherche des images de LUMINAIRE
       const possibleLuminaireFields = [
         luminaire.filename,
         ...(Array.isArray(luminaire.images) ? luminaire.images : [])
-      ]
+      ];
       possibleLuminaireFields.forEach(fieldValue => {
         if (fieldValue && typeof fieldValue === 'string') {
-          luminaireImageFilenames.add(fieldValue)
+          luminaireImageFilenames.add(fieldValue);
         }
-      })
-    })
-    console.log(`✅ Références créées: ${designerImageFilenames.size} images de designers et ${luminaireImageFilenames.size} images de luminaires identifiées.`)
+      });
+    });
+    console.log(`✅ Références créées: ${designerImageFilenames.size} images de designers et ${luminaireImageFilenames.size} images de luminaires identifiées.`);
 
-    // --- ÉTAPE 2: TRAITER TOUS LES FICHIERS DU STOCKAGE ---
-    const allFiles = await bucket.find({}).toArray()
+    // ÉTAPE 2: TRAITER TOUS LES FICHIERS DU STOCKAGE
+    const allFiles = await bucket.find({}).toArray();
     if (allFiles.length === 0) {
-      return NextResponse.json({ error: "Aucune image trouvée dans le stockage GridFS" }, { status: 404 })
+      return NextResponse.json({ error: "Aucune image trouvée dans le stockage GridFS" }, { status: 404 });
     }
-    console.log(`🗃️ ${allFiles.length} fichiers trouvés dans le stockage. Début du tri et du téléchargement...`)
+    console.log(`🗃️ ${allFiles.length} fichiers trouvés dans le stockage. Début du tri et du téléchargement...`);
 
-    const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
+    const fileData: Array<{ name: string; data: Buffer; crc32: number }> = [];
 
     for (const file of allFiles) {
-      const originalFilename = file.filename || ''
-      // On s'assure de ne traiter que les JPG
+      const originalFilename = file.filename || '';
       if (!originalFilename.toLowerCase().endsWith(".jpg")) {
-        continue
+        continue;
       }
 
       try {
-        // --- ÉTAPE 3: CLASSER CHAQUE FICHIER ET PRÉPARER LE CHEMIN POUR LE ZIP ---
-        let folder = 'luminaires' // Par défaut, une image est une image de luminaire
+        // ÉTAPE 3: CLASSER CHAQUE FICHIER
+        let folder = 'luminaires';
         if (designerImageFilenames.has(originalFilename)) {
-          folder = 'designers' // Si le nom est dans la liste des designers, on change le dossier
+          folder = 'designers';
         }
         
-        const zipPath = `${folder}/${originalFilename}`
+        const zipPath = `${folder}/${originalFilename}`;
         
-        // Téléchargement du fichier
-        const downloadStream = bucket.openDownloadStream(file._id)
-        const chunks: Buffer[] = []
+        const downloadStream = bucket.openDownloadStream(file._id);
+        const chunks: Buffer[] = [];
         for await (const chunk of downloadStream) {
-          chunks.push(chunk)
+          chunks.push(chunk);
         }
-        const buffer = Buffer.concat(chunks)
+        const buffer = Buffer.concat(chunks);
 
         if (buffer.length > 0) {
           fileData.push({
-            name: zipPath, // Le nom inclut le dossier pour la structure du ZIP
+            name: zipPath,
             data: buffer,
             crc32: calculateCRC32(buffer),
-          })
-          console.log(`➕ Ajouté au ZIP: ${zipPath}`)
+          });
+          console.log(`➕ Ajouté au ZIP: ${zipPath}`);
         }
       } catch (fileError) {
-        console.error(`❌ Erreur lors du traitement du fichier ${file.filename}:`, fileError)
+        console.error(`❌ Erreur lors du traitement du fichier ${file.filename}:`, fileError);
       }
     }
     
     if (fileData.length === 0) {
-      return NextResponse.json({ error: "Aucun fichier JPG valide à exporter" }, { status: 404 })
+      return NextResponse.json({ error: "Aucun fichier JPG valide à exporter" }, { status: 404 });
     }
     
-    // --- ÉTAPE 4: CRÉER LE FICHIER ZIP ET L'ENVOYER ---
-    const zipBuffer = createZipBuffer(fileData)
-    const today = new Date().toISOString().split("T")[0]
-    const zipFilename = `export_images_tries_${today}.zip`
+    // ÉTAPE 4: CRÉER LE FICHIER ZIP
+    const zipBuffer = createZipBuffer(fileData);
+    const today = new Date().toISOString().split("T")[0];
+    const zipFilename = `export_images_tries_${today}.zip`;
 
-    console.log(`🎉 ZIP final généré avec ${fileData.length} images triées.`)
+    console.log(`🎉 ZIP final généré avec ${fileData.length} images triées.`);
 
     return new NextResponse(zipBuffer, {
       status: 200,
@@ -110,97 +108,108 @@ export async function GET() {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${zipFilename}"`,
       },
-    })
+    });
 
   } catch (error) {
-    console.error("❌ Erreur serveur durant l'export des images:", error)
-    return NextResponse.json({ error: "Erreur serveur lors de l'exportation" }, { status: 500 })
+    console.error("❌ Erreur serveur durant l'export des images:", error);
+    return NextResponse.json({ error: "Erreur serveur lors de l'exportation" }, { status: 500 });
   }
 }
 
-// Fonction pour créer un buffer ZIP à partir des données de fichiers
+/**
+ * Crée un buffer ZIP à partir d'un tableau de données de fichiers.
+ * @param fileData Tableau d'objets contenant le nom, les données et le crc32 de chaque fichier.
+ * @returns Un Buffer contenant le fichier ZIP complet.
+ */
 function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: number }>): Buffer {
-  const zipEntries: Buffer[] = []
-  const centralDirectory: Buffer[] = []
-  let offset = 0
+  const zipEntries: Buffer[] = [];
+  const centralDirectory: Buffer[] = [];
+  let offset = 0;
 
   fileData.forEach(({ name, data, crc32 }) => {
-    const nameBuffer = Buffer.from(name.replace(/\\/g, '/'), "utf8") // Assure des slashes de style Unix
-    const localHeader = Buffer.alloc(30 + nameBuffer.length)
+    // S'assurer que les chemins de dossier utilisent des slashes (standard pour ZIP)
+    const nameBuffer = Buffer.from(name.replace(/\\/g, '/'), "utf8");
+    const localHeader = Buffer.alloc(30 + nameBuffer.length);
 
-    localHeader.writeUInt32LE(0x04034b50, 0) // Signature
-    localHeader.writeUInt16LE(20, 4)        // Version
-    localHeader.writeUInt16LE(0, 6)         // Flag
-    localHeader.writeUInt16LE(0, 8)         // Compression (0 = non compressé)
+    localHeader.writeUInt32LE(0x04034b50, 0); // Signature de l'en-tête de fichier local
+    localHeader.writeUInt16LE(20, 4);        // Version nécessaire pour extraire
+    localHeader.writeUInt16LE(0, 6);         // Drapeau général
+    localHeader.writeUInt16LE(0, 8);         // Méthode de compression (0 = non compressé)
     
-    const now = new Date()
-    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
-    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
+    const now = new Date();
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
     
-    localHeader.writeUInt16LE(dosTime, 10)
-    localHeader.writeUInt16LE(dosDate, 12)
-    localHeader.writeUInt32LE(crc32, 14)
-    localHeader.writeUInt32LE(data.length, 18) // Taille compressée
-    localHeader.writeUInt32LE(data.length, 22) // Taille non compressée
-    localHeader.writeUInt16LE(nameBuffer.length, 26)
-    localHeader.writeUInt16LE(0, 28)
-    nameBuffer.copy(localHeader, 30)
+    localHeader.writeUInt16LE(dosTime, 10);
+    localHeader.writeUInt16LE(dosDate, 12);
+    localHeader.writeUInt32LE(crc32, 14);
+    localHeader.writeUInt32LE(data.length, 18); // Taille compressée
+    localHeader.writeUInt32LE(data.length, 22); // Taille non compressée
+    localHeader.writeUInt16LE(nameBuffer.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+    nameBuffer.copy(localHeader, 30);
 
-    zipEntries.push(localHeader)
-    zipEntries.push(data)
+    zipEntries.push(localHeader);
+    zipEntries.push(data);
 
-    const centralEntry = Buffer.alloc(46 + nameBuffer.length)
-    centralEntry.writeUInt32LE(0x02014b50, 0)
-    centralEntry.writeUInt16LE(20, 4)
-    centralEntry.writeUInt16LE(20, 6)
-    centralEntry.writeUInt16LE(0, 8)
-    centralEntry.writeUInt16LE(0, 10)
-    centralEntry.writeUInt16LE(dosTime, 12)
-    centralEntry.writeUInt16LE(dosDate, 14)
-    centralEntry.writeUInt32LE(crc32, 16)
-    centralEntry.writeUInt32LE(data.length, 20)
-    centralEntry.writeUInt32LE(data.length, 24)
-    centralEntry.writeUInt16LE(nameBuffer.length, 28)
-    centralEntry.writeUInt16LE(0, 30)
-    centralEntry.writeUInt16LE(0, 32)
-    centralEntry.writeUInt16LE(0, 34)
-    centralEntry.writeUInt16LE(0, 36)
-    centralEntry.writeUInt32LE(0, 38)
-    centralEntry.writeUInt32LE(offset, 42)
-    nameBuffer.copy(centralEntry, 46)
+    // Entrée du répertoire central
+    const centralEntry = Buffer.alloc(46 + nameBuffer.length);
+    centralEntry.writeUInt32LE(0x02014b50, 0); // Signature de l'en-tête de fichier central
+    centralEntry.writeUInt16LE(20, 4);
+    centralEntry.writeUInt16LE(20, 6);
+    centralEntry.writeUInt16LE(0, 8);
+    centralEntry.writeUInt16LE(0, 10);
+    centralEntry.writeUInt16LE(dosTime, 12);
+    centralEntry.writeUInt16LE(dosDate, 14);
+    centralEntry.writeUInt32LE(crc32, 16);
+    centralEntry.writeUInt32LE(data.length, 20);
+    centralEntry.writeUInt32LE(data.length, 24);
+    centralEntry.writeUInt16LE(nameBuffer.length, 28);
+    centralEntry.writeUInt16LE(0, 30);
+    centralEntry.writeUInt16LE(0, 32);
+    centralEntry.writeUInt16LE(0, 34);
+    centralEntry.writeUInt16LE(0, 36);
+    centralEntry.writeUInt32LE(0, 38);
+    centralEntry.writeUInt32LE(offset, 42); // Offset relatif de l'en-tête local
+    nameBuffer.copy(centralEntry, 46);
 
-    centralDirectory.push(centralEntry)
-    offset += localHeader.length + data.length
-  })
+    centralDirectory.push(centralEntry);
+    offset += localHeader.length + data.length;
+  });
 
-  const centralDirSize = centralDirectory.reduce((sum, entry) => sum + entry.length, 0)
-  const endOfCentralDir = Buffer.alloc(22)
-  endOfCentralDir.writeUInt32LE(0x06054b50, 0)
-  endOfCentralDir.writeUInt16LE(0, 4)
-  endOfCentralDir.writeUInt16LE(0, 6)
-  endOfCentralDir.writeUInt16LE(fileData.length, 8)
-  endOfCentralDir.writeUInt16LE(fileData.length, 10)
-  endOfCentralDir.writeUInt32LE(centralDirSize, 12)
-  endOfCentralDir.writeUInt32LE(offset, 16)
-  endOfCentralDir.writeUInt16LE(0, 20)
+  // Enregistrement de fin du répertoire central
+  const centralDirSize = centralDirectory.reduce((sum, entry) => sum + entry.length, 0);
+  const endOfCentralDir = Buffer.alloc(22);
+  endOfCentralDir.writeUInt32LE(0x06054b50, 0); // Signature de fin
+  endOfCentralDir.writeUInt16LE(0, 4);
+  endOfCentralDir.writeUInt16LE(0, 6);
+  endOfCentralDir.writeUInt16LE(fileData.length, 8);
+  endOfCentralDir.writeUInt16LE(fileData.length, 10);
+  endOfCentralDir.writeUInt32LE(centralDirSize, 12);
+  endOfCentralDir.writeUInt32LE(offset, 16);
+  endOfCentralDir.writeUInt16LE(0, 20);
 
-  return Buffer.concat([...zipEntries, ...centralDirectory, endOfCentralDir])
+  return Buffer.concat([...zipEntries, ...centralDirectory, endOfCentralDir]);
 }
 
-// Fonction pour calculer le CRC32 (checksum)
+/**
+ * Calcule le checksum CRC32 pour un buffer de données.
+ * @param buffer Le buffer à analyser.
+ * @returns Le checksum CRC32 sous forme de nombre.
+ */
 function calculateCRC32(buffer: Buffer): number {
-  const crcTable = new Int32Array(256)
+  const crcTable = new Int32Array(256);
   for (let i = 0; i < 256; i++) {
-    let c = i
+    let c = i;
     for (let j = 0; j < 8; j++) {
-      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1)
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
     }
-    crcTable[i] = c
+    crcTable[i] = c;
   }
 
-  let crc = -1
+  let crc = -1;
   for (let i = 0; i < buffer.length; i++) {
-    crc = (crc >>> 8) ^ crcTable[(crc ^ buffer[i]) & 0xFF]
+    crc = (crc >>> 8) ^ crcTable[(crc ^ buffer[i]) & 0xFF];
   }
-  return (crc ^ -1) >>> 0
+  return (crc ^ -1) >>> 0;
 }
