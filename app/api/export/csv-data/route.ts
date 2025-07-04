@@ -1,103 +1,134 @@
-import { type NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { type NextRequest, NextResponse } from "next/server"
+import clientPromise from "@/lib/mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires";
-
-/**
- * Formate une valeur pour l'inclure dans un champ CSV, en gérant les virgules et les guillemets.
- * @param value La valeur à formater.
- * @returns La valeur formatée et sécurisée pour le CSV.
- */
-function formatCsvField(value: any): string {
-  if (value === null || value === undefined) {
-    return "";
-  }
-  
-  let stringValue = String(value);
-  
-  // Si la valeur contient une virgule, un guillemet ou un saut de ligne,
-  // nous devons l'entourer de guillemets.
-  if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-    // Tout guillemet à l'intérieur doit être doublé.
-    stringValue = stringValue.replace(/"/g, '""');
-    return `"${stringValue}"`;
-  }
-  
-  return stringValue;
-}
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📤 Début de la génération de l'export CSV (méthode manuelle)...");
+    console.log("📤 API /api/export/csv-data - Export CSV avec colonnes spécifiques")
 
-    const client = await clientPromise;
-    const db = client.db(DBNAME);
-    const collection = db.collection("luminaires");
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
 
-    const luminaires = await collection.find({}).toArray();
-    console.log(`📊 ${luminaires.length} luminaires récupérés.`);
+    // Récupérer toutes les données depuis MongoDB
+    const luminaires = await collection.find({}).toArray()
+    console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // Définir les en-têtes dans l'ordre final souhaité
-    const headers = [
-      "ID", "Nom luminaire", "Artiste / Dates", "Année", "Editeur", "Spécialité", 
-      "Collaboration / Œuvre", "Description", "Signé", "Dimensions", "Matériaux", 
-      "Estimation", "Prix", "Image luminaire", "Image designer"
-    ];
+    // Mapping des champs selon les colonnes demandées
+    const csvData = luminaires.map((luminaire, index) => {
+      console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
-    // Mapper les données en utilisant la logique de fallback pour chaque champ
-    const dataRows = luminaires.map(luminaire => {
-      const materiaux = Array.isArray(luminaire.materiaux) 
-        ? luminaire.materiaux.join(", ") 
-        : luminaire.Matériaux || luminaire.materiaux || "";
-      const estimation = luminaire.estimation || luminaire.Estimation || luminaire.prix || luminaire.Prix || "";
-      const imageLuminaire = luminaire.filename || (Array.isArray(luminaire.images) && luminaire.images.length > 0 ? luminaire.images[0] : "") || luminaire["Nom du fichier"] || "";
-      const imageDesigner = luminaire.designerImageFilename || luminaire["Image Designer"] || "";
+      // Gestion des images du luminaire (tableau)
+      let imagesLuminaire = ""
+      if (luminaire.filename) {
+        imagesLuminaire = luminaire.filename
+      }
+      if (luminaire.images && Array.isArray(luminaire.images) && luminaire.images.length > 0) {
+        if (imagesLuminaire) {
+          imagesLuminaire += ", " + luminaire.images.join(", ")
+        } else {
+          imagesLuminaire = luminaire.images.join(", ")
+        }
+      }
 
-      // Créer un objet de données correspondant aux en-têtes
-      const rowData = {
-        "ID": luminaire._id ? luminaire._id.toString() : "",
+      // Gestion de l'image designer (une seule image)
+      const imageDesigner =
+        luminaire.designerImageFilename ||
+        luminaire.designerImage ||
+        luminaire["Image Designer"] ||
+        luminaire["designer.jpg"] ||
+        luminaire.image_designer ||
+        ""
+
+      return {
+        // Colonnes dans l'ordre demandé
+        ID: luminaire._id.toString(),
         "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
-        "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
-        "Année": luminaire.annee || luminaire["Année"] || "",
-        "Editeur": luminaire.editeur || luminaire["Editeur"] || "",
-        "Spécialité": luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || "",
-        "Collaboration / Œuvre": luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
-        "Description": luminaire.description || luminaire["Description"] || "",
-        "Signé": luminaire.signe || luminaire["Signé"] || "",
-        "Dimensions": luminaire.dimensions || luminaire["Dimensions"] || "",
-        "Matériaux": materiaux,
-        "Estimation": estimation,
-        "Prix": estimation,
-        "Image luminaire": imageLuminaire,
+        "Artiste / Dates": luminaire.designer || luminaire.artist || luminaire["Artiste / Dates"] || "",
+        Année: luminaire.annee || luminaire.year || luminaire["Année"] || "",
+        Editeur: luminaire.editeur || luminaire.editor || luminaire["Editeur"] || "",
+        Spécialité: luminaire.periode || luminaire.specialite || luminaire.specialty || luminaire["Spécialité"] || "",
+        "Collaboration / Œuvre":
+          luminaire.collaboration || luminaire.oeuvre || luminaire["Collaboration / Œuvre"] || "",
+        Description: luminaire.description || luminaire.desc || luminaire["Description"] || "",
+        Signé: luminaire.signe || luminaire.signed || luminaire["Signé"] || "",
+        Dimensions: luminaire.dimensions || luminaire.dimension || luminaire["Dimensions"] || "",
+        Matériaux: Array.isArray(luminaire.materiaux)
+          ? luminaire.materiaux.join(", ")
+          : luminaire.materiaux || luminaire.materials || luminaire["Matériaux"] || "",
+        Estimation: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Estimation"] || "",
+        Prix: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Prix"] || "", // Même valeur que Estimation
+        "Image luminaire": imagesLuminaire,
         "Image designer": imageDesigner,
-      };
-      
-      // Transformer l'objet en tableau ordonné de valeurs formatées
-      return headers.map(header => formatCsvField(rowData[header as keyof typeof rowData]));
-    });
+      }
+    })
 
-    // Construire le contenu CSV manuellement
-    const headerRow = headers.join(',');
-    const contentRows = dataRows.map(row => row.join(',')).join('\n');
-    const csvContent = `${headerRow}\n${contentRows}`;
-    
-    console.log(`✅ CSV généré avec ${dataRows.length} lignes.`);
-    
-    const csvWithBOM = "\uFEFF" + csvContent; // BOM pour compatibilité Excel
+    if (csvData.length === 0) {
+      return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 })
+    }
+
+    // Créer les en-têtes CSV dans l'ordre exact demandé
+    const headers = [
+      "ID",
+      "Nom luminaire",
+      "Artiste / Dates",
+      "Année",
+      "Editeur",
+      "Spécialité",
+      "Collaboration / Œuvre",
+      "Description",
+      "Signé",
+      "Dimensions",
+      "Matériaux",
+      "Estimation",
+      "Prix",
+      "Image luminaire",
+      "Image designer",
+    ]
+
+    // Créer le contenu CSV
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header as keyof typeof row] || ""
+            const cleanValue = String(value).replace(/"/g, '""')
+            return `"${cleanValue}"`
+          })
+          .join(","),
+      ),
+    ].join("\n")
+
+    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
+
+    // Vérification des champs critiques
+    const criticalFields = ["Nom luminaire", "Artiste / Dates", "Image luminaire", "Image designer"]
+    criticalFields.forEach((field) => {
+      const hasData = csvData.some((row) => row[field as keyof typeof row] && row[field as keyof typeof row] !== "")
+      console.log(`🔍 Champ "${field}": ${hasData ? "✅ Données présentes" : "⚠️ Aucune donnée"}`)
+    })
+
+    // Retourner le CSV avec BOM UTF-8
+    const csvWithBOM = "\uFEFF" + csvContent
 
     return new NextResponse(csvWithBOM, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="export-luminaires-${new Date().toISOString().split("T")[0]}.csv"`,
+        "Content-Disposition": `attachment; filename="luminaires-export-${new Date().toISOString().split("T")[0]}.csv"`,
       },
-    });
-
+    })
   } catch (error: any) {
-    console.error("❌ Erreur critique lors de la génération du CSV:", error);
+    console.error("❌ Erreur export CSV:", error)
     return NextResponse.json(
-      { success: false, error: "Erreur serveur lors de l'export CSV", details: error.message },
-      { status: 500 }
-    );
+      {
+        success: false,
+        error: "Erreur lors de l'export CSV",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

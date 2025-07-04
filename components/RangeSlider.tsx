@@ -7,13 +7,14 @@ interface RangeSliderProps {
   max: number
   value: number[]
   onValueCommit: (value: number[]) => void
+  label?: string
 }
 
-export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps) {
+export function RangeSlider({ min, max, value, onValueCommit, label = "Chronologie" }: RangeSliderProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">Chronologie</label>
+        <label className="text-sm font-medium text-gray-700">{label}</label>
         <div className="flex items-center gap-2 text-xs">
           <span className="px-2 py-1 bg-gray-50 rounded text-gray-600 font-mono">{value[0]}</span>
           <span className="text-gray-400">—</span>
