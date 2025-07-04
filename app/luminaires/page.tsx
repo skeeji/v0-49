@@ -25,7 +25,8 @@ export default function LuminairesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
   const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
-  const [sliderModified, setSliderModified] = useState(false) // MODIFICATION 1: Slider inactif par défaut
+  const [sliderModified, setSliderModified] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true) // CORRECTION 1: Flag pour éviter le déclenchement automatique
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
@@ -48,7 +49,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // MODIFICATION 1: Fonction pour charger les luminaires - slider inactif par défaut
+  // CORRECTION 1: Fonction pour charger les luminaires - empêcher le déclenchement automatique
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -68,13 +69,13 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // MODIFICATION 1: Ajouter les filtres d'année UNIQUEMENT si le slider a été modifié par l'utilisateur
-        if (sliderModified) {
+        // CORRECTION 1: Ajouter les filtres d'année UNIQUEMENT si le slider a été modifié ET que l'initialisation est terminée
+        if (sliderModified && !isInitializing) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
           console.log(`🎯 Filtre d'années appliqué (slider modifié): ${yearRange[0]} - ${yearRange[1]}`)
         } else {
-          console.log("📅 Slider inactif - affichage de tous les 9004 luminaires")
+          console.log("📅 Slider inactif - affichage de tous les luminaires")
         }
 
         console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
@@ -109,7 +110,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange],
+    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange, isInitializing],
   )
 
   // Charger les données globales au montage
@@ -117,11 +118,22 @@ export default function LuminairesPage() {
     loadAllLuminaires()
   }, [loadAllLuminaires])
 
-  // Charger les luminaires au montage et lors des changements de filtres
+  // CORRECTION 1: Charger les luminaires au montage et lors des changements de filtres (sauf pendant l'initialisation)
   useEffect(() => {
-    setCurrentPage(1)
-    loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange])
+    if (!isInitializing) {
+      setCurrentPage(1)
+      loadLuminaires(1, false)
+    }
+  }, [
+    searchTerm,
+    selectedDesigner,
+    sortField,
+    sortDirection,
+    sliderModified,
+    yearRange,
+    isInitializing,
+    loadLuminaires,
+  ])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -230,19 +242,27 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // MODIFICATION 1: Initialiser la plage d'années avec les vraies valeurs SANS déclencher de rechargement
+  // CORRECTION 1: Initialiser la plage d'années SANS déclencher de rechargement
   useEffect(() => {
-    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024 && !sliderModified) {
+    if (allLuminaires.length > 0 && isInitializing) {
       setYearRange([yearBounds.min, yearBounds.max])
-      console.log(`📅 Initialisation slider: ${yearBounds.min} - ${yearBounds.max} (inactif)`)
-    }
-  }, [yearBounds, allLuminaires.length, yearRange, sliderModified])
+      console.log(`📅 Initialisation slider: ${yearBounds.min} - ${yearBounds.max} (sans déclenchement)`)
 
-  // MODIFICATION 1: Fonction pour gérer le changement manuel du slider par l'utilisateur
+      // Charger les données initiales une seule fois
+      loadLuminaires(1, false).then(() => {
+        setIsInitializing(false) // Marquer l'initialisation comme terminée
+        console.log("✅ Initialisation terminée - slider maintenant actif pour les interactions utilisateur")
+      })
+    }
+  }, [yearBounds, allLuminaires.length, isInitializing, loadLuminaires])
+
+  // CORRECTION 1: Fonction pour gérer UNIQUEMENT les changements manuels du slider
   const handleYearRangeChange = (newRange: number[]) => {
-    console.log(`🎛️ Slider modifié manuellement par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
-    setYearRange(newRange)
-    setSliderModified(true) // Marquer comme modifié pour activer le filtre
+    if (!isInitializing) {
+      console.log(`🎛️ Slider modifié manuellement par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
+      setYearRange(newRange)
+      setSliderModified(true)
+    }
   }
 
   if (loading && luminaires.length === 0) {
@@ -277,7 +297,7 @@ export default function LuminairesPage() {
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
             {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
-            {sliderModified && (
+            {sliderModified && !isInitializing && (
               <span className="ml-2 text-orange-600">
                 (filtrés par années: {yearRange[0]} - {yearRange[1]})
               </span>
@@ -360,13 +380,13 @@ export default function LuminairesPage() {
           onChange={handleYearRangeChange}
           label="Chronologie"
         />
-        {sliderModified && (
+        {sliderModified && !isInitializing && (
           <div className="mt-2 text-sm text-orange-600">
             ⚠️ Filtre actif: {yearRange[0]} - {yearRange[1]}
             <button
               onClick={() => {
                 setYearRange([yearBounds.min, yearBounds.max])
-                setSliderModified(false) // Désactiver le filtre
+                setSliderModified(false)
                 console.log("🔄 Slider réinitialisé - filtre désactivé")
               }}
               className="ml-2 underline hover:no-underline"
@@ -375,7 +395,7 @@ export default function LuminairesPage() {
             </button>
           </div>
         )}
-        {!sliderModified && (
+        {(!sliderModified || isInitializing) && (
           <div className="mt-2 text-sm text-gray-500">
             📅 Slider inactif - tous les luminaires affichés ({yearBounds.min} - {yearBounds.max})
           </div>

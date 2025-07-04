@@ -11,11 +11,11 @@ export async function GET(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Récupérer TOUS les luminaires avec TOUS les champs
+    // CORRECTION 3: Récupérer TOUS les luminaires avec TOUS les champs disponibles
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires trouvés pour l'export CSV complet`)
 
-    // MODIFICATION 3: Formater les données avec TOUS les champs pour l'export CSV
+    // CORRECTION 3: Formater les données avec ABSOLUMENT TOUS les champs pour l'export CSV
     const csvData = luminaires.map((luminaire) => ({
       // Champs principaux
       ID: luminaire._id.toString(),
@@ -24,13 +24,13 @@ export async function GET(request: NextRequest) {
       Année: luminaire.annee || luminaire["Année"] || "",
       Spécialité: luminaire.periode || luminaire["Spécialité"] || "",
 
-      // MODIFICATION 3: Champs COMPLÈTEMENT séparés dans l'export
+      // CORRECTION 3: Champs COMPLÈTEMENT séparés dans l'export
       "Collaboration / Œuvre": luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
       Description: luminaire.description || "", // Description SÉPARÉE de collaboration
 
       Signé: luminaire.signe || luminaire["Signé"] || "",
 
-      // MODIFICATION 3: TOUS les champs étendus dans l'export CSV
+      // CORRECTION 3: TOUS les champs étendus dans l'export CSV
       Editeur: luminaire.editeur || "",
       Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
       Matériaux: Array.isArray(luminaire.materiaux)
@@ -42,11 +42,41 @@ export async function GET(request: NextRequest) {
       "Nom du fichier": luminaire.filename || luminaire["Nom du fichier"] || "",
       Images: Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.images || "",
 
-      // MODIFICATION 3: Image du designer dans l'export CSV
+      // CORRECTION 3: Image du designer dans l'export CSV
       "Image Designer": luminaire.designerImageFilename || luminaire.designerImage || "",
 
       // Couleurs
       Couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join(", ") : luminaire.couleurs || "",
+
+      // CORRECTION 3: Tous les champs supplémentaires possibles
+      Prix: luminaire.prix || "",
+      Provenance: luminaire.provenance || "",
+      État: luminaire.etat || "",
+      Référence: luminaire.reference || "",
+      Notes: luminaire.notes || "",
+      Catégorie: luminaire.categorie || "",
+      Style: luminaire.style || "",
+      Époque: luminaire.epoque || "",
+      Pays: luminaire.pays || "",
+      Ville: luminaire.ville || "",
+      Musée: luminaire.musee || "",
+      Collection: luminaire.collection || "",
+      Exposition: luminaire.exposition || "",
+      Publication: luminaire.publication || "",
+      Bibliographie: luminaire.bibliographie || "",
+
+      // Dimensions détaillées
+      Hauteur: luminaire.hauteur || "",
+      Largeur: luminaire.largeur || "",
+      Profondeur: luminaire.profondeur || "",
+      Diamètre: luminaire.diametre || "",
+      Poids: luminaire.poids || "",
+
+      // Informations techniques
+      "Type d'éclairage": luminaire.typeEclairage || "",
+      "Source lumineuse": luminaire.sourceLumineuse || "",
+      Voltage: luminaire.voltage || "",
+      Puissance: luminaire.puissance || "",
 
       // Métadonnées
       Favori: luminaire.isFavorite ? "Oui" : "Non",
@@ -57,6 +87,66 @@ export async function GET(request: NextRequest) {
       "ID MongoDB": luminaire._id.toString(),
       Statut: luminaire.status || "Actif",
       Tags: Array.isArray(luminaire.tags) ? luminaire.tags.join(", ") : luminaire.tags || "",
+
+      // CORRECTION 3: Tous les autres champs possibles qui pourraient exister
+      ...Object.keys(luminaire).reduce(
+        (acc, key) => {
+          // Éviter les doublons avec les champs déjà traités
+          const excludedKeys = [
+            "_id",
+            "nom",
+            "designer",
+            "annee",
+            "periode",
+            "collaboration",
+            "description",
+            "signe",
+            "editeur",
+            "dimensions",
+            "materiaux",
+            "estimation",
+            "filename",
+            "images",
+            "designerImageFilename",
+            "couleurs",
+            "isFavorite",
+            "createdAt",
+            "updatedAt",
+            "status",
+            "tags",
+            "prix",
+            "provenance",
+            "etat",
+            "reference",
+            "notes",
+            "categorie",
+            "style",
+            "epoque",
+            "pays",
+            "ville",
+            "musee",
+            "collection",
+            "exposition",
+            "publication",
+            "bibliographie",
+            "hauteur",
+            "largeur",
+            "profondeur",
+            "diametre",
+            "poids",
+            "typeEclairage",
+            "sourceLumineuse",
+            "voltage",
+            "puissance",
+          ]
+
+          if (!excludedKeys.includes(key) && luminaire[key] !== undefined && luminaire[key] !== null) {
+            acc[key] = Array.isArray(luminaire[key]) ? luminaire[key].join(", ") : String(luminaire[key])
+          }
+          return acc
+        },
+        {} as Record<string, string>,
+      ),
     }))
 
     // Créer le contenu CSV

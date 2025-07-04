@@ -39,11 +39,15 @@ export default function DesignerDetailPage() {
         if (result.success) {
           setDesigner(result.data.designer)
 
+          // CORRECTION 2: Récupérer l'image du designer depuis les luminaires
+          const designerImageFilename = result.data.luminaires.find(
+            (lum: any) => lum.designerImageFilename,
+          )?.designerImageFilename
+
           // Adapter les données des luminaires pour GalleryGrid
           const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
             ...lum,
             id: lum._id,
-            // CORRECTION: Utiliser le nom du fichier pour l'image
             image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
             artist: lum["Artiste / Dates"] || lum.designer || "",
             year: lum.annee || lum["Année"] || "",
@@ -54,6 +58,15 @@ export default function DesignerDetailPage() {
 
           setDesignerLuminaires(adaptedLuminaires)
           console.log("✅ Luminaires adaptés:", adaptedLuminaires.length)
+
+          // CORRECTION 2: Mettre à jour les données du designer avec l'image trouvée
+          if (designerImageFilename) {
+            setDesigner((prev) => ({
+              ...prev,
+              imagedesigner: designerImageFilename,
+            }))
+            console.log("✅ Image designer trouvée:", designerImageFilename)
+          }
 
           // Charger les descriptions stockées localement
           if (adaptedLuminaires.length > 0) {

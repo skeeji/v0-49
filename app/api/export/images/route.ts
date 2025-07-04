@@ -14,6 +14,11 @@ export async function GET() {
     // Utiliser le bucket GridFS "uploads"
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
+    // CORRECTION 3: Récupérer aussi les données des luminaires pour inclure les images designer
+    const luminairesCollection = db.collection("luminaires")
+    const luminaires = await luminairesCollection.find({}).toArray()
+    console.log(`📊 ${luminaires.length} luminaires trouvés pour l'export d'images`)
+
     // Récupérer tous les fichiers du bucket
     const files = await bucket.find({}).toArray()
     console.log(`📊 ${files.length} fichiers trouvés dans le bucket "uploads"`)
@@ -23,19 +28,49 @@ export async function GET() {
       return NextResponse.json({ error: "Aucune image trouvée dans le bucket uploads" }, { status: 404 })
     }
 
-    // Filtrer pour ne garder que les fichiers .jpg (insensible à la casse)
-    const jpgFiles = files.filter((file) => {
-      const filename = file.filename || ""
-      return filename.toLowerCase().endsWith(".jpg")
+    // CORRECTION 3: Créer une liste des images à inclure (images principales + images designer)
+    const imagesToInclude = new Set<string>()
+
+    // Ajouter les images principales des luminaires
+    luminaires.forEach((luminaire) => {
+      if (luminaire.filename) {
+        imagesToInclude.add(luminaire.filename)
+      }
+      if (luminaire.images && Array.isArray(luminaire.images)) {
+        luminaire.images.forEach((img: string) => imagesToInclude.add(img))
+      }
+      // CORRECTION 3: Ajouter les images designer
+      if (luminaire.designerImageFilename) {
+        imagesToInclude.add(luminaire.designerImageFilename)
+        console.log(`📸 Image designer ajoutée: ${luminaire.designerImageFilename}`)
+      }
     })
 
-    console.log(`📊 ${jpgFiles.length} fichiers .jpg trouvés sur ${files.length} fichiers totaux`)
+    console.log(`📋 ${imagesToInclude.size} images uniques à inclure dans l'export`)
+
+    // Filtrer pour ne garder que les fichiers .jpg qui sont dans notre liste
+    const jpgFiles = files.filter((file) => {
+      const filename = file.filename || ""
+      const isJpg = filename.toLowerCase().endsWith(".jpg")
+      const isIncluded = imagesToInclude.has(filename)
+
+      if (isJpg && isIncluded) {
+        console.log(`✅ Image incluse: ${filename}`)
+        return true
+      }
+      return false
+    })
+
+    console.log(`📊 ${jpgFiles.length} fichiers .jpg sélectionnés sur ${files.length} fichiers totaux`)
 
     if (jpgFiles.length === 0) {
-      return NextResponse.json({ error: "Aucun fichier .jpg trouvé dans le bucket uploads" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Aucun fichier .jpg correspondant trouvé dans le bucket uploads" },
+        { status: 404 },
+      )
     }
 
-    // Traiter tous les fichiers .jpg
+    // Traiter tous les fichiers .jpg sélectionnés
     const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
 
     for (const file of jpgFiles) {
@@ -81,9 +116,9 @@ export async function GET() {
 
     // Générer le nom du fichier avec la date actuelle
     const today = new Date().toISOString().split("T")[0] // Format AAAA-MM-JJ
-    const filename = `images_export_${today}.zip`
+    const filename = `images_export_complet_${today}.zip`
 
-    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images`)
+    console.log(`✅ ZIP généré: ${zipBuffer.length} bytes avec ${fileData.length} images (principales + designer)`)
 
     return new NextResponse(zipBuffer, {
       status: 200,
