@@ -36,7 +36,6 @@ export default function DesignerDetailPage() {
 
         if (result.success) {
           setDesigner(result.data.designer)
-
           // CORRECTION 2: Récupérer l'image du designer depuis les luminaires
           const designerImageFilename = result.data.luminaires.find(
             (lum: any) => lum.designerImageFilename,

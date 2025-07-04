@@ -5,68 +5,69 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📤 API /api/export/csv-data - Export CSV avec données ACTUELLES et COMPLÈTES")
+    console.log("📤 API /api/export/csv-data - Export CSV COMPLET avec TOUTES les informations")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // CORRECTION 3: Source unique des données - requête OBLIGATOIRE pour récupérer les données ACTUELLES
-    console.log("🔄 Récupération des données ACTUELLES depuis MongoDB...")
+    // CORRECTION: Récupérer TOUTES les données actuelles depuis MongoDB
     const luminaires = await collection.find({}).toArray()
-    console.log(`📊 ${luminaires.length} luminaires récupérés avec données ACTUELLES et COMPLÈTES`)
+    console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV complet`)
 
-    // CORRECTION 3: Mapping corrigé des champs avec vérification exhaustive
+    // CORRECTION: Formater TOUTES les données par luminaire
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
       return {
-        // Champs principaux
+        // Identifiants
         ID: luminaire._id.toString(),
+        "ID MongoDB": luminaire._id.toString(),
+
+        // CORRECTION: Informations principales complètes
         "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
         "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
         Année: luminaire.annee || luminaire["Année"] || "",
 
-        // CORRECTION 3: Spécialité - mapping corrigé avec toutes les possibilités
+        // CORRECTION: Spécialité
         Spécialité: luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || "",
 
-        // CORRECTION 3: Collaboration / Œuvre - mapping corrigé avec toutes les possibilités
+        // CORRECTION: Description (séparée de collaboration)
+        Description: luminaire.description || "",
         "Collaboration / Œuvre": luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
-        Description: luminaire.description || "", // Description SÉPARÉE
 
         Signé: luminaire.signe || luminaire["Signé"] || "",
 
-        // Champs étendus
-        Editeur: luminaire.editeur || "",
-
-        // CORRECTION 3: Dimensions - mapping corrigé
-        Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-
+        // CORRECTION: Matériaux
         Matériaux: Array.isArray(luminaire.materiaux)
           ? luminaire.materiaux.join(", ")
           : luminaire.materiaux || luminaire["Matériaux"] || "",
 
-        // CORRECTION 3: Estimation - mapping corrigé avec toutes les possibilités
+        // CORRECTION: Estimation/Prix
         Estimation:
-          luminaire.estimation || luminaire.prix || luminaire["Prix (estimation)"] || luminaire["Estimation"] || "",
+          luminaire.estimation || luminaire.prix || luminaire["Estimation"] || luminaire["Prix (estimation)"] || "",
+        Prix: luminaire.prix || luminaire.estimation || "",
 
-        // Images principales
+        // CORRECTION: Images complètes
         "Nom du fichier": luminaire.filename || luminaire["Nom du fichier"] || "",
         Images: Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.images || "",
 
-        // CORRECTION 3: Image Designer - mapping corrigé avec toutes les possibilités
+        // CORRECTION: Image Designer (tous les champs possibles)
         "Image Designer":
           luminaire.designerImageFilename ||
           luminaire.designerImage ||
           luminaire["designer.jpg"] ||
           luminaire["Image Designer"] ||
+          luminaire.designer_image ||
+          luminaire.imageDesigner ||
           "",
 
-        // Couleurs
+        // Informations détaillées
+        Editeur: luminaire.editeur || "",
+        Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
         Couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join(", ") : luminaire.couleurs || "",
 
-        // Champs supplémentaires ACTUELS
-        Prix: luminaire.prix || "",
+        // Informations supplémentaires
         Provenance: luminaire.provenance || "",
         État: luminaire.etat || "",
         Référence: luminaire.reference || "",
@@ -76,39 +77,39 @@ export async function GET(request: NextRequest) {
         Époque: luminaire.epoque || "",
         Pays: luminaire.pays || "",
         Ville: luminaire.ville || "",
-        Musée: luminaire.musee || "",
-        Collection: luminaire.collection || "",
-        Exposition: luminaire.exposition || "",
-        Publication: luminaire.publication || "",
-        Bibliographie: luminaire.bibliographie || "",
 
-        // Dimensions détaillées ACTUELLES
+        // Dimensions détaillées
         Hauteur: luminaire.hauteur || "",
         Largeur: luminaire.largeur || "",
         Profondeur: luminaire.profondeur || "",
         Diamètre: luminaire.diametre || "",
         Poids: luminaire.poids || "",
 
-        // Informations techniques ACTUELLES
+        // Informations techniques
         "Type d'éclairage": luminaire.typeEclairage || "",
         "Source lumineuse": luminaire.sourceLumineuse || "",
         Voltage: luminaire.voltage || "",
         Puissance: luminaire.puissance || "",
 
-        // Métadonnées ACTUELLES
-        Favori: luminaire.isFavorite ? "Oui" : "Non",
-        "Date création": luminaire.createdAt ? new Date(luminaire.createdAt).toLocaleDateString("fr-FR") : "",
-        "Date modification": luminaire.updatedAt ? new Date(luminaire.updatedAt).toLocaleDateString("fr-FR") : "",
+        // Informations culturelles
+        Musée: luminaire.musee || "",
+        Collection: luminaire.collection || "",
+        Exposition: luminaire.exposition || "",
+        Publication: luminaire.publication || "",
+        Bibliographie: luminaire.bibliographie || "",
 
-        // Champs techniques ACTUELS
-        "ID MongoDB": luminaire._id.toString(),
+        // Métadonnées
+        Favori: luminaire.isFavorite ? "Oui" : "Non",
         Statut: luminaire.status || "Actif",
         Tags: Array.isArray(luminaire.tags) ? luminaire.tags.join(", ") : luminaire.tags || "",
 
-        // CORRECTION 3: Tous les autres champs ACTUELS qui pourraient exister
+        // Dates
+        "Date création": luminaire.createdAt ? new Date(luminaire.createdAt).toLocaleDateString("fr-FR") : "",
+        "Date modification": luminaire.updatedAt ? new Date(luminaire.updatedAt).toLocaleDateString("fr-FR") : "",
+
+        // CORRECTION: Tous les autres champs dynamiques
         ...Object.keys(luminaire).reduce(
           (acc, key) => {
-            // Éviter les doublons avec les champs déjà traités
             const excludedKeys = [
               "_id",
               "nom",
@@ -116,24 +117,19 @@ export async function GET(request: NextRequest) {
               "annee",
               "periode",
               "specialite",
-              "collaboration",
               "description",
+              "collaboration",
               "signe",
-              "editeur",
-              "dimensions",
               "materiaux",
               "estimation",
+              "prix",
               "filename",
               "images",
               "designerImageFilename",
               "designerImage",
               "couleurs",
-              "isFavorite",
-              "createdAt",
-              "updatedAt",
-              "status",
-              "tags",
-              "prix",
+              "editeur",
+              "dimensions",
               "provenance",
               "etat",
               "reference",
@@ -143,11 +139,6 @@ export async function GET(request: NextRequest) {
               "epoque",
               "pays",
               "ville",
-              "musee",
-              "collection",
-              "exposition",
-              "publication",
-              "bibliographie",
               "hauteur",
               "largeur",
               "profondeur",
@@ -157,24 +148,37 @@ export async function GET(request: NextRequest) {
               "sourceLumineuse",
               "voltage",
               "puissance",
+              "musee",
+              "collection",
+              "exposition",
+              "publication",
+              "bibliographie",
+              "isFavorite",
+              "status",
+              "tags",
+              "createdAt",
+              "updatedAt",
               "Nom luminaire",
               "Artiste / Dates",
               "Année",
               "Spécialité",
               "Collaboration / Œuvre",
               "Signé",
-              "Dimensions",
               "Matériaux",
               "Estimation",
               "Nom du fichier",
-              "designer.jpg",
               "Image Designer",
+              "Dimensions",
+              "designer.jpg",
               "Prix (estimation)",
             ]
 
             if (!excludedKeys.includes(key) && luminaire[key] !== undefined && luminaire[key] !== null) {
-              acc[key] = Array.isArray(luminaire[key]) ? luminaire[key].join(", ") : String(luminaire[key])
-              console.log(`📋 Champ supplémentaire ajouté: ${key} = ${acc[key]}`)
+              const value = Array.isArray(luminaire[key]) ? luminaire[key].join(", ") : String(luminaire[key])
+              if (value.trim() !== "") {
+                acc[key] = value
+                console.log(`📋 Champ supplémentaire: ${key} = ${value}`)
+              }
             }
             return acc
           },
@@ -183,7 +187,6 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Créer le contenu CSV
     if (csvData.length === 0) {
       return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 })
     }
@@ -191,14 +194,13 @@ export async function GET(request: NextRequest) {
     // Créer les en-têtes CSV
     const headers = Object.keys(csvData[0])
 
-    // Créer les lignes CSV avec échappement correct
+    // Créer le contenu CSV
     const csvContent = [
       headers.join(","),
       ...csvData.map((row) =>
         headers
           .map((header) => {
             const value = row[header as keyof typeof row] || ""
-            // Échapper les guillemets et virgules pour CSV
             const cleanValue = String(value).replace(/"/g, '""')
             return `"${cleanValue}"`
           })
@@ -206,17 +208,27 @@ export async function GET(request: NextRequest) {
       ),
     ].join("\n")
 
-    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes ACTUELLES`)
-    console.log(`📋 Colonnes exportées:`, headers)
+    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
+    console.log(
+      `📋 Colonnes principales: Artiste/Dates, Spécialité, Description, Matériaux, Estimation, Image Designer, Nom du fichier`,
+    )
 
-    // CORRECTION 3: Vérification des champs critiques corrigés
-    const criticalFields = ["Image Designer", "Spécialité", "Collaboration / Œuvre", "Dimensions", "Estimation"]
+    // Vérification des champs critiques
+    const criticalFields = [
+      "Artiste / Dates",
+      "Spécialité",
+      "Description",
+      "Matériaux",
+      "Estimation",
+      "Image Designer",
+      "Nom du fichier",
+    ]
     criticalFields.forEach((field) => {
       const hasData = csvData.some((row) => row[field as keyof typeof row] && row[field as keyof typeof row] !== "")
-      console.log(`🔍 Champ critique "${field}": ${hasData ? "✅ Données présentes" : "⚠️ Aucune donnée"}`)
+      console.log(`🔍 Champ "${field}": ${hasData ? "✅ Données présentes" : "⚠️ Aucune donnée"}`)
     })
 
-    // Retourner le CSV avec BOM UTF-8 pour Excel
+    // Retourner le CSV avec BOM UTF-8
     const csvWithBOM = "\uFEFF" + csvContent
 
     return new NextResponse(csvWithBOM, {
@@ -227,11 +239,11 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error("❌ Erreur export CSV complet:", error)
+    console.error("❌ Erreur export CSV:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'export CSV complet",
+        error: "Erreur lors de l'export CSV",
         details: error.message,
       },
       { status: 500 },

@@ -13,7 +13,7 @@ import { toast } from "sonner"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
-  const [allLuminaires, setAllLuminaires] = useState<any[]>([]) // Pour les stats globales
+  const [allLuminaires, setAllLuminaires] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -25,8 +25,7 @@ export default function LuminairesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
   const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
-  const [sliderModified, setSliderModified] = useState(false)
-  const [isInitializing, setIsInitializing] = useState(true) // CORRECTION 1A: Flag pour éviter le déclenchement à l'initialisation
+  const [sliderActive, setSliderActive] = useState(false) // CORRECTION: Flag simple pour le slider
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
@@ -49,7 +48,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // CORRECTION 1A: Fonction simplifiée pour charger les luminaires
+  // CORRECTION: Fonction simplifiée pour charger les luminaires
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -69,16 +68,12 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // CORRECTION 1A: Logique simplifiée - appliquer le filtre si le slider a été modifié ET que l'initialisation est terminée
-        if (sliderModified && !isInitializing) {
+        // CORRECTION: Appliquer le filtre UNIQUEMENT si le slider est activé
+        if (sliderActive) {
           params.append("yearMin", yearRange[0].toString())
           params.append("yearMax", yearRange[1].toString())
           console.log(`🎯 Filtre d'années appliqué: ${yearRange[0]} - ${yearRange[1]}`)
-        } else {
-          console.log("📅 Affichage de tous les luminaires")
         }
-
-        console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
 
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
@@ -93,9 +88,6 @@ export default function LuminairesPage() {
 
           setTotalItems(data.pagination.total)
           setHasMore(data.pagination.hasMore)
-
-          console.log(`📊 ${data.luminaires.length} luminaires chargés depuis MongoDB (page ${page})`)
-          console.log(`📊 Total dans la base: ${data.pagination.total}`)
         } else {
           throw new Error(data.error || "Erreur lors du chargement")
         }
@@ -108,7 +100,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange, isInitializing],
+    [searchTerm, selectedDesigner, sortField, sortDirection, sliderActive, yearRange],
   )
 
   // Charger les données globales au montage
@@ -118,26 +110,14 @@ export default function LuminairesPage() {
 
   // Charger les luminaires au montage et lors des changements de filtres
   useEffect(() => {
-    if (!isInitializing) {
-      setCurrentPage(1)
-      loadLuminaires(1, false)
-    }
-  }, [
-    searchTerm,
-    selectedDesigner,
-    sortField,
-    sortDirection,
-    sliderModified,
-    yearRange,
-    isInitializing,
-    loadLuminaires,
-  ])
+    setCurrentPage(1)
+    loadLuminaires(1, false)
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderActive, yearRange])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) {
       const nextPage = currentPage + 1
-      console.log(`📄 Chargement page suivante: ${nextPage}`)
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
@@ -209,7 +189,7 @@ export default function LuminairesPage() {
           toast.success("Luminaire créé avec succès")
           setIsModalOpen(false)
           loadLuminaires(1, false)
-          loadAllLuminaires() // Recharger les données globales
+          loadAllLuminaires()
         } else {
           throw new Error(data.error)
         }
@@ -224,13 +204,13 @@ export default function LuminairesPage() {
     [loadLuminaires, loadAllLuminaires],
   )
 
-  // Options pour les filtres (calculées à partir de TOUTES les données)
+  // Options pour les filtres
   const filterOptions = useMemo(() => {
     const designers = [...new Set(allLuminaires.map((l) => l.designer).filter(Boolean))].sort()
     return { designers }
   }, [allLuminaires])
 
-  // Calculer la plage d'années disponibles (à partir de TOUTES les données)
+  // Calculer la plage d'années disponibles
   const yearBounds = useMemo(() => {
     const years = allLuminaires.map((l) => l.annee || l.year).filter(Boolean)
     if (years.length === 0) return { min: 1900, max: 2024 }
@@ -240,30 +220,18 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // CORRECTION 1A: Initialiser la plage d'années SANS déclencher de rechargement
+  // CORRECTION: Initialiser la plage d'années SANS activer le slider
   useEffect(() => {
-    if (allLuminaires.length > 0 && isInitializing) {
+    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
       setYearRange([yearBounds.min, yearBounds.max])
-      console.log(`📅 Initialisation silencieuse du slider: ${yearBounds.min} - ${yearBounds.max}`)
-
-      // Charger les données initiales une seule fois
-      loadLuminaires(1, false).then(() => {
-        setIsInitializing(false) // Marquer l'initialisation comme terminée
-        console.log("✅ Initialisation terminée - slider maintenant actif")
-      })
     }
-  }, [yearBounds, allLuminaires.length, isInitializing, loadLuminaires])
+  }, [yearBounds, allLuminaires.length, yearRange])
 
-  // CORRECTION 1A: Fonction simplifiée pour gérer les changements du slider
+  // CORRECTION: Fonction pour gérer les changements du slider - activation manuelle uniquement
   const handleYearRangeChange = (newRange: number[]) => {
-    if (!isInitializing) {
-      console.log(`🎛️ Slider modifié par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
-      setYearRange(newRange)
-      setSliderModified(true)
-      // Rechargement direct et systématique des données
-      setCurrentPage(1)
-      loadLuminaires(1, false)
-    }
+    setYearRange(newRange)
+    setSliderActive(true) // Activer le slider UNIQUEMENT lors d'un changement manuel
+    console.log(`🎛️ Slider activé manuellement: ${newRange[0]} - ${newRange[1]}`)
   }
 
   if (loading && luminaires.length === 0) {
@@ -297,7 +265,6 @@ export default function LuminairesPage() {
         <div>
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
-            {/* CORRECTION 1B: Suppression du texte de filtre dans le compteur */}
             {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
           </p>
         </div>
@@ -377,7 +344,20 @@ export default function LuminairesPage() {
           onChange={handleYearRangeChange}
           label="Chronologie"
         />
-        {/* CORRECTION 1B: Suppression complète des messages de statut du slider */}
+        {sliderActive && (
+          <div className="mt-2 text-sm text-orange-600">
+            ⚠️ Filtre actif: {yearRange[0]} - {yearRange[1]}
+            <button
+              onClick={() => {
+                setYearRange([yearBounds.min, yearBounds.max])
+                setSliderActive(false)
+              }}
+              className="ml-2 underline hover:no-underline"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Grille des luminaires */}
