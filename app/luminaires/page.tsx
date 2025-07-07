@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { GalleryGrid } from "@/components/GalleryGrid"
 import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
@@ -32,6 +32,16 @@ export default function LuminairesPage() {
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
 
+  // Ref pour accéder à yearRange dans loadLuminaires sans dépendance
+  const yearRangeRef = useRef(yearRange)
+  const sliderModifiedRef = useRef(sliderModified)
+
+  // Mettre à jour les refs à chaque rendu
+  useEffect(() => {
+    yearRangeRef.current = yearRange
+    sliderModifiedRef.current = sliderModified
+  })
+
   const { userData } = useAuth()
   const isAdmin = userData?.role === "admin"
 
@@ -48,7 +58,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour charger les luminaires
+  // Fonction pour charger les luminaires - yearRange retiré des dépendances
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -69,9 +79,9 @@ export default function LuminairesPage() {
         })
 
         // Appliquer le filtre UNIQUEMENT si le slider a été modifié
-        if (sliderModified) {
-          params.append("yearMin", yearRange[0].toString())
-          params.append("yearMax", yearRange[1].toString())
+        if (sliderModifiedRef.current) {
+          params.append("yearMin", yearRangeRef.current[0].toString())
+          params.append("yearMax", yearRangeRef.current[1].toString())
         }
 
         const response = await fetch(`/api/luminaires?${params}`)
@@ -99,7 +109,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange],
+    [searchTerm, selectedDesigner, sortField, sortDirection], // yearRange et sliderModified retirés
   )
 
   // Charger les données globales au montage
@@ -107,11 +117,11 @@ export default function LuminairesPage() {
     loadAllLuminaires()
   }, [loadAllLuminaires])
 
-  // Charger les luminaires au montage et lors des changements de filtres
+  // Charger les luminaires au montage et lors des changements de filtres - yearRange retiré des dépendances
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified, yearRange])
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified]) // yearRange retiré
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -219,14 +229,14 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années SANS activer le slider
+  // Initialiser la plage d'années SANS activer le slider - ce useEffect reste inchangé
   useEffect(() => {
     if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
   }, [yearBounds, allLuminaires.length, yearRange])
 
-  // 1. La fonction qui gère le changement doit mettre à jour l'état et indiquer que le filtre est actif.
+  // La fonction qui gère le changement doit mettre à jour l'état et indiquer que le filtre est actif.
   const handleYearRangeChange = (newRange: number[]) => {
     console.log(`✅ Filtre appliqué par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
@@ -336,7 +346,6 @@ export default function LuminairesPage() {
 
       {/* Filtres - Deuxième ligne : Slider chronologique */}
       <div className="mb-8">
-        {/* 2. L'appel au composant doit utiliser la prop "onValueCommit" */}
         <RangeSlider
           min={yearBounds.min}
           max={yearBounds.max}
