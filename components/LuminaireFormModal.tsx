@@ -24,10 +24,10 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     nom: "",
     designer: "",
     annee: "",
-    periode: "", // Peut être vide
+    periode: "",
     description: "",
     collaboration: "",
-    signe: "Non spécifié",
+    signe: "",
     editeur: "",
     dimensions: "",
     materiaux: [] as string[],
@@ -113,7 +113,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       periode: "",
       description: "",
       collaboration: "",
-      signe: "Non spécifié",
+      signe: "",
       editeur: "",
       dimensions: "",
       materiaux: [],
@@ -165,7 +165,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         console.log("📸 Réponse upload images:", imageData)
 
         if (imageData.success) {
-          uploadedImages = imageData.filenames
+          uploadedImages = imageData.filenames || []
           console.log("✅ Images uploadées:", uploadedImages)
         } else {
           throw new Error(`Erreur lors de l'upload des images: ${imageData.error}`)
@@ -177,7 +177,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       if (designerImage) {
         console.log("👤 Upload de l'image designer...")
         const designerFormData = new FormData()
-        designerFormData.append("image", designerImage)
+        designerFormData.append("images", designerImage)
         designerFormData.append("designer", formData.designer)
 
         const designerImageResponse = await fetch("/api/upload/images", {
@@ -188,19 +188,19 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         const designerImageData = await designerImageResponse.json()
         console.log("👤 Réponse upload image designer:", designerImageData)
 
-        if (designerImageData.success && designerImageData.filenames.length > 0) {
+        if (designerImageData.success && designerImageData.filenames && designerImageData.filenames.length > 0) {
           designerImageFilename = designerImageData.filenames[0]
           console.log("✅ Image designer uploadée:", designerImageFilename)
         }
       }
 
-      // Préparer les données du luminaire
+      // Préparer les données du luminaire avec TOUS les mappings nécessaires pour l'export CSV
       const luminaireData = {
         // Champs principaux
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
         annee: formData.annee ? Number.parseInt(formData.annee) : null,
-        periode: formData.periode.trim(), // Peut être vide
+        periode: formData.periode.trim(),
         description: formData.description.trim(),
         collaboration: formData.collaboration.trim(),
         signe: formData.signe,
@@ -215,14 +215,26 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         filename: uploadedImages[0] || "",
         designerImageFilename: designerImageFilename,
 
-        // Champs CSV compatibles pour l'export
+        // MAPPINGS COMPLETS POUR L'EXPORT CSV - CORRECTION PRINCIPALE
         "Nom luminaire": formData.nom.trim(),
         "Artiste / Dates": formData.designer.trim(),
         Année: formData.annee || "",
-        Spécialité: formData.periode.trim(), // Peut être vide
-        "Collaboration / Œuvre": formData.collaboration.trim(),
+        Editeur: formData.editeur.trim(),
+        Spécialité: formData.periode.trim(), // CORRECTION: Mapping correct pour Spécialité
+        "Collaboration / Œuvre": formData.collaboration.trim(), // CORRECTION: Mapping correct pour Collaboration / Œuvre
+        Description: formData.description.trim(),
         Signé: formData.signe,
+        Dimensions: formData.dimensions.trim(),
+        Matériaux: formData.materiaux.join(", "),
+        Estimation: formData.estimation.trim(),
+        Prix: formData.estimation.trim(),
+        "Image luminaire": uploadedImages.join(", "),
+        "Image designer": designerImageFilename,
         "Nom du fichier": uploadedImages[0] || "",
+
+        // Champs de compatibilité supplémentaires
+        specialite: formData.periode.trim(),
+        oeuvre: formData.collaboration.trim(),
       }
 
       console.log("💾 Données à sauvegarder:", luminaireData)
@@ -292,12 +304,21 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
 
             <div>
               <Label htmlFor="periode">Période/Spécialité</Label>
-              <Input
-                id="periode"
-                value={formData.periode}
-                onChange={(e) => handleInputChange("periode", e.target.value)}
-                placeholder="Période ou spécialité (optionnel)"
-              />
+              <Select value={formData.periode} onValueChange={(value) => handleInputChange("periode", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une période" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Art Déco">Art Déco</SelectItem>
+                  <SelectItem value="Bauhaus">Bauhaus</SelectItem>
+                  <SelectItem value="Mid-Century Modern">Mid-Century Modern</SelectItem>
+                  <SelectItem value="Contemporain">Contemporain</SelectItem>
+                  <SelectItem value="Industriel">Industriel</SelectItem>
+                  <SelectItem value="Scandinave">Scandinave</SelectItem>
+                  <SelectItem value="Vintage">Vintage</SelectItem>
+                  <SelectItem value="Autre">Autre</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -335,7 +356,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                   <SelectValue placeholder="Le luminaire est-il signé ?" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Non spécifié">Non spécifié</SelectItem>
                   <SelectItem value="Oui">Oui</SelectItem>
                   <SelectItem value="Non">Non</SelectItem>
                   <SelectItem value="Inconnu">Inconnu</SelectItem>

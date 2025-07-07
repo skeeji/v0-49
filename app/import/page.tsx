@@ -2,736 +2,1135 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { toast } from "sonner"
 import {
-  Upload,
-  FileText,
-  ImageIcon,
-  Download,
   CheckCircle,
-  AlertCircle,
-  Trash2,
-  RefreshCw,
-  Database,
+  XCircle,
+  Upload,
   Users,
-  Lightbulb,
+  ImageIcon,
+  Video,
+  FileImage,
+  Download,
+  Trash2,
+  Clock,
   Calendar,
+  Archive,
 } from "lucide-react"
-import * as XLSX from "xlsx"
+import { useToast } from "@/hooks/use-toast"
+import { RoleGuard } from "@/components/RoleGuard"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-interface ImportStats {
-  totalLuminaires: number
-  totalDesigners: number
-  totalImages: number
-  lastImport: string | null
+interface ImportResult {
+  success: boolean
+  message: string
+  imported?: number
+  processed?: number
+  uploaded?: number
+  associated?: number
+  remaining?: number
+  errors?: string[]
 }
 
-interface CSVRow {
-  [key: string]: string
-}
+const periods = [
+  "Moyen-Age",
+  "XVIe siècle",
+  "XVIIe siècle",
+  "XVIIIe siècle",
+  "XIXe siècle",
+  "Art Nouveau",
+  "Art Déco",
+  "1940 - 1949",
+  "1950 - 1959",
+  "1960 - 1969",
+  "1970 - 1979",
+  "1980 - 1989",
+  "1990 - 1999",
+  "Contemporain",
+]
 
 export default function ImportPage() {
-  const [csvFile, setCsvFile] = useState<File | null>(null)
-  const [imageFiles, setImageFiles] = useState<FileList | null>(null)
-  const [designerImageFiles, setDesignerImageFiles] = useState<FileList | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadResults, setUploadResults] = useState<any>(null)
-  const [stats, setStats] = useState<ImportStats>({
-    totalLuminaires: 0,
-    totalDesigners: 0,
-    totalImages: 0,
-    lastImport: null,
-  })
-  const [csvPreview, setCsvPreview] = useState<CSVRow[]>([])
-  const [csvHeaders, setCsvHeaders] = useState<string[]>([])
-  const [isExporting, setIsExporting] = useState(false)
+  const [currentStep, setCurrentStep] = useState("")
+  const [results, setResults] = useState<{
+    csv?: ImportResult
+    designers?: ImportResult
+    images?: ImportResult[]
+    video?: ImportResult
+    logo?: ImportResult
+    reset?: ImportResult
+    periodImages?: { [key: string]: ImportResult }
+  }>({})
+  const [exportingCSV, setExportingCSV] = useState(false)
+  const [exportingImages, setExportingImages] = useState(false)
+  const [selectedPeriod, setSelectedPeriod] = useState("")
 
-  const csvInputRef = useRef<HTMLInputElement>(null)
-  const imageInputRef = useRef<HTMLInputElement>(null)
-  const designerImageInputRef = useRef<HTMLInputElement>(null)
+  const csvFileRef = useRef<HTMLInputElement>(null)
+  const designersFileRef = useRef<HTMLInputElement>(null)
+  const imagesFileRef = useRef<HTMLInputElement>(null)
+  const videoFileRef = useRef<HTMLInputElement>(null)
+  const logoFileRef = useRef<HTMLInputElement>(null)
+  const periodImageFileRef = useRef<HTMLInputElement>(null)
 
-  // Charger les statistiques au montage - SEULE CORRECTION: useEffect au lieu de useState
-  useEffect(() => {
-    loadStats()
-  }, [])
+  const { toast } = useToast()
 
-  const loadStats = async () => {
-    try {
-      const response = await fetch("/api/luminaires?limit=1")
-      const data = await response.json()
-      if (data.success) {
-        setStats((prev) => ({
-          ...prev,
-          totalLuminaires: data.pagination.total,
-        }))
-      }
-    } catch (error) {
-      console.error("Erreur chargement stats:", error)
-    }
-  }
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
 
-  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setCsvFile(file)
-      previewCsv(file)
-    }
-  }
+    console.log(`📁 Fichier CSV sélectionné: ${file.name}, taille: ${file.size} bytes`)
 
-  const previewCsv = async (file: File) => {
-    try {
-      const text = await file.text()
-      const lines = text.split("\n").filter((line) => line.trim())
-
-      if (lines.length === 0) return
-
-      // Détecter le séparateur
-      const firstLine = lines[0]
-      const separators = [",", ";", "\t"]
-      let separator = ","
-
-      for (const sep of separators) {
-        if (firstLine.split(sep).length > 1) {
-          separator = sep
-          break
-        }
-      }
-
-      // Parser les en-têtes
-      const headers = lines[0].split(separator).map((h) => h.trim().replace(/"/g, ""))
-      setCsvHeaders(headers)
-
-      // Parser quelques lignes pour l'aperçu
-      const preview = lines.slice(1, 6).map((line) => {
-        const values = line.split(separator).map((v) => v.trim().replace(/"/g, ""))
-        const row: CSVRow = {}
-        headers.forEach((header, index) => {
-          row[header] = values[index] || ""
-        })
-        return row
-      })
-
-      setCsvPreview(preview)
-    } catch (error) {
-      console.error("Erreur preview CSV:", error)
-      toast.error("Erreur lors de la lecture du fichier CSV")
-    }
-  }
-
-  const handleImageFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImageFiles(e.target.files)
-  }
-
-  const handleDesignerImageFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDesignerImageFiles(e.target.files)
-  }
-
-  const handleImport = async () => {
-    if (!csvFile) {
-      toast.error("Veuillez sélectionner un fichier CSV")
-      return
-    }
+    const estimatedLines = Math.floor(file.size / 130)
+    console.log(`📊 Estimation: ~${estimatedLines} lignes dans le CSV`)
 
     setIsUploading(true)
-    setUploadProgress(0)
-    setUploadResults(null)
+    setCurrentStep("Import du CSV luminaires...")
+    setUploadProgress(10)
 
     try {
-      // 1. Upload du CSV
-      console.log("📤 Upload du fichier CSV...")
-      const csvFormData = new FormData()
-      csvFormData.append("csv", csvFile)
+      console.log("📥 Début de l'import CSV:", file.name)
 
-      const csvResponse = await fetch("/api/upload/csv", {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/upload/csv", {
         method: "POST",
-        body: csvFormData,
+        body: formData,
       })
 
-      const csvResult = await csvResponse.json()
-      console.log("📊 Résultat upload CSV:", csvResult)
+      const result = await response.json()
+      console.log("📊 Réponse API CSV:", result)
 
-      if (!csvResult.success) {
-        throw new Error(csvResult.error || "Erreur lors de l'upload du CSV")
-      }
+      setResults((prev) => ({ ...prev, csv: result }))
 
-      setUploadProgress(30)
-
-      // 2. Upload des images de luminaires
-      let imageResults = null
-      if (imageFiles && imageFiles.length > 0) {
-        console.log(`📸 Upload de ${imageFiles.length} images de luminaires...`)
-        const imageFormData = new FormData()
-        Array.from(imageFiles).forEach((file) => {
-          imageFormData.append("images", file)
+      if (result.success) {
+        toast({
+          title: "✅ CSV importé",
+          description: result.message,
         })
-
-        const imageResponse = await fetch("/api/upload/images", {
-          method: "POST",
-          body: imageFormData,
+      } else {
+        toast({
+          title: "❌ Erreur CSV",
+          description: result.error,
+          variant: "destructive",
         })
-
-        imageResults = await imageResponse.json()
-        console.log("📸 Résultat upload images:", imageResults)
       }
-
-      setUploadProgress(60)
-
-      // 3. Upload des images de designers
-      let designerImageResults = null
-      if (designerImageFiles && designerImageFiles.length > 0) {
-        console.log(`👤 Upload de ${designerImageFiles.length} images de designers...`)
-        const designerFormData = new FormData()
-        Array.from(designerImageFiles).forEach((file) => {
-          designerFormData.append("images", file)
-        })
-
-        const designerResponse = await fetch("/api/upload/images", {
-          method: "POST",
-          body: designerFormData,
-        })
-
-        designerImageResults = await designerResponse.json()
-        console.log("👤 Résultat upload images designers:", designerImageResults)
-      }
-
-      setUploadProgress(100)
-
-      // Résultats finaux
-      const finalResults = {
-        csv: csvResult,
-        images: imageResults,
-        designerImages: designerImageResults,
-        totalProcessed: csvResult.imported || 0,
-        totalImages: (imageResults?.uploaded || 0) + (designerImageResults?.uploaded || 0),
-      }
-
-      setUploadResults(finalResults)
-      toast.success(`Import terminé ! ${finalResults.totalProcessed} luminaires importés`)
-
-      // Recharger les stats
-      await loadStats()
-
-      // Reset des fichiers
-      setCsvFile(null)
-      setImageFiles(null)
-      setDesignerImageFiles(null)
-      setCsvPreview([])
-      setCsvHeaders([])
-      if (csvInputRef.current) csvInputRef.current.value = ""
-      if (imageInputRef.current) imageInputRef.current.value = ""
-      if (designerImageInputRef.current) designerImageInputRef.current.value = ""
     } catch (error: any) {
-      console.error("❌ Erreur import:", error)
-      toast.error(`Erreur lors de l'import: ${error.message}`)
-      setUploadResults({
-        error: error.message,
-        csv: null,
-        images: null,
-        designerImages: null,
+      console.error("❌ Erreur critique lors de l'import CSV:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'importer le CSV",
+        variant: "destructive",
       })
     } finally {
       setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+    }
+  }
+
+  const handleDesignersUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    console.log(`📁 Fichier CSV designers sélectionné: ${file.name}, taille: ${file.size} bytes`)
+
+    const estimatedLines = Math.floor(file.size / 44)
+    console.log(`📊 Estimation: ~${estimatedLines} lignes dans le CSV`)
+
+    setIsUploading(true)
+    setCurrentStep("Import des designers...")
+    setUploadProgress(10)
+
+    try {
+      console.log("👨‍🎨 Début de l'import designers:", file.name)
+
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/upload/csv-designers", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      console.log("📊 Réponse API designers:", result)
+
+      setResults((prev) => ({ ...prev, designers: result }))
+
+      if (result.success) {
+        toast({
+          title: "✅ Designers importés",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur designers",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur critique lors de l'import designers:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'importer les designers",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+    }
+  }
+
+  const handleImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    console.log(`🖼️ Début de l'upload images: ${files.length} fichiers`)
+
+    setIsUploading(true)
+    setCurrentStep("Upload des images...")
+    setUploadProgress(5)
+
+    const allResults: ImportResult[] = []
+
+    try {
+      // Traiter par petits batches de 50 fichiers
+      const BATCH_SIZE = 50
+      let totalUploaded = 0
+      let totalAssociated = 0
+
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE)
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1
+        const totalBatches = Math.ceil(files.length / BATCH_SIZE)
+
+        setCurrentStep(`Upload batch ${batchNumber}/${totalBatches} (${batch.length} images)`)
+        setUploadProgress(5 + (i / files.length) * 90)
+
+        console.log(`📦 Batch ${batchNumber}/${totalBatches}: ${batch.length} fichiers`)
+
+        const formData = new FormData()
+        batch.forEach((file) => {
+          formData.append("images", file)
+        })
+
+        try {
+          const response = await fetch("/api/upload/images", {
+            method: "POST",
+            body: formData,
+          })
+
+          const result = await response.json()
+          allResults.push(result)
+
+          if (result.success) {
+            totalUploaded += result.uploaded || 0
+            totalAssociated += result.associated || 0
+            console.log(`✅ Batch ${batchNumber}: ${result.uploaded} uploadées, ${result.associated} associées`)
+          } else {
+            console.error(`❌ Erreur batch ${batchNumber}:`, result.error)
+          }
+
+          // Pause entre les batches
+          if (i + BATCH_SIZE < files.length) {
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+          }
+        } catch (batchError: any) {
+          console.error(`❌ Erreur critique batch ${batchNumber}:`, batchError)
+          allResults.push({
+            success: false,
+            message: `Erreur batch ${batchNumber}: ${batchError.message}`,
+          })
+        }
+      }
+
+      setResults((prev) => ({ ...prev, images: allResults }))
+
+      toast({
+        title: "✅ Upload terminé",
+        description: `${totalUploaded} images uploadées, ${totalAssociated} associées`,
+      })
+    } catch (error: any) {
+      console.error("❌ Erreur critique lors de l'upload images:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'uploader les images",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+    }
+  }
+
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    console.log(`🎥 Fichier vidéo sélectionné: ${file.name}, taille: ${file.size} bytes`)
+
+    setIsUploading(true)
+    setCurrentStep("Upload de la vidéo de fond...")
+    setUploadProgress(10)
+
+    try {
+      console.log("🎥 Début de l'upload vidéo:", file.name)
+
+      const formData = new FormData()
+      formData.append("video", file)
+
+      const response = await fetch("/api/upload/video", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      console.log("📊 Réponse API vidéo:", result)
+
+      setResults((prev) => ({ ...prev, video: result }))
+
+      if (result.success) {
+        toast({
+          title: "✅ Vidéo uploadée",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur vidéo",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur critique lors de l'upload vidéo:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'uploader la vidéo",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+    }
+  }
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    console.log(`🏷️ Fichier logo sélectionné: ${file.name}, taille: ${file.size} bytes`)
+
+    setIsUploading(true)
+    setCurrentStep("Upload du logo...")
+    setUploadProgress(10)
+
+    try {
+      console.log("🏷️ Début de l'upload logo:", file.name)
+
+      const formData = new FormData()
+      formData.append("logo", file)
+
+      const response = await fetch("/api/upload/logo", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      console.log("📊 Réponse API logo:", result)
+
+      setResults((prev) => ({ ...prev, logo: result }))
+
+      if (result.success) {
+        toast({
+          title: "✅ Logo uploadé",
+          description: result.message,
+        })
+      } else {
+        toast({
+          title: "❌ Erreur logo",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur critique lors de l'upload logo:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'uploader le logo",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+    }
+  }
+
+  const handlePeriodImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !selectedPeriod) return
+
+    console.log(`🖼️ Upload image pour période: ${selectedPeriod}`)
+
+    setIsUploading(true)
+    setCurrentStep(`Upload image pour ${selectedPeriod}...`)
+    setUploadProgress(10)
+
+    try {
+      const formData = new FormData()
+      formData.append("image", file)
+      formData.append("periodName", selectedPeriod)
+
+      const response = await fetch("/api/upload/period-images", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      console.log("📊 Réponse API image période:", result)
+
+      setResults((prev) => ({
+        ...prev,
+        periodImages: {
+          ...prev.periodImages,
+          [selectedPeriod]: result,
+        },
+      }))
+
+      if (result.success) {
+        toast({
+          title: "✅ Image période uploadée",
+          description: result.message,
+        })
+        setSelectedPeriod("")
+      } else {
+        toast({
+          title: "❌ Erreur image période",
+          description: result.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur critique upload image période:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'uploader l'image",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
     }
   }
 
   const exportAllLuminaires = async () => {
-    setIsExporting(true)
+    setExportingCSV(true)
     try {
-      console.log("📊 Début de l'export de tous les luminaires...")
+      console.log("📊 Export de tous les luminaires...")
 
-      // Récupérer TOUS les luminaires
-      const response = await fetch("/api/luminaires?limit=9999")
-      const data = await response.json()
+      // Récupérer tous les luminaires avec les informations des designers
+      const luminairesResponse = await fetch("/api/luminaires?limit=10000")
+      const luminairesData = await luminairesResponse.json()
 
-      if (!data.success) {
-        throw new Error("Erreur lors de la récupération des luminaires")
+      const designersResponse = await fetch("/api/designers-data")
+      const designersData = await designersResponse.json()
+
+      if (luminairesData.success && designersData.success) {
+        // Créer un map des designers pour récupérer rapidement l'image
+        const designersMap = new Map()
+        designersData.designers.forEach((designer: any) => {
+          designersMap.set(designer.Nom || designer.nom, designer)
+        })
+
+        console.log("🔍 Analyse des luminaires pour l'export...")
+
+        // Préparer les données pour l'export avec la logique de secours
+        const csvData = luminairesData.luminaires.map((luminaire: any, index: number) => {
+          console.log(`🔍 Luminaire ${index + 1}:`, {
+            nom: luminaire.nom,
+            toutesLesCles: Object.keys(luminaire),
+          })
+
+          // Récupérer l'image du designer
+          const designerName = luminaire.designer || luminaire["Artiste / Dates"] || ""
+          const designer = designersMap.get(designerName)
+          const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
+
+          // LOGIQUE DE SECOURS POUR SPÉCIALITÉ
+          // 1. Vérifier d'abord la clé "periode" (formulaire)
+          // 2. Si absente ou vide, utiliser "Spécialité" (ancien import)
+          let specialite = ""
+          if (luminaire.periode && luminaire.periode !== "") {
+            specialite = String(luminaire.periode).trim()
+            console.log(`  📋 Spécialité depuis "periode": ${specialite}`)
+          } else if (luminaire["Spécialité"] && luminaire["Spécialité"] !== "") {
+            specialite = String(luminaire["Spécialité"]).trim()
+            console.log(`  📋 Spécialité depuis "Spécialité": ${specialite}`)
+          }
+
+          // LOGIQUE DE SECOURS POUR COLLABORATION / ŒUVRE
+          // 1. Vérifier d'abord la clé "collaboration" (formulaire)
+          // 2. Si absente ou vide, utiliser "Collaboration / Œuvre" (ancien import)
+          let collaboration = ""
+          if (luminaire.collaboration && luminaire.collaboration !== "") {
+            collaboration = String(luminaire.collaboration).trim()
+            console.log(`  📋 Collaboration depuis "collaboration": ${collaboration}`)
+          } else if (luminaire["Collaboration / Œuvre"] && luminaire["Collaboration / Œuvre"] !== "") {
+            collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
+            console.log(`  📋 Collaboration depuis "Collaboration / Œuvre": ${collaboration}`)
+          }
+
+          console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {
+            nom: luminaire.nom,
+            specialite: specialite,
+            collaboration: collaboration,
+            designerImageFilename: designerImageFilename,
+          })
+
+          return {
+            Signé: luminaire.signe || luminaire["Signé"] || "",
+            "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
+            "Artiste / Dates": designerName,
+            Année: luminaire.annee || luminaire["Année"] || "",
+            Editeur: luminaire.editeur || luminaire["Editeur"] || "",
+            Spécialité: specialite,
+            "Collaboration / Œuvre": collaboration,
+            Description: luminaire.description || luminaire["Description"] || "",
+            Matériaux: Array.isArray(luminaire.materiaux)
+              ? luminaire.materiaux.join("; ")
+              : luminaire.materiaux || luminaire["Matériaux"] || "",
+            Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
+            Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
+            "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
+            "Image designer (imagedesigner)": designerImageFilename,
+          }
+        })
+
+        // Créer le contenu CSV avec l'ordre exact des colonnes
+        const headers = [
+          "Signé",
+          "Nom luminaire",
+          "Artiste / Dates",
+          "Année",
+          "Editeur",
+          "Spécialité",
+          "Collaboration / Œuvre",
+          "Description",
+          "Matériaux",
+          "Dimensions",
+          "Estimation",
+          "Image luminaire (Nom du fichier)",
+          "Image designer (imagedesigner)",
+        ]
+
+        const csvContent = [
+          headers.join(","),
+          ...csvData.map((row) =>
+            headers
+              .map((header) => {
+                const value = row[header] || ""
+                // Échapper les guillemets et entourer de guillemets si nécessaire
+                const escapedValue = String(value).replace(/"/g, '""')
+                return `"${escapedValue}"`
+              })
+              .join(","),
+          ),
+        ].join("\n")
+
+        // Vérification finale des données critiques
+        console.log("🔍 Vérification finale des colonnes critiques:")
+        const specialiteCount = csvData.filter((row) => row["Spécialité"] && row["Spécialité"] !== "").length
+        const collaborationCount = csvData.filter(
+          (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"] !== "",
+        ).length
+
+        console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
+        console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
+
+        // Afficher quelques exemples pour debug
+        console.log("📋 Exemples de données exportées:")
+        csvData.slice(0, 3).forEach((row, i) => {
+          console.log(`Exemple ${i + 1}:`, {
+            nom: row["Nom luminaire"],
+            specialite: row["Spécialité"],
+            collaboration: row["Collaboration / Œuvre"],
+          })
+        })
+
+        // Créer et télécharger le fichier
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+        const link = document.createElement("a")
+        const url = URL.createObjectURL(blob)
+        link.setAttribute("href", url)
+        link.setAttribute("download", `luminaires_export_${new Date().toISOString().split("T")[0]}.csv`)
+        link.style.visibility = "hidden"
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+
+        console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
+        toast({
+          title: "✅ Export terminé",
+          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations`,
+        })
       }
+    } catch (error) {
+      console.error("❌ Erreur lors de l'export:", error)
+      toast({
+        title: "❌ Erreur export",
+        description: "Erreur lors de l'export CSV",
+        variant: "destructive",
+      })
+    } finally {
+      setExportingCSV(false)
+    }
+  }
 
-      console.log(`📋 ${data.luminaires.length} luminaires récupérés pour l'export`)
+  const exportAllImages = async () => {
+    setExportingImages(true)
+    try {
+      console.log("📦 Export de toutes les images...")
 
-      // Préparer les données pour l'export avec logique de secours renforcée
-      const exportData = data.luminaires.map((luminaire: any, index: number) => {
-        console.log(`🔄 Traitement luminaire ${index + 1}/${data.luminaires.length}: ${luminaire.nom || "Sans nom"}`)
-
-        // LOGIQUE DE SECOURS POUR SPÉCIALITÉ
-        let specialite = ""
-        if (luminaire.periode && String(luminaire.periode).trim() !== "") {
-          specialite = String(luminaire.periode).trim()
-          console.log(`  📋 Spécialité depuis "periode": ${specialite}`)
-        } else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
-          specialite = String(luminaire["Spécialité"]).trim()
-          console.log(`  📋 Spécialité depuis "Spécialité": ${specialite}`)
-        } else {
-          console.log(`  ⚠️ Aucune spécialité trouvée pour ${luminaire.nom}`)
-        }
-
-        // LOGIQUE DE SECOURS POUR COLLABORATION / ŒUVRE
-        let collaboration = ""
-        if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
-          collaboration = String(luminaire.collaboration).trim()
-          console.log(`  📋 Collaboration depuis "collaboration": ${collaboration}`)
-        } else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
-          collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
-          console.log(`  📋 Collaboration depuis "Collaboration / Œuvre": ${collaboration}`)
-        } else {
-          console.log(`  ⚠️ Aucune collaboration trouvée pour ${luminaire.nom}`)
-        }
-
-        return {
-          "Nom luminaire": String(luminaire.nom || luminaire["Nom luminaire"] || ""),
-          "Artiste / Dates": String(luminaire.designer || luminaire["Artiste / Dates"] || ""),
-          Année: String(luminaire.annee || luminaire["Année"] || ""),
-          Spécialité: specialite, // Utilise la logique de secours
-          "Collaboration / Œuvre": collaboration, // Utilise la logique de secours
-          Signé: String(luminaire.signe || luminaire["Signé"] || ""),
-          "Nom du fichier": String(luminaire.filename || luminaire["Nom du fichier"] || ""),
-          Description: String(luminaire.description || ""),
-          Editeur: String(luminaire.editeur || ""),
-          Dimensions: String(luminaire.dimensions || ""),
-          Estimation: String(luminaire.estimation || ""),
-          Matériaux: Array.isArray(luminaire.materiaux)
-            ? luminaire.materiaux.join(", ")
-            : String(luminaire.materiaux || ""),
-          Couleurs: Array.isArray(luminaire.couleurs)
-            ? luminaire.couleurs.join(", ")
-            : String(luminaire.couleurs || ""),
-        }
+      const response = await fetch("/api/export/images", {
+        method: "GET",
       })
 
-      console.log("📊 Exemple de données exportées (premier luminaire):", exportData[0])
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("❌ Erreur réponse serveur:", errorText)
+        throw new Error(`Erreur serveur: ${response.status} - ${errorText}`)
+      }
 
-      // Créer le fichier Excel
-      const worksheet = XLSX.utils.json_to_sheet(exportData)
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Luminaires")
+      const blob = await response.blob()
+      console.log(`📦 Blob reçu: ${blob.size} bytes, type: ${blob.type}`)
 
-      // Télécharger le fichier
-      const today = new Date().toISOString().split("T")[0]
-      const filename = `luminaires_export_${today}.xlsx`
-      XLSX.writeFile(workbook, filename)
+      if (blob.size === 0) {
+        throw new Error("Le fichier ZIP reçu est vide")
+      }
 
-      console.log(`✅ Export terminé: ${filename}`)
-      toast.success(`Export terminé ! ${exportData.length} luminaires exportés`)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `images_export_${new Date().toISOString().split("T")[0]}.zip`
+      link.style.display = "none"
+      document.body.appendChild(link)
+
+      console.log("📥 Déclenchement du téléchargement...")
+      link.click()
+
+      // Nettoyage
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "✅ Export terminé",
+        description: "Toutes les images ont été exportées",
+      })
     } catch (error: any) {
-      console.error("❌ Erreur export:", error)
-      toast.error(`Erreur lors de l'export: ${error.message}`)
+      console.error("❌ Erreur lors de l'export des images:", error)
+      toast({
+        title: "❌ Erreur export",
+        description: `Erreur lors de l'export des images: ${error.message}`,
+        variant: "destructive",
+      })
     } finally {
-      setIsExporting(false)
+      setExportingImages(false)
     }
   }
 
   const resetDatabase = async () => {
-    if (!confirm("⚠️ ATTENTION: Cette action va supprimer TOUTES les données. Êtes-vous sûr ?")) {
+    if (
+      !confirm(
+        "Êtes-vous sûr de vouloir vider toute la base de données ? Cette action supprimera TOUS les luminaires, designers, images, vidéos et logos.",
+      )
+    ) {
       return
     }
 
+    setIsUploading(true)
+    setCurrentStep("Suppression de la base de données...")
+    setUploadProgress(50)
+
     try {
-      const response = await fetch("/api/reset", { method: "POST" })
+      const response = await fetch("/api/reset", {
+        method: "POST",
+      })
+
       const result = await response.json()
+      console.log("🗑️ Base de données vidée:", result)
+
+      setResults((prev) => ({ ...prev, reset: result }))
 
       if (result.success) {
-        toast.success("Base de données réinitialisée avec succès")
-        await loadStats()
-        setUploadResults(null)
+        toast({
+          title: "✅ Base vidée",
+          description: result.message,
+        })
       } else {
-        throw new Error(result.error)
+        toast({
+          title: "❌ Erreur reset",
+          description: result.error,
+          variant: "destructive",
+        })
       }
     } catch (error: any) {
-      console.error("❌ Erreur reset:", error)
-      toast.error(`Erreur lors de la réinitialisation: ${error.message}`)
+      console.error("❌ Erreur lors du reset:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible de vider la base",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
     }
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Import de données</h1>
-          <p className="text-gray-600">Importez vos luminaires et images en masse depuis un fichier CSV</p>
-        </div>
+    <RoleGuard requiredRole="admin">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-serif text-gray-900 mb-4">Import des Données</h1>
+            <p className="text-gray-600">Importez vos fichiers CSV et images pour alimenter la galerie</p>
+          </div>
 
-        {/* Statistiques */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Lightbulb className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Luminaires</p>
-                  <p className="text-2xl font-bold">{stats.totalLuminaires}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Users className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Designers</p>
-                  <p className="text-2xl font-bold">{stats.totalDesigners}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <ImageIcon className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Images</p>
-                  <p className="text-2xl font-bold">{stats.totalImages}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Calendar className="w-5 h-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Dernier import</p>
-                  <p className="text-sm font-medium">{stats.lastImport || "Jamais"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="import" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="import">Import</TabsTrigger>
-            <TabsTrigger value="export">Export</TabsTrigger>
-            <TabsTrigger value="manage">Gestion</TabsTrigger>
-          </TabsList>
-
-          {/* Onglet Import */}
-          <TabsContent value="import" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Upload CSV */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
-                    Fichier CSV
-                  </CardTitle>
-                  <CardDescription>Fichier contenant les données des luminaires (obligatoire)</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="csv-file">Sélectionner le fichier CSV</Label>
-                    <Input
-                      ref={csvInputRef}
-                      id="csv-file"
-                      type="file"
-                      accept=".csv"
-                      onChange={handleCsvFileChange}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  {csvFile && (
-                    <Alert>
-                      <CheckCircle className="w-4 h-4" />
-                      <AlertDescription>
-                        Fichier sélectionné: <strong>{csvFile.name}</strong>
-                        <br />
-                        {csvHeaders.length > 0 && (
-                          <span className="text-sm text-gray-600">
-                            {csvHeaders.length} colonnes détectées, {csvPreview.length} lignes d'aperçu
-                          </span>
-                        )}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Upload Images */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5" />
-                    Images des luminaires
-                  </CardTitle>
-                  <CardDescription>Images des luminaires (optionnel)</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="image-files">Sélectionner les images</Label>
-                    <Input
-                      ref={imageInputRef}
-                      id="image-files"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageFilesChange}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  {imageFiles && imageFiles.length > 0 && (
-                    <Alert>
-                      <CheckCircle className="w-4 h-4" />
-                      <AlertDescription>
-                        <strong>{imageFiles.length}</strong> image(s) sélectionnée(s)
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Upload Images Designers */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Images des designers
-                  </CardTitle>
-                  <CardDescription>Photos des designers/artistes (optionnel)</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="designer-image-files">Sélectionner les images</Label>
-                    <Input
-                      ref={designerImageInputRef}
-                      id="designer-image-files"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleDesignerImageFilesChange}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  {designerImageFiles && designerImageFiles.length > 0 && (
-                    <Alert>
-                      <CheckCircle className="w-4 h-4" />
-                      <AlertDescription>
-                        <strong>{designerImageFiles.length}</strong> image(s) de designer(s) sélectionnée(s)
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Bouton d'import */}
-              <Card>
-                <CardContent className="p-6">
-                  <Button
-                    onClick={handleImport}
-                    disabled={!csvFile || isUploading}
-                    className="w-full"
-                    style={{ backgroundColor: "#f2d895", color: "#000" }}
-                  >
-                    {isUploading ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Import en cours...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Lancer l'import
-                      </>
-                    )}
-                  </Button>
-
-                  {isUploading && (
-                    <div className="mt-4">
-                      <Progress value={uploadProgress} className="w-full" />
-                      <p className="text-sm text-gray-600 mt-2 text-center">{uploadProgress}%</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Aperçu CSV */}
-            {csvPreview.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Aperçu du fichier CSV</CardTitle>
-                  <CardDescription>
-                    Premières lignes du fichier ({csvPreview.length} sur {csvHeaders.length} colonnes)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-64 w-full">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {csvHeaders.map((header, index) => (
-                            <TableHead key={index} className="whitespace-nowrap">
-                              {header}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {csvPreview.map((row, rowIndex) => (
-                          <TableRow key={rowIndex}>
-                            {csvHeaders.map((header, colIndex) => (
-                              <TableCell key={colIndex} className="whitespace-nowrap max-w-32 truncate">
-                                {row[header] || ""}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Résultats d'import */}
-            {uploadResults && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    {uploadResults.error ? (
-                      <AlertCircle className="w-5 h-5 text-red-500" />
-                    ) : (
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                    )}
-                    Résultats de l'import
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {uploadResults.error ? (
-                    <Alert variant="destructive">
-                      <AlertCircle className="w-4 h-4" />
-                      <AlertDescription>{uploadResults.error}</AlertDescription>
-                    </Alert>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="text-center p-4 bg-green-50 rounded-lg">
-                        <p className="text-2xl font-bold text-green-600">{uploadResults.totalProcessed}</p>
-                        <p className="text-sm text-green-700">Luminaires importés</p>
-                      </div>
-                      <div className="text-center p-4 bg-blue-50 rounded-lg">
-                        <p className="text-2xl font-bold text-blue-600">{uploadResults.totalImages}</p>
-                        <p className="text-sm text-blue-700">Images uploadées</p>
-                      </div>
-                      <div className="text-center p-4 bg-purple-50 rounded-lg">
-                        <p className="text-2xl font-bold text-purple-600">
-                          {uploadResults.designerImages?.uploaded || 0}
-                        </p>
-                        <p className="text-sm text-purple-700">Images designers</p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Onglet Export */}
-          <TabsContent value="export" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Download className="w-5 h-5" />
-                    Export Excel
-                  </CardTitle>
-                  <CardDescription>Exporter tous les luminaires au format Excel (.xlsx)</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    onClick={exportAllLuminaires}
-                    disabled={isExporting}
-                    className="w-full bg-transparent"
-                    variant="outline"
-                  >
-                    {isExporting ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Export en cours...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Exporter en Excel
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5" />
-                    Export Images
-                  </CardTitle>
-                  <CardDescription>Télécharger toutes les images dans un fichier ZIP</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    onClick={() => window.open("/api/export/images", "_blank")}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Télécharger les images
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Onglet Gestion */}
-          <TabsContent value="manage" className="space-y-6">
+          {/* Barre de progression globale */}
+          {isUploading && (
             <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-blue-500 animate-spin" />
+                    <span className="text-sm font-medium">{currentStep}</span>
+                  </div>
+                  <Progress value={uploadProgress} className="w-full" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Boutons d'export */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border-blue-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-600">
-                  <Database className="w-5 h-5" />
-                  Zone de danger
-                </CardTitle>
-                <CardDescription>Actions irréversibles sur la base de données</CardDescription>
+                <CardTitle className="text-blue-600">Export des données</CardTitle>
+                <CardDescription>Exportez tous les luminaires avec les informations complètes</CardDescription>
               </CardHeader>
               <CardContent>
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="w-4 h-4" />
-                  <AlertDescription>
-                    <strong>Attention :</strong> Cette action supprimera définitivement toutes les données (luminaires,
-                    designers, images). Cette action est irréversible.
-                  </AlertDescription>
-                </Alert>
-
-                <Button onClick={resetDatabase} variant="destructive" className="w-full">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Réinitialiser la base de données
+                <Button onClick={exportAllLuminaires} disabled={exportingCSV || isUploading} className="w-full">
+                  {exportingCSV ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Export en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Exporter tous les luminaires (CSV)
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+
+            <Card className="border-green-200">
+              <CardHeader>
+                <CardTitle className="text-green-600">Export des images</CardTitle>
+                <CardDescription>Téléchargez toutes les images de la base de données</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={exportAllImages} disabled={exportingImages || isUploading} className="w-full">
+                  {exportingImages ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Export en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="w-4 h-4 mr-2" />
+                      Télécharger toutes les images (ZIP)
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Upload CSV Luminaires */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  CSV Luminaires
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input ref={csvFileRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+                <Button
+                  onClick={() => csvFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner CSV
+                </Button>
+
+                {results.csv && (
+                  <div className="text-sm">
+                    {results.csv.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>{results.csv.imported} luminaires importés</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur d'import</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upload CSV Designers */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  CSV Designers
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input
+                  ref={designersFileRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleDesignersUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => designersFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner CSV
+                </Button>
+
+                {results.designers && (
+                  <div className="text-sm">
+                    {results.designers.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>{results.designers.imported} designers importés</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur d'import</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upload Images */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5" />
+                  Images
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input
+                  ref={imagesFileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImagesUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => imagesFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner Images
+                </Button>
+
+                {results.images && results.images.length > 0 && (
+                  <div className="text-sm space-y-1">
+                    {results.images.map((result, index) => (
+                      <div key={index}>
+                        {result.success ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>
+                              Batch {index + 1}: {result.uploaded} uploadées, {result.associated} associées
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600">
+                            <XCircle className="w-4 h-4" />
+                            <span>Batch {index + 1}: Erreur</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upload Images de Périodes */}
+            <Card className="border-purple-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-purple-600">
+                  <Calendar className="w-5 h-5" />
+                  Images Périodes
+                </CardTitle>
+                <CardDescription>Images illustratives pour la chronologie</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir une période" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periods.map((period) => (
+                      <SelectItem key={period} value={period}>
+                        {period}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <input
+                  ref={periodImageFileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePeriodImageUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => periodImageFileRef.current?.click()}
+                  disabled={isUploading || !selectedPeriod}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Uploader Image
+                </Button>
+
+                {results.periodImages && Object.keys(results.periodImages).length > 0 && (
+                  <div className="text-sm space-y-1">
+                    {Object.entries(results.periodImages).map(([period, result]) => (
+                      <div key={period}>
+                        {result.success ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{period}: Image uploadée</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600">
+                            <XCircle className="w-4 h-4" />
+                            <span>{period}: Erreur</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upload Vidéo */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="w-5 h-5" />
+                  Vidéo de fond
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input
+                  ref={videoFileRef}
+                  type="file"
+                  accept="video/mp4"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => videoFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner Vidéo
+                </Button>
+
+                {results.video && (
+                  <div className="text-sm">
+                    {results.video.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Vidéo uploadée</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur upload vidéo</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upload Logo */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileImage className="w-5 h-5" />
+                  Logo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input ref={logoFileRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                <Button
+                  onClick={() => logoFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner Logo
+                </Button>
+
+                {results.logo && (
+                  <div className="text-sm">
+                    {results.logo.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Logo uploadé</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur upload logo</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Reset Database */}
+            <Card className="border-red-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-600">
+                  <Trash2 className="w-5 h-5" />
+                  Reset Base
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button onClick={resetDatabase} disabled={isUploading} className="w-full" variant="destructive">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Vider la Base
+                </Button>
+
+                {results.reset && (
+                  <div className="text-sm">
+                    {results.reset.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Base vidée</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur reset</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Résultats détaillés */}
+          {(results.csv || results.designers || results.images) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Résultats de l'import</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {results.csv && (
+                    <div>
+                      <h4 className="font-medium">Luminaires CSV</h4>
+                      <p className="text-sm text-gray-600">{results.csv.message}</p>
+                      {results.csv.errors && results.csv.errors.length > 0 && (
+                        <details className="mt-2">
+                          <summary className="text-sm text-red-600 cursor-pointer">
+                            {results.csv.errors.length} erreurs
+                          </summary>
+                          <div className="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
+                            {results.csv.errors.slice(0, 10).map((error, i) => (
+                              <div key={i}>{error}</div>
+                            ))}
+                            {results.csv.errors.length > 10 && (
+                              <div>... et {results.csv.errors.length - 10} autres</div>
+                            )}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
+
+                  {results.designers && (
+                    <div>
+                      <h4 className="font-medium">Designers CSV</h4>
+                      <p className="text-sm text-gray-600">{results.designers.message}</p>
+                    </div>
+                  )}
+
+                  {results.images && (
+                    <div>
+                      <h4 className="font-medium">Images</h4>
+                      <div className="text-sm text-gray-600">
+                        {results.images.reduce((sum, r) => sum + (r.uploaded || 0), 0)} images uploadées au total
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-    </div>
+    </RoleGuard>
   )
 }

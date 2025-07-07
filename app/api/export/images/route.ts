@@ -11,7 +11,7 @@ export async function GET() {
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // PHASE 1: Collecte des informations depuis la base de données avec recherche exhaustive
+    // PHASE 1: Collecte des informations depuis la base de données
     console.log("📊 Phase 1: Collecte des informations depuis la collection luminaires...")
     const luminairesCollection = db.collection("luminaires")
     const allLuminaires = await luminairesCollection.find({}).toArray()
@@ -21,25 +21,25 @@ export async function GET() {
     const designerImages = new Set<string>()
     const luminaireImages = new Set<string>()
 
-    // Liste EXHAUSTIVE des champs potentiels pour les images de designers
+    // Liste exhaustive des champs potentiels pour les images de designers
     const designerImageFields = [
-      "designerImageFilename", // Formulaire standard
-      "Image designer (imagedesigner)", // Import CSV format complet
-      "imagedesigner", // Import CSV format court
-      "Image designer", // Import CSV avec espace
-      "designer_image", // Variante avec underscore
-      "designerImage", // Variante camelCase
-      "imageDesigner", // Variante camelCase inversée
-      "designer-image", // Variante avec tiret
-      "DesignerImage", // Variante PascalCase
-      "IMAGEDESIGNER", // Variante majuscules
+      "designerImageFilename",
+      "Image designer (imagedesigner)",
+      "imagedesigner",
+      "Image designer",
+      "designer_image",
+      "designerImage",
+      "imageDesigner",
+      "designer-image",
+      "DesignerImage",
+      "IMAGEDESIGNER",
     ]
 
-    // Parcourir tous les documents pour remplir les listes avec recherche exhaustive
+    // Parcourir tous les documents pour remplir les listes
     allLuminaires.forEach((luminaire, index) => {
-      console.log(`🔍 Traitement document ${index + 1}/${allLuminaires.length}: ${luminaire.nom || "Sans nom"}`)
+      console.log(`🔍 Traitement document ${index + 1}/${allLuminaires.length}`)
 
-      // RECHERCHE EXHAUSTIVE POUR LES IMAGES DE DESIGNERS
+      // Recherche exhaustive pour les images de designers
       let designerImageFound = false
       for (const fieldName of designerImageFields) {
         const fieldValue = luminaire[fieldName]
@@ -49,18 +49,17 @@ export async function GET() {
             designerImages.add(cleanFilename)
             console.log(`  👤 Designer image trouvée via "${fieldName}": ${cleanFilename}`)
             designerImageFound = true
-            break // Arrêter la recherche dès qu'on trouve une valeur valide
+            break
           }
         }
       }
 
-      // Recherche supplémentaire dans TOUS les champs du document pour les images de designers
+      // Recherche supplémentaire dans tous les champs
       if (!designerImageFound) {
         Object.keys(luminaire).forEach((key) => {
           const value = luminaire[key]
           if (typeof value === "string" && value.trim() !== "") {
             const cleanValue = value.trim()
-            // Si le nom du champ contient "designer" ou "artiste" et que la valeur ressemble à un nom de fichier
             if (
               (key.toLowerCase().includes("designer") ||
                 key.toLowerCase().includes("artiste") ||
@@ -73,10 +72,6 @@ export async function GET() {
             }
           }
         })
-      }
-
-      if (!designerImageFound) {
-        console.log(`  ⚠️ Aucune image de designer trouvée pour "${luminaire.nom || "luminaire sans nom"}"`)
       }
 
       // Image principale du luminaire
@@ -114,16 +109,6 @@ export async function GET() {
     console.log(`📊 Listes de référence créées:`)
     console.log(`  👤 ${designerImages.size} images de designers identifiées`)
     console.log(`  💡 ${luminaireImages.size} images de luminaires identifiées`)
-
-    // Debug: Afficher TOUTES les images de designers identifiées
-    if (designerImages.size > 0) {
-      console.log("📋 TOUTES les images de designers identifiées:")
-      Array.from(designerImages).forEach((img, i) => {
-        console.log(`  ${i + 1}. ${img}`)
-      })
-    } else {
-      console.log("⚠️ AUCUNE image de designer identifiée - tous les fichiers iront dans luminaires/")
-    }
 
     // PHASE 2: Traitement et tri des fichiers depuis GridFS avec métadonnées
     console.log("📁 Phase 2: Traitement des fichiers depuis GridFS...")
@@ -174,10 +159,12 @@ export async function GET() {
 
         // 1. Vérifier d'abord les métadonnées du fichier
         const metadata = file.metadata || {}
-        if (metadata.isDesignerImage === true) {
+        if (metadata.isDesignerImage === true || metadata.type === "designer-image") {
           zipFilename = `designers/${cleanOriginalFilename}`
           designersCount++
-          console.log(`👤 ${cleanOriginalFilename} → designers/ (métadonnées: isDesignerImage=true)`)
+          console.log(
+            `👤 ${cleanOriginalFilename} → designers/ (métadonnées: ${metadata.type || "isDesignerImage=true"})`,
+          )
         }
         // 2. Ensuite vérifier la liste de référence
         else if (designerImages.has(cleanOriginalFilename)) {
@@ -214,21 +201,6 @@ export async function GET() {
     console.log(`  👤 ${designersCount} fichiers dans designers/`)
     console.log(`  💡 ${luminairesCount} fichiers dans luminaires/`)
     console.log(`  📁 ${fileData.length} fichiers au total dans le ZIP`)
-
-    // Vérifications de cohérence détaillées
-    if (designersCount === 0 && designerImages.size > 0) {
-      console.log(
-        `⚠️ ATTENTION: ${designerImages.size} images de designers identifiées mais 0 fichier dans le dossier designers/`,
-      )
-      console.log("🔍 Images de designers attendues mais non trouvées dans GridFS:")
-      Array.from(designerImages).forEach((img) => {
-        console.log(`  - ${img}`)
-      })
-    }
-
-    if (designersCount > 0) {
-      console.log(`✅ SUCCÈS: ${designersCount} images correctement classées dans designers/`)
-    }
 
     // Créer le ZIP
     const zipBuffer = createZipBuffer(fileData)
