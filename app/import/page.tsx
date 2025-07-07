@@ -433,16 +433,6 @@ export default function ImportPage() {
     }
   }
 
-  // Fonction utilitaire pour récupérer une valeur avec plusieurs clés possibles
-  const getFieldValue = (obj: any, possibleKeys: string[]): string => {
-    for (const key of possibleKeys) {
-      if (obj[key] && obj[key] !== "" && obj[key] !== null && obj[key] !== undefined) {
-        return String(obj[key]).trim()
-      }
-    }
-    return ""
-  }
-
   const exportAllLuminaires = async () => {
     setExportingCSV(true)
     try {
@@ -464,60 +454,43 @@ export default function ImportPage() {
 
         console.log("🔍 Analyse des luminaires pour l'export...")
 
-        // Préparer les données pour l'export avec le mapping exact
+        // Préparer les données pour l'export avec la logique de secours
         const csvData = luminairesData.luminaires.map((luminaire: any, index: number) => {
-          // Debug complet pour chaque luminaire
           console.log(`🔍 Luminaire ${index + 1}:`, {
             nom: luminaire.nom,
             toutesLesCles: Object.keys(luminaire),
-            valeurs: luminaire,
           })
 
           // Récupérer l'image du designer
-          const designerName = getFieldValue(luminaire, ["designer", "Artiste / Dates"])
+          const designerName = luminaire.designer || luminaire["Artiste / Dates"] || ""
           const designer = designersMap.get(designerName)
-          const designerImageFilename =
-            getFieldValue(luminaire, ["designerImageFilename"]) || (designer && designer.imagedesigner) || ""
+          const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
-          // SPÉCIALITÉ - Tester toutes les variantes possibles
-          const specialiteKeys = [
-            "specialite",
-            "Spécialité",
-            "periode",
-            "Période",
-            "category",
-            "type",
-            "specialty",
-            "period",
-            "specialité",
-            "spécialité",
-            "Specialite",
-            "SPECIALITE",
-            "SPÉCIALITÉ",
-          ]
-          const specialite = getFieldValue(luminaire, specialiteKeys)
+          // LOGIQUE DE SECOURS POUR SPÉCIALITÉ
+          // 1. Vérifier d'abord la clé "periode" (formulaire)
+          // 2. Si absente ou vide, utiliser "Spécialité" (ancien import)
+          let specialite = ""
+          if (luminaire.periode && luminaire.periode !== "") {
+            specialite = String(luminaire.periode).trim()
+            console.log(`  📋 Spécialité depuis "periode": ${specialite}`)
+          } else if (luminaire["Spécialité"] && luminaire["Spécialité"] !== "") {
+            specialite = String(luminaire["Spécialité"]).trim()
+            console.log(`  📋 Spécialité depuis "Spécialité": ${specialite}`)
+          }
 
-          // COLLABORATION / ŒUVRE - Tester toutes les variantes possibles
-          const collaborationKeys = [
-            "collaboration",
-            "Collaboration / Œuvre",
-            "oeuvre",
-            "Œuvre",
-            "work",
-            "projet",
-            "project",
-            "collaboration_oeuvre",
-            "collaborationOeuvre",
-            "Collaboration",
-            "COLLABORATION",
-            "œuvre",
-            "ŒUVRE",
-            "Oeuvre",
-            "OEUVRE",
-          ]
-          const collaboration = getFieldValue(luminaire, collaborationKeys)
+          // LOGIQUE DE SECOURS POUR COLLABORATION / ŒUVRE
+          // 1. Vérifier d'abord la clé "collaboration" (formulaire)
+          // 2. Si absente ou vide, utiliser "Collaboration / Œuvre" (ancien import)
+          let collaboration = ""
+          if (luminaire.collaboration && luminaire.collaboration !== "") {
+            collaboration = String(luminaire.collaboration).trim()
+            console.log(`  📋 Collaboration depuis "collaboration": ${collaboration}`)
+          } else if (luminaire["Collaboration / Œuvre"] && luminaire["Collaboration / Œuvre"] !== "") {
+            collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
+            console.log(`  📋 Collaboration depuis "Collaboration / Œuvre": ${collaboration}`)
+          }
 
-          console.log(`📋 Luminaire ${index + 1} - Valeurs extraites:`, {
+          console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {
             nom: luminaire.nom,
             specialite: specialite,
             collaboration: collaboration,
@@ -525,20 +498,20 @@ export default function ImportPage() {
           })
 
           return {
-            Signé: getFieldValue(luminaire, ["signe", "Signé"]),
-            "Nom luminaire": getFieldValue(luminaire, ["nom", "Nom luminaire"]),
-            "Artiste / Dates": getFieldValue(luminaire, ["designer", "Artiste / Dates"]),
-            Année: getFieldValue(luminaire, ["annee", "Année"]),
-            Editeur: getFieldValue(luminaire, ["editeur", "Editeur"]),
+            Signé: luminaire.signe || luminaire["Signé"] || "",
+            "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
+            "Artiste / Dates": designerName,
+            Année: luminaire.annee || luminaire["Année"] || "",
+            Editeur: luminaire.editeur || luminaire["Editeur"] || "",
             Spécialité: specialite,
             "Collaboration / Œuvre": collaboration,
-            Description: getFieldValue(luminaire, ["description", "Description"]),
+            Description: luminaire.description || luminaire["Description"] || "",
             Matériaux: Array.isArray(luminaire.materiaux)
               ? luminaire.materiaux.join("; ")
-              : getFieldValue(luminaire, ["materiaux", "Matériaux"]),
-            Dimensions: getFieldValue(luminaire, ["dimensions", "Dimensions"]),
-            Estimation: getFieldValue(luminaire, ["estimation", "prix", "Estimation"]),
-            "Image luminaire (Nom du fichier)": getFieldValue(luminaire, ["filename", "Nom du fichier"]),
+              : luminaire.materiaux || luminaire["Matériaux"] || "",
+            Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
+            Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
+            "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
             "Image designer (imagedesigner)": designerImageFilename,
           }
         })
@@ -634,16 +607,29 @@ export default function ImportPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Erreur lors de l'export des images")
+        const errorText = await response.text()
+        console.error("❌ Erreur réponse serveur:", errorText)
+        throw new Error(`Erreur serveur: ${response.status} - ${errorText}`)
       }
 
       const blob = await response.blob()
+      console.log(`📦 Blob reçu: ${blob.size} bytes, type: ${blob.type}`)
+
+      if (blob.size === 0) {
+        throw new Error("Le fichier ZIP reçu est vide")
+      }
+
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = url
       link.download = `images_export_${new Date().toISOString().split("T")[0]}.zip`
+      link.style.display = "none"
       document.body.appendChild(link)
+
+      console.log("📥 Déclenchement du téléchargement...")
       link.click()
+
+      // Nettoyage
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
 
@@ -655,7 +641,7 @@ export default function ImportPage() {
       console.error("❌ Erreur lors de l'export des images:", error)
       toast({
         title: "❌ Erreur export",
-        description: "Erreur lors de l'export des images",
+        description: `Erreur lors de l'export des images: ${error.message}`,
         variant: "destructive",
       })
     } finally {
