@@ -199,7 +199,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         // Champs principaux
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
-        annee: formData.annee ? Number.parseInt(formData.annee) : null,
+        annee: formData.annee.trim(), // Garder comme string
         periode: formData.periode.trim(),
         description: formData.description.trim(),
         collaboration: formData.collaboration.trim(),
@@ -215,17 +215,17 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         filename: uploadedImages[0] || "",
         designerImageFilename: designerImageFilename,
 
-        // MAPPINGS COMPLETS POUR L'EXPORT CSV - CORRECTION PRINCIPALE
+        // MAPPINGS COMPLETS POUR L'EXPORT CSV
         "Nom luminaire": formData.nom.trim(),
         "Artiste / Dates": formData.designer.trim(),
-        Année: formData.annee || "",
+        Année: formData.annee.trim(),
         Editeur: formData.editeur.trim(),
-        Spécialité: formData.periode.trim(), // CORRECTION: Mapping correct pour Spécialité
-        "Collaboration / Œuvre": formData.collaboration.trim(), // CORRECTION: Mapping correct pour Collaboration / Œuvre
+        Spécialité: formData.periode.trim(),
+        "Collaboration / Œuvre": formData.collaboration.trim(),
         Description: formData.description.trim(),
         Signé: formData.signe,
         Dimensions: formData.dimensions.trim(),
-        Matériaux: formData.materiaux.join(", "),
+        Matériaux: Array.isArray(formData.materiaux) ? formData.materiaux.join(", ") : "",
         Estimation: formData.estimation.trim(),
         Prix: formData.estimation.trim(),
         "Image luminaire": uploadedImages.join(", "),
@@ -235,6 +235,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         // Champs de compatibilité supplémentaires
         specialite: formData.periode.trim(),
         oeuvre: formData.collaboration.trim(),
+        materials: Array.isArray(formData.materiaux) ? formData.materiaux.join(", ") : "",
       }
 
       console.log("💾 Données à sauvegarder:", luminaireData)
@@ -293,32 +294,21 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               <Label htmlFor="annee">Année</Label>
               <Input
                 id="annee"
-                type="number"
+                type="text"
                 value={formData.annee}
                 onChange={(e) => handleInputChange("annee", e.target.value)}
                 placeholder="Année de création"
-                min="1800"
-                max="2030"
               />
             </div>
 
             <div>
               <Label htmlFor="periode">Période/Spécialité</Label>
-              <Select value={formData.periode} onValueChange={(value) => handleInputChange("periode", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une période" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Art Déco">Art Déco</SelectItem>
-                  <SelectItem value="Bauhaus">Bauhaus</SelectItem>
-                  <SelectItem value="Mid-Century Modern">Mid-Century Modern</SelectItem>
-                  <SelectItem value="Contemporain">Contemporain</SelectItem>
-                  <SelectItem value="Industriel">Industriel</SelectItem>
-                  <SelectItem value="Scandinave">Scandinave</SelectItem>
-                  <SelectItem value="Vintage">Vintage</SelectItem>
-                  <SelectItem value="Autre">Autre</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                id="periode"
+                value={formData.periode}
+                onChange={(e) => handleInputChange("periode", e.target.value)}
+                placeholder="Période ou spécialité"
+              />
             </div>
           </div>
 

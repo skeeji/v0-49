@@ -41,6 +41,33 @@ export async function GET(request: NextRequest) {
         luminaire.image_designer ||
         ""
 
+      // Gestion des matériaux avec toutes les variantes possibles
+      let materiaux = ""
+      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+        materiaux = luminaire.materiaux.join(", ")
+      } else if (Array.isArray(luminaire.Matériaux) && luminaire.Matériaux.length > 0) {
+        materiaux = luminaire.Matériaux.join(", ")
+      } else if (typeof luminaire.materiaux === "string" && luminaire.materiaux.trim() !== "") {
+        materiaux = luminaire.materiaux
+      } else if (typeof luminaire.Matériaux === "string" && luminaire.Matériaux.trim() !== "") {
+        materiaux = luminaire.Matériaux
+      } else if (typeof luminaire.materials === "string" && luminaire.materials.trim() !== "") {
+        materiaux = luminaire.materials
+      }
+
+      // Gestion de Collaboration / Œuvre avec toutes les variantes possibles
+      let collaborationOeuvre = ""
+      if (typeof luminaire.collaboration === "string" && luminaire.collaboration.trim() !== "") {
+        collaborationOeuvre = luminaire.collaboration
+      } else if (
+        typeof luminaire["Collaboration / Œuvre"] === "string" &&
+        luminaire["Collaboration / Œuvre"].trim() !== ""
+      ) {
+        collaborationOeuvre = luminaire["Collaboration / Œuvre"]
+      } else if (typeof luminaire.oeuvre === "string" && luminaire.oeuvre.trim() !== "") {
+        collaborationOeuvre = luminaire.oeuvre
+      }
+
       return {
         // Colonnes dans l'ordre demandé
         ID: luminaire._id.toString(),
@@ -49,14 +76,11 @@ export async function GET(request: NextRequest) {
         Année: luminaire.annee || luminaire.year || luminaire["Année"] || "",
         Editeur: luminaire.editeur || luminaire.editor || luminaire["Editeur"] || "",
         Spécialité: luminaire.periode || luminaire.specialite || luminaire.specialty || luminaire["Spécialité"] || "",
-        "Collaboration / Œuvre":
-          luminaire.collaboration || luminaire.oeuvre || luminaire["Collaboration / Œuvre"] || "",
+        "Collaboration / Œuvre": collaborationOeuvre,
         Description: luminaire.description || luminaire.desc || luminaire["Description"] || "",
         Signé: luminaire.signe || luminaire.signed || luminaire["Signé"] || "",
         Dimensions: luminaire.dimensions || luminaire.dimension || luminaire["Dimensions"] || "",
-        Matériaux: Array.isArray(luminaire.materiaux)
-          ? luminaire.materiaux.join(", ")
-          : luminaire.materiaux || luminaire.materials || luminaire["Matériaux"] || "",
+        Matériaux: materiaux,
         Estimation: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Estimation"] || "",
         Prix: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Prix"] || "", // Même valeur que Estimation
         "Image luminaire": imagesLuminaire,
@@ -104,7 +128,14 @@ export async function GET(request: NextRequest) {
     console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
 
     // Vérification des champs critiques
-    const criticalFields = ["Nom luminaire", "Artiste / Dates", "Image luminaire", "Image designer"]
+    const criticalFields = [
+      "Nom luminaire",
+      "Artiste / Dates",
+      "Image luminaire",
+      "Image designer",
+      "Matériaux",
+      "Collaboration / Œuvre",
+    ]
     criticalFields.forEach((field) => {
       const hasData = csvData.some((row) => row[field as keyof typeof row] && row[field as keyof typeof row] !== "")
       console.log(`🔍 Champ "${field}": ${hasData ? "✅ Données présentes" : "⚠️ Aucune donnée"}`)

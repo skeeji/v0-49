@@ -10,12 +10,16 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const files = formData.getAll("images") as File[]
+    const designer = formData.get("designer") as string
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
     }
 
     console.log(`📁 ${files.length} fichiers reçus pour upload`)
+    if (designer) {
+      console.log(`👤 Designer spécifié: ${designer}`)
+    }
 
     // Vérifier si c'est un upload depuis la page import
     const referer = request.headers.get("referer") || ""
@@ -58,9 +62,13 @@ export async function POST(request: NextRequest) {
           // Déterminer si c'est une image de designer
           let isDesignerImage = false
 
-          // CORRECTION: Logique pour identifier les images de designers depuis la page import
-          if (isFromImportPage) {
-            // Vérifier si le nom du fichier contient des mots-clés de designer
+          // Si un designer est spécifié dans le formulaire, c'est une image de designer
+          if (designer && designer.trim() !== "") {
+            isDesignerImage = true
+            console.log(`👤 Image de designer (formulaire): ${file.name} pour ${designer}`)
+          }
+          // Sinon, vérifier si c'est depuis la page import avec des mots-clés
+          else if (isFromImportPage) {
             const filename = file.name.toLowerCase()
             const designerKeywords = [
               "designer",
@@ -75,10 +83,6 @@ export async function POST(request: NextRequest) {
             ]
 
             isDesignerImage = designerKeywords.some((keyword) => filename.includes(keyword))
-
-            // Ou vérifier si c'est dans une section spécifique (basé sur l'ordre d'upload ou autres indices)
-            // Cette logique peut être affinée selon vos besoins spécifiques
-
             console.log(`🔍 Analyse fichier "${file.name}": ${isDesignerImage ? "IMAGE DESIGNER" : "image luminaire"}`)
           }
 
@@ -93,7 +97,10 @@ export async function POST(request: NextRequest) {
           // MARQUAGE SPÉCIAL POUR LES IMAGES DE DESIGNERS
           if (isDesignerImage) {
             metadata.isDesignerImage = true
-            metadata.designerImageSource = "import_page"
+            metadata.designerImageSource = designer ? "form_upload" : "import_page"
+            if (designer) {
+              metadata.designer = designer
+            }
             console.log(`👤 MARQUAGE: Image "${file.name}" marquée comme image de designer`)
           }
 
