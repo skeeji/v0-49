@@ -14,12 +14,41 @@ export async function GET() {
     // Utiliser le bucket GridFS "uploads"
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    // Récupérer TOUS les luminaires pour identifier les images
+    // ÉTAPE 1: Récupérer TOUS les luminaires pour créer les listes de classification
     const luminairesCollection = db.collection("luminaires")
     const luminaires = await luminairesCollection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires trouvés pour classification des images`)
 
-    // Récupérer TOUS les fichiers .jpg du bucket
+    // ÉTAPE 2: Créer les listes de classification basées sur les données de la base
+    const designerImages = new Set<string>()
+    const luminaireImages = new Set<string>()
+
+    // Parcourir tous les luminaires pour construire les listes
+    luminaires.forEach((luminaire) => {
+      // Images de designers
+      if (luminaire.designerImageFilename && typeof luminaire.designerImageFilename === "string") {
+        designerImages.add(luminaire.designerImageFilename.trim())
+      }
+
+      // Images principales des luminaires
+      if (luminaire.filename && typeof luminaire.filename === "string") {
+        luminaireImages.add(luminaire.filename.trim())
+      }
+
+      // Images secondaires des luminaires
+      if (luminaire.images && Array.isArray(luminaire.images)) {
+        luminaire.images.forEach((img: string) => {
+          if (img && typeof img === "string") {
+            luminaireImages.add(img.trim())
+          }
+        })
+      }
+    })
+
+    console.log(`📋 ${designerImages.size} images de designers identifiées`)
+    console.log(`📋 ${luminaireImages.size} images de luminaires identifiées`)
+
+    // ÉTAPE 3: Récupérer TOUS les fichiers .jpg du bucket GridFS
     const allFiles = await bucket.find({}).toArray()
     const jpgFiles = allFiles.filter((file) => {
       const filename = file.filename || ""
@@ -33,67 +62,7 @@ export async function GET() {
       return NextResponse.json({ error: "Aucune image .jpg trouvée dans le bucket uploads" }, { status: 404 })
     }
 
-    // Identifier les images de designers et de luminaires
-    const designerImages = new Set<string>()
-    const luminaireImages = new Set<string>()
-
-    // Parcourir tous les luminaires pour identifier les images
-    luminaires.forEach((luminaire) => {
-      // Images principales du luminaire
-      if (luminaire.filename) {
-        luminaireImages.add(luminaire.filename)
-      }
-      if (luminaire.images && Array.isArray(luminaire.images)) {
-        luminaire.images.forEach((img: string) => {
-          luminaireImages.add(img)
-        })
-      }
-
-      // Images de designers - tous les champs possibles
-      const possibleDesignerImageFields = [
-        luminaire.designerImageFilename,
-        luminaire.designerImage,
-        luminaire["Image Designer"],
-        luminaire["designer.jpg"],
-        luminaire.image_designer,
-        luminaire.designer_img,
-        luminaire.imgDesigner,
-        luminaire.designerImg,
-        luminaire.designerPhoto,
-        luminaire.photoDesigner,
-      ]
-
-      possibleDesignerImageFields.forEach((fieldName) => {
-        if (fieldName && typeof fieldName === "string") {
-          designerImages.add(fieldName)
-        }
-      })
-
-      // Recherche par nom de designer
-      if (luminaire.designer) {
-        const designerName = luminaire.designer.toLowerCase().replace(/\s+/g, "_")
-        const possibleDesignerFiles = [
-          `${designerName}.jpg`,
-          `${luminaire.designer}.jpg`,
-          `designer_${designerName}.jpg`,
-          `${luminaire.designer.replace(/\s+/g, "")}.jpg`,
-          `${luminaire.designer.toLowerCase()}.jpg`,
-          `${luminaire.designer.toUpperCase()}.jpg`,
-        ]
-
-        possibleDesignerFiles.forEach((possibleFile) => {
-          const fileExists = jpgFiles.some((file) => file.filename === possibleFile)
-          if (fileExists) {
-            designerImages.add(possibleFile)
-          }
-        })
-      }
-    })
-
-    console.log(`📋 ${designerImages.size} images de designers identifiées`)
-    console.log(`📋 ${luminaireImages.size} images de luminaires identifiées`)
-
-    // Traiter TOUS les fichiers .jpg avec organisation en dossiers
+    // ÉTAPE 4: Traiter TOUS les fichiers .jpg avec classification basée sur les données
     const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
 
     for (const file of jpgFiles) {
@@ -116,12 +85,13 @@ export async function GET() {
 
         const originalFilename = file.filename || `image_${file._id}.jpg`
 
-        // Organisation en dossiers dans le ZIP
+        // RÈGLE DE TRI SIMPLE basée sur les listes créées
         let zipFilename: string
         if (designerImages.has(originalFilename)) {
           zipFilename = `designers/${originalFilename}`
           console.log(`👨‍🎨 Image designer: ${zipFilename}`)
         } else {
+          // TOUS les autres cas vont dans luminaires/
           zipFilename = `luminaires/${originalFilename}`
           console.log(`💡 Image luminaire: ${zipFilename}`)
         }
@@ -144,7 +114,7 @@ export async function GET() {
       return NextResponse.json({ error: "Aucun fichier .jpg valide trouvé" }, { status: 404 })
     }
 
-    // Créer le ZIP
+    // ÉTAPE 5: Créer le ZIP
     const zipBuffer = createZipBuffer(fileData)
 
     // Générer le nom du fichier avec la date actuelle
