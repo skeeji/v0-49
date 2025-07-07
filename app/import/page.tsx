@@ -454,21 +454,11 @@ export default function ImportPage() {
 
         // Préparer les données pour l'export avec le mapping exact
         const csvData = luminairesData.luminaires.map((luminaire: any) => {
+          // Debug: afficher toutes les clés disponibles pour ce luminaire
           console.log("🔍 Luminaire analysé:", {
             nom: luminaire.nom,
             designer: luminaire.designer,
-            // Analyser tous les champs possibles pour Spécialité
-            specialite: luminaire.specialite,
-            periode: luminaire.periode,
-            Spécialité: luminaire["Spécialité"],
-            Période: luminaire["Période"],
-            // Analyser tous les champs possibles pour Collaboration/Œuvre
-            collaboration: luminaire.collaboration,
-            oeuvre: luminaire.oeuvre,
-            "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
-            Œuvre: luminaire["Œuvre"],
-            designerImageFilename: luminaire.designerImageFilename,
-            allKeys: Object.keys(luminaire),
+            toutesLesCles: Object.keys(luminaire),
           })
 
           // Récupérer l'image du designer
@@ -476,19 +466,29 @@ export default function ImportPage() {
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
-          // Essayer différentes variantes pour Spécialité
+          // CORRECTION CRITIQUE: Tester TOUTES les variantes possibles pour Spécialité
           const specialite =
-            luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || luminaire["Période"] || ""
-
-          // Essayer différentes variantes pour Collaboration / Œuvre
-          const collaboration =
-            luminaire.collaboration ||
-            luminaire.oeuvre ||
-            luminaire["Collaboration / Œuvre"] ||
-            luminaire["Œuvre"] ||
+            luminaire.specialite ||
+            luminaire["Spécialité"] ||
+            luminaire.periode ||
+            luminaire["Période"] ||
+            luminaire.category ||
+            luminaire.type ||
+            luminaire.specialty ||
             ""
 
-          console.log("📋 Valeurs finales:", {
+          // CORRECTION CRITIQUE: Tester TOUTES les variantes possibles pour Collaboration / Œuvre
+          const collaboration =
+            luminaire.collaboration ||
+            luminaire["Collaboration / Œuvre"] ||
+            luminaire.oeuvre ||
+            luminaire["Œuvre"] ||
+            luminaire.work ||
+            luminaire.projet ||
+            luminaire.project ||
+            ""
+
+          console.log("📋 Valeurs finales trouvées:", {
             nom: luminaire.nom,
             specialite: specialite,
             collaboration: collaboration,
@@ -538,6 +538,15 @@ export default function ImportPage() {
           ),
         ].join("\n")
 
+        // Vérification finale des données critiques
+        console.log("🔍 Vérification finale des colonnes critiques:")
+        const specialiteCount = csvData.filter((row) => row["Spécialité"] && row["Spécialité"] !== "").length
+        const collaborationCount = csvData.filter(
+          (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"] !== "",
+        ).length
+        console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
+        console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
+
         // Créer et télécharger le fichier
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
         const link = document.createElement("a")
@@ -552,7 +561,7 @@ export default function ImportPage() {
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires exportés avec la structure correcte`,
+          description: `${csvData.length} luminaires exportés avec ${specialiteCount} spécialités et ${collaborationCount} collaborations`,
         })
       }
     } catch (error) {
