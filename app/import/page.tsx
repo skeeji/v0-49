@@ -454,7 +454,7 @@ export default function ImportPage() {
 
         console.log("🔍 Analyse des luminaires pour l'export...")
 
-        // Préparer les données pour l'export avec la logique de secours
+        // Préparer les données pour l'export avec la logique de secours corrigée
         const csvData = luminairesData.luminaires.map((luminaire: any, index: number) => {
           console.log(`🔍 Luminaire ${index + 1}:`, {
             nom: luminaire.nom,
@@ -470,24 +470,28 @@ export default function ImportPage() {
           // 1. Vérifier d'abord la clé "periode" (formulaire)
           // 2. Si absente ou vide, utiliser "Spécialité" (ancien import)
           let specialite = ""
-          if (luminaire.periode && luminaire.periode !== "") {
+          if (luminaire.periode && String(luminaire.periode).trim() !== "") {
             specialite = String(luminaire.periode).trim()
             console.log(`  📋 Spécialité depuis "periode": ${specialite}`)
-          } else if (luminaire["Spécialité"] && luminaire["Spécialité"] !== "") {
+          } else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
             specialite = String(luminaire["Spécialité"]).trim()
             console.log(`  📋 Spécialité depuis "Spécialité": ${specialite}`)
+          } else {
+            console.log(`  ⚠️ Aucune spécialité trouvée pour ${luminaire.nom}`)
           }
 
           // LOGIQUE DE SECOURS POUR COLLABORATION / ŒUVRE
           // 1. Vérifier d'abord la clé "collaboration" (formulaire)
           // 2. Si absente ou vide, utiliser "Collaboration / Œuvre" (ancien import)
           let collaboration = ""
-          if (luminaire.collaboration && luminaire.collaboration !== "") {
+          if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
             collaboration = String(luminaire.collaboration).trim()
             console.log(`  📋 Collaboration depuis "collaboration": ${collaboration}`)
-          } else if (luminaire["Collaboration / Œuvre"] && luminaire["Collaboration / Œuvre"] !== "") {
+          } else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
             collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
             console.log(`  📋 Collaboration depuis "Collaboration / Œuvre": ${collaboration}`)
+          } else {
+            console.log(`  ⚠️ Aucune collaboration trouvée pour ${luminaire.nom}`)
           }
 
           console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {
@@ -497,14 +501,15 @@ export default function ImportPage() {
             designerImageFilename: designerImageFilename,
           })
 
+          // Retourner l'objet avec les données préparées
           return {
             Signé: luminaire.signe || luminaire["Signé"] || "",
             "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
             "Artiste / Dates": designerName,
             Année: luminaire.annee || luminaire["Année"] || "",
             Editeur: luminaire.editeur || luminaire["Editeur"] || "",
-            Spécialité: specialite,
-            "Collaboration / Œuvre": collaboration,
+            Spécialité: specialite, // Utilise la valeur préparée avec logique de secours
+            "Collaboration / Œuvre": collaboration, // Utilise la valeur préparée avec logique de secours
             Description: luminaire.description || luminaire["Description"] || "",
             Matériaux: Array.isArray(luminaire.materiaux)
               ? luminaire.materiaux.join("; ")
