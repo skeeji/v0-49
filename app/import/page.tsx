@@ -23,6 +23,8 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { RoleGuard } from "@/components/RoleGuard"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ExcelJS from "exceljs"
+import { saveAs } from "file-saver"
 
 interface ImportResult {
   success: boolean
@@ -436,7 +438,7 @@ export default function ImportPage() {
   const exportAllLuminaires = async () => {
     setExportingCSV(true)
     try {
-      console.log("📊 Export de tous les luminaires...")
+      console.log("📊 Export Excel avec images...")
 
       // Récupérer tous les luminaires avec les informations des designers
       const luminairesResponse = await fetch("/api/luminaires?limit=10000")
@@ -449,59 +451,109 @@ export default function ImportPage() {
         // Créer un map des designers pour récupérer rapidement l'image
         const designersMap = new Map()
         designersData.designers.forEach((designer: any) => {
-          designersMap.set(designer.Nom, designer.imagedesigner || "")
+          designersMap.set(designer.Nom, designer)
         })
 
-        // Préparer les données pour l'export avec toutes les informations
-        const csvData = luminairesData.luminaires.map((luminaire: any) => ({
-          "Nom luminaire": luminaire["Nom luminaire"] || luminaire.nom || "",
-          "Nom du fichier": luminaire["Nom du fichier"] || "",
-          "Artiste / Dates": luminaire["Artiste / Dates"] || luminaire.designer || "",
-          "Image Designer": designersMap.get(luminaire["Artiste / Dates"] || luminaire.designer) || "",
-          Spécialité: luminaire["Spécialité"] || luminaire.specialite || "",
-          "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || luminaire.collaboration || "",
-          Année: luminaire["Année"] || luminaire.annee || "",
-          Signé: luminaire["Signé"] || luminaire.signe || "",
-          Période: luminaire["Période"] || luminaire.periode || "",
-          Matériaux: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join("; ") : luminaire.materiaux || "",
-          Couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join("; ") : luminaire.couleurs || "",
-          Description: luminaire.description || "",
-          Prix: luminaire.prix || "",
-          Dimensions: luminaire.dimensions || "",
-          État: luminaire.etat || "",
-        }))
+        // Créer le classeur Excel
+        const workbook = new ExcelJS.Workbook()
+        const worksheet = workbook.addWorksheet("Luminaires")
 
-        // Créer le contenu CSV
-        const headers = Object.keys(csvData[0])
-        const csvContent = [
-          headers.join(","),
-          ...csvData.map((row) =>
-            headers.map((header) => `"${(row[header] || "").toString().replace(/"/g, '""')}"`).join(","),
-          ),
-        ].join("\n")
+        // Définir les colonnes
+        worksheet.columns = [
+          { header: "Image Luminaire", key: "imgLuminaire", width: 25 },
+          { header: "Image Designer", key: "imgDesigner", width: 25 },
+          { header: "Nom luminaire", key: "nom", width: 35 },
+          { header: "Artiste / Dates", key: "designer", width: 35 },
+          { header: "Année", key: "annee", width: 10 },
+          { header: "Période", key: "periode", width: 25 },
+          { header: "Description", key: "description", width: 50 },
+          { header: "Matériaux", key: "materiaux", width: 40 },
+          { header: "Couleurs", key: "couleurs", width: 40 },
+          { header: "Nom du fichier", key: "filename", width: 35 },
+        ]
 
-        // Créer et télécharger le fichier
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-        const link = document.createElement("a")
-        const url = URL.createObjectURL(blob)
-        link.setAttribute("href", url)
-        link.setAttribute("download", `luminaires_complet_${new Date().toISOString().split("T")[0]}.csv`)
-        link.style.visibility = "hidden"
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        // Remplir les données avec images
+        for (const luminaire of luminairesData.luminaires) {
+          let luminaireImageId = null
+          let designerImageId = null
 
-        console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
+          // Récupérer l'image du luminaire
+          if (luminaire.filename || luminaire["Nom du fichier"]) {
+            try {
+              const filename = luminaire.filename || luminaire["Nom du fichier"]
+              const imageResponse = await fetch(`/api/images/filename/${filename}`)
+              if (imageResponse.ok) {
+                const imageBuffer = await imageResponse.arrayBuffer()
+                luminaireImageId = workbook.addImage({
+                  buffer: imageBuffer,
+                  extension: "jpeg",
+                })
+              }
+            } catch (error) {
+              console.log(`❌ Erreur récupération image luminaire: ${luminaire.filename}`)
+            }
+          }
+
+          // Récupérer l'image du designer
+          const designerName = luminaire.designer || luminaire["Artiste / Dates"]
+          const designer = designersMap.get(designerName)
+          if (designer && designer.imagedesigner) {
+            try {
+              const designerImageResponse = await fetch(`/api/images/filename/${designer.imagedesigner}`)
+              if (designerImageResponse.ok) {
+                const designerImageBuffer = await designerImageResponse.arrayBuffer()
+                designerImageId = workbook.addImage({
+                  buffer: designerImageBuffer,
+                  extension: "jpeg",
+                })
+              }
+            } catch (error) {
+              console.log(`❌ Erreur récupération image designer: ${designer.imagedesigner}`)
+            }
+          }
+
+          // Ajouter la ligne de données
+          const row = worksheet.addRow({
+            nom: luminaire.nom || luminaire["Nom luminaire"] || "",
+            designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
+            annee: luminaire.annee || luminaire["Année"] || "",
+            periode: luminaire.periode || luminaire["Période"] || "",
+            description: luminaire.description || "",
+            materiaux: Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join("; ") : luminaire.materiaux || "",
+            couleurs: Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join("; ") : luminaire.couleurs || "",
+            filename: luminaire.filename || luminaire["Nom du fichier"] || "",
+          })
+
+          // Définir la hauteur de ligne pour les images
+          row.height = 100
+
+          // Ajouter les images aux cellules
+          if (luminaireImageId) {
+            worksheet.addImage(luminaireImageId, `A${row.number}:A${row.number}`)
+          }
+          if (designerImageId) {
+            worksheet.addImage(designerImageId, `B${row.number}:B${row.number}`)
+          }
+        }
+
+        // Générer et télécharger le fichier
+        const buffer = await workbook.xlsx.writeBuffer()
+        const blob = new Blob([buffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        })
+        saveAs(blob, `Export_Luminaires_${new Date().toISOString().split("T")[0]}.xlsx`)
+
+        console.log(`✅ Export Excel terminé: ${luminairesData.luminaires.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires exportés`,
+          description: `${luminairesData.luminaires.length} luminaires exportés en Excel avec images`,
         })
       }
     } catch (error) {
-      console.error("❌ Erreur lors de l'export:", error)
+      console.error("❌ Erreur lors de l'export Excel:", error)
       toast({
         title: "❌ Erreur export",
-        description: "Erreur lors de l'export CSV",
+        description: "Erreur lors de l'export Excel",
         variant: "destructive",
       })
     } finally {
@@ -625,8 +677,8 @@ export default function ImportPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="border-blue-200">
               <CardHeader>
-                <CardTitle className="text-blue-600">Export des données</CardTitle>
-                <CardDescription>Exportez tous les luminaires avec les informations complètes</CardDescription>
+                <CardTitle className="text-blue-600">Export Excel avec images</CardTitle>
+                <CardDescription>Exportez tous les luminaires avec images intégrées</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button onClick={exportAllLuminaires} disabled={exportingCSV || isUploading} className="w-full">
@@ -638,7 +690,7 @@ export default function ImportPage() {
                   ) : (
                     <>
                       <Download className="w-4 h-4 mr-2" />
-                      Exporter tous les luminaires (CSV)
+                      Exporter tous les luminaires (Excel)
                     </>
                   )}
                 </Button>
