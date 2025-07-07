@@ -24,10 +24,10 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     nom: "",
     designer: "",
     annee: "",
-    periode: "",
-    description: "", // CORRECTION 2: Champ description séparé
-    collaboration: "", // CORRECTION 2: Champ collaboration séparé
-    signe: "",
+    periode: "", // Peut être vide
+    description: "",
+    collaboration: "",
+    signe: "Non spécifié",
     editeur: "",
     dimensions: "",
     materiaux: [] as string[],
@@ -105,20 +105,52 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     }))
   }
 
+  const resetForm = () => {
+    setFormData({
+      nom: "",
+      designer: "",
+      annee: "",
+      periode: "",
+      description: "",
+      collaboration: "",
+      signe: "Non spécifié",
+      editeur: "",
+      dimensions: "",
+      materiaux: [],
+      estimation: "",
+      couleurs: [],
+    })
+    setImages([])
+    setDesignerImage(null)
+    setMaterialInput("")
+    setColorInput("")
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+    if (designerImageInputRef.current) {
+      designerImageInputRef.current.value = ""
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
+      console.log("🚀 Début de la soumission du formulaire")
+      console.log("📊 Données du formulaire:", formData)
+
       // Validation
       if (!formData.nom.trim()) {
         toast.error("Le nom du luminaire est requis")
+        setIsSubmitting(false)
         return
       }
 
       // Upload des images principales
       let uploadedImages: string[] = []
       if (images.length > 0) {
+        console.log(`📸 Upload de ${images.length} images principales...`)
         const imageFormData = new FormData()
         images.forEach((image) => {
           imageFormData.append("images", image)
@@ -130,16 +162,20 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         })
 
         const imageData = await imageResponse.json()
+        console.log("📸 Réponse upload images:", imageData)
+
         if (imageData.success) {
           uploadedImages = imageData.filenames
+          console.log("✅ Images uploadées:", uploadedImages)
         } else {
-          throw new Error("Erreur lors de l'upload des images")
+          throw new Error(`Erreur lors de l'upload des images: ${imageData.error}`)
         }
       }
 
       // Upload de l'image designer
       let designerImageFilename = ""
       if (designerImage) {
+        console.log("👤 Upload de l'image designer...")
         const designerFormData = new FormData()
         designerFormData.append("image", designerImage)
         designerFormData.append("designer", formData.designer)
@@ -150,47 +186,61 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         })
 
         const designerImageData = await designerImageResponse.json()
+        console.log("👤 Réponse upload image designer:", designerImageData)
+
         if (designerImageData.success && designerImageData.filenames.length > 0) {
           designerImageFilename = designerImageData.filenames[0]
+          console.log("✅ Image designer uploadée:", designerImageFilename)
         }
       }
 
       // Préparer les données du luminaire
       const luminaireData = {
-        ...formData,
+        // Champs principaux
+        nom: formData.nom.trim(),
+        designer: formData.designer.trim(),
         annee: formData.annee ? Number.parseInt(formData.annee) : null,
+        periode: formData.periode.trim(), // Peut être vide
+        description: formData.description.trim(),
+        collaboration: formData.collaboration.trim(),
+        signe: formData.signe,
+        editeur: formData.editeur.trim(),
+        dimensions: formData.dimensions.trim(),
+        estimation: formData.estimation.trim(),
+        materiaux: formData.materiaux,
+        couleurs: formData.couleurs,
+
+        // Images
         images: uploadedImages,
         filename: uploadedImages[0] || "",
-        designerImageFilename,
+        designerImageFilename: designerImageFilename,
+
+        // Champs CSV compatibles pour l'export
+        "Nom luminaire": formData.nom.trim(),
+        "Artiste / Dates": formData.designer.trim(),
+        Année: formData.annee || "",
+        Spécialité: formData.periode.trim(), // Peut être vide
+        "Collaboration / Œuvre": formData.collaboration.trim(),
+        Signé: formData.signe,
+        "Nom du fichier": uploadedImages[0] || "",
       }
+
+      console.log("💾 Données à sauvegarder:", luminaireData)
 
       // Soumettre le luminaire
       const result = await onSubmit(luminaireData)
+      console.log("💾 Résultat de la soumission:", result)
 
       if (result.success) {
-        // Reset du formulaire
-        setFormData({
-          nom: "",
-          designer: "",
-          annee: "",
-          periode: "",
-          description: "", // CORRECTION 2: Reset séparé
-          collaboration: "", // CORRECTION 2: Reset séparé
-          signe: "",
-          editeur: "",
-          dimensions: "",
-          materiaux: [],
-          estimation: "",
-          couleurs: [],
-        })
-        setImages([])
-        setDesignerImage(null)
-        setMaterialInput("")
-        setColorInput("")
+        toast.success("Luminaire créé avec succès!")
+        resetForm()
+        onClose()
+      } else {
+        throw new Error(result.error || "Erreur lors de la création")
       }
     } catch (error: any) {
       console.error("❌ Erreur soumission:", error)
-      toast.error("Erreur lors de la création du luminaire")
+      toast.error(`Erreur lors de la création du luminaire: ${error.message}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -242,25 +292,16 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
 
             <div>
               <Label htmlFor="periode">Période/Spécialité</Label>
-              <Select value={formData.periode} onValueChange={(value) => handleInputChange("periode", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une période" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Art Déco">Art Déco</SelectItem>
-                  <SelectItem value="Bauhaus">Bauhaus</SelectItem>
-                  <SelectItem value="Mid-Century Modern">Mid-Century Modern</SelectItem>
-                  <SelectItem value="Contemporain">Contemporain</SelectItem>
-                  <SelectItem value="Industriel">Industriel</SelectItem>
-                  <SelectItem value="Scandinave">Scandinave</SelectItem>
-                  <SelectItem value="Vintage">Vintage</SelectItem>
-                  <SelectItem value="Autre">Autre</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                id="periode"
+                value={formData.periode}
+                onChange={(e) => handleInputChange("periode", e.target.value)}
+                placeholder="Période ou spécialité (optionnel)"
+              />
             </div>
           </div>
 
-          {/* CORRECTION 2: Champs Description et Collaboration complètement séparés */}
+          {/* Description et Collaboration séparés */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="description">Description</Label>
@@ -294,6 +335,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                   <SelectValue placeholder="Le luminaire est-il signé ?" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="Non spécifié">Non spécifié</SelectItem>
                   <SelectItem value="Oui">Oui</SelectItem>
                   <SelectItem value="Non">Non</SelectItem>
                   <SelectItem value="Inconnu">Inconnu</SelectItem>
