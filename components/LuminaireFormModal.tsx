@@ -2,15 +2,13 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { X, Upload, ImageIcon } from "lucide-react"
 import { toast } from "sonner"
 
 interface LuminaireFormModalProps {
@@ -24,250 +22,76 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     nom: "",
     designer: "",
     annee: "",
-    periode: "",
-    description: "",
-    collaboration: "",
-    signe: "",
     editeur: "",
+    periode: "",
+    collaboration: "",
+    description: "",
+    signe: "",
     dimensions: "",
-    materiaux: [] as string[],
+    materiaux: "",
     estimation: "",
-    couleurs: [] as string[],
   })
 
-  const [images, setImages] = useState<File[]>([])
-  const [designerImage, setDesignerImage] = useState<File | null>(null)
-  const [materialInput, setMaterialInput] = useState("")
-  const [colorInput, setColorInput] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const designerImageInputRef = useRef<HTMLInputElement>(null)
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    setImages((prev) => [...prev, ...files])
-  }
-
-  const handleDesignerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setDesignerImage(file)
-    }
-  }
-
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const removeDesignerImage = () => {
-    setDesignerImage(null)
-    if (designerImageInputRef.current) {
-      designerImageInputRef.current.value = ""
-    }
-  }
-
-  const addMaterial = () => {
-    if (materialInput.trim() && !formData.materiaux.includes(materialInput.trim())) {
-      setFormData((prev) => ({
-        ...prev,
-        materiaux: [...prev.materiaux, materialInput.trim()],
-      }))
-      setMaterialInput("")
-    }
-  }
-
-  const removeMaterial = (material: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      materiaux: prev.materiaux.filter((m) => m !== material),
-    }))
-  }
-
-  const addColor = () => {
-    if (colorInput.trim() && !formData.couleurs.includes(colorInput.trim())) {
-      setFormData((prev) => ({
-        ...prev,
-        couleurs: [...prev.couleurs, colorInput.trim()],
-      }))
-      setColorInput("")
-    }
-  }
-
-  const removeColor = (color: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      couleurs: prev.couleurs.filter((c) => c !== color),
-    }))
-  }
-
-  const resetForm = () => {
-    setFormData({
-      nom: "",
-      designer: "",
-      annee: "",
-      periode: "",
-      description: "",
-      collaboration: "",
-      signe: "",
-      editeur: "",
-      dimensions: "",
-      materiaux: [],
-      estimation: "",
-      couleurs: [],
-    })
-    setImages([])
-    setDesignerImage(null)
-    setMaterialInput("")
-    setColorInput("")
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
-    if (designerImageInputRef.current) {
-      designerImageInputRef.current.value = ""
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      console.log("🚀 Début de la soumission du formulaire")
-      console.log("📊 Données du formulaire:", formData)
-
-      // Validation
-      if (!formData.nom.trim()) {
-        toast.error("Le nom du luminaire est requis")
-        setIsSubmitting(false)
-        return
-      }
-
-      // Upload des images principales
-      let uploadedImages: string[] = []
-      if (images.length > 0) {
-        console.log(`📸 Upload de ${images.length} images principales...`)
-        const imageFormData = new FormData()
-        images.forEach((image) => {
-          imageFormData.append("images", image)
-        })
-
-        const imageResponse = await fetch("/api/upload/images", {
-          method: "POST",
-          body: imageFormData,
-        })
-
-        const imageData = await imageResponse.json()
-        console.log("📸 Réponse upload images:", imageData)
-
-        if (imageData.success) {
-          uploadedImages = imageData.filenames || []
-          console.log("✅ Images uploadées:", uploadedImages)
-        } else {
-          throw new Error(`Erreur lors de l'upload des images: ${imageData.error}`)
-        }
-      }
-
-      // Upload de l'image designer
-      let designerImageFilename = ""
-      if (designerImage) {
-        console.log("👤 Upload de l'image designer...")
-        const designerFormData = new FormData()
-        designerFormData.append("images", designerImage)
-        designerFormData.append("designer", formData.designer)
-
-        const designerImageResponse = await fetch("/api/upload/images", {
-          method: "POST",
-          body: designerFormData,
-        })
-
-        const designerImageData = await designerImageResponse.json()
-        console.log("👤 Réponse upload image designer:", designerImageData)
-
-        if (designerImageData.success && designerImageData.filenames && designerImageData.filenames.length > 0) {
-          designerImageFilename = designerImageData.filenames[0]
-          console.log("✅ Image designer uploadée:", designerImageFilename)
-        }
-      }
-
-      // Préparer les données du luminaire avec TOUS les mappings nécessaires pour l'export CSV
-      const luminaireData = {
-        // Champs principaux
-        nom: formData.nom.trim(),
-        designer: formData.designer.trim(),
-        annee: formData.annee.trim(),
-        periode: formData.periode.trim(),
-        description: formData.description.trim(),
-        collaboration: formData.collaboration.trim(),
-        signe: formData.signe,
-        editeur: formData.editeur.trim(),
-        dimensions: formData.dimensions.trim(),
-        estimation: formData.estimation.trim(),
-        materiaux: formData.materiaux,
-        couleurs: formData.couleurs,
-
-        // Images
-        images: uploadedImages,
-        filename: uploadedImages[0] || "",
-        designerImageFilename: designerImageFilename,
-
-        // MAPPINGS COMPLETS POUR L'EXPORT CSV
-        "Nom luminaire": formData.nom.trim(),
-        "Artiste / Dates": formData.designer.trim(),
-        Année: formData.annee.trim(),
-        Editeur: formData.editeur.trim(),
-        Spécialité: formData.periode.trim(),
-        "Collaboration / Œuvre": formData.collaboration.trim(),
-        Description: formData.description.trim(),
+      const result = await onSubmit({
+        ...formData,
+        // Mapping pour compatibilité CSV
+        "Nom luminaire": formData.nom,
+        "Artiste / Dates": formData.designer,
+        Année: formData.annee,
+        Editeur: formData.editeur,
+        Spécialité: formData.periode,
+        "Collaboration / Œuvre": formData.collaboration,
+        Description: formData.description,
         Signé: formData.signe,
-        Dimensions: formData.dimensions.trim(),
-        Matériaux: Array.isArray(formData.materiaux) ? formData.materiaux.join(", ") : "",
-        Estimation: formData.estimation.trim(),
-        Prix: formData.estimation.trim(),
-        "Image luminaire": uploadedImages.join(", "),
-        "Image designer": designerImageFilename,
-        "Nom du fichier": uploadedImages[0] || "",
-
-        // Champs de compatibilité supplémentaires
-        specialite: formData.periode.trim(),
-        oeuvre: formData.collaboration.trim(),
-        materials: Array.isArray(formData.materiaux) ? formData.materiaux.join(", ") : "",
-      }
-
-      console.log("💾 Données à sauvegarder:", luminaireData)
-
-      // Soumettre le luminaire
-      const result = await onSubmit(luminaireData)
-      console.log("💾 Résultat de la soumission:", result)
+        Dimensions: formData.dimensions,
+        Matériaux: formData.materiaux,
+        Estimation: formData.estimation,
+        materials: formData.materiaux, // Ajout pour compatibilité
+      })
 
       if (result.success) {
-        toast.success("Luminaire créé avec succès!")
-        resetForm()
+        setFormData({
+          nom: "",
+          designer: "",
+          annee: "",
+          editeur: "",
+          periode: "",
+          collaboration: "",
+          description: "",
+          signe: "",
+          dimensions: "",
+          materiaux: "",
+          estimation: "",
+        })
         onClose()
-      } else {
-        throw new Error(result.error || "Erreur lors de la création")
       }
-    } catch (error: any) {
-      console.error("❌ Erreur soumission:", error)
-      toast.error(`Erreur lors de la création du luminaire: ${error.message}`)
+    } catch (error) {
+      console.error("❌ Erreur soumission formulaire:", error)
+      toast.error("Erreur lors de la création du luminaire")
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Ajouter un nouveau luminaire</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Informations de base */}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="nom">Nom du luminaire *</Label>
@@ -275,18 +99,17 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                 id="nom"
                 value={formData.nom}
                 onChange={(e) => handleInputChange("nom", e.target.value)}
-                placeholder="Nom du luminaire"
                 required
               />
             </div>
 
             <div>
-              <Label htmlFor="designer">Designer</Label>
+              <Label htmlFor="designer">Artiste / Dates *</Label>
               <Input
                 id="designer"
                 value={formData.designer}
                 onChange={(e) => handleInputChange("designer", e.target.value)}
-                placeholder="Nom du designer"
+                required
               />
             </div>
 
@@ -297,53 +120,32 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                 type="text"
                 value={formData.annee}
                 onChange={(e) => handleInputChange("annee", e.target.value)}
-                placeholder="Année de création"
               />
             </div>
 
             <div>
-              <Label htmlFor="periode">Période/Spécialité</Label>
+              <Label htmlFor="editeur">Éditeur</Label>
+              <Input
+                id="editeur"
+                value={formData.editeur}
+                onChange={(e) => handleInputChange("editeur", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="periode">Spécialité</Label>
               <Input
                 id="periode"
                 value={formData.periode}
                 onChange={(e) => handleInputChange("periode", e.target.value)}
-                placeholder="Période ou spécialité"
-              />
-            </div>
-          </div>
-
-          {/* Description et Collaboration séparés */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => handleInputChange("description", e.target.value)}
-                placeholder="Description du luminaire"
-                rows={3}
               />
             </div>
 
-            <div>
-              <Label htmlFor="collaboration">Collaboration / Œuvre</Label>
-              <Textarea
-                id="collaboration"
-                value={formData.collaboration}
-                onChange={(e) => handleInputChange("collaboration", e.target.value)}
-                placeholder="Informations sur la collaboration ou l'œuvre"
-                rows={3}
-              />
-            </div>
-          </div>
-
-          {/* Informations détaillées */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="signe">Signé</Label>
               <Select value={formData.signe} onValueChange={(value) => handleInputChange("signe", value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Le luminaire est-il signé ?" />
+                  <SelectValue placeholder="Sélectionner..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Oui">Oui</SelectItem>
@@ -355,158 +157,55 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
             </div>
 
             <div>
-              <Label htmlFor="editeur">Éditeur</Label>
-              <Input
-                id="editeur"
-                value={formData.editeur}
-                onChange={(e) => handleInputChange("editeur", e.target.value)}
-                placeholder="Éditeur ou fabricant"
-              />
-            </div>
-
-            <div>
               <Label htmlFor="dimensions">Dimensions</Label>
               <Input
                 id="dimensions"
                 value={formData.dimensions}
                 onChange={(e) => handleInputChange("dimensions", e.target.value)}
-                placeholder="ex: H 50cm x L 30cm x P 20cm"
               />
             </div>
 
             <div>
-              <Label htmlFor="estimation">Prix / Estimation</Label>
+              <Label htmlFor="estimation">Estimation</Label>
               <Input
                 id="estimation"
                 value={formData.estimation}
                 onChange={(e) => handleInputChange("estimation", e.target.value)}
-                placeholder="Prix ou estimation"
               />
             </div>
           </div>
 
-          {/* Matériaux */}
           <div>
-            <Label>Matériaux</Label>
-            <div className="flex gap-2 mb-2">
-              <Input
-                value={materialInput}
-                onChange={(e) => setMaterialInput(e.target.value)}
-                placeholder="Ajouter un matériau"
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addMaterial())}
-              />
-              <Button type="button" onClick={addMaterial} variant="outline">
-                Ajouter
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.materiaux.map((material) => (
-                <Badge key={material} variant="secondary" className="flex items-center gap-1">
-                  {material}
-                  <X className="w-3 h-3 cursor-pointer" onClick={() => removeMaterial(material)} />
-                </Badge>
-              ))}
-            </div>
+            <Label htmlFor="collaboration">Collaboration / Œuvre</Label>
+            <Textarea
+              id="collaboration"
+              value={formData.collaboration}
+              onChange={(e) => handleInputChange("collaboration", e.target.value)}
+              rows={3}
+            />
           </div>
 
-          {/* Couleurs */}
           <div>
-            <Label>Couleurs</Label>
-            <div className="flex gap-2 mb-2">
-              <Input
-                value={colorInput}
-                onChange={(e) => setColorInput(e.target.value)}
-                placeholder="Ajouter une couleur"
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
-              />
-              <Button type="button" onClick={addColor} variant="outline">
-                Ajouter
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.couleurs.map((color) => (
-                <Badge key={color} variant="secondary" className="flex items-center gap-1">
-                  {color}
-                  <X className="w-3 h-3 cursor-pointer" onClick={() => removeColor(color)} />
-                </Badge>
-              ))}
-            </div>
+            <Label htmlFor="materiaux">Matériaux</Label>
+            <Textarea
+              id="materiaux"
+              value={formData.materiaux}
+              onChange={(e) => handleInputChange("materiaux", e.target.value)}
+              rows={3}
+            />
           </div>
 
-          {/* Upload d'images principales */}
           <div>
-            <Label>Images du luminaire</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <div className="text-center">
-                <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <Button type="button" onClick={() => fileInputRef.current?.click()} variant="outline">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Sélectionner des images
-                </Button>
-                <p className="text-sm text-gray-500 mt-2">PNG, JPG jusqu'à 10MB chacune</p>
-              </div>
-
-              {images.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium mb-2">{images.length} image(s) sélectionnée(s):</p>
-                  <div className="space-y-2">
-                    {images.map((image, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                        <span className="text-sm truncate">{image.name}</span>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => removeImage(index)}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleInputChange("description", e.target.value)}
+              rows={4}
+            />
           </div>
 
-          {/* Upload image designer */}
-          <div>
-            <Label>Image du designer</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-              <input
-                ref={designerImageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleDesignerImageUpload}
-                className="hidden"
-              />
-              <div className="text-center">
-                <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <Button type="button" onClick={() => designerImageInputRef.current?.click()} variant="outline">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Sélectionner l'image du designer
-                </Button>
-                <p className="text-sm text-gray-500 mt-2">PNG, JPG jusqu'à 5MB</p>
-              </div>
-
-              {designerImage && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                    <span className="text-sm truncate">{designerImage.name}</span>
-                    <Button type="button" size="sm" variant="ghost" onClick={removeDesignerImage}>
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Boutons d'action */}
-          <div className="flex justify-end gap-4 pt-4 border-t">
+          <div className="flex justify-end gap-4 pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               Annuler
             </Button>
@@ -516,7 +215,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
               style={{ backgroundColor: "#f2d895", color: "#000" }}
               className="hover:opacity-90"
             >
-              {isSubmitting ? "Création..." : "Créer le luminaire"}
+              {isSubmitting ? "Création..." : "Créer"}
             </Button>
           </div>
         </form>

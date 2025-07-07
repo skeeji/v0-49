@@ -37,6 +37,17 @@ export default function LuminaireDetailPage() {
         console.log("📊 Réponse API luminaire:", result)
 
         if (result.success) {
+          // Debug des clés disponibles
+          console.log("🔍 Clés disponibles dans le luminaire:", Object.keys(result.data))
+          console.log("🔍 Valeurs matériaux et signé:", {
+            materiaux: result.data.materiaux,
+            Matériaux: result.data.Matériaux,
+            materials: result.data.materials,
+            signe: result.data.signe,
+            signed: result.data.signed,
+            Signé: result.data.Signé,
+          })
+
           // Formater le luminaire avec compatibilité CSV et formulaire
           const formattedLuminaire = {
             ...result.data,
@@ -48,7 +59,6 @@ export default function LuminaireDetailPage() {
             artist: String(result.data.designer || result.data["Artiste / Dates"] || ""),
             specialty: String(result.data.periode || result.data["Spécialité"] || result.data.specialite || ""),
             year: String(result.data.annee || result.data["Année"] || ""),
-            signed: String(result.data.signe || result.data["Signé"] || ""),
             name: String(result.data.nom || result.data["Nom luminaire"] || ""),
 
             // Champs avec compatibilité CSV/formulaire
@@ -56,20 +66,55 @@ export default function LuminaireDetailPage() {
             collaboration: String(
               result.data.collaboration || result.data["Collaboration / Œuvre"] || result.data.oeuvre || "",
             ),
-
             dimensions: String(result.data.dimensions || result.data["Dimensions"] || ""),
             estimation: String(result.data.estimation || result.data["Estimation"] || ""),
             editeur: String(result.data.editeur || result.data["Editeur"] || ""),
-            materials: Array.isArray(result.data.materiaux)
-              ? result.data.materiaux.join(", ")
-              : String(result.data.materiaux || result.data["Matériaux"] || ""),
+
+            // Gestion des matériaux - RECHERCHE EXHAUSTIVE
+            materials: (() => {
+              const materiauxKeys = [
+                "materiaux",
+                "Matériaux",
+                "materials",
+                "Materials",
+                "matériaux",
+                "MATERIAUX",
+                "MATERIALS",
+              ]
+
+              for (const key of materiauxKeys) {
+                if (result.data[key]) {
+                  if (Array.isArray(result.data[key]) && result.data[key].length > 0) {
+                    return result.data[key].join(", ")
+                  } else if (typeof result.data[key] === "string" && result.data[key].trim() !== "") {
+                    return result.data[key].trim()
+                  }
+                }
+              }
+              return ""
+            })(),
+
+            // Gestion de Signé - RECHERCHE EXHAUSTIVE
+            signed: (() => {
+              const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
+
+              for (const key of signeKeys) {
+                if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") {
+                  return result.data[key].trim()
+                }
+              }
+              return ""
+            })(),
           }
 
-          setLuminaire(formattedLuminaire)
-          console.log("✅ Luminaire formaté avec compatibilité CSV/formulaire:", {
+          console.log("✅ Luminaire formaté:", {
+            materials: formattedLuminaire.materials,
+            signed: formattedLuminaire.signed,
             specialty: formattedLuminaire.specialty,
             collaboration: formattedLuminaire.collaboration,
           })
+
+          setLuminaire(formattedLuminaire)
 
           // Charger TOUS les luminaires pour trouver les 6 plus proches
           const allLuminairesResponse = await fetch("/api/luminaires?limit=9999")

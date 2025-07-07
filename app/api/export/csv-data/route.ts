@@ -19,6 +19,23 @@ export async function GET(request: NextRequest) {
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
+      // Debug complet de TOUTES les clés disponibles
+      console.log(`🔍 TOUTES les clés disponibles:`, Object.keys(luminaire))
+      console.log(`🔍 Valeurs spécifiques:`, {
+        materiaux: luminaire.materiaux,
+        Matériaux: luminaire.Matériaux,
+        materials: luminaire.materials,
+        collaboration: luminaire.collaboration,
+        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
+        oeuvre: luminaire.oeuvre,
+        periode: luminaire.periode,
+        specialite: luminaire.specialite,
+        Spécialité: luminaire.Spécialité,
+        signe: luminaire.signe,
+        signed: luminaire.signed,
+        Signé: luminaire.Signé,
+      })
+
       // Gestion des images du luminaire (tableau)
       let imagesLuminaire = ""
       if (luminaire.filename) {
@@ -41,54 +58,69 @@ export async function GET(request: NextRequest) {
         luminaire.image_designer ||
         ""
 
-      // Gestion des matériaux - RECHERCHE EXHAUSTIVE DE TOUTES LES VARIANTES
+      // Gestion des matériaux - TOUTES LES VARIANTES POSSIBLES
       let materiaux = ""
-      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-        materiaux = luminaire.materiaux.join(", ")
-      } else if (Array.isArray(luminaire.Matériaux) && luminaire.Matériaux.length > 0) {
-        materiaux = luminaire.Matériaux.join(", ")
-      } else if (Array.isArray(luminaire.materials) && luminaire.materials.length > 0) {
-        materiaux = luminaire.materials.join(", ")
-      } else if (typeof luminaire.materiaux === "string" && luminaire.materiaux.trim() !== "") {
-        materiaux = luminaire.materiaux
-      } else if (typeof luminaire.Matériaux === "string" && luminaire.Matériaux.trim() !== "") {
-        materiaux = luminaire.Matériaux
-      } else if (typeof luminaire.materials === "string" && luminaire.materials.trim() !== "") {
-        materiaux = luminaire.materials
-      } else if (typeof luminaire["Matériaux"] === "string" && luminaire["Matériaux"].trim() !== "") {
-        materiaux = luminaire["Matériaux"]
+      const materiauxKeys = ["materiaux", "Matériaux", "materials", "Materials", "matériaux", "MATERIAUX", "MATERIALS"]
+
+      for (const key of materiauxKeys) {
+        if (luminaire[key]) {
+          if (Array.isArray(luminaire[key]) && luminaire[key].length > 0) {
+            materiaux = luminaire[key].join(", ")
+            break
+          } else if (typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
+            materiaux = luminaire[key].trim()
+            break
+          }
+        }
       }
 
-      // Gestion de Collaboration / Œuvre - RECHERCHE EXHAUSTIVE DE TOUTES LES VARIANTES
+      // Gestion de Collaboration / Œuvre - TOUTES LES VARIANTES POSSIBLES
       let collaborationOeuvre = ""
-      if (typeof luminaire.collaboration === "string" && luminaire.collaboration.trim() !== "") {
-        collaborationOeuvre = luminaire.collaboration
-      } else if (
-        typeof luminaire["Collaboration / Œuvre"] === "string" &&
-        luminaire["Collaboration / Œuvre"].trim() !== ""
-      ) {
-        collaborationOeuvre = luminaire["Collaboration / Œuvre"]
-      } else if (typeof luminaire.oeuvre === "string" && luminaire.oeuvre.trim() !== "") {
-        collaborationOeuvre = luminaire.oeuvre
-      } else if (typeof luminaire["Œuvre"] === "string" && luminaire["Œuvre"].trim() !== "") {
-        collaborationOeuvre = luminaire["Œuvre"]
-      } else if (typeof luminaire.collaboration_oeuvre === "string" && luminaire.collaboration_oeuvre.trim() !== "") {
-        collaborationOeuvre = luminaire.collaboration_oeuvre
+      const collaborationKeys = [
+        "collaboration",
+        "Collaboration / Œuvre",
+        "oeuvre",
+        "Œuvre",
+        "collaboration_oeuvre",
+        "COLLABORATION",
+        "OEUVRE",
+      ]
+
+      for (const key of collaborationKeys) {
+        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
+          collaborationOeuvre = luminaire[key].trim()
+          break
+        }
       }
 
-      // Gestion de Spécialité - RECHERCHE EXHAUSTIVE DE TOUTES LES VARIANTES
+      // Gestion de Spécialité - TOUTES LES VARIANTES POSSIBLES
       let specialite = ""
-      if (typeof luminaire.periode === "string" && luminaire.periode.trim() !== "") {
-        specialite = luminaire.periode
-      } else if (typeof luminaire.specialite === "string" && luminaire.specialite.trim() !== "") {
-        specialite = luminaire.specialite
-      } else if (typeof luminaire.Spécialité === "string" && luminaire.Spécialité.trim() !== "") {
-        specialite = luminaire.Spécialité
-      } else if (typeof luminaire["Spécialité"] === "string" && luminaire["Spécialité"].trim() !== "") {
-        specialite = luminaire["Spécialité"]
-      } else if (typeof luminaire.specialty === "string" && luminaire.specialty.trim() !== "") {
-        specialite = luminaire.specialty
+      const specialiteKeys = ["periode", "specialite", "Spécialité", "specialty", "Specialty", "SPECIALITE", "PERIODE"]
+
+      for (const key of specialiteKeys) {
+        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
+          specialite = luminaire[key].trim()
+          break
+        }
       }
+
+      // Gestion de Signé - TOUTES LES VARIANTES POSSIBLES
+      let signe = ""
+      const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
+
+      for (const key of signeKeys) {
+        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
+          signe = luminaire[key].trim()
+          break
+        }
+      }
+
+      console.log(`✅ Résultats finaux pour ${luminaire.nom}:`, {
+        materiaux,
+        collaborationOeuvre,
+        specialite,
+        signe,
+      })
 
       return {
         // Colonnes dans l'ordre demandé
@@ -100,7 +132,7 @@ export async function GET(request: NextRequest) {
         Spécialité: specialite,
         "Collaboration / Œuvre": collaborationOeuvre,
         Description: luminaire.description || luminaire.desc || luminaire["Description"] || "",
-        Signé: luminaire.signe || luminaire.signed || luminaire["Signé"] || "",
+        Signé: signe,
         Dimensions: luminaire.dimensions || luminaire.dimension || luminaire["Dimensions"] || "",
         Matériaux: materiaux,
         Estimation: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Estimation"] || "",
@@ -149,21 +181,31 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
 
-    // Vérification des champs critiques avec comptage
+    // Vérification détaillée des champs critiques
     const criticalFields = [
       "Nom luminaire",
       "Artiste / Dates",
-      "Image luminaire",
-      "Image designer",
       "Matériaux",
       "Collaboration / Œuvre",
       "Spécialité",
+      "Signé",
     ]
+
     criticalFields.forEach((field) => {
-      const count = csvData.filter(
-        (row) => row[field as keyof typeof row] && row[field as keyof typeof row] !== "",
+      const filledCount = csvData.filter(
+        (row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "",
       ).length
-      console.log(`🔍 Champ "${field}": ${count}/${csvData.length} entrées remplies`)
+      console.log(`🔍 Champ "${field}": ${filledCount}/${csvData.length} entrées remplies`)
+
+      // Afficher quelques exemples de valeurs
+      const examples = csvData
+        .filter((row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "")
+        .slice(0, 3)
+        .map((row) => row[field as keyof typeof row])
+
+      if (examples.length > 0) {
+        console.log(`📋 Exemples pour "${field}":`, examples)
+      }
     })
 
     // Retourner le CSV avec BOM UTF-8
