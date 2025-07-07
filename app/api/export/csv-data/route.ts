@@ -19,8 +19,22 @@ export async function GET(request: NextRequest) {
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
-      // Debug COMPLET de TOUTES les propriétés disponibles
-      console.log(`🔍 TOUTES les propriétés du luminaire:`, JSON.stringify(luminaire, null, 2))
+      // Debug complet de TOUTES les clés disponibles
+      console.log(`🔍 TOUTES les clés disponibles:`, Object.keys(luminaire))
+      console.log(`🔍 Valeurs spécifiques:`, {
+        materiaux: luminaire.materiaux,
+        Matériaux: luminaire.Matériaux,
+        materials: luminaire.materials,
+        collaboration: luminaire.collaboration,
+        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
+        oeuvre: luminaire.oeuvre,
+        periode: luminaire.periode,
+        specialite: luminaire.specialite,
+        Spécialité: luminaire.Spécialité,
+        signe: luminaire.signe,
+        signed: luminaire.signed,
+        Signé: luminaire.Signé,
+      })
 
       // Gestion des images du luminaire (tableau)
       let imagesLuminaire = ""
@@ -44,130 +58,68 @@ export async function GET(request: NextRequest) {
         luminaire.image_designer ||
         ""
 
-      // PARSING EXHAUSTIF DES MATÉRIAUX
+      // Gestion des matériaux - TOUTES LES VARIANTES POSSIBLES
       let materiaux = ""
+      const materiauxKeys = ["materiaux", "Matériaux", "materials", "Materials", "matériaux", "MATERIAUX", "MATERIALS"]
 
-      // Vérifier toutes les propriétés possibles pour les matériaux
-      const allKeys = Object.keys(luminaire)
-      const materiauxPossibleKeys = allKeys.filter(
-        (key) =>
-          key.toLowerCase().includes("materiau") ||
-          key.toLowerCase().includes("material") ||
-          key.toLowerCase().includes("matériau"),
-      )
-
-      console.log(`🔍 Clés possibles pour matériaux:`, materiauxPossibleKeys)
-
-      for (const key of materiauxPossibleKeys) {
-        const value = luminaire[key]
-        if (value) {
-          if (Array.isArray(value) && value.length > 0) {
-            materiaux = value.join(", ")
-            console.log(`✅ Matériaux trouvés via clé "${key}":`, materiaux)
+      for (const key of materiauxKeys) {
+        if (luminaire[key]) {
+          if (Array.isArray(luminaire[key]) && luminaire[key].length > 0) {
+            materiaux = luminaire[key].join(", ")
             break
-          } else if (typeof value === "string" && value.trim() !== "") {
-            materiaux = value.trim()
-            console.log(`✅ Matériaux trouvés via clé "${key}":`, materiaux)
+          } else if (typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
+            materiaux = luminaire[key].trim()
             break
           }
         }
       }
 
-      // Si pas trouvé, essayer les clés exactes
-      if (!materiaux) {
-        const exactKeys = ["materiaux", "Matériaux", "materials", "Materials", "MATERIAUX", "MATERIALS"]
-        for (const key of exactKeys) {
-          const value = luminaire[key]
-          if (value) {
-            if (Array.isArray(value) && value.length > 0) {
-              materiaux = value.join(", ")
-              console.log(`✅ Matériaux trouvés via clé exacte "${key}":`, materiaux)
-              break
-            } else if (typeof value === "string" && value.trim() !== "") {
-              materiaux = value.trim()
-              console.log(`✅ Matériaux trouvés via clé exacte "${key}":`, materiaux)
-              break
-            }
-          }
-        }
-      }
-
-      // PARSING EXHAUSTIF DE COLLABORATION / ŒUVRE
+      // Gestion de Collaboration / Œuvre - TOUTES LES VARIANTES POSSIBLES
       let collaborationOeuvre = ""
+      const collaborationKeys = [
+        "collaboration",
+        "Collaboration / Œuvre",
+        "oeuvre",
+        "Œuvre",
+        "collaboration_oeuvre",
+        "COLLABORATION",
+        "OEUVRE",
+      ]
 
-      // Vérifier toutes les propriétés possibles pour collaboration
-      const collaborationPossibleKeys = allKeys.filter(
-        (key) =>
-          key.toLowerCase().includes("collaboration") ||
-          key.toLowerCase().includes("oeuvre") ||
-          key.toLowerCase().includes("œuvre"),
-      )
-
-      console.log(`🔍 Clés possibles pour collaboration:`, collaborationPossibleKeys)
-
-      for (const key of collaborationPossibleKeys) {
-        const value = luminaire[key]
-        if (value && typeof value === "string" && value.trim() !== "") {
-          collaborationOeuvre = value.trim()
-          console.log(`✅ Collaboration trouvée via clé "${key}":`, collaborationOeuvre)
+      for (const key of collaborationKeys) {
+        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
+          collaborationOeuvre = luminaire[key].trim()
           break
         }
       }
 
-      // Si pas trouvé, essayer les clés exactes
-      if (!collaborationOeuvre) {
-        const exactKeys = ["collaboration", "Collaboration / Œuvre", "oeuvre", "Œuvre", "COLLABORATION", "OEUVRE"]
-        for (const key of exactKeys) {
-          const value = luminaire[key]
-          if (value && typeof value === "string" && value.trim() !== "") {
-            collaborationOeuvre = value.trim()
-            console.log(`✅ Collaboration trouvée via clé exacte "${key}":`, collaborationOeuvre)
-            break
-          }
-        }
-      }
-
-      // PARSING EXHAUSTIF DE SPÉCIALITÉ
+      // Gestion de Spécialité - TOUTES LES VARIANTES POSSIBLES
       let specialite = ""
+      const specialiteKeys = ["periode", "specialite", "Spécialité", "specialty", "Specialty", "SPECIALITE", "PERIODE"]
 
-      // Vérifier toutes les propriétés possibles pour spécialité
-      const specialitePossibleKeys = allKeys.filter(
-        (key) =>
-          key.toLowerCase().includes("specialite") ||
-          key.toLowerCase().includes("spécialité") ||
-          key.toLowerCase().includes("periode") ||
-          key.toLowerCase().includes("période") ||
-          key.toLowerCase().includes("specialty"),
-      )
-
-      console.log(`🔍 Clés possibles pour spécialité:`, specialitePossibleKeys)
-
-      for (const key of specialitePossibleKeys) {
-        const value = luminaire[key]
-        if (value && typeof value === "string" && value.trim() !== "") {
-          specialite = value.trim()
-          console.log(`✅ Spécialité trouvée via clé "${key}":`, specialite)
+      for (const key of specialiteKeys) {
+        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
+          specialite = luminaire[key].trim()
           break
         }
       }
 
-      // Si pas trouvé, essayer les clés exactes
-      if (!specialite) {
-        const exactKeys = ["periode", "specialite", "Spécialité", "specialty", "Specialty", "SPECIALITE", "PERIODE"]
-        for (const key of exactKeys) {
-          const value = luminaire[key]
-          if (value && typeof value === "string" && value.trim() !== "") {
-            specialite = value.trim()
-            console.log(`✅ Spécialité trouvée via clé exacte "${key}":`, specialite)
-            break
-          }
+      // Gestion de Signé - TOUTES LES VARIANTES POSSIBLES
+      let signe = ""
+      const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
+
+      for (const key of signeKeys) {
+        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
+          signe = luminaire[key].trim()
+          break
         }
       }
 
-      console.log(`🎯 RÉSULTATS FINAUX pour ${luminaire.nom}:`, {
-        materiaux: materiaux || "VIDE",
-        collaborationOeuvre: collaborationOeuvre || "VIDE",
-        specialite: specialite || "VIDE",
+      console.log(`✅ Résultats finaux pour ${luminaire.nom}:`, {
+        materiaux,
+        collaborationOeuvre,
+        specialite,
+        signe,
       })
 
       return {
@@ -180,7 +132,7 @@ export async function GET(request: NextRequest) {
         Spécialité: specialite,
         "Collaboration / Œuvre": collaborationOeuvre,
         Description: luminaire.description || luminaire.desc || luminaire["Description"] || "",
-        Signé: luminaire.signe || luminaire.signed || luminaire["Signé"] || "",
+        Signé: signe,
         Dimensions: luminaire.dimensions || luminaire.dimension || luminaire["Dimensions"] || "",
         Matériaux: materiaux,
         Estimation: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Estimation"] || "",
@@ -229,26 +181,30 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
 
-    // Vérification DÉTAILLÉE des champs critiques
-    const criticalFields = ["Spécialité", "Collaboration / Œuvre", "Matériaux"]
+    // Vérification détaillée des champs critiques
+    const criticalFields = [
+      "Nom luminaire",
+      "Artiste / Dates",
+      "Matériaux",
+      "Collaboration / Œuvre",
+      "Spécialité",
+      "Signé",
+    ]
 
     criticalFields.forEach((field) => {
-      const filledEntries = csvData.filter(
+      const filledCount = csvData.filter(
         (row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "",
-      )
-      const filledCount = filledEntries.length
+      ).length
+      console.log(`🔍 Champ "${field}": ${filledCount}/${csvData.length} entrées remplies`)
 
-      console.log(`🔍 ANALYSE DÉTAILLÉE "${field}":`)
-      console.log(`   - ${filledCount}/${csvData.length} entrées remplies`)
+      // Afficher quelques exemples de valeurs
+      const examples = csvData
+        .filter((row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "")
+        .slice(0, 3)
+        .map((row) => row[field as keyof typeof row])
 
-      if (filledCount > 0) {
-        const examples = filledEntries.slice(0, 5).map((row) => ({
-          nom: row["Nom luminaire"],
-          valeur: row[field as keyof typeof row],
-        }))
-        console.log(`   - Exemples:`, examples)
-      } else {
-        console.log(`   - ⚠️ AUCUNE DONNÉE TROUVÉE pour ce champ`)
+      if (examples.length > 0) {
+        console.log(`📋 Exemples pour "${field}":`, examples)
       }
     })
 
