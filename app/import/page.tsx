@@ -17,9 +17,12 @@ import {
   Upload,
   FileText,
   ImageIcon,
+  Download,
   CheckCircle,
   AlertCircle,
+  Trash2,
   RefreshCw,
+  Database,
   Users,
   Lightbulb,
   Calendar,
@@ -288,17 +291,21 @@ export default function ImportPage() {
         return {
           "Nom luminaire": String(luminaire.nom || luminaire["Nom luminaire"] || ""),
           "Artiste / Dates": String(luminaire.designer || luminaire["Artiste / Dates"] || ""),
-          "Année": String(luminaire.annee || luminaire["Année"] || ""),
-          "Spécialité": specialite, // Utilise la logique de secours
+          Année: String(luminaire.annee || luminaire["Année"] || ""),
+          Spécialité: specialite, // Utilise la logique de secours
           "Collaboration / Œuvre": collaboration, // Utilise la logique de secours
-          "Signé": String(luminaire.signe || luminaire["Signé"] || ""),
+          Signé: String(luminaire.signe || luminaire["Signé"] || ""),
           "Nom du fichier": String(luminaire.filename || luminaire["Nom du fichier"] || ""),
-          "Description": String(luminaire.description || ""),
-          "Editeur": String(luminaire.editeur || ""),
-          "Dimensions": String(luminaire.dimensions || ""),
-          "Estimation": String(luminaire.estimation || ""),
-          "Matériaux": Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : String(luminaire.materiaux || ""),
-          "Couleurs": Array.isArray(luminaire.couleurs) ? luminaire.couleurs.join(", ") : String(luminaire.couleurs || ""),
+          Description: String(luminaire.description || ""),
+          Editeur: String(luminaire.editeur || ""),
+          Dimensions: String(luminaire.dimensions || ""),
+          Estimation: String(luminaire.estimation || ""),
+          Matériaux: Array.isArray(luminaire.materiaux)
+            ? luminaire.materiaux.join(", ")
+            : String(luminaire.materiaux || ""),
+          Couleurs: Array.isArray(luminaire.couleurs)
+            ? luminaire.couleurs.join(", ")
+            : String(luminaire.couleurs || ""),
         }
       })
 
@@ -430,9 +437,7 @@ export default function ImportPage() {
                     <FileText className="w-5 h-5" />
                     Fichier CSV
                   </CardTitle>
-                  <CardDescription>
-                    Fichier contenant les données des luminaires (obligatoire)
-                  </CardDescription>
+                  <CardDescription>Fichier contenant les données des luminaires (obligatoire)</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -471,9 +476,7 @@ export default function ImportPage() {
                     <ImageIcon className="w-5 h-5" />
                     Images des luminaires
                   </CardTitle>
-                  <CardDescription>
-                    Images des luminaires (optionnel)
-                  </CardDescription>
+                  <CardDescription>Images des luminaires (optionnel)</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -507,9 +510,7 @@ export default function ImportPage() {
                     <Users className="w-5 h-5" />
                     Images des designers
                   </CardTitle>
-                  <CardDescription>
-                    Photos des designers/artistes (optionnel)
-                  </CardDescription>
+                  <CardDescription>Photos des designers/artistes (optionnel)</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -622,4 +623,115 @@ export default function ImportPage() {
                 <CardContent className="space-y-4">
                   {uploadResults.error ? (
                     <Alert variant="destructive">
-                      <AlertCircle className="w-\
+                      <AlertCircle className="w-4 h-4" />
+                      <AlertDescription>{uploadResults.error}</AlertDescription>
+                    </Alert>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <p className="text-2xl font-bold text-green-600">{uploadResults.totalProcessed}</p>
+                        <p className="text-sm text-green-700">Luminaires importés</p>
+                      </div>
+                      <div className="text-center p-4 bg-blue-50 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-600">{uploadResults.totalImages}</p>
+                        <p className="text-sm text-blue-700">Images uploadées</p>
+                      </div>
+                      <div className="text-center p-4 bg-purple-50 rounded-lg">
+                        <p className="text-2xl font-bold text-purple-600">
+                          {uploadResults.designerImages?.uploaded || 0}
+                        </p>
+                        <p className="text-sm text-purple-700">Images designers</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Onglet Export */}
+          <TabsContent value="export" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Download className="w-5 h-5" />
+                    Export Excel
+                  </CardTitle>
+                  <CardDescription>Exporter tous les luminaires au format Excel (.xlsx)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={exportAllLuminaires}
+                    disabled={isExporting}
+                    className="w-full bg-transparent"
+                    variant="outline"
+                  >
+                    {isExporting ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Export en cours...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Exporter en Excel
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Export Images
+                  </CardTitle>
+                  <CardDescription>Télécharger toutes les images dans un fichier ZIP</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={() => window.open("/api/export/images", "_blank")}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Télécharger les images
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Onglet Gestion */}
+          <TabsContent value="manage" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-600">
+                  <Database className="w-5 h-5" />
+                  Zone de danger
+                </CardTitle>
+                <CardDescription>Actions irréversibles sur la base de données</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    <strong>Attention :</strong> Cette action supprimera définitivement toutes les données (luminaires,
+                    designers, images). Cette action est irréversible.
+                  </AlertDescription>
+                </Alert>
+
+                <Button onClick={resetDatabase} variant="destructive" className="w-full">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Réinitialiser la base de données
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}
