@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -61,10 +61,10 @@ export default function ImportPage() {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const designerImageInputRef = useRef<HTMLInputElement>(null)
 
-  // Charger les statistiques au montage
-  useState(() => {
+  // Charger les statistiques au montage - CORRECTION: useEffect au lieu de useState
+  useEffect(() => {
     loadStats()
-  })
+  }, [])
 
   const loadStats = async () => {
     try {
