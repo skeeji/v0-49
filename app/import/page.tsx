@@ -457,10 +457,16 @@ export default function ImportPage() {
           console.log("🔍 Luminaire analysé:", {
             nom: luminaire.nom,
             designer: luminaire.designer,
+            // Analyser tous les champs possibles pour Spécialité
             specialite: luminaire.specialite,
             periode: luminaire.periode,
+            Spécialité: luminaire["Spécialité"],
+            Période: luminaire["Période"],
+            // Analyser tous les champs possibles pour Collaboration/Œuvre
             collaboration: luminaire.collaboration,
             oeuvre: luminaire.oeuvre,
+            "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
+            Œuvre: luminaire["Œuvre"],
             designerImageFilename: luminaire.designerImageFilename,
             allKeys: Object.keys(luminaire),
           })
@@ -470,16 +476,41 @@ export default function ImportPage() {
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
+          // Essayer différentes variantes pour Spécialité
+          const specialite =
+            luminaire.specialite ||
+            luminaire["Spécialité"] ||
+            luminaire.periode ||
+            luminaire["Période"] ||
+            luminaire.category ||
+            luminaire.type ||
+            ""
+
+          // Essayer différentes variantes pour Collaboration / Œuvre
+          const collaboration =
+            luminaire.collaboration ||
+            luminaire["Collaboration / Œuvre"] ||
+            luminaire.oeuvre ||
+            luminaire["Œuvre"] ||
+            luminaire.work ||
+            luminaire.projet ||
+            ""
+
+          console.log("📋 Valeurs finales:", {
+            nom: luminaire.nom,
+            specialite: specialite,
+            collaboration: collaboration,
+            designerImageFilename: designerImageFilename,
+          })
+
           return {
             Signé: luminaire.signe || luminaire["Signé"] || "",
             "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
             "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
             Année: luminaire.annee || luminaire["Année"] || "",
             Editeur: luminaire.editeur || luminaire["Editeur"] || "",
-            Spécialité:
-              luminaire.specialite || luminaire["Spécialité"] || luminaire.periode || luminaire["Période"] || "",
-            "Collaboration / Œuvre":
-              luminaire.collaboration || luminaire["Collaboration / Œuvre"] || luminaire.oeuvre || "",
+            Spécialité: specialite,
+            "Collaboration / Œuvre": collaboration,
             Description: luminaire.description || luminaire["Description"] || "",
             Matériaux: Array.isArray(luminaire.materiaux)
               ? luminaire.materiaux.join("; ")
