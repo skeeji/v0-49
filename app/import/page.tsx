@@ -449,28 +449,47 @@ export default function ImportPage() {
         // Créer un map des designers pour récupérer rapidement l'image
         const designersMap = new Map()
         designersData.designers.forEach((designer: any) => {
-          designersMap.set(designer.Nom || designer.nom, designer.imagedesigner || "")
+          designersMap.set(designer.Nom || designer.nom, designer)
         })
 
-        // Préparer les données pour l'export avec le mapping exact basé sur l'analyse du CSV
-        const csvData = luminairesData.luminaires.map((luminaire: any) => ({
-          Signé: luminaire.signe || luminaire["Signé"] || "",
-          "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
-          "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
-          Année: luminaire.annee || luminaire["Année"] || "",
-          Editeur: luminaire.editeur || luminaire["Editeur"] || "",
-          Spécialité: luminaire.specialite || luminaire.periode || luminaire["Spécialité"] || "",
-          "Collaboration / Œuvre":
-            luminaire.collaboration || luminaire.oeuvre || luminaire["Collaboration / Œuvre"] || "",
-          Description: luminaire.description || luminaire["Description"] || "",
-          Matériaux: Array.isArray(luminaire.materiaux)
-            ? luminaire.materiaux.join("; ")
-            : luminaire.materiaux || luminaire["Matériaux"] || "",
-          Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-          Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
-          "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
-          "Image designer (imagedesigner)": designersMap.get(luminaire.designer || luminaire["Artiste / Dates"]) || "",
-        }))
+        // Préparer les données pour l'export avec le mapping exact
+        const csvData = luminairesData.luminaires.map((luminaire: any) => {
+          console.log("🔍 Luminaire analysé:", {
+            nom: luminaire.nom,
+            designer: luminaire.designer,
+            specialite: luminaire.specialite,
+            periode: luminaire.periode,
+            collaboration: luminaire.collaboration,
+            oeuvre: luminaire.oeuvre,
+            designerImageFilename: luminaire.designerImageFilename,
+            allKeys: Object.keys(luminaire),
+          })
+
+          // Récupérer l'image du designer
+          const designerName = luminaire.designer || luminaire["Artiste / Dates"]
+          const designer = designersMap.get(designerName)
+          const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
+
+          return {
+            Signé: luminaire.signe || luminaire["Signé"] || "",
+            "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
+            "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
+            Année: luminaire.annee || luminaire["Année"] || "",
+            Editeur: luminaire.editeur || luminaire["Editeur"] || "",
+            Spécialité:
+              luminaire.specialite || luminaire["Spécialité"] || luminaire.periode || luminaire["Période"] || "",
+            "Collaboration / Œuvre":
+              luminaire.collaboration || luminaire["Collaboration / Œuvre"] || luminaire.oeuvre || "",
+            Description: luminaire.description || luminaire["Description"] || "",
+            Matériaux: Array.isArray(luminaire.materiaux)
+              ? luminaire.materiaux.join("; ")
+              : luminaire.materiaux || luminaire["Matériaux"] || "",
+            Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
+            Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
+            "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
+            "Image designer (imagedesigner)": designerImageFilename,
+          }
+        })
 
         // Créer le contenu CSV avec l'ordre exact des colonnes
         const headers = [
