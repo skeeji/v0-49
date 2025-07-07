@@ -34,80 +34,116 @@ export default function LuminaireDetailPage() {
         if (!response.ok) throw new Error("Luminaire non trouvé")
 
         const result = await response.json()
-        console.log("📊 Réponse API luminaire:", result)
+        console.log("📊 Réponse API luminaire complète:", JSON.stringify(result.data, null, 2))
 
         if (result.success) {
+          const rawData = result.data
+
           // Debug des clés disponibles
-          console.log("🔍 Clés disponibles dans le luminaire:", Object.keys(result.data))
-          console.log("🔍 Valeurs matériaux et signé:", {
-            materiaux: result.data.materiaux,
-            Matériaux: result.data.Matériaux,
-            materials: result.data.materials,
-            signe: result.data.signe,
-            signed: result.data.signed,
-            Signé: result.data.Signé,
-          })
+          console.log("🔍 TOUTES les clés disponibles:", Object.keys(rawData))
+
+          // PARSING EXHAUSTIF DES MATÉRIAUX
+          let materials = ""
+          const allKeys = Object.keys(rawData)
+          const materiauxPossibleKeys = allKeys.filter(
+            (key) =>
+              key.toLowerCase().includes("materiau") ||
+              key.toLowerCase().includes("material") ||
+              key.toLowerCase().includes("matériau"),
+          )
+
+          console.log(`🔍 Clés possibles pour matériaux:`, materiauxPossibleKeys)
+
+          for (const key of materiauxPossibleKeys) {
+            const value = rawData[key]
+            if (value) {
+              if (Array.isArray(value) && value.length > 0) {
+                materials = value.join(", ")
+                console.log(`✅ Matériaux trouvés via clé "${key}":`, materials)
+                break
+              } else if (typeof value === "string" && value.trim() !== "") {
+                materials = value.trim()
+                console.log(`✅ Matériaux trouvés via clé "${key}":`, materials)
+                break
+              }
+            }
+          }
+
+          // Si pas trouvé, essayer les clés exactes
+          if (!materials) {
+            const exactKeys = ["materiaux", "Matériaux", "materials", "Materials", "MATERIAUX", "MATERIALS"]
+            for (const key of exactKeys) {
+              const value = rawData[key]
+              if (value) {
+                if (Array.isArray(value) && value.length > 0) {
+                  materials = value.join(", ")
+                  console.log(`✅ Matériaux trouvés via clé exacte "${key}":`, materials)
+                  break
+                } else if (typeof value === "string" && value.trim() !== "") {
+                  materials = value.trim()
+                  console.log(`✅ Matériaux trouvés via clé exacte "${key}":`, materials)
+                  break
+                }
+              }
+            }
+          }
+
+          // PARSING EXHAUSTIF DE SIGNÉ
+          let signed = ""
+          const signePossibleKeys = allKeys.filter(
+            (key) => key.toLowerCase().includes("sign") || key.toLowerCase().includes("signé"),
+          )
+
+          console.log(`🔍 Clés possibles pour signé:`, signePossibleKeys)
+
+          for (const key of signePossibleKeys) {
+            const value = rawData[key]
+            if (value && typeof value === "string" && value.trim() !== "") {
+              signed = value.trim()
+              console.log(`✅ Signé trouvé via clé "${key}":`, signed)
+              break
+            }
+          }
+
+          // Si pas trouvé, essayer les clés exactes
+          if (!signed) {
+            const exactKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
+            for (const key of exactKeys) {
+              const value = rawData[key]
+              if (value && typeof value === "string" && value.trim() !== "") {
+                signed = value.trim()
+                console.log(`✅ Signé trouvé via clé exacte "${key}":`, signed)
+                break
+              }
+            }
+          }
 
           // Formater le luminaire avec compatibilité CSV et formulaire
           const formattedLuminaire = {
-            ...result.data,
-            id: String(result.data._id || ""),
-            _id: String(result.data._id || ""),
-            image: result.data.image || (result.data.filename ? `/api/images/filename/${result.data.filename}` : null),
+            ...rawData,
+            id: String(rawData._id || ""),
+            _id: String(rawData._id || ""),
+            image: rawData.image || (rawData.filename ? `/api/images/filename/${rawData.filename}` : null),
 
             // Champs principaux avec compatibilité CSV/formulaire
-            artist: String(result.data.designer || result.data["Artiste / Dates"] || ""),
-            specialty: String(result.data.periode || result.data["Spécialité"] || result.data.specialite || ""),
-            year: String(result.data.annee || result.data["Année"] || ""),
-            name: String(result.data.nom || result.data["Nom luminaire"] || ""),
+            artist: String(rawData.designer || rawData["Artiste / Dates"] || ""),
+            specialty: String(rawData.periode || rawData["Spécialité"] || rawData.specialite || ""),
+            year: String(rawData.annee || rawData["Année"] || ""),
+            name: String(rawData.nom || rawData["Nom luminaire"] || ""),
 
             // Champs avec compatibilité CSV/formulaire
-            description: String(result.data.description || result.data["Description"] || ""),
-            collaboration: String(
-              result.data.collaboration || result.data["Collaboration / Œuvre"] || result.data.oeuvre || "",
-            ),
-            dimensions: String(result.data.dimensions || result.data["Dimensions"] || ""),
-            estimation: String(result.data.estimation || result.data["Estimation"] || ""),
-            editeur: String(result.data.editeur || result.data["Editeur"] || ""),
+            description: String(rawData.description || rawData["Description"] || ""),
+            collaboration: String(rawData.collaboration || rawData["Collaboration / Œuvre"] || rawData.oeuvre || ""),
+            dimensions: String(rawData.dimensions || rawData["Dimensions"] || ""),
+            estimation: String(rawData.estimation || rawData["Estimation"] || ""),
+            editeur: String(rawData.editeur || rawData["Editeur"] || ""),
 
-            // Gestion des matériaux - RECHERCHE EXHAUSTIVE
-            materials: (() => {
-              const materiauxKeys = [
-                "materiaux",
-                "Matériaux",
-                "materials",
-                "Materials",
-                "matériaux",
-                "MATERIAUX",
-                "MATERIALS",
-              ]
-
-              for (const key of materiauxKeys) {
-                if (result.data[key]) {
-                  if (Array.isArray(result.data[key]) && result.data[key].length > 0) {
-                    return result.data[key].join(", ")
-                  } else if (typeof result.data[key] === "string" && result.data[key].trim() !== "") {
-                    return result.data[key].trim()
-                  }
-                }
-              }
-              return ""
-            })(),
-
-            // Gestion de Signé - RECHERCHE EXHAUSTIVE
-            signed: (() => {
-              const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
-
-              for (const key of signeKeys) {
-                if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") {
-                  return result.data[key].trim()
-                }
-              }
-              return ""
-            })(),
+            // Utiliser les valeurs parsées
+            materials: materials,
+            signed: signed,
           }
 
-          console.log("✅ Luminaire formaté:", {
+          console.log("✅ Luminaire formaté avec valeurs parsées:", {
             materials: formattedLuminaire.materials,
             signed: formattedLuminaire.signed,
             specialty: formattedLuminaire.specialty,
