@@ -433,6 +433,16 @@ export default function ImportPage() {
     }
   }
 
+  // Fonction utilitaire pour récupérer une valeur avec plusieurs clés possibles
+  const getFieldValue = (obj: any, possibleKeys: string[]): string => {
+    for (const key of possibleKeys) {
+      if (obj[key] && obj[key] !== "" && obj[key] !== null && obj[key] !== undefined) {
+        return String(obj[key]).trim()
+      }
+    }
+    return ""
+  }
+
   const exportAllLuminaires = async () => {
     setExportingCSV(true)
     try {
@@ -452,43 +462,50 @@ export default function ImportPage() {
           designersMap.set(designer.Nom || designer.nom, designer)
         })
 
+        console.log("🔍 Analyse des luminaires pour l'export...")
+
         // Préparer les données pour l'export avec le mapping exact
-        const csvData = luminairesData.luminaires.map((luminaire: any) => {
-          // Debug: afficher toutes les clés disponibles pour ce luminaire
-          console.log("🔍 Luminaire analysé:", {
+        const csvData = luminairesData.luminaires.map((luminaire: any, index: number) => {
+          // Debug complet pour chaque luminaire
+          console.log(`🔍 Luminaire ${index + 1}:`, {
             nom: luminaire.nom,
-            designer: luminaire.designer,
             toutesLesCles: Object.keys(luminaire),
+            valeurs: luminaire,
           })
 
           // Récupérer l'image du designer
-          const designerName = luminaire.designer || luminaire["Artiste / Dates"]
+          const designerName = getFieldValue(luminaire, ["designer", "Artiste / Dates"])
           const designer = designersMap.get(designerName)
-          const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
+          const designerImageFilename =
+            getFieldValue(luminaire, ["designerImageFilename"]) || (designer && designer.imagedesigner) || ""
 
-          // CORRECTION CRITIQUE: Tester TOUTES les variantes possibles pour Spécialité
-          const specialite =
-            luminaire.specialite ||
-            luminaire["Spécialité"] ||
-            luminaire.periode ||
-            luminaire["Période"] ||
-            luminaire.category ||
-            luminaire.type ||
-            luminaire.specialty ||
-            ""
+          // SPÉCIALITÉ - Tester toutes les variantes possibles
+          const specialiteKeys = [
+            "specialite",
+            "Spécialité",
+            "periode",
+            "Période",
+            "category",
+            "type",
+            "specialty",
+            "period",
+          ]
+          const specialite = getFieldValue(luminaire, specialiteKeys)
 
-          // CORRECTION CRITIQUE: Tester TOUTES les variantes possibles pour Collaboration / Œuvre
-          const collaboration =
-            luminaire.collaboration ||
-            luminaire["Collaboration / Œuvre"] ||
-            luminaire.oeuvre ||
-            luminaire["Œuvre"] ||
-            luminaire.work ||
-            luminaire.projet ||
-            luminaire.project ||
-            ""
+          // COLLABORATION / ŒUVRE - Tester toutes les variantes possibles
+          const collaborationKeys = [
+            "collaboration",
+            "Collaboration / Œuvre",
+            "oeuvre",
+            "Œuvre",
+            "work",
+            "projet",
+            "project",
+            "collaboration_oeuvre",
+          ]
+          const collaboration = getFieldValue(luminaire, collaborationKeys)
 
-          console.log("📋 Valeurs finales trouvées:", {
+          console.log(`📋 Luminaire ${index + 1} - Valeurs extraites:`, {
             nom: luminaire.nom,
             specialite: specialite,
             collaboration: collaboration,
@@ -496,20 +513,20 @@ export default function ImportPage() {
           })
 
           return {
-            Signé: luminaire.signe || luminaire["Signé"] || "",
-            "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
-            "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
-            Année: luminaire.annee || luminaire["Année"] || "",
-            Editeur: luminaire.editeur || luminaire["Editeur"] || "",
+            Signé: getFieldValue(luminaire, ["signe", "Signé"]),
+            "Nom luminaire": getFieldValue(luminaire, ["nom", "Nom luminaire"]),
+            "Artiste / Dates": getFieldValue(luminaire, ["designer", "Artiste / Dates"]),
+            Année: getFieldValue(luminaire, ["annee", "Année"]),
+            Editeur: getFieldValue(luminaire, ["editeur", "Editeur"]),
             Spécialité: specialite,
             "Collaboration / Œuvre": collaboration,
-            Description: luminaire.description || luminaire["Description"] || "",
+            Description: getFieldValue(luminaire, ["description", "Description"]),
             Matériaux: Array.isArray(luminaire.materiaux)
               ? luminaire.materiaux.join("; ")
-              : luminaire.materiaux || luminaire["Matériaux"] || "",
-            Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-            Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
-            "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
+              : getFieldValue(luminaire, ["materiaux", "Matériaux"]),
+            Dimensions: getFieldValue(luminaire, ["dimensions", "Dimensions"]),
+            Estimation: getFieldValue(luminaire, ["estimation", "prix", "Estimation"]),
+            "Image luminaire (Nom du fichier)": getFieldValue(luminaire, ["filename", "Nom du fichier"]),
             "Image designer (imagedesigner)": designerImageFilename,
           }
         })
@@ -534,7 +551,14 @@ export default function ImportPage() {
         const csvContent = [
           headers.join(","),
           ...csvData.map((row) =>
-            headers.map((header) => `"${(row[header] || "").toString().replace(/"/g, '""')}"`).join(","),
+            headers
+              .map((header) => {
+                const value = row[header] || ""
+                // Échapper les guillemets et entourer de guillemets si nécessaire
+                const escapedValue = String(value).replace(/"/g, '""')
+                return `"${escapedValue}"`
+              })
+              .join(","),
           ),
         ].join("\n")
 
@@ -544,8 +568,19 @@ export default function ImportPage() {
         const collaborationCount = csvData.filter(
           (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"] !== "",
         ).length
+
         console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
         console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
+
+        // Afficher quelques exemples pour debug
+        console.log("📋 Exemples de données exportées:")
+        csvData.slice(0, 3).forEach((row, i) => {
+          console.log(`Exemple ${i + 1}:`, {
+            nom: row["Nom luminaire"],
+            specialite: row["Spécialité"],
+            collaboration: row["Collaboration / Œuvre"],
+          })
+        })
 
         // Créer et télécharger le fichier
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
@@ -557,11 +592,12 @@ export default function ImportPage() {
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        URL.revokeObjectURL(url)
 
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires exportés avec ${specialiteCount} spécialités et ${collaborationCount} collaborations`,
+          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations`,
         })
       }
     } catch (error) {
