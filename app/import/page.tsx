@@ -61,7 +61,7 @@ export default function ImportPage() {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const designerImageInputRef = useRef<HTMLInputElement>(null)
 
-  // Charger les statistiques au montage - CORRECTION: useEffect au lieu de useState
+  // Charger les statistiques au montage - SEULE CORRECTION: useEffect au lieu de useState
   useEffect(() => {
     loadStats()
   }, [])

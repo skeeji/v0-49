@@ -125,7 +125,7 @@ export async function GET() {
       console.log("⚠️ AUCUNE image de designer identifiée - tous les fichiers iront dans luminaires/")
     }
 
-    // PHASE 2: Traitement et tri des fichiers depuis GridFS
+    // PHASE 2: Traitement et tri des fichiers depuis GridFS avec métadonnées
     console.log("📁 Phase 2: Traitement des fichiers depuis GridFS...")
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
@@ -143,7 +143,7 @@ export async function GET() {
       return NextResponse.json({ error: "Aucune image .jpg trouvée dans le bucket uploads" }, { status: 404 })
     }
 
-    // Traiter chaque fichier avec la logique de tri corrigée
+    // Traiter chaque fichier avec la logique de tri améliorée
     const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
     let designersCount = 0
     let luminairesCount = 0
@@ -169,18 +169,27 @@ export async function GET() {
         const originalFilename = file.filename || `image_${file._id}.jpg`
         const cleanOriginalFilename = originalFilename.trim()
 
-        // RÈGLE DE TRI BASÉE SUR LES LISTES DE RÉFÉRENCE AVEC NETTOYAGE
+        // RÈGLE DE TRI AMÉLIORÉE avec métadonnées
         let zipFilename: string
-        if (designerImages.has(cleanOriginalFilename)) {
-          // SI le fichier est dans la liste des designers → dossier designers/
+
+        // 1. Vérifier d'abord les métadonnées du fichier
+        const metadata = file.metadata || {}
+        if (metadata.isDesignerImage === true) {
+          zipFilename = `designers/${cleanOriginalFilename}`
+          designersCount++
+          console.log(`👤 ${cleanOriginalFilename} → designers/ (métadonnées: isDesignerImage=true)`)
+        }
+        // 2. Ensuite vérifier la liste de référence
+        else if (designerImages.has(cleanOriginalFilename)) {
           zipFilename = `designers/${cleanOriginalFilename}`
           designersCount++
           console.log(`👤 ${cleanOriginalFilename} → designers/ (trouvé dans la liste de référence)`)
-        } else {
-          // SINON (tous les autres cas) → dossier luminaires/
+        }
+        // 3. Sinon, dossier luminaires
+        else {
           zipFilename = `luminaires/${cleanOriginalFilename}`
           luminairesCount++
-          console.log(`💡 ${cleanOriginalFilename} → luminaires/ (non trouvé dans la liste designers)`)
+          console.log(`💡 ${cleanOriginalFilename} → luminaires/ (défaut)`)
         }
 
         const crc32 = calculateCRC32(buffer)
