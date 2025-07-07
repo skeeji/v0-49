@@ -18,17 +18,6 @@ export async function GET(request: NextRequest) {
     // Mapping des champs selon les colonnes demandées
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
-      console.log(`🔍 Debug luminaire:`, {
-        materiaux: luminaire.materiaux,
-        Matériaux: luminaire.Matériaux,
-        materials: luminaire.materials,
-        collaboration: luminaire.collaboration,
-        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
-        oeuvre: luminaire.oeuvre,
-        periode: luminaire.periode,
-        specialite: luminaire.specialite,
-        Spécialité: luminaire.Spécialité,
-      })
 
       // Gestion des images du luminaire (tableau)
       let imagesLuminaire = ""
@@ -52,7 +41,7 @@ export async function GET(request: NextRequest) {
         luminaire.image_designer ||
         ""
 
-      // Gestion des matériaux - RECHERCHE EXHAUSTIVE
+      // Gestion des matériaux - RECHERCHE EXHAUSTIVE DE TOUTES LES VARIANTES
       let materiaux = ""
       if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
         materiaux = luminaire.materiaux.join(", ")
@@ -70,7 +59,7 @@ export async function GET(request: NextRequest) {
         materiaux = luminaire["Matériaux"]
       }
 
-      // Gestion de Collaboration / Œuvre - RECHERCHE EXHAUSTIVE
+      // Gestion de Collaboration / Œuvre - RECHERCHE EXHAUSTIVE DE TOUTES LES VARIANTES
       let collaborationOeuvre = ""
       if (typeof luminaire.collaboration === "string" && luminaire.collaboration.trim() !== "") {
         collaborationOeuvre = luminaire.collaboration
@@ -87,7 +76,7 @@ export async function GET(request: NextRequest) {
         collaborationOeuvre = luminaire.collaboration_oeuvre
       }
 
-      // Gestion de Spécialité - RECHERCHE EXHAUSTIVE
+      // Gestion de Spécialité - RECHERCHE EXHAUSTIVE DE TOUTES LES VARIANTES
       let specialite = ""
       if (typeof luminaire.periode === "string" && luminaire.periode.trim() !== "") {
         specialite = luminaire.periode
@@ -100,12 +89,6 @@ export async function GET(request: NextRequest) {
       } else if (typeof luminaire.specialty === "string" && luminaire.specialty.trim() !== "") {
         specialite = luminaire.specialty
       }
-
-      console.log(`✅ Résultats pour ${luminaire.nom}:`, {
-        materiaux,
-        collaborationOeuvre,
-        specialite,
-      })
 
       return {
         // Colonnes dans l'ordre demandé
@@ -121,7 +104,7 @@ export async function GET(request: NextRequest) {
         Dimensions: luminaire.dimensions || luminaire.dimension || luminaire["Dimensions"] || "",
         Matériaux: materiaux,
         Estimation: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Estimation"] || "",
-        Prix: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Prix"] || "", // Même valeur que Estimation
+        Prix: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Prix"] || "",
         "Image luminaire": imagesLuminaire,
         "Image designer": imageDesigner,
       }
@@ -166,7 +149,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
 
-    // Vérification des champs critiques
+    // Vérification des champs critiques avec comptage
     const criticalFields = [
       "Nom luminaire",
       "Artiste / Dates",
@@ -177,11 +160,10 @@ export async function GET(request: NextRequest) {
       "Spécialité",
     ]
     criticalFields.forEach((field) => {
-      const hasData = csvData.some((row) => row[field as keyof typeof row] && row[field as keyof typeof row] !== "")
       const count = csvData.filter(
         (row) => row[field as keyof typeof row] && row[field as keyof typeof row] !== "",
       ).length
-      console.log(`🔍 Champ "${field}": ${hasData ? `✅ ${count}/${csvData.length} entrées` : "⚠️ Aucune donnée"}`)
+      console.log(`🔍 Champ "${field}": ${count}/${csvData.length} entrées remplies`)
     })
 
     // Retourner le CSV avec BOM UTF-8

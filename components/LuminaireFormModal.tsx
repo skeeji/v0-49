@@ -199,7 +199,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         // Champs principaux
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
-        annee: formData.annee.trim(), // Garder comme string
+        annee: formData.annee.trim(),
         periode: formData.periode.trim(),
         description: formData.description.trim(),
         collaboration: formData.collaboration.trim(),

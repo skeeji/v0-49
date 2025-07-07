@@ -32,7 +32,7 @@ export default function LuminairesPage() {
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
 
-  // Ref pour accéder à yearRange dans loadLuminaires sans dépendance
+  // Refs pour accéder aux valeurs dans loadLuminaires sans créer de dépendances
   const yearRangeRef = useRef(yearRange)
   const sliderModifiedRef = useRef(sliderModified)
 
@@ -58,7 +58,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour charger les luminaires - yearRange retiré des dépendances
+  // Fonction pour charger les luminaires - SANS yearRange et sliderModified dans les dépendances
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -78,7 +78,7 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // Appliquer le filtre UNIQUEMENT si le slider a été modifié
+        // Utiliser les refs pour accéder aux valeurs actuelles sans dépendances
         if (sliderModifiedRef.current) {
           params.append("yearMin", yearRangeRef.current[0].toString())
           params.append("yearMax", yearRangeRef.current[1].toString())
@@ -109,7 +109,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection], // yearRange et sliderModified retirés
+    [searchTerm, selectedDesigner, sortField, sortDirection], // yearRange et sliderModified SUPPRIMÉS
   )
 
   // Charger les données globales au montage
@@ -117,11 +117,11 @@ export default function LuminairesPage() {
     loadAllLuminaires()
   }, [loadAllLuminaires])
 
-  // Charger les luminaires au montage et lors des changements de filtres - yearRange retiré des dépendances
+  // Charger les luminaires - SANS yearRange dans les dépendances
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified]) // yearRange retiré
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified]) // yearRange SUPPRIMÉ
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
@@ -229,18 +229,18 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années SANS activer le slider - ce useEffect reste inchangé
+  // Initialiser la plage d'années SANS déclencher le filtre
   useEffect(() => {
     if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
   }, [yearBounds, allLuminaires.length, yearRange])
 
-  // La fonction qui gère le changement doit mettre à jour l'état et indiquer que le filtre est actif.
+  // Fonction qui gère le changement du slider - ACTIVE le filtre
   const handleYearRangeChange = (newRange: number[]) => {
-    console.log(`✅ Filtre appliqué par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
+    console.log(`✅ Filtre chronologique activé par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
-    setSliderModified(true) // Indique qu'un filtre est maintenant actif
+    setSliderModified(true) // ACTIVE le filtre
   }
 
   if (loading && luminaires.length === 0) {
