@@ -46,75 +46,25 @@ export async function GET(request: NextRequest) {
 
       // PARSING ULTRA-EXHAUSTIF DES MATÉRIAUX
       let materiaux = ""
-
-      // Rechercher dans TOUTES les clés qui contiennent "materiau" ou "material"
-      const allKeys = Object.keys(luminaire)
-      console.log(`🔍 TOUTES LES CLÉS:`, allKeys)
-
-      for (const key of allKeys) {
-        const lowerKey = key.toLowerCase()
-        if (lowerKey.includes("materiau") || lowerKey.includes("material") || lowerKey.includes("matériau")) {
-          const value = luminaire[key]
-          console.log(`🔍 Clé matériaux trouvée "${key}":`, value)
-
-          if (value) {
-            if (Array.isArray(value) && value.length > 0) {
-              materiaux = value.join(", ")
-              console.log(`✅ Matériaux ARRAY depuis "${key}":`, materiaux)
-              break
-            } else if (typeof value === "string" && value.trim() !== "") {
-              materiaux = value.trim()
-              console.log(`✅ Matériaux STRING depuis "${key}":`, materiaux)
-              break
-            }
-          }
-        }
+      const materiauxValue = luminaire.Matériaux || luminaire.materiaux || luminaire.materials || ""
+      if (Array.isArray(materiauxValue) && materiauxValue.length > 0) {
+        materiaux = materiauxValue.join(", ")
+      } else if (typeof materiauxValue === "string" && materiauxValue.trim() !== "") {
+        materiaux = materiauxValue.trim()
       }
 
       // PARSING ULTRA-EXHAUSTIF DE COLLABORATION / ŒUVRE
       let collaborationOeuvre = ""
-
-      for (const key of allKeys) {
-        const lowerKey = key.toLowerCase()
-        if (lowerKey.includes("collaboration") || lowerKey.includes("oeuvre") || lowerKey.includes("œuvre")) {
-          const value = luminaire[key]
-          console.log(`🔍 Clé collaboration trouvée "${key}":`, value)
-
-          if (value && typeof value === "string" && value.trim() !== "") {
-            collaborationOeuvre = value.trim()
-            console.log(`✅ Collaboration depuis "${key}":`, collaborationOeuvre)
-            break
-          }
-        }
-      }
+      collaborationOeuvre = luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre || ""
 
       // PARSING ULTRA-EXHAUSTIF DE SPÉCIALITÉ
       let specialite = ""
-
-      for (const key of allKeys) {
-        const lowerKey = key.toLowerCase()
-        if (
-          lowerKey.includes("specialite") ||
-          lowerKey.includes("spécialité") ||
-          lowerKey.includes("periode") ||
-          lowerKey.includes("période") ||
-          lowerKey.includes("specialty")
-        ) {
-          const value = luminaire[key]
-          console.log(`🔍 Clé spécialité trouvée "${key}":`, value)
-
-          if (value && typeof value === "string" && value.trim() !== "") {
-            specialite = value.trim()
-            console.log(`✅ Spécialité depuis "${key}":`, specialite)
-            break
-          }
-        }
-      }
+      specialite = luminaire.Spécialité || luminaire.specialite || luminaire.periode || luminaire.Période || ""
 
       // PARSING ULTRA-EXHAUSTIF DE SIGNÉ
       let signe = ""
 
-      for (const key of allKeys) {
+      for (const key of Object.keys(luminaire)) {
         const lowerKey = key.toLowerCase()
         if (lowerKey.includes("signe") || lowerKey.includes("signé") || lowerKey.includes("signed")) {
           const value = luminaire[key]

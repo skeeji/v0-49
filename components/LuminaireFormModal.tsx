@@ -238,6 +238,10 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         materials: Array.isArray(formData.materiaux) ? formData.materiaux.join(", ") : "",
       }
 
+      luminaireData.specialite = formData.periode.trim()
+      luminaireData.collaboration = formData.collaboration.trim()
+      luminaireData.materiaux = formData.materiaux
+
       console.log("💾 Données à sauvegarder:", luminaireData)
 
       // Soumettre le luminaire

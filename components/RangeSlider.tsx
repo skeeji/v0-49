@@ -1,57 +1,155 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Slider } from "@/components/ui/slider"
+import type React from "react"
+import { useState, useEffect, useCallback } from "react"
 
 interface RangeSliderProps {
   min: number
   max: number
-  value: number[]
-  onValueCommit: (value: number[]) => void
+  onChange: (values: [number, number]) => void
+  initialValues?: [number, number]
 }
 
-export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps) {
-  const [localValue, setLocalValue] = useState(value)
+const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, onChange, initialValues }) => {
+  const [minValue, setMinValue] = useState(min)
+  const [maxValue, setMaxValue] = useState(max)
 
-  // Synchroniser avec les props
   useEffect(() => {
-    setLocalValue(value)
-  }, [value])
+    if (initialValues) {
+      setMinValue(initialValues[0])
+      setMaxValue(initialValues[1])
+    } else {
+      setMinValue(min)
+      setMaxValue(max)
+    }
+  }, [min, max, initialValues])
 
-  const handleValueChange = (newValue: number[]) => {
-    setLocalValue(newValue)
+  const handleMinChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = Math.min(Number(event.target.value), maxValue)
+      setMinValue(value)
+      onChange([value, maxValue])
+    },
+    [maxValue, onChange],
+  )
+
+  const handleMaxChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = Math.max(Number(event.target.value), minValue)
+      setMaxValue(value)
+      onChange([minValue, value])
+    },
+    [minValue, onChange],
+  )
+
+  const getPercentage = (value: number) => {
+    return ((value - min) / (max - min)) * 100
   }
 
-  const handleValueCommit = (newValue: number[]) => {
-    console.log(`🎯 RangeSlider - Valeur commitée:`, newValue)
-    onValueCommit(newValue)
-  }
+  const minPercentage = getPercentage(minValue)
+  const maxPercentage = getPercentage(maxValue)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">Période chronologique</label>
-        <span className="text-sm text-gray-500">
-          {localValue[0]} - {localValue[1]}
-        </span>
-      </div>
+    <div className="relative w-full h-2">
+      <div className="absolute top-0 left-0 w-full h-full bg-gray-200 rounded-full"></div>
+      <div
+        className="absolute top-0 h-full bg-[#f2d895] rounded-full"
+        style={{ left: `${minPercentage}%`, width: `${maxPercentage - minPercentage}%` }}
+      ></div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={minValue}
+        onChange={handleMinChange}
+        className="absolute top-0 w-full h-full appearance-none pointer-events-none bg-transparent"
+        style={{
+          left: 0,
+          zIndex: 2,
+          "--range-thumb-color": "#fff",
+        }}
+      />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={maxValue}
+        onChange={handleMaxChange}
+        className="absolute top-0 w-full h-full appearance-none pointer-events-none bg-transparent"
+        style={{
+          left: 0,
+          zIndex: 3,
+          "--range-thumb-color": "#fff",
+        }}
+      />
+      <style jsx global>{`
+        input[type='range'] {
+          --range-track-height: 6px;
+          --range-thumb-height: 16px;
+          --range-thumb-width: 16px;
+          --range-thumb-color: #fff;
+        }
 
-      <div className="px-2">
-        <Slider
-          min={min}
-          max={max}
-          step={1}
-          value={localValue}
-          onValueChange={handleValueChange}
-          onValueCommit={handleValueCommit}
-          className="w-full [&_[role=slider]]:border-[#f2d895] [&_[role=slider]]:border-2 [&_[role=slider]]:bg-white [&_.bg-primary]:bg-[#f2d895]"
-        />
-      </div>
+        input[type='range']::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: var(--range-thumb-height);
+          width: var(--range-thumb-width);
+          border-radius: 50%;
+          background-color: var(--range-thumb-color);
+          border: 2px solid #fff;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
 
-      <div className="flex justify-between text-xs text-gray-400">
-        <span>{min}</span>
-        <span>{max}</span>
-      </div>
+        input[type='range']::-moz-range-thumb {
+          height: var(--range-thumb-height);
+          width: var(--range-thumb-width);
+          border-radius: 50%;
+          background-color: var(--range-thumb-color);
+          border: 2px solid #fff;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+          border: none;
+        }
+
+        input[type='range']::-ms-thumb {
+          height: var(--range-thumb-height);
+          width: var(--range-thumb-width);
+          border-radius: 50%;
+          background-color: var(--range-thumb-color);
+          border: 2px solid #fff;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+          border: none;
+        }
+
+        input[type='range']::-webkit-slider-runnable-track {
+          height: var(--range-track-height);
+          background: transparent;
+          border: none;
+        }
+
+        input[type='range']::-moz-range-track {
+          height: var(--range-track-height);
+          background: transparent;
+          border: none;
+        }
+
+        input[type='range']::-ms-track {
+          height: var(--range-track-height);
+          background: transparent;
+          border: none;
+        }
+
+        input[type='range']:focus {
+          outline: none;
+        }
+      `}</style>
     </div>
   )
 }
+
+export default RangeSlider
