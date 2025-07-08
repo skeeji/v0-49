@@ -15,27 +15,53 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // ÉTAPE 3 : Nettoyer l'API d'Export
+    // ÉTAPE 3 : Logique de lecture robuste avec fallback pour chaque colonne CSV
     const csvData = luminaires.map((luminaire) => {
-      // Les données sont maintenant propres et standardisées
-      const materiauxString = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : ""
-      const imagesString = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : ""
+      // Logique de fallback robuste pour lire les anciens et nouveaux formats
+      const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
+      const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
+      const annee = luminaire.annee || luminaire["Année"] || ""
+      const editeur = luminaire.editeur || ""
+      const specialite = luminaire.periode || luminaire["Spécialité"] || ""
+      const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
+      const description = luminaire.description || ""
+      const signe = luminaire.signe || luminaire["Signé"] || ""
+      const dimensions = luminaire.dimensions || ""
+      const estimation = luminaire.estimation || luminaire.Prix || ""
+
+      // Transformation sécurisée des tableaux en chaînes pour CSV
+      let materiaux = ""
+      if (Array.isArray(luminaire.materiaux)) {
+        materiaux = luminaire.materiaux.join(", ")
+      } else if (luminaire.Matériaux && typeof luminaire.Matériaux === "string") {
+        materiaux = luminaire.Matériaux
+      } else if (luminaire.materiaux && typeof luminaire.materiaux === "string") {
+        materiaux = luminaire.materiaux
+      }
+
+      // Transformation des images en chaîne
+      let images = ""
+      if (Array.isArray(luminaire.images)) {
+        images = luminaire.images.join(", ")
+      } else if (luminaire.filename) {
+        images = luminaire.filename
+      }
 
       return {
         ID: luminaire._id.toString(),
-        "Nom luminaire": luminaire.nom || "",
-        "Artiste / Dates": luminaire.designer || "",
-        Année: luminaire.annee || "",
-        Editeur: luminaire.editeur || "",
-        Spécialité: luminaire.periode || "", // Lecture du champ simple
-        "Collaboration / Œuvre": luminaire.collaboration || "", // Lecture du champ simple
-        Description: luminaire.description || "",
-        Signé: luminaire.signe || "",
-        Dimensions: luminaire.dimensions || "",
-        Matériaux: materiauxString, // Lecture du champ simple, transformé en string
-        Estimation: luminaire.estimation || "",
-        Prix: luminaire.estimation || "", // Utilise la même valeur
-        "Image luminaire": imagesString,
+        "Nom luminaire": nom,
+        "Artiste / Dates": designer,
+        Année: annee,
+        Editeur: editeur,
+        Spécialité: specialite,
+        "Collaboration / Œuvre": collaboration,
+        Description: description,
+        Signé: signe,
+        Dimensions: dimensions,
+        Matériaux: materiaux,
+        Estimation: estimation,
+        Prix: estimation,
+        "Image luminaire": images,
         "Image designer": luminaire.designerImageFilename || "",
       }
     })

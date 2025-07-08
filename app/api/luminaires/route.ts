@@ -148,49 +148,62 @@ export async function GET(request: NextRequest) {
 
     console.log(`📊 ${luminaires.length} luminaires récupérés pour la page ${page}`)
 
-    // ÉTAPE 2 : Adapter la lecture des données avec préservation des chemins d'images
-    const formattedLuminaires = luminaires.map((luminaire) => {
-      return {
-        _id: luminaire._id.toString(),
-        id: luminaire._id.toString(),
+    // ÉTAPE 2 : Formater les luminaires avec logique de secours bilingue
+    const formattedLuminaires = luminaires.map((luminaire) => ({
+      _id: luminaire._id.toString(),
+      id: luminaire._id.toString(),
 
-        // Lecture directe des champs standardisés
-        nom: luminaire.nom || "",
-        designer: luminaire.designer || "",
-        annee: luminaire.annee || null,
-        periode: luminaire.periode || "", // Sera utilisé pour la "Spécialité"
-        description: luminaire.description || "",
-        collaboration: luminaire.collaboration || "", // Sera utilisé pour "Collaboration"
-        signe: luminaire.signe || "",
-        editeur: luminaire.editeur || "",
-        dimensions: luminaire.dimensions || "",
-        estimation: luminaire.estimation || "",
+      // Champs principaux avec fallback sur les champs CSV (logique bilingue)
+      nom: luminaire.nom || luminaire["Nom luminaire"] || "",
+      name: luminaire.nom || luminaire["Nom luminaire"] || "",
+      designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
+      artist: luminaire.designer || luminaire["Artiste / Dates"] || "",
+      annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+      year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+      periode: luminaire.periode || luminaire["Spécialité"] || "",
+      specialty: luminaire.periode || luminaire["Spécialité"] || "",
 
-        // Champs de type tableau
-        materiaux: luminaire.materiaux || [],
-        couleurs: luminaire.couleurs || [],
-        images: luminaire.images || [],
+      // Champs avec logique de secours
+      description: luminaire.description || "",
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
 
-        // ▼▼▼ ATTENTION : Conservez votre logique originale pour construire les URL des images ▼▼▼
-        image: luminaire.images?.[0]
-          ? `/api/images/filename/${luminaire.images[0]}`
-          : luminaire.filename
-            ? `/api/images/filename/${luminaire.filename}`
-            : null,
+      signe: luminaire.signe || luminaire["Signé"] || "",
+      signed: luminaire.signe || luminaire["Signé"] || "",
+      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
 
-        designerImage: luminaire.designerImageFilename
-          ? `/api/images/filename/${luminaire.designerImageFilename}`
+      // Champs étendus
+      editeur: luminaire.editeur || "",
+      dimensions: luminaire.dimensions || "",
+      estimation: luminaire.estimation || "",
+
+      // Image principale du luminaire - NE PAS MODIFIER
+      image: luminaire.images?.[0]
+        ? `/api/images/filename/${luminaire.images[0]}`
+        : luminaire.filename
+          ? `/api/images/filename/${luminaire.filename}`
           : null,
-        // ▲▲▲ FIN DE LA ZONE D'ATTENTION ▲▲▲
 
-        designerImageFilename: luminaire.designerImageFilename || "",
+      // Image du designer - NE PAS MODIFIER
+      designerImage: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : null,
+      designerImageFilename: luminaire.designerImageFilename || "",
 
-        // Champs techniques
-        isFavorite: luminaire.isFavorite || false,
-        createdAt: luminaire.createdAt,
-        updatedAt: luminaire.updatedAt,
-      }
-    })
+      // Matériaux avec logique de secours - TOUJOURS UN TABLEAU
+      materiaux: luminaire.materiaux || [],
+      couleurs: luminaire.couleurs || [],
+      images: luminaire.images || [],
+      isFavorite: luminaire.isFavorite || false,
+      createdAt: luminaire.createdAt,
+      updatedAt: luminaire.updatedAt,
+
+      // Champs CSV originaux
+      "Artiste / Dates": luminaire["Artiste / Dates"] || "",
+      Spécialité: luminaire["Spécialité"] || "",
+      "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
+      "Nom luminaire": luminaire["Nom luminaire"] || "",
+      Année: luminaire["Année"] || "",
+      Signé: luminaire["Signé"] || "",
+      "Nom du fichier": luminaire["Nom du fichier"] || "",
+    }))
 
     // Calculer les options de filtres
     const allLuminaires = await collection.find({}).limit(1000).toArray()

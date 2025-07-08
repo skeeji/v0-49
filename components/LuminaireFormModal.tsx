@@ -194,27 +194,25 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         }
       }
 
-      // ÉTAPE 1 : Structure simple et cohérente
+      // Structure de données simple et standardisée - ÉTAPE 1
       const luminaireData = {
-        // Champs textuels simples
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
         annee: formData.annee.trim(),
-        periode: formData.periode.trim(), // Champ unique pour "Spécialité"
+        periode: formData.periode.trim(),
         description: formData.description.trim(),
-        collaboration: formData.collaboration.trim(), // Champ unique pour "Collaboration"
+        collaboration: formData.collaboration.trim(),
         signe: formData.signe,
         editeur: formData.editeur.trim(),
         dimensions: formData.dimensions.trim(),
         estimation: formData.estimation.trim(),
-
-        // Champs de type tableau
-        materiaux: formData.materiaux, // Doit être un tableau
+        materiaux: formData.materiaux,
         couleurs: formData.couleurs,
-
-        // Noms des fichiers image (ceci est correct)
         images: uploadedImages,
+        filename: uploadedImages[0] || "",
         designerImageFilename: designerImageFilename,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
 
       console.log("💾 Données à sauvegarder:", luminaireData)
