@@ -1,106 +1,64 @@
-import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
+import { type NextRequest, NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires";
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📤 API /api/export/csv-data - Export CSV avec colonnes spécifiques")
+    console.log("📤 API /api/export/csv-data - Export CSV avec colonnes spécifiques");
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
+    const client = await clientPromise;
+    const db = client.db(DBNAME);
+    const collection = db.collection("luminaires");
 
     // Récupérer toutes les données depuis MongoDB
-    const luminaires = await collection.find({}).toArray()
-    console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
+    const luminaires = await collection.find({}).toArray();
+    console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`);
 
-    // Mapping des champs selon les colonnes demandées
-    const csvData = luminaires.map((luminaire, index) => {
-      console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
+    // CORRECTION: Le bloc suivant est remplacé par la nouvelle logique de mapping rétro-compatible.
+    const csvData = luminaires.map((luminaire: any) => {
+      // Logique de fallback pour lire les anciens et nouveaux formats
+      const nom = luminaire.nom || luminaire["Nom luminaire"] || "";
+      const designer = luminaire.designer || luminaire["Artiste / Dates"] || "";
+      const annee = luminaire.annee || luminaire["Année"] || "";
+      const editeur = luminaire.editeur || "";
+      const specialite = luminaire.periode || luminaire["Spécialité"] || "";
+      const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "";
+      const description = luminaire.description || "";
+      const signe = luminaire.signe || luminaire["Signé"] || "";
+      const dimensions = luminaire.dimensions || "";
+      const estimation = luminaire.estimation || luminaire.Prix || "";
 
-      // Debug EXHAUSTIF de TOUTES les propriétés disponibles
-      console.log(`🔍 DOCUMENT COMPLET:`, JSON.stringify(luminaire, null, 2))
+      // Transformation des tableaux en chaînes de caractères pour le CSV
+      const materiaux = Array.isArray(luminaire.materiaux)
+        ? luminaire.materiaux.join(", ")
+        : luminaire.Matériaux || ""; // Fallback pour les anciennes données
 
-      // Gestion des images du luminaire (tableau)
-      let imagesLuminaire = ""
-      if (luminaire.filename) {
-        imagesLuminaire = luminaire.filename
-      }
-      if (luminaire.images && Array.isArray(luminaire.images) && luminaire.images.length > 0) {
-        if (imagesLuminaire) {
-          imagesLuminaire += ", " + luminaire.images.join(", ")
-        } else {
-          imagesLuminaire = luminaire.images.join(", ")
-        }
-      }
-
-      // Gestion de l'image designer (une seule image)
-      const imageDesigner =
-        luminaire.designerImageFilename ||
-        luminaire.designerImage ||
-        luminaire["Image Designer"] ||
-        luminaire["designer.jpg"] ||
-        luminaire.image_designer ||
-        ""
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - SPÉCIALITÉ
-      const specialite = luminaire.Spécialité || luminaire.specialite || luminaire.periode || ""
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - COLLABORATION / ŒUVRE
-      const collaborationOeuvre =
-        luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre || ""
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - MATÉRIAUX
-      const rawMateriaux = luminaire.Matériaux || luminaire.materiaux || luminaire.materials || []
-      const materiaux = Array.isArray(rawMateriaux) ? rawMateriaux.join(", ") : String(rawMateriaux)
-
-      // PARSING ULTRA-EXHAUSTIF DE SIGNÉ
-      let signe = ""
-
-      for (const key of Object.keys(luminaire)) {
-        const lowerKey = key.toLowerCase()
-        if (lowerKey.includes("signe") || lowerKey.includes("signé") || lowerKey.includes("signed")) {
-          const value = luminaire[key]
-          console.log(`🔍 Clé signé trouvée "${key}":`, value)
-
-          if (value && typeof value === "string" && value.trim() !== "") {
-            signe = value.trim()
-            console.log(`✅ Signé depuis "${key}":`, signe)
-            break
-          }
-        }
-      }
-
-      console.log(`🎯 RÉSULTATS FINAUX ULTRA-DÉTAILLÉS pour ${luminaire.nom}:`, {
-        materiaux: materiaux || "❌ VIDE",
-        collaborationOeuvre: collaborationOeuvre || "❌ VIDE",
-        specialite: specialite || "❌ VIDE",
-        signe: signe || "❌ VIDE",
-      })
+      const images = Array.isArray(luminaire.images)
+        ? luminaire.images.join(", ")
+        : luminaire.filename || ""; // Fallback pour les anciennes données
 
       return {
-        // Colonnes dans l'ordre demandé
-        ID: luminaire._id.toString(),
-        "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
-        "Artiste / Dates": luminaire.designer || luminaire.artist || luminaire["Artiste / Dates"] || "",
-        Année: luminaire.annee || luminaire.year || luminaire["Année"] || "",
-        Editeur: luminaire.editeur || luminaire.editor || luminaire["Editeur"] || "",
-        Spécialité: specialite,
-        "Collaboration / Œuvre": collaborationOeuvre,
-        Description: luminaire.description || luminaire.desc || luminaire["Description"] || "",
-        Signé: signe,
-        Dimensions: luminaire.dimensions || luminaire.dimension || luminaire["Dimensions"] || "",
-        Matériaux: materiaux,
-        Estimation: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Estimation"] || "",
-        Prix: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Prix"] || "",
-        "Image luminaire": imagesLuminaire,
-        "Image designer": imageDesigner,
-      }
-    })
+        "ID": luminaire._id.toString(),
+        "Nom luminaire": nom,
+        "Artiste / Dates": designer,
+        "Année": annee,
+        "Editeur": editeur,
+        "Spécialité": specialite,
+        "Collaboration / Œuvre": collaboration,
+        "Description": description,
+        "Signé": signe,
+        "Dimensions": dimensions,
+        "Matériaux": materiaux,
+        "Estimation": estimation,
+        "Prix": estimation, // Le prix est mappé sur l'estimation
+        "Image luminaire": images,
+        "Image designer": luminaire.designerImageFilename || "",
+      };
+    });
 
     if (csvData.length === 0) {
-      return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 })
+      return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 });
     }
 
     // Créer les en-têtes CSV dans l'ordre exact demandé
@@ -120,7 +78,7 @@ export async function GET(request: NextRequest) {
       "Prix",
       "Image luminaire",
       "Image designer",
-    ]
+    ];
 
     // Créer le contenu CSV
     const csvContent = [
@@ -128,15 +86,16 @@ export async function GET(request: NextRequest) {
       ...csvData.map((row) =>
         headers
           .map((header) => {
-            const value = row[header as keyof typeof row] || ""
-            const cleanValue = String(value).replace(/"/g, '""')
-            return `"${cleanValue}"`
+            const value = row[header as keyof typeof row] || "";
+            // Échapper les guillemets en les doublant et entourer chaque champ de guillemets
+            const cleanValue = String(value).replace(/"/g, '""');
+            return `"${cleanValue}"`;
           })
           .join(","),
       ),
-    ].join("\n")
+    ].join("\n");
 
-    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
+    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`);
 
     // Vérification détaillée des champs critiques
     const criticalFields = [
@@ -146,27 +105,27 @@ export async function GET(request: NextRequest) {
       "Collaboration / Œuvre",
       "Spécialité",
       "Signé",
-    ]
+    ];
 
     criticalFields.forEach((field) => {
       const filledCount = csvData.filter(
         (row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "",
-      ).length
-      console.log(`🔍 Champ "${field}": ${filledCount}/${csvData.length} entrées remplies`)
+      ).length;
+      console.log(`🔍 Champ "${field}": ${filledCount}/${csvData.length} entrées remplies`);
 
       // Afficher quelques exemples de valeurs
       const examples = csvData
         .filter((row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "")
         .slice(0, 3)
-        .map((row) => row[field as keyof typeof row])
+        .map((row) => row[field as keyof typeof row]);
 
       if (examples.length > 0) {
-        console.log(`📋 Exemples pour "${field}":`, examples)
+        console.log(`📋 Exemples pour "${field}":`, examples);
       }
-    })
+    });
 
-    // Retourner le CSV avec BOM UTF-8
-    const csvWithBOM = "\uFEFF" + csvContent
+    // Retourner le CSV avec BOM UTF-8 pour une meilleure compatibilité avec Excel
+    const csvWithBOM = "\uFEFF" + csvContent;
 
     return new NextResponse(csvWithBOM, {
       status: 200,
@@ -174,9 +133,9 @@ export async function GET(request: NextRequest) {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="luminaires-export-${new Date().toISOString().split("T")[0]}.csv"`,
       },
-    })
+    });
   } catch (error: any) {
-    console.error("❌ Erreur export CSV:", error)
+    console.error("❌ Erreur export CSV:", error);
     return NextResponse.json(
       {
         success: false,
@@ -184,6 +143,6 @@ export async function GET(request: NextRequest) {
         details: error.message,
       },
       { status: 500 },
-    )
+    );
   }
 }
