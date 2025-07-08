@@ -44,61 +44,35 @@ export async function GET(request: NextRequest) {
         luminaire.image_designer ||
         ""
 
-      // RÉCUPÉRATION DIRECTE DES MATÉRIAUX avec ordre de priorité
-      let materiaux = ""
-      if (luminaire.Matériaux) {
-        if (Array.isArray(luminaire.Matériaux)) {
-          materiaux = luminaire.Matériaux.join(", ")
-        } else if (typeof luminaire.Matériaux === "string") {
-          materiaux = luminaire.Matériaux
-        }
-      } else if (luminaire.materiaux) {
-        if (Array.isArray(luminaire.materiaux)) {
-          materiaux = luminaire.materiaux.join(", ")
-        } else if (typeof luminaire.materiaux === "string") {
-          materiaux = luminaire.materiaux
-        }
-      } else if (luminaire.materials) {
-        if (Array.isArray(luminaire.materials)) {
-          materiaux = luminaire.materials.join(", ")
-        } else if (typeof luminaire.materials === "string") {
-          materiaux = luminaire.materials
-        }
-      }
+      // AFFECTATION DIRECTE ET PRIORISÉE - SPÉCIALITÉ
+      const specialite = luminaire.Spécialité || luminaire.specialite || luminaire.periode || ""
 
-      // RÉCUPÉRATION DIRECTE DE COLLABORATION / ŒUVRE avec ordre de priorité
-      let collaborationOeuvre = ""
-      if (luminaire["Collaboration / Œuvre"]) {
-        collaborationOeuvre = luminaire["Collaboration / Œuvre"]
-      } else if (luminaire.collaboration) {
-        collaborationOeuvre = luminaire.collaboration
-      } else if (luminaire.oeuvre) {
-        collaborationOeuvre = luminaire.oeuvre
-      }
+      // AFFECTATION DIRECTE ET PRIORISÉE - COLLABORATION / ŒUVRE
+      const collaborationOeuvre =
+        luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre || ""
 
-      // RÉCUPÉRATION DIRECTE DE SPÉCIALITÉ avec ordre de priorité
-      let specialite = ""
-      if (luminaire.Spécialité) {
-        specialite = luminaire.Spécialité
-      } else if (luminaire.specialite) {
-        specialite = luminaire.specialite
-      } else if (luminaire.periode) {
-        specialite = luminaire.periode
-      } else if (luminaire.Période) {
-        specialite = luminaire.Période
-      }
+      // AFFECTATION DIRECTE ET PRIORISÉE - MATÉRIAUX
+      const rawMateriaux = luminaire.Matériaux || luminaire.materiaux || luminaire.materials || []
+      const materiaux = Array.isArray(rawMateriaux) ? rawMateriaux.join(", ") : String(rawMateriaux)
 
       // PARSING ULTRA-EXHAUSTIF DE SIGNÉ
       let signe = ""
-      if (luminaire.Signé) {
-        signe = luminaire.Signé
-      } else if (luminaire.signe) {
-        signe = luminaire.signe
-      } else if (luminaire.signed) {
-        signe = luminaire.signed
+
+      for (const key of Object.keys(luminaire)) {
+        const lowerKey = key.toLowerCase()
+        if (lowerKey.includes("signe") || lowerKey.includes("signé") || lowerKey.includes("signed")) {
+          const value = luminaire[key]
+          console.log(`🔍 Clé signé trouvée "${key}":`, value)
+
+          if (value && typeof value === "string" && value.trim() !== "") {
+            signe = value.trim()
+            console.log(`✅ Signé depuis "${key}":`, signe)
+            break
+          }
+        }
       }
 
-      console.log(`🎯 RÉSULTATS FINAUX pour ${luminaire.nom}:`, {
+      console.log(`🎯 RÉSULTATS FINAUX ULTRA-DÉTAILLÉS pour ${luminaire.nom}:`, {
         materiaux: materiaux || "❌ VIDE",
         collaborationOeuvre: collaborationOeuvre || "❌ VIDE",
         specialite: specialite || "❌ VIDE",
