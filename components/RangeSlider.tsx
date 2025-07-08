@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Slider } from "@/components/ui/slider"
 
@@ -35,7 +37,6 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
           {localValue[0]} - {localValue[1]}
         </span>
       </div>
-
       <div className="px-2">
         <Slider
           min={min}
@@ -44,10 +45,15 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
           value={localValue}
           onValueChange={handleValueChange}
           onValueCommit={handleValueCommit}
-          className="w-full [&_[role=slider]]:border-[#f2d895] [&_[role=slider]]:border-2 [&_.bg-primary]:bg-[#f2d895]"
+          className="w-full [&_[role=slider]]:bg-[#f2d895] [&_[role=slider]]:border-[#f2d895] [&_.range]:bg-[#f2d895]"
+          style={
+            {
+              "--slider-range": "#f2d895",
+              "--slider-thumb": "#f2d895",
+            } as React.CSSProperties
+          }
         />
       </div>
-
       <div className="flex justify-between text-xs text-gray-400">
         <span>{min}</span>
         <span>{max}</span>
