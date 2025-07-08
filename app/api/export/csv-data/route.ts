@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // Logique de lecture robuste avec fallback pour chaque colonne CSV
+    // ÉTAPE 3 : Logique de lecture robuste avec fallback pour chaque colonne CSV
     const csvData = luminaires.map((luminaire) => {
-      // Logique de fallback robuste pour lire les anciens et nouveaux formats de données
+      // Logique de fallback robuste pour lire les anciens et nouveaux formats
       const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
       const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
       const annee = luminaire.annee || luminaire["Année"] || ""
@@ -29,10 +29,23 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // Transformation sécurisée des tableaux en chaînes de caractères
-      const materiaux = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.Matériaux || "" // Fallback pour les anciennes données textuelles
+      // Transformation sécurisée des tableaux en chaînes pour CSV
+      let materiaux = ""
+      if (Array.isArray(luminaire.materiaux)) {
+        materiaux = luminaire.materiaux.join(", ")
+      } else if (luminaire.Matériaux && typeof luminaire.Matériaux === "string") {
+        materiaux = luminaire.Matériaux
+      } else if (luminaire.materiaux && typeof luminaire.materiaux === "string") {
+        materiaux = luminaire.materiaux
+      }
 
-      const images = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.filename || "" // Fallback pour les anciennes données textuelles
+      // Transformation des images en chaîne
+      let images = ""
+      if (Array.isArray(luminaire.images)) {
+        images = luminaire.images.join(", ")
+      } else if (luminaire.filename) {
+        images = luminaire.filename
+      }
 
       return {
         ID: luminaire._id.toString(),

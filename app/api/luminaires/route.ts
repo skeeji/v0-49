@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`📊 ${luminaires.length} luminaires récupérés pour la page ${page}`)
 
-    // Formater les luminaires pour l'affichage avec logique de secours bilingue
+    // ÉTAPE 2 : Formater les luminaires avec logique de secours bilingue
     const formattedLuminaires = luminaires.map((luminaire) => ({
       _id: luminaire._id.toString(),
       id: luminaire._id.toString(),
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
       periode: luminaire.periode || luminaire["Spécialité"] || "",
       specialty: luminaire.periode || luminaire["Spécialité"] || "",
 
-      // CORRECTION: Séparer description et collaboration avec logique de secours
+      // Champs avec logique de secours
       description: luminaire.description || "",
       collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
 
@@ -176,18 +176,18 @@ export async function GET(request: NextRequest) {
       dimensions: luminaire.dimensions || "",
       estimation: luminaire.estimation || "",
 
-      // Image principale du luminaire
+      // Image principale du luminaire - NE PAS MODIFIER
       image: luminaire.images?.[0]
         ? `/api/images/filename/${luminaire.images[0]}`
         : luminaire.filename
           ? `/api/images/filename/${luminaire.filename}`
           : null,
 
-      // CORRECTION: Image du designer
+      // Image du designer - NE PAS MODIFIER
       designerImage: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : null,
       designerImageFilename: luminaire.designerImageFilename || "",
 
-      // Autres champs avec logique de secours
+      // Matériaux avec logique de secours - TOUJOURS UN TABLEAU
       materiaux: luminaire.materiaux || [],
       couleurs: luminaire.couleurs || [],
       images: luminaire.images || [],

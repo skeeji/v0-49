@@ -70,25 +70,19 @@ export default function LuminaireDetailPage() {
             estimation: String(result.data.estimation || result.data["Estimation"] || ""),
             editeur: String(result.data.editeur || result.data["Editeur"] || ""),
 
-            // Gestion des matériaux - RECHERCHE EXHAUSTIVE
+            // Gestion des matériaux - RECHERCHE EXHAUSTIVE avec affichage garanti
             materials: (() => {
-              const materiauxKeys = [
-                "materiaux",
-                "Matériaux",
-                "materials",
-                "Materials",
-                "matériaux",
-                "MATERIAUX",
-                "MATERIALS",
-              ]
+              // Priorité aux nouveaux formats (tableaux)
+              if (Array.isArray(result.data.materiaux) && result.data.materiaux.length > 0) {
+                return result.data.materiaux.join(", ")
+              }
+
+              // Fallback sur les anciens formats (texte)
+              const materiauxKeys = ["Matériaux", "materials", "Materials", "matériaux", "MATERIAUX", "MATERIALS"]
 
               for (const key of materiauxKeys) {
-                if (result.data[key]) {
-                  if (Array.isArray(result.data[key]) && result.data[key].length > 0) {
-                    return result.data[key].join(", ")
-                  } else if (typeof result.data[key] === "string" && result.data[key].trim() !== "") {
-                    return result.data[key].trim()
-                  }
+                if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") {
+                  return result.data[key].trim()
                 }
               }
               return ""
@@ -144,7 +138,7 @@ export default function LuminaireDetailPage() {
   const findSimilarLuminaires = (current: any, all: any[]) => {
     const currentYear = Number.parseInt(current.year) || 0
 
-    // Filtrer et scorer tous les luminaires
+    // Filtrer et scorer tous les luminaires avec logique de précision améliorée
     const scored = all
       .filter((item) => String(item._id) !== String(current._id))
       .map((item) => {
@@ -154,30 +148,69 @@ export default function LuminaireDetailPage() {
         const itemSpecialty = String(item["Spécialité"] || item.periode || item.specialite || "")
         const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
 
-        // Score par artiste (poids le plus élevé - priorité 1)
-        if (itemArtist && current.artist && itemArtist === current.artist) score += 10
-
-        // Score par spécialité/style (priorité 1)
-        if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 8
-
-        // Score par proximité d'année (priorité 2)
-        if (currentYear > 0 && itemYear > 0) {
-          const yearDiff = Math.abs(currentYear - itemYear)
-          if (yearDiff <= 2) score += 6
-          else if (yearDiff <= 5) score += 4
-          else if (yearDiff <= 10) score += 2
-          else if (yearDiff <= 20) score += 1
+        // PRIORITÉ 1 : Même artiste (score très élevé)
+        if (itemArtist && current.artist && itemArtist.toLowerCase() === current.artist.toLowerCase()) {
+          score += 50
         }
 
-        // Score par nom similaire (bonus)
-        if (current.name && item["Nom luminaire"]) {
-          const currentWords = current.name.toLowerCase().split(/\s+/)
-          const itemWords = String(item["Nom luminaire"]).toLowerCase().split(/\s+/)
-          const commonWords = currentWords.filter(
-            (word) =>
-              word.length > 3 && itemWords.some((itemWord) => itemWord.includes(word) || word.includes(itemWord)),
+        // PRIORITÉ 2 : Même spécialité/style (score élevé)
+        if (itemSpecialty && current.specialty && itemSpecialty.toLowerCase() === current.specialty.toLowerCase()) {
+          score += 30
+        }
+
+        // PRIORITÉ 3 : Ressemblance visuelle par matériaux
+        if (current.materials && item.materiaux) {
+          const currentMaterials = current.materials
+            .toLowerCase()
+            .split(/[,\s]+/)
+            .filter((m) => m.length > 2)
+          const itemMaterials = Array.isArray(item.materiaux)
+            ? item.materiaux
+                .join(", ")
+                .toLowerCase()
+                .split(/[,\s]+/)
+                .filter((m) => m.length > 2)
+            : String(item.materiaux || "")
+                .toLowerCase()
+                .split(/[,\s]+/)
+                .filter((m) => m.length > 2)
+
+          const commonMaterials = currentMaterials.filter((mat) =>
+            itemMaterials.some((itemMat) => itemMat.includes(mat) || mat.includes(itemMat)),
           )
-          score += commonWords.length * 0.5
+          score += commonMaterials.length * 15
+        }
+
+        // PRIORITÉ 4 : Proximité d'année (score graduel très précis)
+        if (currentYear > 0 && itemYear > 0) {
+          const yearDiff = Math.abs(currentYear - itemYear)
+          if (yearDiff === 0) score += 25
+          else if (yearDiff <= 1) score += 20
+          else if (yearDiff <= 2) score += 15
+          else if (yearDiff <= 5) score += 10
+          else if (yearDiff <= 10) score += 5
+          else if (yearDiff <= 20) score += 2
+        }
+
+        // BONUS : Ressemblance dans le nom (mots-clés communs)
+        if (current.name && item["Nom luminaire"]) {
+          const currentWords = current.name
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((w) => w.length > 3)
+          const itemWords = String(item["Nom luminaire"])
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((w) => w.length > 3)
+          const commonWords = currentWords.filter((word) =>
+            itemWords.some((itemWord) => itemWord.includes(word) || word.includes(itemWord)),
+          )
+          score += commonWords.length * 8
+        }
+
+        // BONUS : Même éditeur
+        if (current.editeur && item.editeur && current.editeur.toLowerCase() === item.editeur.toLowerCase()) {
+          score += 12
         }
 
         return {
@@ -191,13 +224,16 @@ export default function LuminaireDetailPage() {
         }
       })
 
-    // Trier par score décroissant et prendre les 6 premiers
-    const topSimilar = scored.sort((a, b) => b.similarityScore - a.similarityScore).slice(0, 6)
+    // Trier par score décroissant et prendre les 6 premiers avec score > 0
+    const topSimilar = scored
+      .filter((item) => item.similarityScore > 0)
+      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .slice(0, 6)
 
-    // Si moins de 6 avec score > 0, compléter avec des luminaires aléatoires
+    // Si moins de 6, compléter avec des luminaires aléatoires de la même période
     if (topSimilar.length < 6) {
       const remaining = scored
-        .filter((item) => !topSimilar.includes(item))
+        .filter((item) => !topSimilar.includes(item) && item.similarityScore === 0)
         .sort(() => Math.random() - 0.5)
         .slice(0, 6 - topSimilar.length)
 
@@ -529,7 +565,7 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
-                  {/* 8. Matériaux */}
+                  {/* 8. Matériaux - AFFICHAGE GARANTI */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
                     <EditableField
