@@ -15,40 +15,27 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // Logique de lecture robuste avec fallback pour chaque colonne CSV
+    // ÉTAPE 3 : Nettoyer l'API d'Export
     const csvData = luminaires.map((luminaire) => {
-      // Logique de fallback robuste pour lire les anciens et nouveaux formats de données
-      const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
-      const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
-      const annee = luminaire.annee || luminaire["Année"] || ""
-      const editeur = luminaire.editeur || ""
-      const specialite = luminaire.periode || luminaire["Spécialité"] || ""
-      const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
-      const description = luminaire.description || ""
-      const signe = luminaire.signe || luminaire["Signé"] || ""
-      const dimensions = luminaire.dimensions || ""
-      const estimation = luminaire.estimation || luminaire.Prix || ""
-
-      // Transformation sécurisée des tableaux en chaînes de caractères
-      const materiaux = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.Matériaux || "" // Fallback pour les anciennes données textuelles
-
-      const images = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.filename || "" // Fallback pour les anciennes données textuelles
+      // Les données sont maintenant propres et standardisées
+      const materiauxString = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : ""
+      const imagesString = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : ""
 
       return {
         ID: luminaire._id.toString(),
-        "Nom luminaire": nom,
-        "Artiste / Dates": designer,
-        Année: annee,
-        Editeur: editeur,
-        Spécialité: specialite,
-        "Collaboration / Œuvre": collaboration,
-        Description: description,
-        Signé: signe,
-        Dimensions: dimensions,
-        Matériaux: materiaux,
-        Estimation: estimation,
-        Prix: estimation,
-        "Image luminaire": images,
+        "Nom luminaire": luminaire.nom || "",
+        "Artiste / Dates": luminaire.designer || "",
+        Année: luminaire.annee || "",
+        Editeur: luminaire.editeur || "",
+        Spécialité: luminaire.periode || "", // Lecture du champ simple
+        "Collaboration / Œuvre": luminaire.collaboration || "", // Lecture du champ simple
+        Description: luminaire.description || "",
+        Signé: luminaire.signe || "",
+        Dimensions: luminaire.dimensions || "",
+        Matériaux: materiauxString, // Lecture du champ simple, transformé en string
+        Estimation: luminaire.estimation || "",
+        Prix: luminaire.estimation || "", // Utilise la même valeur
+        "Image luminaire": imagesString,
         "Image designer": luminaire.designerImageFilename || "",
       }
     })
@@ -129,7 +116,7 @@ export async function GET(request: NextRequest) {
         "Content-Disposition": `attachment; filename="luminaires-export-${new Date().toISOString().split("T")[0]}.csv"`,
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Erreur export CSV:", error)
     return NextResponse.json(
       {

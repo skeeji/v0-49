@@ -18,7 +18,7 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
     if (Array.isArray(value) && value.length === 2 && !isNaN(value[0]) && !isNaN(value[1])) {
       setLocalValue(value)
     } else {
-      // Valeurs par défaut si les props sont invalides
+      // Pas de valeurs par défaut - utiliser les valeurs min/max passées en props
       setLocalValue([min, max])
     }
   }, [value, min, max])

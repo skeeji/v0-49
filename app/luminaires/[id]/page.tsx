@@ -2,179 +2,191 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Image from "next/image"
+import Link from "next/link"
+import { ArrowLeft, Edit, Heart, Share2, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Share2 } from "lucide-react"
-import { Carousel } from "@/components/Carousel"
-import { EditableField } from "@/components/EditableField"
-import { DeleteLuminaireButton } from "@/components/DeleteLuminaireButton"
-import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
-import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
-import Link from "next/link"
+import { DeleteLuminaireButton } from "@/components/DeleteLuminaireButton"
+import { LuminaireFormModal } from "@/components/LuminaireFormModal"
+import { toast } from "sonner"
 
 interface Luminaire {
   _id: string
   nom: string
   designer: string
-  annee: string
-  editeur: string
+  annee: string | number
   periode: string
-  collaboration: string
   description: string
+  collaboration: string
   signe: string
+  editeur: string
   dimensions: string
   materiaux: string[]
   estimation: string
-  image: string | null
-  designerImage: string | null
   images: string[]
-  designerImageFilename: string | null
+  image: string
+  designerImage: string
+  designerImageFilename: string
+  isFavorite: boolean
 }
 
 export default function LuminairePage() {
   const params = useParams()
   const router = useRouter()
-  const { showToast } = useToast()
   const { user } = useAuth()
   const [luminaire, setLuminaire] = useState<Luminaire | null>(null)
   const [similarLuminaires, setSimilarLuminaires] = useState<Luminaire[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isFavorite, setIsFavorite] = useState(false)
 
   useEffect(() => {
     if (params.id) {
-      fetchLuminaire()
-      fetchSimilarLuminaires()
+      fetchLuminaire(params.id as string)
     }
   }, [params.id])
 
-  const fetchLuminaire = async () => {
+  const fetchLuminaire = async (id: string) => {
     try {
-      const response = await fetch(`/api/luminaires/${params.id}`)
-      if (!response.ok) {
-        throw new Error("Luminaire non trouvé")
-      }
+      setLoading(true)
+      const response = await fetch(`/api/luminaires/${id}`)
       const data = await response.json()
-      setLuminaire(data.luminaire)
+
+      if (data.success) {
+        setLuminaire(data.luminaire)
+        setIsFavorite(data.luminaire.isFavorite || false)
+        fetchSimilarLuminaires(data.luminaire)
+      } else {
+        toast.error("Luminaire non trouvé")
+        router.push("/luminaires")
+      }
     } catch (error) {
-      console.error("Erreur:", error)
-      setError("Impossible de charger le luminaire")
+      console.error("Erreur lors du chargement du luminaire:", error)
+      toast.error("Erreur lors du chargement")
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchSimilarLuminaires = async () => {
+  const fetchSimilarLuminaires = async (currentLuminaire: Luminaire) => {
     try {
-      const response = await fetch("/api/luminaires")
-      if (response.ok) {
-        const data = await response.json()
-        const allLuminaires = data.luminaires.filter((l: Luminaire) => l._id !== params.id)
+      const response = await fetch("/api/luminaires?limit=100")
+      const data = await response.json()
 
-        // Récupérer le luminaire actuel pour la comparaison
-        const currentResponse = await fetch(`/api/luminaires/${params.id}`)
-        if (currentResponse.ok) {
-          const currentData = await currentResponse.json()
-          const current = currentData.luminaire
-
-          // Algorithme de similarité ultra-précis
-          const scored = allLuminaires.map((luminaire: Luminaire) => {
+      if (data.success) {
+        // Algorithme de similarité ultra-précis
+        const scored = data.luminaires
+          .filter((l: Luminaire) => l._id !== currentLuminaire._id)
+          .map((l: Luminaire) => {
             let score = 0
 
-            // Score artiste identique (+50 points)
+            // Score artiste identique : +50 points
             if (
-              current.designer &&
-              luminaire.designer &&
-              current.designer.toLowerCase() === luminaire.designer.toLowerCase()
+              l.designer &&
+              currentLuminaire.designer &&
+              l.designer.toLowerCase() === currentLuminaire.designer.toLowerCase()
             ) {
               score += 50
             }
 
-            // Score spécialité identique (+30 points)
+            // Score spécialité identique : +30 points
             if (
-              current.periode &&
-              luminaire.periode &&
-              current.periode.toLowerCase() === luminaire.periode.toLowerCase()
+              l.periode &&
+              currentLuminaire.periode &&
+              l.periode.toLowerCase() === currentLuminaire.periode.toLowerCase()
             ) {
               score += 30
             }
 
-            // Score matériaux communs (+15 points par matériau commun)
-            if (current.materiaux && luminaire.materiaux) {
-              const currentMat = current.materiaux.map((m: string) => m.toLowerCase())
-              const lumMat = luminaire.materiaux.map((m: string) => m.toLowerCase())
-              const commonMaterials = currentMat.filter((m: string) => lumMat.includes(m))
+            // Score matériaux communs : +15 points par matériau
+            if (Array.isArray(l.materiaux) && Array.isArray(currentLuminaire.materiaux)) {
+              const commonMaterials = l.materiaux.filter((m) =>
+                currentLuminaire.materiaux.some(
+                  (cm) => cm.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(cm.toLowerCase()),
+                ),
+              )
               score += commonMaterials.length * 15
             }
 
-            // Score année (+25 pour année exacte, puis graduel jusqu'à ±20 ans)
-            if (current.annee && luminaire.annee) {
-              const currentYear = Number.parseInt(current.annee)
-              const lumYear = Number.parseInt(luminaire.annee)
-              if (!isNaN(currentYear) && !isNaN(lumYear)) {
-                const yearDiff = Math.abs(currentYear - lumYear)
-                if (yearDiff === 0) score += 25
-                else if (yearDiff <= 5) score += 20
-                else if (yearDiff <= 10) score += 15
-                else if (yearDiff <= 15) score += 10
-                else if (yearDiff <= 20) score += 5
-              }
+            // Score année : +25 pour année exacte, puis graduel jusqu'à ±20 ans
+            if (l.annee && currentLuminaire.annee) {
+              const yearDiff = Math.abs(Number(l.annee) - Number(currentLuminaire.annee))
+              if (yearDiff === 0) score += 25
+              else if (yearDiff <= 5) score += 20
+              else if (yearDiff <= 10) score += 15
+              else if (yearDiff <= 20) score += 10
             }
 
-            // Bonus éditeur identique (+12 points)
+            // Bonus éditeur identique : +12 points
             if (
-              current.editeur &&
-              luminaire.editeur &&
-              current.editeur.toLowerCase() === luminaire.editeur.toLowerCase()
+              l.editeur &&
+              currentLuminaire.editeur &&
+              l.editeur.toLowerCase() === currentLuminaire.editeur.toLowerCase()
             ) {
               score += 12
             }
 
-            return { ...luminaire, score }
+            return { ...l, score }
           })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 6)
 
-          // Trier par score décroissant et prendre les 6 meilleurs
-          const similar = scored
-            .sort((a, b) => b.score - a.score)
-            .filter((l) => l.score > 0) // Seulement ceux avec un score positif
-            .slice(0, 6)
-
-          setSimilarLuminaires(similar)
-        }
+        setSimilarLuminaires(scored)
       }
     } catch (error) {
       console.error("Erreur lors du chargement des luminaires similaires:", error)
     }
   }
 
-  const handleFieldUpdate = async (field: string, value: string) => {
-    if (!luminaire) return
-
+  const handleEditSubmit = async (data: any) => {
     try {
-      const response = await fetch(`/api/luminaires/${luminaire._id}`, {
+      const response = await fetch(`/api/luminaires/${params.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify(data),
       })
 
-      if (response.ok) {
-        setLuminaire({ ...luminaire, [field]: value })
-        showToast("Champ mis à jour avec succès", "success")
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success("Luminaire modifié avec succès")
+        fetchLuminaire(params.id as string)
+        return { success: true }
       } else {
-        throw new Error("Erreur lors de la mise à jour")
+        throw new Error(result.error)
       }
-    } catch (error) {
-      showToast("Erreur lors de la mise à jour", "error")
+    } catch (error: any) {
+      toast.error(`Erreur: ${error.message}`)
+      return { success: false, error: error.message }
     }
   }
 
-  const handleShare = async () => {
+  const toggleFavorite = async () => {
+    try {
+      const response = await fetch(`/api/luminaires/${params.id}/favorite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isFavorite: !isFavorite }),
+      })
+
+      if (response.ok) {
+        setIsFavorite(!isFavorite)
+        toast.success(isFavorite ? "Retiré des favoris" : "Ajouté aux favoris")
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour des favoris")
+    }
+  }
+
+  const shareItem = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: luminaire?.nom || "Luminaire",
+          title: luminaire?.nom,
           text: `Découvrez ce luminaire : ${luminaire?.nom} par ${luminaire?.designer}`,
           url: window.location.href,
         })
@@ -182,9 +194,20 @@ export default function LuminairePage() {
         console.log("Partage annulé")
       }
     } else {
-      // Fallback : copier l'URL
       navigator.clipboard.writeText(window.location.href)
-      showToast("Lien copié dans le presse-papiers", "success")
+      toast.success("Lien copié dans le presse-papiers")
+    }
+  }
+
+  const nextImage = () => {
+    if (luminaire?.images && luminaire.images.length > 1) {
+      setCurrentImageIndex((prev) => (prev + 1) % luminaire.images.length)
+    }
+  }
+
+  const prevImage = () => {
+    if (luminaire?.images && luminaire.images.length > 1) {
+      setCurrentImageIndex((prev) => (prev - 1 + luminaire.images.length) % luminaire.images.length)
     }
   }
 
@@ -199,14 +222,13 @@ export default function LuminairePage() {
     )
   }
 
-  if (error || !luminaire) {
+  if (!luminaire) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Luminaire non trouvé</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
           <Button onClick={() => router.push("/luminaires")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Retour à la galerie
           </Button>
         </div>
@@ -214,267 +236,248 @@ export default function LuminairePage() {
     )
   }
 
-  // Construire les images pour le carousel
-  const carouselImages = []
-  if (luminaire.image) {
-    carouselImages.push(luminaire.image)
-  }
-  if (luminaire.images && luminaire.images.length > 0) {
-    luminaire.images.forEach((img) => {
-      const imageUrl = `/api/images/filename/${encodeURIComponent(img)}`
-      if (!carouselImages.includes(imageUrl)) {
-        carouselImages.push(imageUrl)
-      }
-    })
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header avec navigation */}
         <div className="flex items-center justify-between mb-8">
-          <Button variant="ghost" onClick={() => router.push("/luminaires")} className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Retour à la galerie
+          <Button variant="ghost" onClick={() => router.back()} className="flex items-center gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Retour
           </Button>
 
           <div className="flex items-center gap-2">
-            <FavoriteToggleButton luminaireId={luminaire._id} />
-            <Button variant="outline" size="sm" onClick={handleShare}>
-              <Share2 className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={shareItem}>
+              <Share2 className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={toggleFavorite}>
+              <Heart className={`w-4 h-4 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
             </Button>
             {user?.role === "admin" && (
-              <DeleteLuminaireButton luminaireId={luminaire._id} onSuccess={() => router.push("/luminaires")} />
+              <>
+                <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)}>
+                  <Edit className="w-4 h-4" />
+                </Button>
+                <DeleteLuminaireButton luminaireId={luminaire._id} onSuccess={() => router.push("/luminaires")} />
+              </>
             )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Colonne gauche - Images */}
+          {/* Section Images */}
+          <div className="space-y-4">
+            <div className="relative aspect-square bg-white rounded-lg overflow-hidden shadow-lg">
+              {luminaire.images && luminaire.images.length > 0 ? (
+                <>
+                  <Image
+                    src={`/api/images/filename/${luminaire.images[currentImageIndex]}`}
+                    alt={luminaire.nom}
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                  {luminaire.images.length > 1 && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                        onClick={prevImage}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                        onClick={nextImage}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full bg-gray-100">
+                  <p className="text-gray-500">Aucune image disponible</p>
+                </div>
+              )}
+            </div>
+
+            {/* Miniatures */}
+            {luminaire.images && luminaire.images.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto">
+                {luminaire.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`relative w-16 h-16 rounded-md overflow-hidden flex-shrink-0 ${
+                      index === currentImageIndex ? "ring-2 ring-[#f2d895]" : ""
+                    }`}
+                  >
+                    <Image
+                      src={`/api/images/filename/${image}`}
+                      alt={`${luminaire.nom} - ${index + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section Informations */}
           <div className="space-y-6">
-            {carouselImages.length > 0 ? (
-              <Carousel images={carouselImages} />
-            ) : (
-              <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
-                <p className="text-gray-500">Aucune image disponible</p>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{luminaire.nom}</h1>
+              {luminaire.designer && (
+                <Link
+                  href={`/designers/${encodeURIComponent(luminaire.designer)}`}
+                  className="text-lg text-gray-600 hover:text-[#f2d895] transition-colors"
+                >
+                  {luminaire.designer}
+                </Link>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {luminaire.annee && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Année</h3>
+                  <p className="text-gray-600">{luminaire.annee}</p>
+                </div>
+              )}
+
+              {luminaire.periode && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Spécialité</h3>
+                  <p className="text-gray-600">{luminaire.periode}</p>
+                </div>
+              )}
+
+              {luminaire.editeur && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Éditeur</h3>
+                  <p className="text-gray-600">{luminaire.editeur}</p>
+                </div>
+              )}
+
+              {luminaire.signe && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Signé</h3>
+                  <p className="text-gray-600">{luminaire.signe}</p>
+                </div>
+              )}
+
+              {luminaire.dimensions && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Dimensions</h3>
+                  <p className="text-gray-600">{luminaire.dimensions}</p>
+                </div>
+              )}
+
+              {luminaire.estimation && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Estimation</h3>
+                  <p className="text-gray-600">{luminaire.estimation}</p>
+                </div>
+              )}
+            </div>
+
+            {luminaire.collaboration && (
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Collaboration / Œuvre</h3>
+                <p className="text-gray-600 leading-relaxed">{luminaire.collaboration}</p>
+              </div>
+            )}
+
+            {luminaire.description && (
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
+                <p className="text-gray-600 leading-relaxed">{luminaire.description}</p>
+              </div>
+            )}
+
+            {/* Matériaux garantis avec fallback exhaustif */}
+            {((Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) ||
+              (luminaire as any).Matériaux ||
+              (luminaire as any).materiaux) && (
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Matériaux</h3>
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0 ? (
+                    luminaire.materiaux.map((materiau, index) => (
+                      <Badge key={index} variant="secondary">
+                        {materiau}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Badge variant="secondary">{(luminaire as any).Matériaux || (luminaire as any).materiaux}</Badge>
+                  )}
+                </div>
               </div>
             )}
 
             {/* Image du designer */}
             {luminaire.designerImage && (
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h3 className="font-semibold mb-3">Portrait de l'artiste</h3>
-                <img
-                  src={luminaire.designerImage || "/placeholder.svg"}
-                  alt={`Portrait de ${luminaire.designer}`}
-                  className="w-full max-w-xs mx-auto rounded-lg"
-                />
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Designer</h3>
+                <div className="relative w-24 h-24 rounded-lg overflow-hidden">
+                  <Image
+                    src={luminaire.designerImage || "/placeholder.svg"}
+                    alt={`Photo de ${luminaire.designer}`}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
               </div>
             )}
           </div>
-
-          {/* Colonne droite - Informations */}
-          <div className="space-y-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {/* 1. Nom du luminaire */}
-                  <div>
-                    <EditableField
-                      label="Nom du luminaire"
-                      value={luminaire.nom}
-                      onSave={(value) => handleFieldUpdate("nom", value)}
-                      canEdit={user?.role === "admin"}
-                      className="text-2xl font-bold text-gray-900"
-                    />
-                  </div>
-
-                  {/* 2. Artiste / Dates */}
-                  <div>
-                    <Link
-                      href={`/designers/${encodeURIComponent(luminaire.designer)}`}
-                      className="text-lg text-[#8B4513] hover:text-[#A0522D] transition-colors"
-                    >
-                      <EditableField
-                        label="Artiste / Dates"
-                        value={luminaire.designer}
-                        onSave={(value) => handleFieldUpdate("designer", value)}
-                        canEdit={user?.role === "admin"}
-                        className="text-lg text-[#8B4513]"
-                      />
-                    </Link>
-                  </div>
-
-                  {/* 3. Année */}
-                  <div>
-                    <EditableField
-                      label="Année"
-                      value={luminaire.annee}
-                      onSave={(value) => handleFieldUpdate("annee", value)}
-                      canEdit={user?.role === "admin"}
-                      className="text-gray-700"
-                    />
-                  </div>
-
-                  {/* 4. Éditeur */}
-                  {luminaire.editeur && (
-                    <div>
-                      <EditableField
-                        label="Éditeur"
-                        value={luminaire.editeur}
-                        onSave={(value) => handleFieldUpdate("editeur", value)}
-                        canEdit={user?.role === "admin"}
-                        className="text-gray-700"
-                      />
-                    </div>
-                  )}
-
-                  {/* 5. Spécialité */}
-                  {luminaire.periode && (
-                    <div>
-                      <EditableField
-                        label="Spécialité"
-                        value={luminaire.periode}
-                        onSave={(value) => handleFieldUpdate("periode", value)}
-                        canEdit={user?.role === "admin"}
-                        className="text-gray-700"
-                      />
-                    </div>
-                  )}
-
-                  {/* 6. Collaboration / Œuvre */}
-                  {luminaire.collaboration && (
-                    <div>
-                      <EditableField
-                        label="Collaboration / Œuvre"
-                        value={luminaire.collaboration}
-                        onSave={(value) => handleFieldUpdate("collaboration", value)}
-                        canEdit={user?.role === "admin"}
-                        className="text-gray-700"
-                      />
-                    </div>
-                  )}
-
-                  {/* 7. Description */}
-                  {luminaire.description && (
-                    <div>
-                      <EditableField
-                        label="Description"
-                        value={luminaire.description}
-                        onSave={(value) => handleFieldUpdate("description", value)}
-                        canEdit={user?.role === "admin"}
-                        multiline
-                        className="text-gray-700"
-                      />
-                    </div>
-                  )}
-
-                  {/* 8. Matériaux - Affichage garanti */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Matériaux</label>
-                    <div className="flex flex-wrap gap-2">
-                      {(() => {
-                        // Priorité aux nouveaux formats (tableaux)
-                        if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-                          return luminaire.materiaux.map((materiau, index) => (
-                            <Badge key={index} variant="secondary" className="bg-[#f2d895] text-gray-800">
-                              {materiau}
-                            </Badge>
-                          ))
-                        }
-
-                        // Fallback exhaustif sur les anciens formats textuels
-                        const fallbackMateriau = (luminaire as any).Matériaux || (luminaire as any).materiaux
-                        if (fallbackMateriau && typeof fallbackMateriau === "string" && fallbackMateriau.trim()) {
-                          return fallbackMateriau.split(",").map((materiau: string, index: number) => (
-                            <Badge key={index} variant="secondary" className="bg-[#f2d895] text-gray-800">
-                              {materiau.trim()}
-                            </Badge>
-                          ))
-                        }
-
-                        return <span className="text-gray-500 italic">Non spécifié</span>
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* 9. Signé */}
-                  {luminaire.signe && (
-                    <div>
-                      <EditableField
-                        label="Signé"
-                        value={luminaire.signe}
-                        onSave={(value) => handleFieldUpdate("signe", value)}
-                        canEdit={user?.role === "admin"}
-                        className="text-gray-700"
-                      />
-                    </div>
-                  )}
-
-                  {/* 10. Dimensions */}
-                  {luminaire.dimensions && (
-                    <div>
-                      <EditableField
-                        label="Dimensions"
-                        value={luminaire.dimensions}
-                        onSave={(value) => handleFieldUpdate("dimensions", value)}
-                        canEdit={user?.role === "admin"}
-                        className="text-gray-700"
-                      />
-                    </div>
-                  )}
-
-                  {/* 11. Estimation */}
-                  {luminaire.estimation && (
-                    <div>
-                      <EditableField
-                        label="Estimation"
-                        value={luminaire.estimation}
-                        onSave={(value) => handleFieldUpdate("estimation", value)}
-                        canEdit={user?.role === "admin"}
-                        className="text-gray-700 font-semibold"
-                      />
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
-        {/* Section des luminaires similaires */}
+        {/* Section Luminaires similaires */}
         {similarLuminaires.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Luminaires similaires</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="mt-16">
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">Luminaires similaires</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
               {similarLuminaires.map((similar) => (
-                <Link key={similar._id} href={`/luminaires/${similar._id}`}>
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <Card key={similar._id} className="group cursor-pointer hover:shadow-lg transition-shadow">
+                  <Link href={`/luminaires/${similar._id}`}>
+                    <div className="aspect-square relative overflow-hidden rounded-t-lg">
+                      {similar.image ? (
+                        <Image
+                          src={similar.image || "/placeholder.svg"}
+                          alt={similar.nom}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                          <p className="text-gray-400 text-sm">Pas d'image</p>
+                        </div>
+                      )}
+                    </div>
                     <CardContent className="p-4">
-                      <div className="aspect-square bg-gray-200 rounded-lg mb-3 overflow-hidden">
-                        {similar.image ? (
-                          <img
-                            src={similar.image || "/placeholder.svg"}
-                            alt={similar.nom}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            Pas d'image
-                          </div>
-                        )}
-                      </div>
                       <h3 className="font-semibold text-sm mb-1 line-clamp-2">{similar.nom}</h3>
                       <p className="text-xs text-gray-600 line-clamp-1">{similar.designer}</p>
-                      <p className="text-xs text-gray-500">{similar.annee}</p>
+                      {similar.annee && <p className="text-xs text-gray-500">{similar.annee}</p>}
                     </CardContent>
-                  </Card>
-                </Link>
+                  </Link>
+                </Card>
               ))}
             </div>
           </div>
         )}
       </div>
+
+      {/* Modal d'édition */}
+      <LuminaireFormModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSubmit={handleEditSubmit}
+      />
     </div>
   )
 }
