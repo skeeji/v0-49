@@ -194,21 +194,21 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         }
       }
 
-      // La structure de données à utiliser : simple et cohérente
+      // Structure de données simple, unique et cohérente
       const luminaireData = {
         // Champs textuels
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
         annee: formData.annee.trim(),
-        periode: formData.periode.trim(), // Représente la "Spécialité"
+        periode: formData.periode.trim(), // Champ standard pour "Spécialité"
         description: formData.description.trim(),
-        collaboration: formData.collaboration.trim(), // Représente "Collaboration / Œuvre"
+        collaboration: formData.collaboration.trim(), // Champ standard pour "Collaboration"
         signe: formData.signe,
         editeur: formData.editeur.trim(),
         dimensions: formData.dimensions.trim(),
         estimation: formData.estimation.trim(),
 
-        // Champs de type tableau (doivent être envoyés en tant que tableau)
+        // Champs de type tableau (doivent rester des tableaux JavaScript)
         materiaux: formData.materiaux,
         couleurs: formData.couleurs,
 

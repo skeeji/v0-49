@@ -16,26 +16,37 @@ export async function GET(request: NextRequest) {
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
     const csvData = luminaires.map((luminaire) => {
-      // Transformation des tableaux en chaînes de caractères uniquement pour le CSV
-      const materiauxString = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : ""
-      const imagesString = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : ""
+      // Logique de fallback pour chaque colonne du CSV
+      const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
+      const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
+      const annee = luminaire.annee || luminaire["Année"] || ""
+      const editeur = luminaire.editeur || ""
+      const specialite = luminaire.periode || luminaire["Spécialité"] || ""
+      const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
+      const description = luminaire.description || ""
+      const signe = luminaire.signe || luminaire["Signé"] || ""
+      const dimensions = luminaire.dimensions || ""
+      const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // Création de la ligne CSV en lisant la structure de données simple et standardisée
+      // Transformation des tableaux en chaînes de caractères
+      const materiaux = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.Matériaux || "" // Fallback pour les anciennes données
+      const images = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.filename || "" // Fallback pour les anciennes données
+
       return {
         ID: luminaire._id.toString(),
-        "Nom luminaire": luminaire.nom || "",
-        "Artiste / Dates": luminaire.designer || "",
-        Année: luminaire.annee || "",
-        Editeur: luminaire.editeur || "",
-        Spécialité: luminaire.periode || "", // Lecture du champ simple "periode"
-        "Collaboration / Œuvre": luminaire.collaboration || "", // Lecture du champ simple "collaboration"
-        Description: luminaire.description || "",
-        Signé: luminaire.signe || "",
-        Dimensions: luminaire.dimensions || "",
-        Matériaux: materiauxString, // Utilisation de la chaîne créée depuis le tableau "materiaux"
-        Estimation: luminaire.estimation || "",
-        Prix: luminaire.estimation || "", // La colonne Prix utilise la même valeur
-        "Image luminaire": imagesString,
+        "Nom luminaire": nom,
+        "Artiste / Dates": designer,
+        Année: annee,
+        Editeur: editeur,
+        Spécialité: specialite,
+        "Collaboration / Œuvre": collaboration,
+        Description: description,
+        Signé: signe,
+        Dimensions: dimensions,
+        Matériaux: materiaux,
+        Estimation: estimation,
+        Prix: estimation,
+        "Image luminaire": images,
         "Image designer": luminaire.designerImageFilename || "",
       }
     })

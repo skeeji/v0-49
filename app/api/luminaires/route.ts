@@ -148,61 +148,44 @@ export async function GET(request: NextRequest) {
 
     console.log(`📊 ${luminaires.length} luminaires récupérés pour la page ${page}`)
 
-    // Formater les luminaires pour l'affichage
+    // Logique de fallback pour gérer anciens et nouveaux articles
     const formattedLuminaires = luminaires.map((luminaire) => ({
       _id: luminaire._id.toString(),
       id: luminaire._id.toString(),
 
-      // Champs principaux avec fallback sur les champs CSV
+      // Logique de fallback pour gérer anciens et nouveaux articles
       nom: luminaire.nom || luminaire["Nom luminaire"] || "",
-      name: luminaire.nom || luminaire["Nom luminaire"] || "",
       designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      artist: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
-      year: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+      annee: luminaire.annee || luminaire["Année"] || null,
       periode: luminaire.periode || luminaire["Spécialité"] || "",
-      specialty: luminaire.periode || luminaire["Spécialité"] || "",
-
-      // CORRECTION: Séparer description et collaboration
       description: luminaire.description || "",
       collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
-
       signe: luminaire.signe || luminaire["Signé"] || "",
-      signed: luminaire.signe || luminaire["Signé"] || "",
-      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
-
-      // Champs étendus
       editeur: luminaire.editeur || "",
       dimensions: luminaire.dimensions || "",
-      estimation: luminaire.estimation || "",
+      estimation: luminaire.estimation || luminaire.Prix || "",
 
-      // Image principale du luminaire
+      // GESTION CORRECTE DES IMAGES (LA CORRECTION CLÉ)
+      // On cherche l'image dans le tableau "images", et EN SECONDS, dans l'ancien champ "filename"
       image: luminaire.images?.[0]
         ? `/api/images/filename/${luminaire.images[0]}`
         : luminaire.filename
           ? `/api/images/filename/${luminaire.filename}`
           : null,
 
-      // CORRECTION: Image du designer
+      // Pour l'image du designer, le champ est déjà correct
       designerImage: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : null,
       designerImageFilename: luminaire.designerImageFilename || "",
 
-      // Autres champs
-      materiaux: luminaire.materiaux || [],
+      // Gestion des tableaux
+      materiaux: luminaire.materiaux || [], // Doit toujours retourner un tableau
       couleurs: luminaire.couleurs || [],
       images: luminaire.images || [],
+
+      // Champs techniques
       isFavorite: luminaire.isFavorite || false,
       createdAt: luminaire.createdAt,
       updatedAt: luminaire.updatedAt,
-
-      // Champs CSV originaux
-      "Artiste / Dates": luminaire["Artiste / Dates"] || "",
-      Spécialité: luminaire["Spécialité"] || "",
-      "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
-      "Nom luminaire": luminaire["Nom luminaire"] || "",
-      Année: luminaire["Année"] || "",
-      Signé: luminaire["Signé"] || "",
-      "Nom du fichier": luminaire["Nom du fichier"] || "",
     }))
 
     // Calculer les options de filtres
