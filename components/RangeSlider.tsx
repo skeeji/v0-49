@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Slider } from "@/components/ui/slider"
 
@@ -43,13 +45,67 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
           value={localValue}
           onValueChange={handleValueChange}
           onValueCommit={handleValueCommit}
-          className="w-full [&_[role=slider]]:bg-white [&_[role=slider]]:border-2 [&_[role=slider]]:border-[#f2d895] [&_[role=slider]]:shadow-md [&_.bg-primary]:bg-[#f2d895]"
+          className="w-full"
+          style={
+            {
+              "--slider-track": "#e5e7eb",
+              "--slider-range": "#f2d895",
+              "--slider-thumb": "#ffffff",
+              "--slider-thumb-border": "#f2d895",
+            } as React.CSSProperties
+          }
         />
       </div>
       <div className="flex justify-between text-xs text-gray-400">
         <span>{min}</span>
         <span>{max}</span>
       </div>
+      <style jsx>{`
+        .slider-root {
+          position: relative;
+          display: flex;
+          align-items: center;
+          user-select: none;
+          touch-action: none;
+          width: 100%;
+          height: 20px;
+        }
+        
+        .slider-track {
+          background-color: #e5e7eb;
+          position: relative;
+          flex-grow: 1;
+          border-radius: 9999px;
+          height: 8px;
+        }
+        
+        .slider-range {
+          position: absolute;
+          background-color: #f2d895;
+          border-radius: 9999px;
+          height: 100%;
+        }
+        
+        .slider-thumb {
+          display: block;
+          width: 20px;
+          height: 20px;
+          background-color: white;
+          border: 2px solid #f2d895;
+          border-radius: 50%;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+          cursor: pointer;
+        }
+        
+        .slider-thumb:hover {
+          background-color: #f9f9f9;
+        }
+        
+        .slider-thumb:focus {
+          outline: none;
+          box-shadow: 0 0 0 2px #f2d895;
+        }
+      `}</style>
     </div>
   )
 }
