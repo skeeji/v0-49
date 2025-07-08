@@ -219,25 +219,27 @@ export default function LuminairesPage() {
     return { designers }
   }, [allLuminaires])
 
-  // Calculer la plage d'années disponibles - du premier au dernier luminaire
+  // Calculer la plage d'années disponibles - CORRIGÉ pour inclure toutes les années
   const yearBounds = useMemo(() => {
     const years = allLuminaires
       .map((l) => {
-        const year = l.annee || l.year || (l["Année"] ? Number.parseInt(l["Année"]) : null)
-        return typeof year === "number" && !isNaN(year) ? year : null
+        const year = l.annee || l.year
+        // Convertir en nombre et filtrer les valeurs invalides
+        const numYear = Number.parseInt(year)
+        return !isNaN(numYear) ? numYear : null
       })
-      .filter((year) => year !== null)
-      .sort((a, b) => a - b)
+      .filter(Boolean)
+      .sort((a, b) => a - b) // Tri croissant
 
     if (years.length === 0) return { min: 1900, max: 2024 }
 
     return {
-      min: years[0], // Premier luminaire (année la plus proche de 0)
-      max: years[years.length - 1], // Dernier luminaire (année la plus proche de 9999)
+      min: years[0], // Premier élément = année la plus ancienne
+      max: years[years.length - 1], // Dernier élément = année la plus récente
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années SANS valeurs par défaut
+  // Initialiser la plage d'années SANS déclencher le filtre
   useEffect(() => {
     if (allLuminaires.length > 0 && yearRange.length === 0) {
       setYearRange([yearBounds.min, yearBounds.max])

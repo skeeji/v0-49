@@ -13,7 +13,7 @@ interface RangeSliderProps {
 export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps) {
   const [localValue, setLocalValue] = useState<number[]>([])
 
-  // Synchroniser avec les props et s'assurer que les valeurs sont valides
+  // Synchroniser avec les props seulement quand elles sont valides
   useEffect(() => {
     if (
       Array.isArray(value) &&
@@ -21,11 +21,12 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
       !isNaN(value[0]) &&
       !isNaN(value[1]) &&
       !isNaN(min) &&
-      !isNaN(max)
+      !isNaN(max) &&
+      min < max
     ) {
       setLocalValue(value)
-    } else if (!isNaN(min) && !isNaN(max)) {
-      // Pas de valeurs par défaut - utiliser les valeurs min/max calculées
+    } else if (!isNaN(min) && !isNaN(max) && min < max) {
+      // Pas de valeur par défaut - utiliser les bornes min/max des données
       setLocalValue([min, max])
     }
   }, [value, min, max])
@@ -43,9 +44,16 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
     }
   }
 
-  // Ne pas afficher le slider si les valeurs ne sont pas encore initialisées
-  if (localValue.length !== 2 || isNaN(localValue[0]) || isNaN(localValue[1]) || isNaN(min) || isNaN(max)) {
-    return null
+  // Ne pas afficher le slider si les données ne sont pas encore chargées
+  if (isNaN(min) || isNaN(max) || min >= max || localValue.length !== 2) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">Période chronologique</label>
+          <span className="text-sm text-gray-500">Chargement...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
