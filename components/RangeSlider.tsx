@@ -1,41 +1,55 @@
 "use client"
-import * as SliderPrimitive from "@radix-ui/react-slider"
-import { cn } from "@/lib/utils"
+
+import { useState, useEffect } from "react"
+import { Slider } from "@/components/ui/slider"
 
 interface RangeSliderProps {
   min: number
   max: number
-  step?: number
-  value: [number, number]
-  onValueChange: (value: [number, number]) => void
-  onValueCommit?: (value: [number, number]) => void
-  className?: string
+  value: number[]
+  onValueCommit: (value: number[]) => void
 }
 
-export function RangeSlider({ min, max, step = 1, value, onValueChange, onValueCommit, className }: RangeSliderProps) {
+export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps) {
+  const [localValue, setLocalValue] = useState(value)
+
+  // Synchroniser avec les props
+  useEffect(() => {
+    setLocalValue(value)
+  }, [value])
+
+  const handleValueChange = (newValue: number[]) => {
+    setLocalValue(newValue)
+  }
+
+  const handleValueCommit = (newValue: number[]) => {
+    console.log(`🎯 RangeSlider - Valeur commitée:`, newValue)
+    onValueCommit(newValue)
+  }
+
   return (
-    <div className={cn("relative flex items-center select-none touch-none w-full", className)}>
-      <SliderPrimitive.Root
-        className="relative flex items-center select-none touch-none w-full h-5"
-        value={value}
-        onValueChange={onValueChange}
-        onValueCommit={onValueCommit}
-        max={max}
-        min={min}
-        step={step}
-      >
-        <SliderPrimitive.Track className="bg-secondary relative grow rounded-full h-2">
-          <SliderPrimitive.Range className="absolute rounded-full h-full" style={{ backgroundColor: "#f2d895" }} />
-        </SliderPrimitive.Track>
-        <SliderPrimitive.Thumb
-          className="block w-5 h-5 bg-background border-2 rounded-full ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-          style={{ borderColor: "#f2d895" }}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-gray-700">Période chronologique</label>
+        <span className="text-sm text-gray-500">
+          {localValue[0]} - {localValue[1]}
+        </span>
+      </div>
+      <div className="px-2">
+        <Slider
+          min={min}
+          max={max}
+          step={1}
+          value={localValue}
+          onValueChange={handleValueChange}
+          onValueCommit={handleValueCommit}
+          className="w-full [&_[role=slider]]:bg-white [&_[role=slider]]:border-2 [&_[role=slider]]:border-[#f2d895] [&_[role=slider]]:shadow-md [&_.bg-primary]:bg-[#f2d895]"
         />
-        <SliderPrimitive.Thumb
-          className="block w-5 h-5 bg-background border-2 rounded-full ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-          style={{ borderColor: "#f2d895" }}
-        />
-      </SliderPrimitive.Root>
+      </div>
+      <div className="flex justify-between text-xs text-gray-400">
+        <span>{min}</span>
+        <span>{max}</span>
+      </div>
     </div>
   )
 }

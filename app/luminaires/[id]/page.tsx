@@ -154,21 +154,22 @@ export default function LuminaireDetailPage() {
         const itemSpecialty = String(item["Spécialité"] || item.periode || item.specialite || "")
         const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
 
-        // Score par artiste (poids le plus élevé)
-        if (itemArtist && current.artist && itemArtist === current.artist) score += 5
+        // Score par artiste (poids le plus élevé - priorité 1)
+        if (itemArtist && current.artist && itemArtist === current.artist) score += 10
 
-        // Score par spécialité
-        if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 3
+        // Score par spécialité/style (priorité 1)
+        if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 8
 
-        // Score par proximité d'année
+        // Score par proximité d'année (priorité 2)
         if (currentYear > 0 && itemYear > 0) {
           const yearDiff = Math.abs(currentYear - itemYear)
-          if (yearDiff <= 5) score += 3
+          if (yearDiff <= 2) score += 6
+          else if (yearDiff <= 5) score += 4
           else if (yearDiff <= 10) score += 2
           else if (yearDiff <= 20) score += 1
         }
 
-        // Score par nom similaire (mots-clés communs)
+        // Score par nom similaire (bonus)
         if (current.name && item["Nom luminaire"]) {
           const currentWords = current.name.toLowerCase().split(/\s+/)
           const itemWords = String(item["Nom luminaire"]).toLowerCase().split(/\s+/)
@@ -176,7 +177,7 @@ export default function LuminaireDetailPage() {
             (word) =>
               word.length > 3 && itemWords.some((itemWord) => itemWord.includes(word) || word.includes(itemWord)),
           )
-          score += commonWords.length
+          score += commonWords.length * 0.5
         }
 
         return {
@@ -191,15 +192,12 @@ export default function LuminaireDetailPage() {
       })
 
     // Trier par score décroissant et prendre les 6 premiers
-    const topSimilar = scored
-      .filter((item) => item.similarityScore > 0)
-      .sort((a, b) => b.similarityScore - a.similarityScore)
-      .slice(0, 6)
+    const topSimilar = scored.sort((a, b) => b.similarityScore - a.similarityScore).slice(0, 6)
 
-    // Si moins de 6, compléter avec des luminaires aléatoires
+    // Si moins de 6 avec score > 0, compléter avec des luminaires aléatoires
     if (topSimilar.length < 6) {
       const remaining = scored
-        .filter((item) => item.similarityScore === 0)
+        .filter((item) => !topSimilar.includes(item))
         .sort(() => Math.random() - 0.5)
         .slice(0, 6 - topSimilar.length)
 
@@ -426,6 +424,7 @@ export default function LuminaireDetailPage() {
           <div className="aspect-square bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="h-full overflow-y-auto p-6">
               <div className="space-y-6 font-serif">
+                {/* Nom du luminaire (titre) */}
                 <EditableField
                   value={String(luminaire.name || "")}
                   onSave={(v) => handleUpdate("name", v)}
@@ -435,36 +434,33 @@ export default function LuminaireDetailPage() {
                 />
 
                 <div className="space-y-4">
+                  {/* 1. Artiste / Dates - Lien sans style */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Artiste / Dates</label>
-                    <EditableField
-                      value={String(luminaire.artist || "")}
-                      onSave={(v) => handleUpdate("artist", v)}
-                      placeholder="Artiste / Dates"
-                      disabled={!canEdit}
-                    />
+                    {luminaire.artist ? (
+                      <Link
+                        href={`/designers/${encodeURIComponent(luminaire.artist)}`}
+                        className="text-gray-900 no-underline hover:no-underline"
+                        style={{ textDecoration: "none", color: "inherit" }}
+                      >
+                        <EditableField
+                          value={String(luminaire.artist || "")}
+                          onSave={(v) => handleUpdate("artist", v)}
+                          placeholder="Artiste / Dates"
+                          disabled={!canEdit}
+                        />
+                      </Link>
+                    ) : (
+                      <EditableField
+                        value={String(luminaire.artist || "")}
+                        onSave={(v) => handleUpdate("artist", v)}
+                        placeholder="Artiste / Dates"
+                        disabled={!canEdit}
+                      />
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
-                    <EditableField
-                      value={String(luminaire.editeur || "")}
-                      onSave={(v) => handleUpdate("editeur", v)}
-                      placeholder="Editeur"
-                      disabled={!canEdit}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
-                    <EditableField
-                      value={String(luminaire.year || "")}
-                      onSave={(v) => handleUpdate("year", v)}
-                      placeholder="Année"
-                      disabled={!canEdit}
-                    />
-                  </div>
-
+                  {/* 2. Spécialité */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Spécialité</label>
                     <EditableField
@@ -476,6 +472,7 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
+                  {/* 3. Collaboration / Œuvre */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
                     <EditableField
@@ -487,6 +484,18 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
+                  {/* 4. Editeur */}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
+                    <EditableField
+                      value={String(luminaire.editeur || "")}
+                      onSave={(v) => handleUpdate("editeur", v)}
+                      placeholder="Editeur"
+                      disabled={!canEdit}
+                    />
+                  </div>
+
+                  {/* 5. Description */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
                     <EditableField
@@ -498,16 +507,18 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
+                  {/* 6. Année */}
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
                     <EditableField
-                      value={String(luminaire.signed || "")}
-                      onSave={(v) => handleUpdate("signed", v)}
-                      placeholder="Signé"
+                      value={String(luminaire.year || "")}
+                      onSave={(v) => handleUpdate("year", v)}
+                      placeholder="Année"
                       disabled={!canEdit}
                     />
                   </div>
 
+                  {/* 7. Dimensions */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
                     <EditableField
@@ -518,6 +529,7 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
+                  {/* 8. Matériaux */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
                     <EditableField
@@ -529,6 +541,18 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
+                  {/* 9. Signé */}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
+                    <EditableField
+                      value={String(luminaire.signed || "")}
+                      onSave={(v) => handleUpdate("signed", v)}
+                      placeholder="Signé"
+                      disabled={!canEdit}
+                    />
+                  </div>
+
+                  {/* 10. Estimation */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
                     <EditableField
