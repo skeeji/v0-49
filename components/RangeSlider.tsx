@@ -13,42 +13,59 @@ interface RangeSliderProps {
 export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps) {
   const [localValue, setLocalValue] = useState(value)
 
-  // Synchroniser avec les props
+  // Synchroniser avec les props et s'assurer que les valeurs sont valides
   useEffect(() => {
-    setLocalValue(value)
-  }, [value])
+    if (Array.isArray(value) && value.length === 2 && !isNaN(value[0]) && !isNaN(value[1])) {
+      setLocalValue(value)
+    } else {
+      // Valeurs par défaut si les props sont invalides
+      setLocalValue([min, max])
+    }
+  }, [value, min, max])
 
   const handleValueChange = (newValue: number[]) => {
-    setLocalValue(newValue)
+    if (Array.isArray(newValue) && newValue.length === 2 && !isNaN(newValue[0]) && !isNaN(newValue[1])) {
+      setLocalValue(newValue)
+    }
   }
 
   const handleValueCommit = (newValue: number[]) => {
-    console.log(`🎯 RangeSlider - Valeur commitée:`, newValue)
-    onValueCommit(newValue)
+    if (Array.isArray(newValue) && newValue.length === 2 && !isNaN(newValue[0]) && !isNaN(newValue[1])) {
+      console.log(`🎯 RangeSlider - Valeur commitée:`, newValue)
+      onValueCommit(newValue)
+    }
   }
+
+  // S'assurer que min et max sont des nombres valides
+  const safeMin = isNaN(min) ? 1900 : min
+  const safeMax = isNaN(max) ? 2024 : max
+  const safeValue =
+    Array.isArray(localValue) && localValue.length === 2 && !isNaN(localValue[0]) && !isNaN(localValue[1])
+      ? localValue
+      : [safeMin, safeMax]
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-gray-700">Période chronologique</label>
         <span className="text-sm text-gray-500">
-          {localValue[0]} - {localValue[1]}
+          {safeValue[0]} - {safeValue[1]}
         </span>
       </div>
       <div className="px-2">
         <Slider
-          min={min}
-          max={max}
+          min={safeMin}
+          max={safeMax}
           step={1}
-          value={localValue}
+          value={safeValue}
           onValueChange={handleValueChange}
           onValueCommit={handleValueCommit}
           className="w-full [&_[role=slider]]:bg-white [&_[role=slider]]:border-2 [&_[role=slider]]:border-[#f2d895] [&_[role=slider]]:shadow-md [&_.bg-primary]:bg-[#f2d895]"
         />
       </div>
       <div className="flex justify-between text-xs text-gray-400">
-        <span>{min}</span>
-        <span>{max}</span>
+        <span>{safeMin}</span>
+        <span>{safeMax}</span>
       </div>
     </div>
   )
