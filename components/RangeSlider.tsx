@@ -43,7 +43,7 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
           value={localValue}
           onValueChange={handleValueChange}
           onValueCommit={handleValueCommit}
-          className="w-full [&_[role=slider]]:bg-white [&_[role=slider]]:border-2 [&_[role=slider]]:border-[#f2d895] [&_[role=slider]]:shadow-md [&_.bg-primary]:bg-[#f2d895]"
+          className="w-full [&_[role=slider]]:bg-white [&_[role=slider]]:border-2 [&_[role=slider]]:border-orange-500 [&_[role=slider]]:shadow-md [&_.bg-primary]:bg-orange-500"
         />
       </div>
       <div className="flex justify-between text-xs text-gray-400">
