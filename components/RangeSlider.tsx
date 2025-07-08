@@ -1,9 +1,7 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
-import { Slider } from "@/components/ui/slider"
+import * as SliderPrimitive from "@radix-ui/react-slider"
 
 interface RangeSliderProps {
   min: number
@@ -38,74 +36,26 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
         </span>
       </div>
       <div className="px-2">
-        <Slider
-          min={min}
-          max={max}
-          step={1}
+        <SliderPrimitive.Root
+          className="relative flex w-full touch-none select-none items-center"
           value={localValue}
           onValueChange={handleValueChange}
           onValueCommit={handleValueCommit}
-          className="w-full"
-          style={
-            {
-              "--slider-track": "#e5e7eb",
-              "--slider-range": "#f2d895",
-              "--slider-thumb": "#ffffff",
-              "--slider-thumb-border": "#f2d895",
-            } as React.CSSProperties
-          }
-        />
+          max={max}
+          min={min}
+          step={1}
+        >
+          <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-gray-200">
+            <SliderPrimitive.Range className="absolute h-full bg-[#f2d895]" />
+          </SliderPrimitive.Track>
+          <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-[#f2d895] bg-white ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d895] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" />
+          <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-[#f2d895] bg-white ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f2d895] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" />
+        </SliderPrimitive.Root>
       </div>
       <div className="flex justify-between text-xs text-gray-400">
         <span>{min}</span>
         <span>{max}</span>
       </div>
-      <style jsx>{`
-        .slider-root {
-          position: relative;
-          display: flex;
-          align-items: center;
-          user-select: none;
-          touch-action: none;
-          width: 100%;
-          height: 20px;
-        }
-        
-        .slider-track {
-          background-color: #e5e7eb;
-          position: relative;
-          flex-grow: 1;
-          border-radius: 9999px;
-          height: 8px;
-        }
-        
-        .slider-range {
-          position: absolute;
-          background-color: #f2d895;
-          border-radius: 9999px;
-          height: 100%;
-        }
-        
-        .slider-thumb {
-          display: block;
-          width: 20px;
-          height: 20px;
-          background-color: white;
-          border: 2px solid #f2d895;
-          border-radius: 50%;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-          cursor: pointer;
-        }
-        
-        .slider-thumb:hover {
-          background-color: #f9f9f9;
-        }
-        
-        .slider-thumb:focus {
-          outline: none;
-          box-shadow: 0 0 0 2px #f2d895;
-        }
-      `}</style>
     </div>
   )
 }

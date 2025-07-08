@@ -194,53 +194,28 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         }
       }
 
-      // Préparer les données du luminaire avec TOUS les mappings nécessaires pour l'export CSV
+      // Utilise cette structure simple et cohérente
       const luminaireData = {
-        // Champs principaux
+        // Champs textuels simples
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
         annee: formData.annee.trim(),
-        periode: formData.periode.trim(),
+        periode: formData.periode.trim(), // Champ pour "Spécialité"
         description: formData.description.trim(),
-        collaboration: formData.collaboration.trim(),
+        collaboration: formData.collaboration.trim(), // Champ pour "Collaboration"
         signe: formData.signe,
         editeur: formData.editeur.trim(),
         dimensions: formData.dimensions.trim(),
         estimation: formData.estimation.trim(),
+
+        // Champs de type tableau (doivent rester des tableaux)
         materiaux: formData.materiaux,
         couleurs: formData.couleurs,
 
-        // Images
+        // Noms des fichiers image
         images: uploadedImages,
-        filename: uploadedImages[0] || "",
         designerImageFilename: designerImageFilename,
-
-        // MAPPINGS COMPLETS POUR L'EXPORT CSV
-        "Nom luminaire": formData.nom.trim(),
-        "Artiste / Dates": formData.designer.trim(),
-        Année: formData.annee.trim(),
-        Editeur: formData.editeur.trim(),
-        Spécialité: formData.periode.trim(),
-        "Collaboration / Œuvre": formData.collaboration.trim(),
-        Description: formData.description.trim(),
-        Signé: formData.signe,
-        Dimensions: formData.dimensions.trim(),
-        Matériaux: Array.isArray(formData.materiaux) ? formData.materiaux.join(", ") : "",
-        Estimation: formData.estimation.trim(),
-        Prix: formData.estimation.trim(),
-        "Image luminaire": uploadedImages.join(", "),
-        "Image designer": designerImageFilename,
-        "Nom du fichier": uploadedImages[0] || "",
-
-        // Champs de compatibilité supplémentaires
-        specialite: formData.periode.trim(),
-        oeuvre: formData.collaboration.trim(),
-        materials: Array.isArray(formData.materiaux) ? formData.materiaux.join(", ") : "",
       }
-
-      luminaireData.specialite = formData.periode.trim()
-      luminaireData.collaboration = formData.collaboration.trim()
-      luminaireData.materiaux = formData.materiaux
 
       console.log("💾 Données à sauvegarder:", luminaireData)
 

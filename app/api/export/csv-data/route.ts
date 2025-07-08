@@ -15,203 +15,27 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // Fonction utilitaire pour récupérer une valeur avec fallback
-    const getValueWithFallback = (luminaire: any, fields: string[]): string => {
-      for (const field of fields) {
-        const value = luminaire[field]
-        if (value !== undefined && value !== null && String(value).trim() !== "") {
-          return Array.isArray(value) ? value.join(", ") : String(value).trim()
-        }
-      }
-      return ""
-    }
-
-    // Mapping des champs selon les colonnes demandées
-    const csvData = luminaires.map((luminaire, index) => {
-      console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
-
-      // Debug EXHAUSTIF de TOUTES les propriétés disponibles
-      console.log(`🔍 DOCUMENT COMPLET:`, JSON.stringify(luminaire, null, 2))
-
-      // Gestion des images du luminaire avec fallback
-      const imagesLuminaire = getValueWithFallback(luminaire, [
-        "filename",
-        "images",
-        "image",
-        "Image luminaire",
-        "image_luminaire",
-        "photos",
-        "pictures",
-      ])
-
-      // Gestion de l'image designer avec fallback
-      const imageDesigner = getValueWithFallback(luminaire, [
-        "designerImageFilename",
-        "designerImage",
-        "Image Designer",
-        "designer.jpg",
-        "image_designer",
-        "designer_image",
-        "photo_designer",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - SPÉCIALITÉ
-      const specialite = getValueWithFallback(luminaire, [
-        "Spécialité",
-        "specialite",
-        "periode",
-        "Période",
-        "specialty",
-        "speciality",
-        "domain",
-        "domaine",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - COLLABORATION / ŒUVRE
-      const collaborationOeuvre = getValueWithFallback(luminaire, [
-        "Collaboration / Œuvre",
-        "collaboration",
-        "oeuvre",
-        "œuvre",
-        "work",
-        "collaboration_oeuvre",
-        "projet",
-        "project",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - MATÉRIAUX
-      const materiaux = getValueWithFallback(luminaire, [
-        "Matériaux",
-        "materiaux",
-        "materials",
-        "material",
-        "matiere",
-        "matière",
-        "composition",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - SIGNÉ
-      const signe = getValueWithFallback(luminaire, [
-        "Signé",
-        "signe",
-        "signed",
-        "signature",
-        "marque",
-        "mark",
-        "estampille",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - NOM LUMINAIRE
-      const nomLuminaire = getValueWithFallback(luminaire, [
-        "nom",
-        "Nom luminaire",
-        "name",
-        "title",
-        "titre",
-        "designation",
-        "libelle",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - ARTISTE / DATES
-      const artisteDates = getValueWithFallback(luminaire, [
-        "designer",
-        "artist",
-        "Artiste / Dates",
-        "artiste",
-        "createur",
-        "créateur",
-        "author",
-        "auteur",
-        "maker",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - ANNÉE
-      const annee = getValueWithFallback(luminaire, [
-        "annee",
-        "year",
-        "Année",
-        "date",
-        "periode",
-        "period",
-        "epoque",
-        "époque",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - EDITEUR
-      const editeur = getValueWithFallback(luminaire, [
-        "editeur",
-        "editor",
-        "Editeur",
-        "publisher",
-        "fabricant",
-        "manufacturer",
-        "marque",
-        "brand",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - DESCRIPTION
-      const description = getValueWithFallback(luminaire, [
-        "description",
-        "desc",
-        "Description",
-        "details",
-        "commentaire",
-        "comment",
-        "notes",
-        "remarques",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - DIMENSIONS
-      const dimensions = getValueWithFallback(luminaire, [
-        "dimensions",
-        "dimension",
-        "Dimensions",
-        "taille",
-        "size",
-        "mesures",
-        "measurements",
-      ])
-
-      // AFFECTATION DIRECTE ET PRIORISÉE - ESTIMATION/PRIX
-      const estimation = getValueWithFallback(luminaire, [
-        "estimation",
-        "prix",
-        "price",
-        "Estimation",
-        "Prix",
-        "valeur",
-        "value",
-        "cout",
-        "coût",
-        "cost",
-      ])
-
-      console.log(`🎯 RÉSULTATS FINAUX ULTRA-DÉTAILLÉS pour ${nomLuminaire}:`, {
-        materiaux: materiaux || "❌ VIDE",
-        collaborationOeuvre: collaborationOeuvre || "❌ VIDE",
-        specialite: specialite || "❌ VIDE",
-        signe: signe || "❌ VIDE",
-        nomLuminaire: nomLuminaire || "❌ VIDE",
-        artisteDates: artisteDates || "❌ VIDE",
-      })
+    const csvData = luminaires.map((luminaire) => {
+      // Les données sont maintenant propres et standardisées
+      const materiauxString = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : ""
+      const imagesString = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : ""
 
       return {
-        // Colonnes dans l'ordre demandé avec logique de fallback robuste
         ID: luminaire._id.toString(),
-        "Nom luminaire": nomLuminaire,
-        "Artiste / Dates": artisteDates,
-        Année: annee,
-        Editeur: editeur,
-        Spécialité: specialite,
-        "Collaboration / Œuvre": collaborationOeuvre,
-        Description: description,
-        Signé: signe,
-        Dimensions: dimensions,
-        Matériaux: materiaux,
-        Estimation: estimation,
-        Prix: estimation, // Même valeur que estimation
-        "Image luminaire": imagesLuminaire,
-        "Image designer": imageDesigner,
+        "Nom luminaire": luminaire.nom || "",
+        "Artiste / Dates": luminaire.designer || "",
+        Année: luminaire.annee || "",
+        Editeur: luminaire.editeur || "",
+        Spécialité: luminaire.periode || "", // Lecture du champ simple
+        "Collaboration / Œuvre": luminaire.collaboration || "", // Lecture du champ simple
+        Description: luminaire.description || "",
+        Signé: luminaire.signe || "",
+        Dimensions: luminaire.dimensions || "",
+        Matériaux: materiauxString, // Lecture du champ simple, transformé en string
+        Estimation: luminaire.estimation || "",
+        Prix: luminaire.estimation || "", // Utilise la même valeur
+        "Image luminaire": imagesString,
+        "Image designer": luminaire.designerImageFilename || "",
       }
     })
 
