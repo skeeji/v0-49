@@ -19,9 +19,6 @@ export async function GET(request: NextRequest) {
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
-      // Debug EXHAUSTIF de TOUTES les propriétés disponibles
-      console.log(`🔍 DOCUMENT COMPLET:`, JSON.stringify(luminaire, null, 2))
-
       // Gestion des images du luminaire (tableau)
       let imagesLuminaire = ""
       if (luminaire.filename) {
@@ -44,41 +41,37 @@ export async function GET(request: NextRequest) {
         luminaire.image_designer ||
         ""
 
-      // PARSING ULTRA-EXHAUSTIF DES MATÉRIAUX
+      // RÉCUPÉRATION DIRECTE DES MATÉRIAUX avec ordre de priorité
       let materiaux = ""
-      const materiauxValue = luminaire.Matériaux || luminaire.materiaux || luminaire.materials || ""
+      const materiauxValue = luminaire.Matériaux || luminaire.materiaux || luminaire.materials
       if (Array.isArray(materiauxValue) && materiauxValue.length > 0) {
         materiaux = materiauxValue.join(", ")
       } else if (typeof materiauxValue === "string" && materiauxValue.trim() !== "") {
         materiaux = materiauxValue.trim()
       }
 
-      // PARSING ULTRA-EXHAUSTIF DE COLLABORATION / ŒUVRE
+      // RÉCUPÉRATION DIRECTE DE COLLABORATION / ŒUVRE avec ordre de priorité
       let collaborationOeuvre = ""
-      collaborationOeuvre = luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre || ""
-
-      // PARSING ULTRA-EXHAUSTIF DE SPÉCIALITÉ
-      let specialite = ""
-      specialite = luminaire.Spécialité || luminaire.specialite || luminaire.periode || luminaire.Période || ""
-
-      // PARSING ULTRA-EXHAUSTIF DE SIGNÉ
-      let signe = ""
-
-      for (const key of Object.keys(luminaire)) {
-        const lowerKey = key.toLowerCase()
-        if (lowerKey.includes("signe") || lowerKey.includes("signé") || lowerKey.includes("signed")) {
-          const value = luminaire[key]
-          console.log(`🔍 Clé signé trouvée "${key}":`, value)
-
-          if (value && typeof value === "string" && value.trim() !== "") {
-            signe = value.trim()
-            console.log(`✅ Signé depuis "${key}":`, signe)
-            break
-          }
-        }
+      const collaborationValue = luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre
+      if (typeof collaborationValue === "string" && collaborationValue.trim() !== "") {
+        collaborationOeuvre = collaborationValue.trim()
       }
 
-      console.log(`🎯 RÉSULTATS FINAUX ULTRA-DÉTAILLÉS pour ${luminaire.nom}:`, {
+      // RÉCUPÉRATION DIRECTE DE SPÉCIALITÉ avec ordre de priorité
+      let specialite = ""
+      const specialiteValue = luminaire.Spécialité || luminaire.specialite || luminaire.periode || luminaire.Période
+      if (typeof specialiteValue === "string" && specialiteValue.trim() !== "") {
+        specialite = specialiteValue.trim()
+      }
+
+      // RÉCUPÉRATION DIRECTE DE SIGNÉ avec ordre de priorité
+      let signe = ""
+      const signeValue = luminaire.Signé || luminaire.signe || luminaire.signed
+      if (typeof signeValue === "string" && signeValue.trim() !== "") {
+        signe = signeValue.trim()
+      }
+
+      console.log(`🎯 RÉSULTATS pour ${luminaire.nom}:`, {
         materiaux: materiaux || "❌ VIDE",
         collaborationOeuvre: collaborationOeuvre || "❌ VIDE",
         specialite: specialite || "❌ VIDE",
