@@ -194,20 +194,25 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         }
       }
 
-      // CORRECTION : L'objet envoyé est simple et standardisé.
+      // Structure de données simple et standardisée
       const luminaireData = {
+        // Champs textuels simples
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
         annee: formData.annee.trim(),
-        periode: formData.periode.trim(),
+        periode: formData.periode.trim(), // Champ standard pour "Spécialité"
         description: formData.description.trim(),
-        collaboration: formData.collaboration.trim(),
+        collaboration: formData.collaboration.trim(), // Champ standard pour "Collaboration"
         signe: formData.signe,
         editeur: formData.editeur.trim(),
         dimensions: formData.dimensions.trim(),
         estimation: formData.estimation.trim(),
+
+        // Champs de type tableau (doivent rester des tableaux)
         materiaux: formData.materiaux,
         couleurs: formData.couleurs,
+
+        // Noms des fichiers image
         images: uploadedImages,
         designerImageFilename: designerImageFilename,
       }
