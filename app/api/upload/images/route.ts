@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const files = formData.getAll("images") as File[]
     const designer = formData.get("designer") as string
+    const forceDesignerImages = formData.get("forceDesignerImages") as string
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 })
@@ -62,8 +63,13 @@ export async function POST(request: NextRequest) {
           // Déterminer si c'est une image de designer
           let isDesignerImage = false
 
+          // Si forceDesignerImages est défini, toutes les images sont des images de designers
+          if (forceDesignerImages === "true") {
+            isDesignerImage = true
+            console.log(`👤 Image forcée comme designer: ${file.name}`)
+          }
           // Si un designer est spécifié dans le formulaire, c'est une image de designer
-          if (designer && designer.trim() !== "") {
+          else if (designer && designer.trim() !== "") {
             isDesignerImage = true
             console.log(`👤 Image de designer (formulaire): ${file.name} pour ${designer}`)
           }

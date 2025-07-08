@@ -44,7 +44,7 @@ export function RangeSlider({ min, max, value, onValueCommit }: RangeSliderProps
           value={localValue}
           onValueChange={handleValueChange}
           onValueCommit={handleValueCommit}
-          className="w-full"
+          className="w-full [&_[role=slider]]:border-[#f2d895] [&_[role=slider]]:border-2 [&_.bg-primary]:bg-[#f2d895]"
         />
       </div>
 

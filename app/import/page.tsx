@@ -60,6 +60,7 @@ export default function ImportPage() {
     csv?: ImportResult
     designers?: ImportResult
     images?: ImportResult[]
+    designerImages?: ImportResult[]
     video?: ImportResult
     logo?: ImportResult
     reset?: ImportResult
@@ -72,6 +73,7 @@ export default function ImportPage() {
   const csvFileRef = useRef<HTMLInputElement>(null)
   const designersFileRef = useRef<HTMLInputElement>(null)
   const imagesFileRef = useRef<HTMLInputElement>(null)
+  const designerImagesFileRef = useRef<HTMLInputElement>(null)
   const videoFileRef = useRef<HTMLInputElement>(null)
   const logoFileRef = useRef<HTMLInputElement>(null)
   const periodImageFileRef = useRef<HTMLInputElement>(null)
@@ -262,6 +264,89 @@ export default function ImportPage() {
       toast({
         title: "❌ Erreur critique",
         description: "Impossible d'uploader les images",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+    }
+  }
+
+  const handleDesignerImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    console.log(`👤 Début de l'upload images designers: ${files.length} fichiers`)
+
+    setIsUploading(true)
+    setCurrentStep("Upload des images designers...")
+    setUploadProgress(5)
+
+    const allResults: ImportResult[] = []
+
+    try {
+      // Traiter par petits batches de 50 fichiers
+      const BATCH_SIZE = 50
+      let totalUploaded = 0
+
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE)
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1
+        const totalBatches = Math.ceil(files.length / BATCH_SIZE)
+
+        setCurrentStep(`Upload designers batch ${batchNumber}/${totalBatches} (${batch.length} images)`)
+        setUploadProgress(5 + (i / files.length) * 90)
+
+        console.log(`📦 Designer Batch ${batchNumber}/${totalBatches}: ${batch.length} fichiers`)
+
+        const formData = new FormData()
+        batch.forEach((file) => {
+          formData.append("images", file)
+        })
+        // Marquer explicitement comme images de designers
+        formData.append("forceDesignerImages", "true")
+
+        try {
+          const response = await fetch("/api/upload/images", {
+            method: "POST",
+            body: formData,
+          })
+
+          const result = await response.json()
+          allResults.push(result)
+
+          if (result.success) {
+            totalUploaded += result.uploaded || 0
+            console.log(`✅ Designer Batch ${batchNumber}: ${result.uploaded} uploadées`)
+          } else {
+            console.error(`❌ Erreur designer batch ${batchNumber}:`, result.error)
+          }
+
+          // Pause entre les batches
+          if (i + BATCH_SIZE < files.length) {
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+          }
+        } catch (batchError: any) {
+          console.error(`❌ Erreur critique designer batch ${batchNumber}:`, batchError)
+          allResults.push({
+            success: false,
+            message: `Erreur designer batch ${batchNumber}: ${batchError.message}`,
+          })
+        }
+      }
+
+      setResults((prev) => ({ ...prev, designerImages: allResults }))
+
+      toast({
+        title: "✅ Upload designers terminé",
+        description: `${totalUploaded} images designers uploadées`,
+      })
+    } catch (error: any) {
+      console.error("❌ Erreur critique lors de l'upload images designers:", error)
+      toast({
+        title: "❌ Erreur critique",
+        description: "Impossible d'uploader les images designers",
         variant: "destructive",
       })
     } finally {
@@ -903,6 +988,58 @@ export default function ImportPage() {
               </CardContent>
             </Card>
 
+            {/* Upload Images Designers */}
+            <Card className="border-orange-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-600">
+                  <Users className="w-5 h-5" />
+                  Images Designers
+                </CardTitle>
+                <CardDescription>Images spécifiquement pour les designers</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input
+                  ref={designerImagesFileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleDesignerImagesUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => designerImagesFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner Images Designers
+                </Button>
+
+                {results.designerImages && results.designerImages.length > 0 && (
+                  <div className="text-sm space-y-1">
+                    {results.designerImages.map((result, index) => (
+                      <div key={index}>
+                        {result.success ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>
+                              Batch {index + 1}: {result.uploaded} designers uploadées
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600">
+                            <XCircle className="w-4 h-4" />
+                            <span>Batch {index + 1}: Erreur</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Upload Images de Périodes */}
             <Card className="border-purple-200">
               <CardHeader>
@@ -1081,7 +1218,7 @@ export default function ImportPage() {
           </div>
 
           {/* Résultats détaillés */}
-          {(results.csv || results.designers || results.images) && (
+          {(results.csv || results.designers || results.images || results.designerImages) && (
             <Card>
               <CardHeader>
                 <CardTitle>Résultats de l'import</CardTitle>
@@ -1122,6 +1259,16 @@ export default function ImportPage() {
                       <h4 className="font-medium">Images</h4>
                       <div className="text-sm text-gray-600">
                         {results.images.reduce((sum, r) => sum + (r.uploaded || 0), 0)} images uploadées au total
+                      </div>
+                    </div>
+                  )}
+
+                  {results.designerImages && (
+                    <div>
+                      <h4 className="font-medium">Images Designers</h4>
+                      <div className="text-sm text-gray-600">
+                        {results.designerImages.reduce((sum, r) => sum + (r.uploaded || 0), 0)} images designers
+                        uploadées au total
                       </div>
                     </div>
                   )}

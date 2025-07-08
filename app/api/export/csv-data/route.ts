@@ -19,22 +19,8 @@ export async function GET(request: NextRequest) {
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
-      // Debug complet de TOUTES les clés disponibles
-      console.log(`🔍 TOUTES les clés disponibles:`, Object.keys(luminaire))
-      console.log(`🔍 Valeurs spécifiques:`, {
-        materiaux: luminaire.materiaux,
-        Matériaux: luminaire.Matériaux,
-        materials: luminaire.materials,
-        collaboration: luminaire.collaboration,
-        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
-        oeuvre: luminaire.oeuvre,
-        periode: luminaire.periode,
-        specialite: luminaire.specialite,
-        Spécialité: luminaire.Spécialité,
-        signe: luminaire.signe,
-        signed: luminaire.signed,
-        Signé: luminaire.Signé,
-      })
+      // Debug EXHAUSTIF de TOUTES les propriétés disponibles
+      console.log(`🔍 DOCUMENT COMPLET:`, JSON.stringify(luminaire, null, 2))
 
       // Gestion des images du luminaire (tableau)
       let imagesLuminaire = ""
@@ -58,68 +44,95 @@ export async function GET(request: NextRequest) {
         luminaire.image_designer ||
         ""
 
-      // Gestion des matériaux - TOUTES LES VARIANTES POSSIBLES
+      // PARSING ULTRA-EXHAUSTIF DES MATÉRIAUX
       let materiaux = ""
-      const materiauxKeys = ["materiaux", "Matériaux", "materials", "Materials", "matériaux", "MATERIAUX", "MATERIALS"]
 
-      for (const key of materiauxKeys) {
-        if (luminaire[key]) {
-          if (Array.isArray(luminaire[key]) && luminaire[key].length > 0) {
-            materiaux = luminaire[key].join(", ")
-            break
-          } else if (typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
-            materiaux = luminaire[key].trim()
+      // Rechercher dans TOUTES les clés qui contiennent "materiau" ou "material"
+      const allKeys = Object.keys(luminaire)
+      console.log(`🔍 TOUTES LES CLÉS:`, allKeys)
+
+      for (const key of allKeys) {
+        const lowerKey = key.toLowerCase()
+        if (lowerKey.includes("materiau") || lowerKey.includes("material") || lowerKey.includes("matériau")) {
+          const value = luminaire[key]
+          console.log(`🔍 Clé matériaux trouvée "${key}":`, value)
+
+          if (value) {
+            if (Array.isArray(value) && value.length > 0) {
+              materiaux = value.join(", ")
+              console.log(`✅ Matériaux ARRAY depuis "${key}":`, materiaux)
+              break
+            } else if (typeof value === "string" && value.trim() !== "") {
+              materiaux = value.trim()
+              console.log(`✅ Matériaux STRING depuis "${key}":`, materiaux)
+              break
+            }
+          }
+        }
+      }
+
+      // PARSING ULTRA-EXHAUSTIF DE COLLABORATION / ŒUVRE
+      let collaborationOeuvre = ""
+
+      for (const key of allKeys) {
+        const lowerKey = key.toLowerCase()
+        if (lowerKey.includes("collaboration") || lowerKey.includes("oeuvre") || lowerKey.includes("œuvre")) {
+          const value = luminaire[key]
+          console.log(`🔍 Clé collaboration trouvée "${key}":`, value)
+
+          if (value && typeof value === "string" && value.trim() !== "") {
+            collaborationOeuvre = value.trim()
+            console.log(`✅ Collaboration depuis "${key}":`, collaborationOeuvre)
             break
           }
         }
       }
 
-      // Gestion de Collaboration / Œuvre - TOUTES LES VARIANTES POSSIBLES
-      let collaborationOeuvre = ""
-      const collaborationKeys = [
-        "collaboration",
-        "Collaboration / Œuvre",
-        "oeuvre",
-        "Œuvre",
-        "collaboration_oeuvre",
-        "COLLABORATION",
-        "OEUVRE",
-      ]
-
-      for (const key of collaborationKeys) {
-        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
-          collaborationOeuvre = luminaire[key].trim()
-          break
-        }
-      }
-
-      // Gestion de Spécialité - TOUTES LES VARIANTES POSSIBLES
+      // PARSING ULTRA-EXHAUSTIF DE SPÉCIALITÉ
       let specialite = ""
-      const specialiteKeys = ["periode", "specialite", "Spécialité", "specialty", "Specialty", "SPECIALITE", "PERIODE"]
 
-      for (const key of specialiteKeys) {
-        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
-          specialite = luminaire[key].trim()
-          break
+      for (const key of allKeys) {
+        const lowerKey = key.toLowerCase()
+        if (
+          lowerKey.includes("specialite") ||
+          lowerKey.includes("spécialité") ||
+          lowerKey.includes("periode") ||
+          lowerKey.includes("période") ||
+          lowerKey.includes("specialty")
+        ) {
+          const value = luminaire[key]
+          console.log(`🔍 Clé spécialité trouvée "${key}":`, value)
+
+          if (value && typeof value === "string" && value.trim() !== "") {
+            specialite = value.trim()
+            console.log(`✅ Spécialité depuis "${key}":`, specialite)
+            break
+          }
         }
       }
 
-      // Gestion de Signé - TOUTES LES VARIANTES POSSIBLES
+      // PARSING ULTRA-EXHAUSTIF DE SIGNÉ
       let signe = ""
-      const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
 
-      for (const key of signeKeys) {
-        if (luminaire[key] && typeof luminaire[key] === "string" && luminaire[key].trim() !== "") {
-          signe = luminaire[key].trim()
-          break
+      for (const key of allKeys) {
+        const lowerKey = key.toLowerCase()
+        if (lowerKey.includes("signe") || lowerKey.includes("signé") || lowerKey.includes("signed")) {
+          const value = luminaire[key]
+          console.log(`🔍 Clé signé trouvée "${key}":`, value)
+
+          if (value && typeof value === "string" && value.trim() !== "") {
+            signe = value.trim()
+            console.log(`✅ Signé depuis "${key}":`, signe)
+            break
+          }
         }
       }
 
-      console.log(`✅ Résultats finaux pour ${luminaire.nom}:`, {
-        materiaux,
-        collaborationOeuvre,
-        specialite,
-        signe,
+      console.log(`🎯 RÉSULTATS FINAUX ULTRA-DÉTAILLÉS pour ${luminaire.nom}:`, {
+        materiaux: materiaux || "❌ VIDE",
+        collaborationOeuvre: collaborationOeuvre || "❌ VIDE",
+        specialite: specialite || "❌ VIDE",
+        signe: signe || "❌ VIDE",
       })
 
       return {
