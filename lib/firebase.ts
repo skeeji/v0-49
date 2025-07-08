@@ -49,6 +49,14 @@ if (isFirebaseConfigured) {
 
     console.log("🔥 Firebase initialized successfully")
     console.log("📊 Project ID:", firebaseConfig.projectId)
+    console.log("🌐 Auth Domain:", firebaseConfig.authDomain)
+    console.log("⚠️ IMPORTANT: Assurez-vous que votre domaine (gersaintparis.com) est ajouté dans:")
+    console.log("   Firebase Console > Authentication > Settings > Authorized domains")
+    console.log("   Domaines à ajouter:")
+    console.log("   - gersaintparis.com")
+    console.log("   - www.gersaintparis.com")
+    console.log("   - localhost (pour le développement)")
+    console.log("   - votre-domaine-de-preview.vercel.app (si applicable)")
   } catch (error) {
     console.error("❌ Firebase initialization failed:", error)
   }
