@@ -24,7 +24,7 @@ export default function LuminairesPage() {
   // États pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
-  const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
+  const [yearRange, setYearRange] = useState<number[]>([])
   const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -219,22 +219,30 @@ export default function LuminairesPage() {
     return { designers }
   }, [allLuminaires])
 
-  // Calculer la plage d'années disponibles
+  // Calculer la plage d'années disponibles - du premier au dernier luminaire
   const yearBounds = useMemo(() => {
-    const years = allLuminaires.map((l) => l.annee || l.year).filter(Boolean)
+    const years = allLuminaires
+      .map((l) => {
+        const year = l.annee || l.year || (l["Année"] ? Number.parseInt(l["Année"]) : null)
+        return typeof year === "number" && !isNaN(year) ? year : null
+      })
+      .filter((year) => year !== null)
+      .sort((a, b) => a - b)
+
     if (years.length === 0) return { min: 1900, max: 2024 }
+
     return {
-      min: Math.min(...years),
-      max: Math.max(...years),
+      min: years[0], // Premier luminaire (année la plus proche de 0)
+      max: years[years.length - 1], // Dernier luminaire (année la plus proche de 9999)
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années SANS déclencher le filtre
+  // Initialiser la plage d'années SANS valeurs par défaut
   useEffect(() => {
-    if (allLuminaires.length > 0 && yearRange[0] === 1900 && yearRange[1] === 2024) {
+    if (allLuminaires.length > 0 && yearRange.length === 0) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
-  }, [yearBounds, allLuminaires.length, yearRange])
+  }, [yearBounds, allLuminaires.length, yearRange.length])
 
   // Fonction qui gère le changement du slider - ACTIVE le filtre
   const handleYearRangeChange = (newRange: number[]) => {
