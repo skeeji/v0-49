@@ -15,44 +15,89 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // Début de la section de code à remplacer
-    const csvData = luminaires.map((luminaire) => {
-      // Logique de fallback robuste pour lire les anciens et nouveaux formats de données
-      const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
-      const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
-      const annee = luminaire.annee || luminaire["Année"] || ""
-      const editeur = luminaire.editeur || ""
-      const specialite = luminaire.periode || luminaire["Spécialité"] || ""
-      const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
-      const description = luminaire.description || ""
-      const signe = luminaire.signe || luminaire["Signé"] || ""
-      const dimensions = luminaire.dimensions || ""
-      const estimation = luminaire.estimation || luminaire.Prix || ""
+    // Mapping des champs selon les colonnes demandées
+    const csvData = luminaires.map((luminaire, index) => {
+      console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
-      // Transformation sécurisée des tableaux en chaînes de caractères
-      const materiaux = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.Matériaux || "" // Fallback pour les anciennes données textuelles
+      // Debug EXHAUSTIF de TOUTES les propriétés disponibles
+      console.log(`🔍 DOCUMENT COMPLET:`, JSON.stringify(luminaire, null, 2))
 
-      const images = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.filename || "" // Fallback pour les anciennes données textuelles
+      // Gestion des images du luminaire (tableau)
+      let imagesLuminaire = ""
+      if (luminaire.filename) {
+        imagesLuminaire = luminaire.filename
+      }
+      if (luminaire.images && Array.isArray(luminaire.images) && luminaire.images.length > 0) {
+        if (imagesLuminaire) {
+          imagesLuminaire += ", " + luminaire.images.join(", ")
+        } else {
+          imagesLuminaire = luminaire.images.join(", ")
+        }
+      }
+
+      // Gestion de l'image designer (une seule image)
+      const imageDesigner =
+        luminaire.designerImageFilename ||
+        luminaire.designerImage ||
+        luminaire["Image Designer"] ||
+        luminaire["designer.jpg"] ||
+        luminaire.image_designer ||
+        ""
+
+      // AFFECTATION DIRECTE ET PRIORISÉE - SPÉCIALITÉ
+      const specialite = luminaire.Spécialité || luminaire.specialite || luminaire.periode || ""
+
+      // AFFECTATION DIRECTE ET PRIORISÉE - COLLABORATION / ŒUVRE
+      const collaborationOeuvre =
+        luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre || ""
+
+      // AFFECTATION DIRECTE ET PRIORISÉE - MATÉRIAUX
+      const rawMateriaux = luminaire.Matériaux || luminaire.materiaux || luminaire.materials || []
+      const materiaux = Array.isArray(rawMateriaux) ? rawMateriaux.join(", ") : String(rawMateriaux)
+
+      // PARSING ULTRA-EXHAUSTIF DE SIGNÉ
+      let signe = ""
+
+      for (const key of Object.keys(luminaire)) {
+        const lowerKey = key.toLowerCase()
+        if (lowerKey.includes("signe") || lowerKey.includes("signé") || lowerKey.includes("signed")) {
+          const value = luminaire[key]
+          console.log(`🔍 Clé signé trouvée "${key}":`, value)
+
+          if (value && typeof value === "string" && value.trim() !== "") {
+            signe = value.trim()
+            console.log(`✅ Signé depuis "${key}":`, signe)
+            break
+          }
+        }
+      }
+
+      console.log(`🎯 RÉSULTATS FINAUX ULTRA-DÉTAILLÉS pour ${luminaire.nom}:`, {
+        materiaux: materiaux || "❌ VIDE",
+        collaborationOeuvre: collaborationOeuvre || "❌ VIDE",
+        specialite: specialite || "❌ VIDE",
+        signe: signe || "❌ VIDE",
+      })
 
       return {
+        // Colonnes dans l'ordre demandé
         ID: luminaire._id.toString(),
-        "Nom luminaire": nom,
-        "Artiste / Dates": designer,
-        Année: annee,
-        Editeur: editeur,
+        "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
+        "Artiste / Dates": luminaire.designer || luminaire.artist || luminaire["Artiste / Dates"] || "",
+        Année: luminaire.annee || luminaire.year || luminaire["Année"] || "",
+        Editeur: luminaire.editeur || luminaire.editor || luminaire["Editeur"] || "",
         Spécialité: specialite,
-        "Collaboration / Œuvre": collaboration,
-        Description: description,
+        "Collaboration / Œuvre": collaborationOeuvre,
+        Description: luminaire.description || luminaire.desc || luminaire["Description"] || "",
         Signé: signe,
-        Dimensions: dimensions,
+        Dimensions: luminaire.dimensions || luminaire.dimension || luminaire["Dimensions"] || "",
         Matériaux: materiaux,
-        Estimation: estimation,
-        Prix: estimation,
-        "Image luminaire": images,
-        "Image designer": luminaire.designerImageFilename || "",
+        Estimation: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Estimation"] || "",
+        Prix: luminaire.estimation || luminaire.prix || luminaire.price || luminaire["Prix"] || "",
+        "Image luminaire": imagesLuminaire,
+        "Image designer": imageDesigner,
       }
     })
-    // Fin de la section de code à remplacer
 
     if (csvData.length === 0) {
       return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 })
