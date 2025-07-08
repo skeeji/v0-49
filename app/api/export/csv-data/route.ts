@@ -16,24 +16,25 @@ export async function GET(request: NextRequest) {
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
     const csvData = luminaires.map((luminaire) => {
-      // Les données sont maintenant propres et standardisées
+      // Transformation des tableaux en chaînes de caractères uniquement pour le CSV
       const materiauxString = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : ""
       const imagesString = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : ""
 
+      // Création de la ligne CSV en lisant la structure de données simple et standardisée
       return {
         ID: luminaire._id.toString(),
         "Nom luminaire": luminaire.nom || "",
         "Artiste / Dates": luminaire.designer || "",
         Année: luminaire.annee || "",
         Editeur: luminaire.editeur || "",
-        Spécialité: luminaire.periode || "", // Lecture du champ simple
-        "Collaboration / Œuvre": luminaire.collaboration || "", // Lecture du champ simple
+        Spécialité: luminaire.periode || "", // Lecture du champ simple "periode"
+        "Collaboration / Œuvre": luminaire.collaboration || "", // Lecture du champ simple "collaboration"
         Description: luminaire.description || "",
         Signé: luminaire.signe || "",
         Dimensions: luminaire.dimensions || "",
-        Matériaux: materiauxString, // Lecture du champ simple, transformé en string
+        Matériaux: materiauxString, // Utilisation de la chaîne créée depuis le tableau "materiaux"
         Estimation: luminaire.estimation || "",
-        Prix: luminaire.estimation || "", // Utilise la même valeur
+        Prix: luminaire.estimation || "", // La colonne Prix utilise la même valeur
         "Image luminaire": imagesString,
         "Image designer": luminaire.designerImageFilename || "",
       }
