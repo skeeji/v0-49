@@ -240,7 +240,9 @@ export default function LuminairesPage() {
   const handleYearRangeChange = (newRange: number[]) => {
     console.log(`✅ Filtre chronologique activé par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
-    setSliderModified(true) // ACTIVE le filtre
+    setSliderModified(true)
+    setCurrentPage(1)
+    loadLuminaires(1, false)
   }
 
   if (loading && luminaires.length === 0) {

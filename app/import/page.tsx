@@ -552,42 +552,20 @@ export default function ImportPage() {
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
           // LOGIQUE DE SECOURS POUR SPÉCIALITÉ
-          // 1. Vérifier d'abord la clé "periode" (formulaire)
-          // 2. Si absente ou vide, utiliser "Spécialité" (ancien import)
           let specialite = ""
-          if (luminaire.periode && luminaire.periode !== "") {
-            specialite = String(luminaire.periode).trim()
-            console.log(`  📋 Spécialité depuis "periode": ${specialite}`)
-          } else if (luminaire["Spécialité"] && luminaire["Spécialité"] !== "") {
-            specialite = String(luminaire["Spécialité"]).trim()
-            console.log(`  📋 Spécialité depuis "Spécialité": ${specialite}`)
-          }
+          specialite = luminaire.Spécialité || luminaire.specialite || luminaire.periode || luminaire.Période || ""
 
           // LOGIQUE DE SECOURS POUR COLLABORATION / ŒUVRE
-          // 1. Vérifier d'abord la clé "collaboration" (formulaire)
-          // 2. Si absente ou vide, utiliser "Collaboration / Œuvre" (ancien import)
           let collaboration = ""
-          if (luminaire.collaboration && luminaire.collaboration !== "") {
-            collaboration = String(luminaire.collaboration).trim()
-            console.log(`  📋 Collaboration depuis "collaboration": ${collaboration}`)
-          } else if (luminaire["Collaboration / Œuvre"] && luminaire["Collaboration / Œuvre"] !== "") {
-            collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
-            console.log(`  📋 Collaboration depuis "Collaboration / Œuvre": ${collaboration}`)
-          }
+          collaboration = luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre || ""
 
           // LOGIQUE DE SECOURS POUR MATÉRIAUX
-          // 1. Vérifier d'abord la clé "materiaux" (formulaire - array)
-          // 2. Si absente ou vide, utiliser "Matériaux" (ancien import - string)
           let materiaux = ""
-          if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-            materiaux = luminaire.materiaux.join("; ")
-            console.log(`  📋 Matériaux depuis "materiaux" (array): ${materiaux}`)
-          } else if (luminaire.materiaux && typeof luminaire.materiaux === "string" && luminaire.materiaux !== "") {
-            materiaux = String(luminaire.materiaux).trim()
-            console.log(`  📋 Matériaux depuis "materiaux" (string): ${materiaux}`)
-          } else if (luminaire["Matériaux"] && luminaire["Matériaux"] !== "") {
-            materiaux = String(luminaire["Matériaux"]).trim()
-            console.log(`  📋 Matériaux depuis "Matériaux": ${materiaux}`)
+          const materiauxValue = luminaire.Matériaux || luminaire.materiaux || luminaire.materials || ""
+          if (Array.isArray(materiauxValue) && materiauxValue.length > 0) {
+            materiaux = materiauxValue.join("; ")
+          } else if (typeof materiauxValue === "string" && materiauxValue.trim() !== "") {
+            materiaux = materiauxValue.trim()
           }
 
           console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {

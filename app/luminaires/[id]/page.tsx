@@ -39,6 +39,14 @@ export default function LuminaireDetailPage() {
         if (result.success) {
           // Debug des clés disponibles
           console.log("🔍 Clés disponibles dans le luminaire:", Object.keys(result.data))
+          console.log("🔍 Valeurs matériaux et signé:", {
+            materiaux: result.data.materiaux,
+            Matériaux: result.data.Matériaux,
+            materials: result.data.materials,
+            signe: result.data.signe,
+            signed: result.data.signed,
+            Signé: result.data.Signé,
+          })
 
           // Formater le luminaire avec compatibilité CSV et formulaire
           const formattedLuminaire = {
@@ -49,38 +57,54 @@ export default function LuminaireDetailPage() {
 
             // Champs principaux avec compatibilité CSV/formulaire
             artist: String(result.data.designer || result.data["Artiste / Dates"] || ""),
-            specialty: String(
-              result.data.Spécialité ||
-                result.data.specialite ||
-                result.data.periode ||
-                result.data["Spécialité"] ||
-                "",
-            ),
+            specialty: String(result.data.periode || result.data["Spécialité"] || result.data.specialite || ""),
             year: String(result.data.annee || result.data["Année"] || ""),
             name: String(result.data.nom || result.data["Nom luminaire"] || ""),
 
             // Champs avec compatibilité CSV/formulaire
             description: String(result.data.description || result.data["Description"] || ""),
             collaboration: String(
-              result.data["Collaboration / Œuvre"] || result.data.collaboration || result.data.oeuvre || "",
+              result.data.collaboration || result.data["Collaboration / Œuvre"] || result.data.oeuvre || "",
             ),
             dimensions: String(result.data.dimensions || result.data["Dimensions"] || ""),
             estimation: String(result.data.estimation || result.data["Estimation"] || ""),
             editeur: String(result.data.editeur || result.data["Editeur"] || ""),
 
-            // Gestion des matériaux
+            // Gestion des matériaux - RECHERCHE EXHAUSTIVE
             materials: (() => {
-              const materiaux = result.data.Matériaux || result.data.materiaux || result.data.materials || ""
-              if (Array.isArray(materiaux) && materiaux.length > 0) {
-                return materiaux.join(", ")
-              } else if (typeof materiaux === "string" && materiaux.trim() !== "") {
-                return materiaux.trim()
+              const materiauxKeys = [
+                "materiaux",
+                "Matériaux",
+                "materials",
+                "Materials",
+                "matériaux",
+                "MATERIAUX",
+                "MATERIALS",
+              ]
+
+              for (const key of materiauxKeys) {
+                if (result.data[key]) {
+                  if (Array.isArray(result.data[key]) && result.data[key].length > 0) {
+                    return result.data[key].join(", ")
+                  } else if (typeof result.data[key] === "string" && result.data[key].trim() !== "") {
+                    return result.data[key].trim()
+                  }
+                }
               }
               return ""
             })(),
 
-            // Gestion de Signé
-            signed: String(result.data.Signé || result.data.signe || result.data.signed || ""),
+            // Gestion de Signé - RECHERCHE EXHAUSTIVE
+            signed: (() => {
+              const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
+
+              for (const key of signeKeys) {
+                if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") {
+                  return result.data[key].trim()
+                }
+              }
+              return ""
+            })(),
           }
 
           console.log("✅ Luminaire formaté:", {
@@ -93,18 +117,13 @@ export default function LuminaireDetailPage() {
           setLuminaire(formattedLuminaire)
 
           // Charger TOUS les luminaires pour trouver les 6 plus proches
-          try {
-            const allLuminairesResponse = await fetch("/api/luminaires?limit=9999")
-            const allLuminairesData = await allLuminairesResponse.json()
+          const allLuminairesResponse = await fetch("/api/luminaires?limit=9999")
+          const allLuminairesData = await allLuminairesResponse.json()
 
-            if (allLuminairesData.success) {
-              const similar = findSimilarLuminaires(formattedLuminaire, allLuminairesData.luminaires)
-              setSimilarLuminaires(similar)
-              console.log("✅ Luminaires similaires:", similar.length)
-            }
-          } catch (error) {
-            console.error("❌ Erreur chargement luminaires similaires:", error)
-            setSimilarLuminaires([])
+          if (allLuminairesData.success) {
+            const similar = findSimilarLuminaires(formattedLuminaire, allLuminairesData.luminaires)
+            setSimilarLuminaires(similar)
+            console.log("✅ Luminaires similaires:", similar.length)
           }
         }
       } catch (error) {
@@ -115,89 +134,79 @@ export default function LuminaireDetailPage() {
       }
 
       // Charger les favoris
-      try {
-        const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
-        setIsFavorite(favorites.includes(String(params.id)))
-      } catch (error) {
-        console.error("❌ Erreur chargement favoris:", error)
-        setIsFavorite(false)
-      }
+      const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
+      setIsFavorite(favorites.includes(String(params.id)))
     }
 
     fetchLuminaireData()
   }, [params.id])
 
   const findSimilarLuminaires = (current: any, all: any[]) => {
-    try {
-      const currentYear = Number.parseInt(current.year) || 0
+    const currentYear = Number.parseInt(current.year) || 0
 
-      // Filtrer et scorer tous les luminaires
-      const scored = all
-        .filter((item) => String(item._id) !== String(current._id))
-        .map((item) => {
-          let score = 0
+    // Filtrer et scorer tous les luminaires
+    const scored = all
+      .filter((item) => String(item._id) !== String(current._id))
+      .map((item) => {
+        let score = 0
 
-          const itemArtist = String(item["Artiste / Dates"] || item.designer || "")
-          const itemSpecialty = String(item["Spécialité"] || item.periode || item.specialite || "")
-          const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
+        const itemArtist = String(item["Artiste / Dates"] || item.designer || "")
+        const itemSpecialty = String(item["Spécialité"] || item.periode || item.specialite || "")
+        const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
 
-          // Score par artiste (poids le plus élevé)
-          if (itemArtist && current.artist && itemArtist === current.artist) score += 5
+        // Score par artiste (poids le plus élevé)
+        if (itemArtist && current.artist && itemArtist === current.artist) score += 5
 
-          // Score par spécialité
-          if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 3
+        // Score par spécialité
+        if (itemSpecialty && current.specialty && itemSpecialty === current.specialty) score += 3
 
-          // Score par proximité d'année
-          if (currentYear > 0 && itemYear > 0) {
-            const yearDiff = Math.abs(currentYear - itemYear)
-            if (yearDiff <= 5) score += 3
-            else if (yearDiff <= 10) score += 2
-            else if (yearDiff <= 20) score += 1
-          }
+        // Score par proximité d'année
+        if (currentYear > 0 && itemYear > 0) {
+          const yearDiff = Math.abs(currentYear - itemYear)
+          if (yearDiff <= 5) score += 3
+          else if (yearDiff <= 10) score += 2
+          else if (yearDiff <= 20) score += 1
+        }
 
-          // Score par nom similaire (mots-clés communs)
-          if (current.name && item["Nom luminaire"]) {
-            const currentWords = current.name.toLowerCase().split(/\s+/)
-            const itemWords = String(item["Nom luminaire"]).toLowerCase().split(/\s+/)
-            const commonWords = currentWords.filter(
-              (word) =>
-                word.length > 3 && itemWords.some((itemWord) => itemWord.includes(word) || word.includes(itemWord)),
-            )
-            score += commonWords.length
-          }
+        // Score par nom similaire (mots-clés communs)
+        if (current.name && item["Nom luminaire"]) {
+          const currentWords = current.name.toLowerCase().split(/\s+/)
+          const itemWords = String(item["Nom luminaire"]).toLowerCase().split(/\s+/)
+          const commonWords = currentWords.filter(
+            (word) =>
+              word.length > 3 && itemWords.some((itemWord) => itemWord.includes(word) || word.includes(itemWord)),
+          )
+          score += commonWords.length
+        }
 
-          return {
-            ...item,
-            id: String(item._id || ""),
-            image: item.filename ? `/api/images/filename/${item.filename}` : null,
-            artist: itemArtist,
-            year: String(item.annee || item["Année"] || ""),
-            name: String(item["Nom luminaire"] || item.nom || "Sans nom"),
-            similarityScore: score,
-          }
-        })
+        return {
+          ...item,
+          id: String(item._id || ""),
+          image: item.filename ? `/api/images/filename/${item.filename}` : null,
+          artist: itemArtist,
+          year: String(item.annee || item["Année"] || ""),
+          name: String(item["Nom luminaire"] || item.nom || "Sans nom"),
+          similarityScore: score,
+        }
+      })
 
-      // Trier par score décroissant et prendre les 6 premiers
-      const topSimilar = scored
-        .filter((item) => item.similarityScore > 0)
-        .sort((a, b) => b.similarityScore - a.similarityScore)
-        .slice(0, 6)
+    // Trier par score décroissant et prendre les 6 premiers
+    const topSimilar = scored
+      .filter((item) => item.similarityScore > 0)
+      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .slice(0, 6)
 
-      // Si moins de 6, compléter avec des luminaires aléatoires
-      if (topSimilar.length < 6) {
-        const remaining = scored
-          .filter((item) => item.similarityScore === 0)
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 6 - topSimilar.length)
+    // Si moins de 6, compléter avec des luminaires aléatoires
+    if (topSimilar.length < 6) {
+      const remaining = scored
+        .filter((item) => item.similarityScore === 0)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 6 - topSimilar.length)
 
-        return [...topSimilar, ...remaining]
-      }
-
-      return topSimilar
-    } catch (error) {
-      console.error("❌ Erreur findSimilarLuminaires:", error)
-      return []
+      return [...topSimilar, ...remaining]
     }
+
+    return topSimilar
   }
 
   const handleUpdate = async (field: string, value: string) => {
@@ -236,17 +245,13 @@ export default function LuminaireDetailPage() {
   const toggleFavorite = () => {
     if (!luminaire) return
 
-    try {
-      const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
-      const newFavorites = isFavorite
-        ? favorites.filter((id: string) => String(id) !== String(luminaire._id))
-        : [...favorites, String(luminaire._id)]
+    const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
+    const newFavorites = isFavorite
+      ? favorites.filter((id: string) => String(id) !== String(luminaire._id))
+      : [...favorites, String(luminaire._id)]
 
-      localStorage.setItem("favorites", JSON.stringify(newFavorites))
-      setIsFavorite(!isFavorite)
-    } catch (error) {
-      console.error("❌ Erreur toggle favorite:", error)
-    }
+    localStorage.setItem("favorites", JSON.stringify(newFavorites))
+    setIsFavorite(!isFavorite)
   }
 
   const generatePDF = async () => {

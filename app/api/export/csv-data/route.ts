@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
     const csvData = luminaires.map((luminaire, index) => {
       console.log(`📝 Traitement luminaire ${index + 1}/${luminaires.length}: ${luminaire.nom || "Sans nom"}`)
 
+      // Debug EXHAUSTIF de TOUTES les propriétés disponibles
+      console.log(`🔍 DOCUMENT COMPLET:`, JSON.stringify(luminaire, null, 2))
+
       // Gestion des images du luminaire (tableau)
       let imagesLuminaire = ""
       if (luminaire.filename) {
@@ -43,35 +46,59 @@ export async function GET(request: NextRequest) {
 
       // RÉCUPÉRATION DIRECTE DES MATÉRIAUX avec ordre de priorité
       let materiaux = ""
-      const materiauxValue = luminaire.Matériaux || luminaire.materiaux || luminaire.materials
-      if (Array.isArray(materiauxValue) && materiauxValue.length > 0) {
-        materiaux = materiauxValue.join(", ")
-      } else if (typeof materiauxValue === "string" && materiauxValue.trim() !== "") {
-        materiaux = materiauxValue.trim()
+      if (luminaire.Matériaux) {
+        if (Array.isArray(luminaire.Matériaux)) {
+          materiaux = luminaire.Matériaux.join(", ")
+        } else if (typeof luminaire.Matériaux === "string") {
+          materiaux = luminaire.Matériaux
+        }
+      } else if (luminaire.materiaux) {
+        if (Array.isArray(luminaire.materiaux)) {
+          materiaux = luminaire.materiaux.join(", ")
+        } else if (typeof luminaire.materiaux === "string") {
+          materiaux = luminaire.materiaux
+        }
+      } else if (luminaire.materials) {
+        if (Array.isArray(luminaire.materials)) {
+          materiaux = luminaire.materials.join(", ")
+        } else if (typeof luminaire.materials === "string") {
+          materiaux = luminaire.materials
+        }
       }
 
       // RÉCUPÉRATION DIRECTE DE COLLABORATION / ŒUVRE avec ordre de priorité
       let collaborationOeuvre = ""
-      const collaborationValue = luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre
-      if (typeof collaborationValue === "string" && collaborationValue.trim() !== "") {
-        collaborationOeuvre = collaborationValue.trim()
+      if (luminaire["Collaboration / Œuvre"]) {
+        collaborationOeuvre = luminaire["Collaboration / Œuvre"]
+      } else if (luminaire.collaboration) {
+        collaborationOeuvre = luminaire.collaboration
+      } else if (luminaire.oeuvre) {
+        collaborationOeuvre = luminaire.oeuvre
       }
 
       // RÉCUPÉRATION DIRECTE DE SPÉCIALITÉ avec ordre de priorité
       let specialite = ""
-      const specialiteValue = luminaire.Spécialité || luminaire.specialite || luminaire.periode || luminaire.Période
-      if (typeof specialiteValue === "string" && specialiteValue.trim() !== "") {
-        specialite = specialiteValue.trim()
+      if (luminaire.Spécialité) {
+        specialite = luminaire.Spécialité
+      } else if (luminaire.specialite) {
+        specialite = luminaire.specialite
+      } else if (luminaire.periode) {
+        specialite = luminaire.periode
+      } else if (luminaire.Période) {
+        specialite = luminaire.Période
       }
 
-      // RÉCUPÉRATION DIRECTE DE SIGNÉ avec ordre de priorité
+      // PARSING ULTRA-EXHAUSTIF DE SIGNÉ
       let signe = ""
-      const signeValue = luminaire.Signé || luminaire.signe || luminaire.signed
-      if (typeof signeValue === "string" && signeValue.trim() !== "") {
-        signe = signeValue.trim()
+      if (luminaire.Signé) {
+        signe = luminaire.Signé
+      } else if (luminaire.signe) {
+        signe = luminaire.signe
+      } else if (luminaire.signed) {
+        signe = luminaire.signed
       }
 
-      console.log(`🎯 RÉSULTATS pour ${luminaire.nom}:`, {
+      console.log(`🎯 RÉSULTATS FINAUX pour ${luminaire.nom}:`, {
         materiaux: materiaux || "❌ VIDE",
         collaborationOeuvre: collaborationOeuvre || "❌ VIDE",
         specialite: specialite || "❌ VIDE",
