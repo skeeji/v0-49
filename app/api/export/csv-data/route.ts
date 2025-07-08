@@ -15,8 +15,9 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
+    // Début de la section de code à remplacer
     const csvData = luminaires.map((luminaire) => {
-      // Logique de fallback pour chaque colonne du CSV
+      // Logique de fallback robuste pour lire les anciens et nouveaux formats de données
       const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
       const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
       const annee = luminaire.annee || luminaire["Année"] || ""
@@ -28,9 +29,10 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // Transformation des tableaux en chaînes de caractères
-      const materiaux = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.Matériaux || "" // Fallback pour les anciennes données
-      const images = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.filename || "" // Fallback pour les anciennes données
+      // Transformation sécurisée des tableaux en chaînes de caractères
+      const materiaux = Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.Matériaux || "" // Fallback pour les anciennes données textuelles
+
+      const images = Array.isArray(luminaire.images) ? luminaire.images.join(", ") : luminaire.filename || "" // Fallback pour les anciennes données textuelles
 
       return {
         ID: luminaire._id.toString(),
@@ -50,6 +52,7 @@ export async function GET(request: NextRequest) {
         "Image designer": luminaire.designerImageFilename || "",
       }
     })
+    // Fin de la section de code à remplacer
 
     if (csvData.length === 0) {
       return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 })

@@ -194,9 +194,9 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         }
       }
 
-      // Structure de données simple, unique et cohérente
+      // Début de la section de code à remplacer
       const luminaireData = {
-        // Champs textuels
+        // Champs textuels simples
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
         annee: formData.annee.trim(),
@@ -208,7 +208,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         dimensions: formData.dimensions.trim(),
         estimation: formData.estimation.trim(),
 
-        // Champs de type tableau (doivent rester des tableaux JavaScript)
+        // Champs de type tableau (doivent rester des tableaux)
         materiaux: formData.materiaux,
         couleurs: formData.couleurs,
 
@@ -216,6 +216,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         images: uploadedImages,
         designerImageFilename: designerImageFilename,
       }
+      // Fin de la section de code à remplacer
 
       console.log("💾 Données à sauvegarder:", luminaireData)
 
