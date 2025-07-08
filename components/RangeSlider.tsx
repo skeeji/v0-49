@@ -1,155 +1,36 @@
 "use client"
-
-import type React from "react"
-import { useState, useEffect, useCallback } from "react"
+import * as SliderPrimitive from "@radix-ui/react-slider"
+import { cn } from "@/lib/utils"
 
 interface RangeSliderProps {
   min: number
   max: number
-  onChange: (values: [number, number]) => void
-  initialValues?: [number, number]
+  value: number[]
+  onValueCommit: (value: number[]) => void
+  className?: string
 }
 
-const RangeSlider: React.FC<RangeSliderProps> = ({ min, max, onChange, initialValues }) => {
-  const [minValue, setMinValue] = useState(min)
-  const [maxValue, setMaxValue] = useState(max)
-
-  useEffect(() => {
-    if (initialValues) {
-      setMinValue(initialValues[0])
-      setMaxValue(initialValues[1])
-    } else {
-      setMinValue(min)
-      setMaxValue(max)
-    }
-  }, [min, max, initialValues])
-
-  const handleMinChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const value = Math.min(Number(event.target.value), maxValue)
-      setMinValue(value)
-      onChange([value, maxValue])
-    },
-    [maxValue, onChange],
-  )
-
-  const handleMaxChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const value = Math.max(Number(event.target.value), minValue)
-      setMaxValue(value)
-      onChange([minValue, value])
-    },
-    [minValue, onChange],
-  )
-
-  const getPercentage = (value: number) => {
-    return ((value - min) / (max - min)) * 100
-  }
-
-  const minPercentage = getPercentage(minValue)
-  const maxPercentage = getPercentage(maxValue)
-
+export function RangeSlider({ min, max, value, onValueCommit, className }: RangeSliderProps) {
   return (
-    <div className="relative w-full h-2">
-      <div className="absolute top-0 left-0 w-full h-full bg-gray-200 rounded-full"></div>
-      <div
-        className="absolute top-0 h-full bg-[#f2d895] rounded-full"
-        style={{ left: `${minPercentage}%`, width: `${maxPercentage - minPercentage}%` }}
-      ></div>
-      <input
-        type="range"
-        min={min}
+    <div className={cn("space-y-2", className)}>
+      <div className="flex justify-between text-sm text-gray-600">
+        <span>Année: {value[0]}</span>
+        <span>{value[1]}</span>
+      </div>
+      <SliderPrimitive.Root
+        className="relative flex w-full touch-none select-none items-center"
+        value={value}
+        onValueCommit={onValueCommit}
         max={max}
-        value={minValue}
-        onChange={handleMinChange}
-        className="absolute top-0 w-full h-full appearance-none pointer-events-none bg-transparent"
-        style={{
-          left: 0,
-          zIndex: 2,
-          "--range-thumb-color": "#fff",
-        }}
-      />
-      <input
-        type="range"
         min={min}
-        max={max}
-        value={maxValue}
-        onChange={handleMaxChange}
-        className="absolute top-0 w-full h-full appearance-none pointer-events-none bg-transparent"
-        style={{
-          left: 0,
-          zIndex: 3,
-          "--range-thumb-color": "#fff",
-        }}
-      />
-      <style jsx global>{`
-        input[type='range'] {
-          --range-track-height: 6px;
-          --range-thumb-height: 16px;
-          --range-thumb-width: 16px;
-          --range-thumb-color: #fff;
-        }
-
-        input[type='range']::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          height: var(--range-thumb-height);
-          width: var(--range-thumb-width);
-          border-radius: 50%;
-          background-color: var(--range-thumb-color);
-          border: 2px solid #fff;
-          cursor: pointer;
-          pointer-events: auto;
-          box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
-        }
-
-        input[type='range']::-moz-range-thumb {
-          height: var(--range-thumb-height);
-          width: var(--range-thumb-width);
-          border-radius: 50%;
-          background-color: var(--range-thumb-color);
-          border: 2px solid #fff;
-          cursor: pointer;
-          pointer-events: auto;
-          box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
-          border: none;
-        }
-
-        input[type='range']::-ms-thumb {
-          height: var(--range-thumb-height);
-          width: var(--range-thumb-width);
-          border-radius: 50%;
-          background-color: var(--range-thumb-color);
-          border: 2px solid #fff;
-          cursor: pointer;
-          pointer-events: auto;
-          box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
-          border: none;
-        }
-
-        input[type='range']::-webkit-slider-runnable-track {
-          height: var(--range-track-height);
-          background: transparent;
-          border: none;
-        }
-
-        input[type='range']::-moz-range-track {
-          height: var(--range-track-height);
-          background: transparent;
-          border: none;
-        }
-
-        input[type='range']::-ms-track {
-          height: var(--range-track-height);
-          background: transparent;
-          border: none;
-        }
-
-        input[type='range']:focus {
-          outline: none;
-        }
-      `}</style>
+        step={1}
+      >
+        <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-gray-200">
+          <SliderPrimitive.Range className="absolute h-full rounded-full" style={{ backgroundColor: "#f97316" }} />
+        </SliderPrimitive.Track>
+        <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-white bg-white ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-md" />
+        <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-white bg-white ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-md" />
+      </SliderPrimitive.Root>
     </div>
   )
 }
-
-export default RangeSlider
