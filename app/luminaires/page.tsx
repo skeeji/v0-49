@@ -126,6 +126,7 @@ export default function LuminairesPage() {
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) {
+      setLoadingMore(true)
       const nextPage = currentPage + 1
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
