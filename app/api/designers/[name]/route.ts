@@ -13,16 +13,26 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
 
     // Recherche très flexible pour gérer tous les cas, y compris les caractères spéciaux
     const searchPatterns = [
-      // Recherche exacte
+      // Recherche exacte dans "Artiste / Dates"
       { "Artiste / Dates": designerName },
-      // Recherche insensible à la casse
+      // Recherche exacte dans "designer"
+      { designer: designerName },
+      // Recherche insensible à la casse dans "Artiste / Dates"
       { "Artiste / Dates": { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
-      // Recherche partielle
+      // Recherche insensible à la casse dans "designer"
+      { designer: { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
+      // Recherche partielle dans "Artiste / Dates"
       { "Artiste / Dates": { $regex: designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
-      // Recherche en supprimant les caractères spéciaux
+      // Recherche partielle dans "designer"
+      { designer: { $regex: designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+      // Recherche en supprimant les caractères spéciaux dans "Artiste / Dates"
       { "Artiste / Dates": { $regex: designerName.replace(/[^a-zA-Z0-9\s]/g, ""), $options: "i" } },
-      // Recherche sur le premier mot seulement
+      // Recherche en supprimant les caractères spéciaux dans "designer"
+      { designer: { $regex: designerName.replace(/[^a-zA-Z0-9\s]/g, ""), $options: "i" } },
+      // Recherche sur le premier mot seulement dans "Artiste / Dates"
       { "Artiste / Dates": { $regex: `^${designerName.split(" ")[0]}`, $options: "i" } },
+      // Recherche sur le premier mot seulement dans "designer"
+      { designer: { $regex: `^${designerName.split(" ")[0]}`, $options: "i" } },
     ]
 
     let luminaires = []
@@ -41,11 +51,14 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     console.log(`📊 ${luminaires.length} luminaires trouvés pour "${designerName}"`)
 
     if (luminaires.length === 0) {
-      // Essayer une recherche encore plus large
+      // Essayer une recherche encore plus large avec $or
       const broadSearch = await db
         .collection("luminaires")
         .find({
-          "Artiste / Dates": { $regex: designerName.split(" ")[0], $options: "i" },
+          $or: [
+            { "Artiste / Dates": { $regex: designerName.split(" ")[0], $options: "i" } },
+            { designer: { $regex: designerName.split(" ")[0], $options: "i" } },
+          ],
         })
         .toArray()
 
@@ -58,7 +71,7 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
           debug: {
             searchTerm: designerName,
             broadResults: broadSearch.length,
-            suggestions: broadSearch.slice(0, 5).map((l) => l["Artiste / Dates"]),
+            suggestions: broadSearch.slice(0, 5).map((l) => l["Artiste / Dates"] || l["designer"]),
           },
         },
         { status: 404 },
