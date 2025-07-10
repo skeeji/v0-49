@@ -114,14 +114,19 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
     }
 
     // Adapter les luminaires pour l'affichage
-    const adaptedLuminaires = luminaires.map((lum: any) => ({
-      ...lum,
-      id: lum._id,
-      image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
-      filename: lum["Nom du fichier"], // Ajouter le nom du fichier
-      name: lum["Nom luminaire"] || "Sans nom",
-      year: lum["Année"] || "",
-    }))
+    const adaptedLuminaires = luminaires.map((lum: any) => {
+      // Correction du bug d'affichage des images de luminaires
+      const imageFilename = lum.filename || lum["Nom du fichier"]
+
+      return {
+        ...lum,
+        id: lum._id,
+        image: imageFilename ? `/api/images/filename/${imageFilename}` : null,
+        filename: imageFilename, // Utiliser le nom de fichier trouvé
+        name: lum["Nom luminaire"] || "Sans nom",
+        year: lum["Année"] || "",
+      }
+    })
 
     return NextResponse.json({
       success: true,

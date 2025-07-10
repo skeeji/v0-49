@@ -62,11 +62,12 @@ export default function DesignersPage() {
               console.log(`🖼️ Image designer trouvée pour ${designerName}: ${luminaire.designerImageFilename}`)
             }
 
+            // Correction du bug d'affichage des images de luminaires
+            const imageFilename = luminaire.filename || luminaire["Nom du fichier"]
+
             acc[designerName].luminaires.push({
               ...luminaire,
-              image: luminaire["Nom du fichier"]
-                ? `/api/images/filename/${luminaire["Nom du fichier"]}`
-                : "/placeholder.svg",
+              image: imageFilename ? `/api/images/filename/${imageFilename}` : "/placeholder.svg",
               name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
             })
 
