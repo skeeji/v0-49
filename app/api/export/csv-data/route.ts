@@ -15,28 +15,49 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // ÉTAPE 3 : Logique de lecture robuste avec fallback pour chaque colonne CSV
+    // LOGIQUE CORRIGÉE POUR L'EXPORT CSV
     const csvData = luminaires.map((luminaire) => {
-      // Logique de fallback robuste pour lire les anciens et nouveaux formats
+      // Champs simples avec fallback
       const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
       const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
       const annee = luminaire.annee || luminaire["Année"] || ""
       const editeur = luminaire.editeur || ""
-      const specialite = luminaire.periode || luminaire["Spécialité"] || ""
-      const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
       const description = luminaire.description || ""
       const signe = luminaire.signe || luminaire["Signé"] || ""
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // Transformation sécurisée des tableaux en chaînes pour CSV
+      // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ
+      let specialite = ""
+      // D'abord chercher dans 'periode'
+      if (luminaire.periode && String(luminaire.periode).trim() !== "") {
+        specialite = String(luminaire.periode).trim()
+      }
+      // Sinon chercher dans 'Spécialité'
+      else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
+        specialite = String(luminaire["Spécialité"]).trim()
+      }
+
+      // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE
+      let collaboration = ""
+      // D'abord chercher dans 'collaboration'
+      if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
+        collaboration = String(luminaire.collaboration).trim()
+      }
+      // Sinon chercher dans 'Collaboration / Œuvre'
+      else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
+        collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
+      }
+
+      // LOGIQUE CORRIGÉE POUR MATÉRIAUX
       let materiaux = ""
-      if (Array.isArray(luminaire.materiaux)) {
+      // D'abord chercher dans 'materiaux' (liste)
+      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
         materiaux = luminaire.materiaux.join(", ")
-      } else if (luminaire.Matériaux && typeof luminaire.Matériaux === "string") {
-        materiaux = luminaire.Matériaux
-      } else if (luminaire.materiaux && typeof luminaire.materiaux === "string") {
-        materiaux = luminaire.materiaux
+      }
+      // Sinon chercher dans 'Matériaux' (texte)
+      else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
+        materiaux = String(luminaire.Matériaux).trim()
       }
 
       // Transformation des images en chaîne

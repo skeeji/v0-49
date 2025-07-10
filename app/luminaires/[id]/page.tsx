@@ -57,33 +57,50 @@ export default function LuminaireDetailPage() {
 
             // Champs principaux avec compatibilité CSV/formulaire
             artist: String(result.data.designer || result.data["Artiste / Dates"] || ""),
-            specialty: String(result.data.periode || result.data["Spécialité"] || result.data.specialite || ""),
             year: String(result.data.annee || result.data["Année"] || ""),
             name: String(result.data.nom || result.data["Nom luminaire"] || ""),
 
             // Champs avec compatibilité CSV/formulaire
             description: String(result.data.description || result.data["Description"] || ""),
-            collaboration: String(
-              result.data.collaboration || result.data["Collaboration / Œuvre"] || result.data.oeuvre || "",
-            ),
             dimensions: String(result.data.dimensions || result.data["Dimensions"] || ""),
             estimation: String(result.data.estimation || result.data["Estimation"] || ""),
             editeur: String(result.data.editeur || result.data["Editeur"] || ""),
 
-            // Gestion des matériaux - RECHERCHE EXHAUSTIVE avec affichage garanti
+            // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ
+            specialty: (() => {
+              // D'abord chercher dans 'periode'
+              if (result.data.periode && String(result.data.periode).trim() !== "") {
+                return String(result.data.periode).trim()
+              }
+              // Sinon chercher dans 'Spécialité'
+              if (result.data["Spécialité"] && String(result.data["Spécialité"]).trim() !== "") {
+                return String(result.data["Spécialité"]).trim()
+              }
+              return ""
+            })(),
+
+            // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE
+            collaboration: (() => {
+              // D'abord chercher dans 'collaboration'
+              if (result.data.collaboration && String(result.data.collaboration).trim() !== "") {
+                return String(result.data.collaboration).trim()
+              }
+              // Sinon chercher dans 'Collaboration / Œuvre'
+              if (result.data["Collaboration / Œuvre"] && String(result.data["Collaboration / Œuvre"]).trim() !== "") {
+                return String(result.data["Collaboration / Œuvre"]).trim()
+              }
+              return ""
+            })(),
+
+            // LOGIQUE CORRIGÉE POUR MATÉRIAUX
             materials: (() => {
-              // Priorité aux nouveaux formats (tableaux)
+              // D'abord chercher dans 'materiaux' (liste)
               if (Array.isArray(result.data.materiaux) && result.data.materiaux.length > 0) {
                 return result.data.materiaux.join(", ")
               }
-
-              // Fallback sur les anciens formats (texte)
-              const materiauxKeys = ["Matériaux", "materials", "Materials", "matériaux", "MATERIAUX", "MATERIALS"]
-
-              for (const key of materiauxKeys) {
-                if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") {
-                  return result.data[key].trim()
-                }
+              // Sinon chercher dans 'Matériaux' (texte)
+              if (result.data.Matériaux && String(result.data.Matériaux).trim() !== "") {
+                return String(result.data.Matériaux).trim()
               }
               return ""
             })(),
