@@ -38,7 +38,7 @@ export default function DesignersPage() {
         if (luminairesData.success) {
           console.log(`👨‍🎨 Extraction des designers depuis ${luminairesData.luminaires.length} luminaires`)
 
-          // CORRECTION: Grouper les luminaires par designer et récupérer l'image du designer
+          // Grouper les luminaires par designer et récupérer l'image du designer
           const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
             const designerName = luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"
 
@@ -47,7 +47,6 @@ export default function DesignersPage() {
                 name: designerName,
                 count: 0,
                 luminaires: [],
-                // CORRECTION: Récupérer l'image du designer depuis designerImageFilename
                 image: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : "",
                 slug: encodeURIComponent(designerName),
                 years: [],
@@ -56,13 +55,11 @@ export default function DesignersPage() {
 
             acc[designerName].count++
 
-            // CORRECTION: Si on trouve une image de designer, l'utiliser
             if (luminaire.designerImageFilename && !acc[designerName].image) {
               acc[designerName].image = `/api/images/filename/${luminaire.designerImageFilename}`
               console.log(`🖼️ Image designer trouvée pour ${designerName}: ${luminaire.designerImageFilename}`)
             }
 
-            // Correction du bug d'affichage des images de luminaires
             const imageFilename = luminaire.filename || luminaire["Nom du fichier"]
 
             acc[designerName].luminaires.push({
@@ -85,7 +82,7 @@ export default function DesignersPage() {
 
           console.log(`👨‍🎨 ${Object.keys(designerGroups).length} designers uniques trouvés`)
 
-          // CORRECTION: Essayer aussi l'ancienne méthode en fallback
+          // Essayer aussi l'ancienne méthode en fallback
           try {
             const designersResponse = await fetch("/api/designers-data")
             const designersResult = await designersResponse.json()
@@ -129,6 +126,8 @@ export default function DesignersPage() {
 
   // Filtrer et trier
   useEffect(() => {
+    if (designers.length === 0) return
+
     let filtered = [...designers]
 
     if (searchTerm) {
@@ -159,7 +158,7 @@ export default function DesignersPage() {
       }
     })
 
-    // CORRECTION: Appliquer la restriction des 10% pour les utilisateurs gratuits
+    // Appliquer la restriction des 10% pour les utilisateurs gratuits
     if (userData?.role === "free") {
       const limitedDesigners = uniqueDesigners.slice(0, Math.max(Math.floor(uniqueDesigners.length * 0.1), 5))
       setFilteredDesigners(limitedDesigners)
@@ -173,7 +172,7 @@ export default function DesignersPage() {
     setDisplayedDesigners([])
   }, [designers, searchTerm, sortBy, userData])
 
-  // Charger plus d'éléments - DÉSACTIVÉ pour les comptes gratuits
+  // Charger plus d'éléments
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore || userData?.role === "free") return
 
@@ -196,7 +195,7 @@ export default function DesignersPage() {
     }, 300)
   }, [page, filteredDesigners, isLoadingMore, hasMore, userData?.role])
 
-  // Charger plus quand on arrive en bas - DÉSACTIVÉ pour les comptes gratuits
+  // Charger plus quand on arrive en bas
   useEffect(() => {
     if (inView && !isLoadingMore && hasMore && userData?.role !== "free") {
       loadMore()
@@ -228,7 +227,7 @@ export default function DesignersPage() {
           Designers ({userData?.role === "free" ? `${filteredDesigners.length}/${designers.length}` : designers.length})
         </h1>
 
-        {/* CORRECTION: Message pour les utilisateurs "free" */}
+        {/* Message pour les utilisateurs "free" */}
         {userData?.role === "free" && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
             <p className="flex items-center font-serif">
@@ -335,7 +334,7 @@ export default function DesignersPage() {
               ))}
             </div>
 
-            {/* Indicateur de chargement - SEULEMENT pour les utilisateurs premium/admin */}
+            {/* Indicateur de chargement */}
             {hasMore && userData?.role !== "free" && (
               <div ref={ref} className="text-center py-8">
                 {isLoadingMore && (

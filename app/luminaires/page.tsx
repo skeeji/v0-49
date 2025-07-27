@@ -58,7 +58,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // CORRECTION: Fonction pour charger les luminaires avec restriction 10% pour les comptes gratuits
+  // Fonction pour charger les luminaires
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -69,12 +69,9 @@ export default function LuminairesPage() {
           setLoadingMore(true)
         }
 
-        // CORRECTION: Pour les comptes gratuits, charger plus de données pour pouvoir appliquer la restriction après
-        const limitToFetch = userData?.role === "free" ? "500" : "50"
-
         const params = new URLSearchParams({
           page: page.toString(),
-          limit: limitToFetch,
+          limit: "50",
           search: searchTerm,
           designer: selectedDesigner,
           sortField,
@@ -93,10 +90,11 @@ export default function LuminairesPage() {
         if (data.success) {
           let luminairesToShow = data.luminaires
 
-          // CORRECTION: Appliquer la restriction 10% pour les comptes gratuits
-          if (userData?.role === "free") {
+          // CORRECTION: Appliquer la restriction 10% pour les comptes gratuits SEULEMENT sur la première page
+          if (userData?.role === "free" && page === 1) {
             const visibleCount = Math.max(Math.floor(luminairesToShow.length * 0.1), 5)
             luminairesToShow = luminairesToShow.slice(0, visibleCount)
+            setHasMore(false) // Pas de scroll infini pour les comptes gratuits
           }
 
           if (append && page > 1) {
@@ -108,9 +106,9 @@ export default function LuminairesPage() {
 
           setTotalItems(data.pagination.total)
 
-          // CORRECTION: Ajuster hasMore pour les comptes gratuits
+          // CORRECTION: Gérer hasMore correctement
           if (userData?.role === "free") {
-            setHasMore(false) // Pas de scroll infini pour les comptes gratuits
+            setHasMore(false)
           } else {
             setHasMore(data.pagination.hasMore)
           }
@@ -134,13 +132,13 @@ export default function LuminairesPage() {
     loadAllLuminaires()
   }, [loadAllLuminaires])
 
-  // Charger les luminaires - SANS yearRange dans les dépendances
+  // Charger les luminaires
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified]) // yearRange SUPPRIMÉ
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified])
 
-  // Fonction pour charger plus de luminaires (scroll infini) - DÉSACTIVÉ pour les comptes gratuits
+  // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && userData?.role !== "free") {
       setLoadingMore(true)
@@ -150,7 +148,7 @@ export default function LuminairesPage() {
     }
   }, [loadingMore, hasMore, loading, currentPage, loadLuminaires, userData?.role])
 
-  // Scroll infini optimisé - DÉSACTIVÉ pour les comptes gratuits
+  // Scroll infini optimisé
   useEffect(() => {
     if (userData?.role === "free") return // Pas de scroll infini pour les comptes gratuits
 
@@ -239,34 +237,33 @@ export default function LuminairesPage() {
     return { designers }
   }, [allLuminaires])
 
-  // Calculer la plage d'années disponibles - CORRIGÉ pour inclure toutes les années
+  // Calculer la plage d'années disponibles
   const yearBounds = useMemo(() => {
     const years = allLuminaires
       .map((l) => {
         const year = l.annee || l.year
-        // Convertir en nombre et filtrer les valeurs invalides
         const numYear = Number.parseInt(year)
         return !isNaN(numYear) ? numYear : null
       })
       .filter(Boolean)
-      .sort((a, b) => a - b) // Tri croissant
+      .sort((a, b) => a - b)
 
     if (years.length === 0) return { min: 1900, max: 2024 }
 
     return {
-      min: years[0], // Premier élément = année la plus ancienne
-      max: years[years.length - 1], // Dernier élément = année la plus récente
+      min: years[0],
+      max: years[years.length - 1],
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années SANS déclencher le filtre
+  // Initialiser la plage d'années
   useEffect(() => {
     if (allLuminaires.length > 0 && yearRange.length === 0) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
-  // Fonction qui gère le changement du slider - ACTIVE le filtre
+  // Fonction qui gère le changement du slider
   const handleYearRangeChange = (newRange: number[]) => {
     console.log(`✅ Filtre chronologique activé par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
@@ -407,7 +404,7 @@ export default function LuminairesPage() {
       {/* Grille des luminaires */}
       <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
 
-      {/* Indicateur de chargement pour le scroll infini - SEULEMENT pour les utilisateurs premium/admin */}
+      {/* Indicateur de chargement pour le scroll infini */}
       {loadingMore && userData?.role !== "free" && (
         <div className="text-center mt-8">
           <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
@@ -417,7 +414,7 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Message fin de liste - SEULEMENT pour les utilisateurs premium/admin */}
+      {/* Message fin de liste */}
       {!hasMore && luminaires.length > 0 && userData?.role !== "free" && (
         <div className="text-center mt-8 py-4">
           <p className="text-gray-500">

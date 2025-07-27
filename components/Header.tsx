@@ -4,15 +4,16 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { Menu } from "lucide-react"
+import { Menu, User, LogOut, Crown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DrawerNav } from "@/components/DrawerNav"
 import { useAuth } from "@/contexts/AuthContext"
 
 export function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
-  const { user, userData, signInWithGoogle } = useAuth()
+  const { user, userData, signInWithGoogle, logout } = useAuth()
   const pathname = usePathname()
 
   useEffect(() => {
@@ -55,6 +56,11 @@ export function Header() {
     return pathname === href || pathname.startsWith(href + "/")
   }
 
+  const handleLogout = async () => {
+    await logout()
+    setIsUserMenuOpen(false)
+  }
+
   return (
     <>
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 h-20">
@@ -94,7 +100,56 @@ export function Header() {
 
             {/* Actions utilisateur */}
             <div className="flex items-center space-x-4">
-              {!user && (
+              {user ? (
+                <div className="relative">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center space-x-2"
+                  >
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="hidden sm:block text-sm font-medium">
+                      {user.displayName || user.email?.split("@")[0]}
+                    </span>
+                    {userData?.role === "premium" && <Crown className="w-4 h-4 text-yellow-500" />}
+                  </Button>
+
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                      <div className="px-4 py-2 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900">{user.displayName || "Utilisateur"}</p>
+                        <p className="text-xs text-gray-500">{user.email}</p>
+                        <p className="text-xs text-blue-600 font-semibold mt-1">
+                          {userData?.role === "free" && "Compte gratuit"}
+                          {userData?.role === "premium" && "Premium"}
+                          {userData?.role === "admin" && "Administrateur"}
+                        </p>
+                      </div>
+
+                      {userData?.role === "free" && (
+                        <Link
+                          href="/pricing"
+                          className="flex items-center px-4 py-2 text-sm text-yellow-600 hover:bg-yellow-50"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                          <Crown className="w-4 h-4 mr-2" />
+                          Passer à Premium
+                        </Link>
+                      )}
+
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Se déconnecter
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <Button
                   onClick={signInWithGoogle}
                   className="text-white font-medium px-6 py-2 rounded-lg transition-all duration-200 hover:shadow-lg"
