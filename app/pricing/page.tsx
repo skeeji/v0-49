@@ -6,12 +6,29 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { CheckCircle, XCircle, Zap, Star } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { toast } from "sonner"
 
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false)
   const { userData } = useAuth()
 
   const currentPlan = userData?.role || "free"
+
+  // CORRECTION: Fonction pour gérer le passage à Premium
+  const handleUpgradeToPremium = () => {
+    // Simuler le passage à Premium (en réalité, cela devrait être une intégration de paiement)
+    toast.success("Fonctionnalité de paiement à implémenter. Contactez l'administrateur pour passer à Premium.")
+
+    // Pour la démo, on peut simuler le changement de rôle
+    // Dans un vrai système, cela se ferait après le paiement
+    /*
+    if (userData) {
+      const newUserData = { ...userData, role: "premium" }
+      localStorage.setItem(`userData_${userData.uid}`, JSON.stringify(newUserData))
+      window.location.reload()
+    }
+    */
+  }
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -50,7 +67,7 @@ export default function PricingPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <XCircle className="w-5 h-5 text-red-500" />
-                  <span className="text-sm text-gray-700">3 recherches IA par jour</span>
+                  <span className="text-sm text-gray-700">3 recherches IA par mois</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <XCircle className="w-5 h-5 text-red-500" />
@@ -68,9 +85,13 @@ export default function PricingPage() {
                   <XCircle className="w-5 h-5 text-red-500" />
                   <span className="text-sm text-gray-700">Pas d'estimation</span>
                 </div>
+                <div className="flex items-center gap-3">
+                  <XCircle className="w-5 h-5 text-red-500" />
+                  <span className="text-sm text-gray-700">Pas de favoris</span>
+                </div>
               </div>
               <Button className="w-full mt-6 bg-transparent" disabled variant="outline">
-                Votre forfait actuel
+                {currentPlan === "free" ? "Votre forfait actuel" : "Forfait gratuit"}
               </Button>
             </CardContent>
           </Card>
@@ -117,10 +138,15 @@ export default function PricingPage() {
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   <span className="text-sm text-gray-700">Estimation des pièces</span>
                 </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span className="text-sm text-gray-700">Système de favoris</span>
+                </div>
               </div>
               <Button
                 className="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
                 disabled={currentPlan === "premium" || currentPlan === "admin"}
+                onClick={handleUpgradeToPremium}
               >
                 {currentPlan === "premium" || currentPlan === "admin" ? "Votre forfait actuel" : "Choisir Premium"}
               </Button>

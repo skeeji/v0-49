@@ -193,10 +193,10 @@ export default function HomePage() {
       return
     }
 
-    // CORRECTION: Vérifier les limites pour les utilisateurs gratuits
+    // CORRECTION: Vérifier les limites pour les utilisateurs gratuits (3 par mois)
     if (userData?.role === "free") {
       if (!canSearch) {
-        toast.error("Limite de 3 recherches par jour atteinte. Passez à Premium pour des recherches illimitées.")
+        toast.error("Limite de 3 recherches par mois atteinte. Passez à Premium pour des recherches illimitées.")
         return
       }
 
@@ -622,11 +622,11 @@ export default function HomePage() {
               Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
             </p>
 
-            {/* CORRECTION: Afficher le compteur de recherches pour les utilisateurs gratuits */}
+            {/* CORRECTION: Afficher le compteur de recherches pour les utilisateurs gratuits (par mois) */}
             {userData?.role === "free" && (
               <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800">
-                  <strong>Compte gratuit :</strong> {userData.searchCount || 0}/3 recherches utilisées aujourd'hui
+                  <strong>Compte gratuit :</strong> {userData.searchCount || 0}/3 recherches utilisées ce mois
                   {!canSearch && (
                     <span className="block mt-1 text-red-600 font-semibold">
                       Limite atteinte -{" "}

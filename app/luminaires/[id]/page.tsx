@@ -21,6 +21,9 @@ export default function LuminaireDetailPage() {
   const { userData, loading: authLoading } = useAuth()
 
   const canEdit = !authLoading && userData?.role === "admin"
+  const canUseFavorites = userData?.role !== "free" // CORRECTION: Les comptes gratuits ne peuvent pas utiliser les favoris
+  const canSeePDF = userData?.role === "admin" || userData?.role === "premium"
+  const canSeeEstimation = userData?.role !== "free" // CORRECTION: Cacher l'estimation pour les comptes gratuits
 
   useEffect(() => {
     if (!params.id) return
@@ -144,13 +147,15 @@ export default function LuminaireDetailPage() {
         setIsLoading(false)
       }
 
-      // Charger les favoris
-      const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
-      setIsFavorite(favorites.includes(String(params.id)))
+      // Charger les favoris - SEULEMENT pour les utilisateurs premium/admin
+      if (canUseFavorites) {
+        const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
+        setIsFavorite(favorites.includes(String(params.id)))
+      }
     }
 
     fetchLuminaireData()
-  }, [params.id])
+  }, [params.id, canUseFavorites])
 
   const findSimilarLuminaires = (current: any, all: any[]) => {
     const currentYear = Number.parseInt(current.year) || 0
@@ -294,7 +299,7 @@ export default function LuminaireDetailPage() {
   }
 
   const toggleFavorite = () => {
-    if (!luminaire) return
+    if (!luminaire || !canUseFavorites) return
 
     const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
     const newFavorites = isFavorite
@@ -338,7 +343,9 @@ export default function LuminaireDetailPage() {
       addField("Signé", luminaire.signed)
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
-      addField("Estimation", luminaire.estimation)
+      if (canSeeEstimation) {
+        addField("Estimation", luminaire.estimation)
+      }
 
       // Ajouter l'image si disponible - Version simplifiée
       if (luminaire.image) {
@@ -428,7 +435,7 @@ export default function LuminaireDetailPage() {
           </Link>
 
           <div className="flex items-center gap-4">
-            {(userData?.role === "admin" || userData?.role === "premium") && (
+            {canSeePDF && (
               <Button
                 onClick={generatePDF}
                 style={{ backgroundColor: "#f2d895", color: "#000" }}
@@ -439,7 +446,7 @@ export default function LuminaireDetailPage() {
                 {generatingPDF ? "Génération..." : "PDF"}
               </Button>
             )}
-            <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
+            {canUseFavorites && <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />}
           </div>
         </div>
 
@@ -605,16 +612,18 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
 
-                  {/* 10. Estimation */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
-                    <EditableField
-                      value={String(luminaire.estimation || "")}
-                      onSave={(v) => handleUpdate("estimation", v)}
-                      placeholder="Estimation"
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 10. Estimation - CORRECTION: Cacher pour les comptes gratuits */}
+                  {canSeeEstimation && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
+                      <EditableField
+                        value={String(luminaire.estimation || "")}
+                        onSave={(v) => handleUpdate("estimation", v)}
+                        placeholder="Estimation"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
