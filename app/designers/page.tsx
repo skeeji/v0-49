@@ -6,7 +6,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
-import { Loader2 } from "lucide-react"
+import { Loader2, Lock } from "lucide-react"
 
 export default function DesignersPage() {
   const [designers, setDesigners] = useState([])
@@ -115,13 +115,12 @@ export default function DesignersPage() {
 
           console.log(`✅ ${designersArray.length} designers finaux`)
 
-          // Pour les utilisateurs "free", limiter à 10% des designers
+          // CORRECTION: Appliquer la restriction des 10% pour les utilisateurs gratuits
+          setDesigners(designersArray)
           if (userData?.role === "free") {
             const limitedDesigners = designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
-            setDesigners(limitedDesigners)
             setFilteredDesigners(limitedDesigners)
           } else {
-            setDesigners(designersArray)
             setFilteredDesigners(designersArray)
           }
         }
@@ -135,43 +134,52 @@ export default function DesignersPage() {
     fetchData()
   }, [userData])
 
-  // Filtrer et trier
+  // CORRECTION: Recalculer les designers filtrés quand le rôle change
   useEffect(() => {
-    let filtered = [...designers]
+    if (designers.length > 0) {
+      let filtered = [...designers]
 
-    if (searchTerm) {
-      filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    }
-
-    // Supprimer les doublons
-    const uniqueDesigners = filtered.filter(
-      (designer, index, self) => index === self.findIndex((d) => d.name === designer.name),
-    )
-
-    uniqueDesigners.sort((a, b) => {
-      switch (sortBy) {
-        case "name-asc":
-          return a.name.localeCompare(b.name)
-        case "name-desc":
-          return b.name.localeCompare(a.name)
-        case "year-asc":
-          const minYearA = a.years.length > 0 ? Math.min(...a.years) : 9999
-          const minYearB = b.years.length > 0 ? Math.min(...b.years) : 9999
-          return minYearA - minYearB
-        case "year-desc":
-          const maxYearA = a.years.length > 0 ? Math.max(...a.years) : 0
-          const maxYearB = b.years.length > 0 ? Math.max(...b.years) : 0
-          return maxYearB - maxYearA
-        default:
-          return 0
+      if (searchTerm) {
+        filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
       }
-    })
 
-    setFilteredDesigners(uniqueDesigners)
-    setPage(0)
-    setHasMore(true)
-    setDisplayedDesigners([])
-  }, [designers, searchTerm, sortBy])
+      // Supprimer les doublons
+      const uniqueDesigners = filtered.filter(
+        (designer, index, self) => index === self.findIndex((d) => d.name === designer.name),
+      )
+
+      uniqueDesigners.sort((a, b) => {
+        switch (sortBy) {
+          case "name-asc":
+            return a.name.localeCompare(b.name)
+          case "name-desc":
+            return b.name.localeCompare(a.name)
+          case "year-asc":
+            const minYearA = a.years.length > 0 ? Math.min(...a.years) : 9999
+            const minYearB = b.years.length > 0 ? Math.min(...b.years) : 9999
+            return minYearA - minYearB
+          case "year-desc":
+            const maxYearA = a.years.length > 0 ? Math.max(...a.years) : 0
+            const maxYearB = b.years.length > 0 ? Math.max(...b.years) : 0
+            return maxYearB - maxYearA
+          default:
+            return 0
+        }
+      })
+
+      // CORRECTION: Appliquer la restriction des 10% pour les utilisateurs gratuits
+      if (userData?.role === "free") {
+        const visibleCount = Math.max(Math.floor(uniqueDesigners.length * 0.1), 5)
+        setFilteredDesigners(uniqueDesigners.slice(0, visibleCount))
+      } else {
+        setFilteredDesigners(uniqueDesigners)
+      }
+
+      setPage(0)
+      setHasMore(true)
+      setDisplayedDesigners([])
+    }
+  }, [designers, searchTerm, sortBy, userData])
 
   // Charger plus d'éléments
   const loadMore = useCallback(() => {
@@ -221,24 +229,31 @@ export default function DesignersPage() {
     )
   }
 
+  // CORRECTION: Calculer les designers bloqués pour les utilisateurs gratuits
+  const designersVisibles = displayedDesigners
+  const designersBloques = userData?.role === "free" ? designers.slice(filteredDesigners.length) : []
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-8">Designers ({filteredDesigners.length})</h1>
+        <h1 className="text-4xl font-serif text-gray-900 mb-8">
+          Designers ({userData?.role === "free" ? `${filteredDesigners.length}/${designers.length}` : designers.length})
+        </h1>
 
-        {/* Message pour les utilisateurs "free" */}
+        {/* CORRECTION: Message pour les utilisateurs "free" */}
         {userData?.role === "free" && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-            <p className="flex items-center font-serif">
-              <span className="mr-2">ℹ️</span>
-              <span>
-                Vous utilisez un compte gratuit. Seuls 10% des designers sont affichés.
-                <Link href="#" className="ml-1 underline font-medium">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-sm text-yellow-800">
+            <div className="flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              <p className="font-serif">
+                <strong>Compte gratuit :</strong> Vous voyez {filteredDesigners.length} designers sur {designers.length}{" "}
+                au total.
+                <Link href="/pricing" className="ml-2 underline font-medium hover:no-underline">
                   Passez à Premium
                 </Link>{" "}
                 pour voir tous les designers.
-              </span>
-            </p>
+              </p>
+            </div>
           </div>
         )}
 
@@ -261,7 +276,7 @@ export default function DesignersPage() {
         </div>
 
         {/* Grille des designers */}
-        {displayedDesigners.length === 0 && !isLoading ? (
+        {designersVisibles.length === 0 && !isLoading ? (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg font-serif">Aucun designer trouvé</p>
             <p className="text-gray-400 text-sm mt-2 font-serif">
@@ -271,7 +286,8 @@ export default function DesignersPage() {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {displayedDesigners.map((designer, index) => (
+              {/* Designers visibles */}
+              {designersVisibles.map((designer, index) => (
                 <Link key={index} href={`/designers/${designer.slug}`}>
                   <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full">
                     <div className="text-center">
@@ -330,7 +346,88 @@ export default function DesignersPage() {
                   </div>
                 </Link>
               ))}
+
+              {/* CORRECTION: Designers bloqués pour les utilisateurs gratuits */}
+              {designersBloques.slice(0, 8).map((designer, index) => (
+                <div key={`blocked-${index}`} className="relative">
+                  <div className="bg-white rounded-xl p-6 shadow-lg h-full filter grayscale pointer-events-none opacity-50">
+                    <div className="text-center">
+                      {/* Portrait circulaire */}
+                      <div className="w-24 h-24 mx-auto mb-4 relative">
+                        {designer.image ? (
+                          <Image
+                            src={designer.image || "/placeholder.svg"}
+                            alt={designer.name}
+                            fill
+                            className="object-cover rounded-full"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg"
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
+                            <div className="text-center">
+                              <div className="text-2xl text-gray-400 mb-1">👤</div>
+                              <span className="text-xs text-gray-500 font-serif">Image manquante</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
+
+                      <p className="text-gray-600 mb-4 font-serif">
+                        {designer.count} luminaire{designer.count > 1 ? "s" : ""}
+                      </p>
+
+                      {/* Aperçu des luminaires */}
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
+                          <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
+                            <Image
+                              src={luminaire.image || "/placeholder.svg"}
+                              alt={luminaire.name}
+                              fill
+                              className="object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <span
+                        className="font-medium font-serif hover:opacity-80 transition-opacity"
+                        style={{ color: "#d4a574" }}
+                      >
+                        Voir le designer →
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Overlay avec cadenas */}
+                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center rounded-xl">
+                    <div className="text-center text-white">
+                      <Lock className="w-8 h-8 mx-auto mb-2" />
+                      <p className="text-sm font-semibold">Premium requis</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
+
+            {/* Message informatif pour les utilisateurs gratuits */}
+            {userData?.role === "free" && designersBloques.length > 0 && (
+              <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                <p className="text-blue-800 font-serif">
+                  <strong>{designersBloques.length} designers supplémentaires</strong> disponibles avec Premium.
+                  <Link href="/pricing" className="ml-2 underline hover:no-underline">
+                    Voir les forfaits
+                  </Link>
+                </p>
+              </div>
+            )}
 
             {/* Indicateur de chargement */}
             {hasMore && (

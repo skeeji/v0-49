@@ -6,10 +6,11 @@ import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
 import { RangeSlider } from "@/components/RangeSlider"
 import { Button } from "@/components/ui/button"
-import { Grid, List, Plus } from "lucide-react"
+import { Grid, List, Plus, Lock } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
+import Link from "next/link"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -256,6 +257,21 @@ export default function LuminairesPage() {
     loadLuminaires(1, false)
   }
 
+  // CORRECTION: Calculer les luminaires visibles et bloqués pour les utilisateurs gratuits
+  const getLuminairesForDisplay = () => {
+    if (userData?.role === "free") {
+      const visibleCount = Math.floor(luminaires.length * 0.1) // 10% des luminaires
+      const luminairesVisibles = luminaires.slice(0, visibleCount)
+      const luminairesBloques = luminaires.slice(visibleCount)
+
+      return { luminairesVisibles, luminairesBloques }
+    }
+
+    return { luminairesVisibles: luminaires, luminairesBloques: [] }
+  }
+
+  const { luminairesVisibles, luminairesBloques } = getLuminairesForDisplay()
+
   if (loading && luminaires.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -287,7 +303,11 @@ export default function LuminairesPage() {
         <div>
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
-            {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
+            {totalItems > 0
+              ? userData?.role === "free"
+                ? `${luminairesVisibles.length}/${totalItems} luminaires visibles (${Math.round((luminairesVisibles.length / totalItems) * 100)}%)`
+                : `${luminaires.length}/${totalItems} luminaires`
+              : "Aucun luminaire trouvé"}
           </p>
         </div>
 
@@ -327,6 +347,23 @@ export default function LuminairesPage() {
           )}
         </div>
       </div>
+
+      {/* CORRECTION: Message pour les utilisateurs gratuits */}
+      {userData?.role === "free" && luminairesBloques.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 text-sm text-yellow-800">
+          <div className="flex items-center gap-2">
+            <Lock className="w-5 h-5" />
+            <p className="font-serif">
+              <strong>Compte gratuit :</strong> Vous voyez {luminairesVisibles.length} luminaires sur {totalItems} au
+              total.
+              <Link href="/pricing" className="ml-2 underline font-medium hover:no-underline">
+                Passez à Premium
+              </Link>{" "}
+              pour voir tous les luminaires.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Filtres - Première ligne */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -381,8 +418,48 @@ export default function LuminairesPage() {
         )}
       </div>
 
-      {/* Grille des luminaires */}
-      <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
+      {/* CORRECTION: Grille des luminaires avec restrictions pour les utilisateurs gratuits */}
+      <div
+        className={`grid gap-6 ${
+          viewMode === "grid"
+            ? `grid-cols-1 sm:grid-cols-2 md:grid-cols-${Math.min(columns, 4)} lg:grid-cols-${columns}`
+            : "grid-cols-1"
+        }`}
+      >
+        {/* Luminaires visibles */}
+        {luminairesVisibles.map((luminaire) => (
+          <div key={luminaire._id} className="relative">
+            <GalleryGrid items={[luminaire]} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={1} />
+          </div>
+        ))}
+
+        {/* Luminaires bloqués pour les utilisateurs gratuits */}
+        {luminairesBloques.slice(0, 12).map((luminaire) => (
+          <div key={`blocked-${luminaire._id}`} className="relative filter grayscale pointer-events-none opacity-50">
+            <GalleryGrid items={[luminaire]} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={1} />
+
+            {/* Overlay avec cadenas */}
+            <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center rounded-lg">
+              <div className="text-center text-white">
+                <Lock className="w-8 h-8 mx-auto mb-2" />
+                <p className="text-sm font-semibold">Premium requis</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Message informatif pour les utilisateurs gratuits */}
+      {userData?.role === "free" && luminairesBloques.length > 12 && (
+        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+          <p className="text-blue-800">
+            <strong>{luminairesBloques.length - 12} luminaires supplémentaires</strong> disponibles avec Premium.
+            <Link href="/pricing" className="ml-2 underline hover:no-underline">
+              Voir les forfaits
+            </Link>
+          </p>
+        </div>
+      )}
 
       {/* Indicateur de chargement pour le scroll infini */}
       {loadingMore && (
