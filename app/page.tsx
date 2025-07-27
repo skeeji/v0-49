@@ -36,7 +36,7 @@ export default function HomePage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const { user, userData, incrementSearchCount, canSearch } = useAuth()
+  const { user, userData, incrementSearchCount } = useAuth()
 
   const callImageSimilarityAPI = async (file: File) => {
     try {
@@ -193,20 +193,7 @@ export default function HomePage() {
       return
     }
 
-    // CORRECTION: Vérifier les limites pour les utilisateurs gratuits (3 par mois)
-    if (userData?.role === "free") {
-      if (!canSearch) {
-        toast.error("Limite de 3 recherches par mois atteinte. Passez à Premium pour des recherches illimitées.")
-        return
-      }
-
-      // Incrémenter le compteur avant la recherche
-      const canProceed = await incrementSearchCount()
-      if (!canProceed) {
-        return
-      }
-    }
-
+    // Tous les utilisateurs connectés peuvent faire des recherches
     setIsSearching(true)
     setSearchResults([])
 
@@ -621,23 +608,6 @@ export default function HomePage() {
             <p className="text-slate-600 leading-relaxed">
               Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
             </p>
-
-            {/* CORRECTION: Afficher le compteur de recherches pour les utilisateurs gratuits (par mois) */}
-            {userData?.role === "free" && (
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  <strong>Compte gratuit :</strong> {userData.searchCount || 0}/3 recherches utilisées ce mois
-                  {!canSearch && (
-                    <span className="block mt-1 text-red-600 font-semibold">
-                      Limite atteinte -{" "}
-                      <Link href="/pricing" className="underline">
-                        Passez à Premium
-                      </Link>
-                    </span>
-                  )}
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Affichage de l'image après recherche */}
@@ -674,7 +644,7 @@ export default function HomePage() {
                 style={{ backgroundColor: "#f2d895" }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
-                disabled={isSearching || (userData?.role === "free" && !canSearch)}
+                disabled={isSearching}
               >
                 <Upload className="w-5 h-5 mr-3" />
                 Téléverser une image
@@ -686,7 +656,7 @@ export default function HomePage() {
                 style={{ backgroundColor: "#f2d895" }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
-                disabled={isSearching || isCameraLoading || (userData?.role === "free" && !canSearch)}
+                disabled={isSearching || isCameraLoading}
               >
                 {isCameraLoading ? (
                   <>
@@ -798,7 +768,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Étape 2.5: Options d'arrière-plan - CORRECTION: Restriction pour les utilisateurs gratuits */}
+          {/* Étape 2.5: Options d'arrière-plan */}
           {showBackgroundOptions && !isSearching && (
             <div className="space-y-6">
               <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden mb-6 shadow-lg">
@@ -806,58 +776,42 @@ export default function HomePage() {
               </div>
 
               <div className="space-y-6">
-                {/* CORRECTION: Afficher la checkbox seulement pour les utilisateurs Premium */}
-                {userData?.role !== "free" && (
-                  <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <input
-                      type="checkbox"
-                      id="removeBackground"
-                      className="w-5 h-5 bg-white border-slate-300 rounded focus:ring-2"
-                      style={{ accentColor: "#f2d895" }}
-                      onChange={async (e) => {
-                        if (e.target.checked) {
-                          // Supprimer l'arrière-plan et mettre à jour l'affichage
-                          if (selectedImageForSearch && !isRemovingBackground) {
-                            const processedFile = await removeBackground(selectedImageForSearch)
-                            if (processedFile && backgroundRemovedImage) {
-                              setSelectedImageForSearch(processedFile)
-                              setCapturedImage(backgroundRemovedImage)
-                            }
-                          }
-                        } else {
-                          // Remettre l'image originale
-                          if (selectedFile) {
-                            const originalUrl = URL.createObjectURL(selectedFile)
-                            setCapturedImage(originalUrl)
-                            setSelectedImageForSearch(selectedFile)
-                            // Nettoyer l'ancienne URL de l'image sans arrière-plan
-                            if (backgroundRemovedImage) {
-                              URL.revokeObjectURL(backgroundRemovedImage)
-                              setBackgroundRemovedImage(null)
-                            }
+                <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <input
+                    type="checkbox"
+                    id="removeBackground"
+                    className="w-5 h-5 bg-white border-slate-300 rounded focus:ring-2"
+                    style={{ accentColor: "#f2d895" }}
+                    onChange={async (e) => {
+                      if (e.target.checked) {
+                        // Supprimer l'arrière-plan et mettre à jour l'affichage
+                        if (selectedImageForSearch && !isRemovingBackground) {
+                          const processedFile = await removeBackground(selectedImageForSearch)
+                          if (processedFile && backgroundRemovedImage) {
+                            setSelectedImageForSearch(processedFile)
+                            setCapturedImage(backgroundRemovedImage)
                           }
                         }
-                      }}
-                      disabled={isRemovingBackground}
-                    />
-                    <label htmlFor="removeBackground" className="text-sm font-medium text-slate-700 cursor-pointer">
-                      Supprimer l'arrière-plan avant la recherche
-                    </label>
-                  </div>
-                )}
-
-                {/* Message pour les utilisateurs gratuits */}
-                {userData?.role === "free" && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Fonctionnalité Premium :</strong> La suppression d'arrière-plan est disponible avec un
-                      abonnement Premium.
-                      <Link href="/pricing" className="ml-2 underline hover:no-underline">
-                        Voir les forfaits
-                      </Link>
-                    </p>
-                  </div>
-                )}
+                      } else {
+                        // Remettre l'image originale
+                        if (selectedFile) {
+                          const originalUrl = URL.createObjectURL(selectedFile)
+                          setCapturedImage(originalUrl)
+                          setSelectedImageForSearch(selectedFile)
+                          // Nettoyer l'ancienne URL de l'image sans arrière-plan
+                          if (backgroundRemovedImage) {
+                            URL.revokeObjectURL(backgroundRemovedImage)
+                            setBackgroundRemovedImage(null)
+                          }
+                        }
+                      }
+                    }}
+                    disabled={isRemovingBackground}
+                  />
+                  <label htmlFor="removeBackground" className="text-sm font-medium text-slate-700 cursor-pointer">
+                    Supprimer l'arrière-plan avant la recherche
+                  </label>
+                </div>
 
                 {isRemovingBackground && (
                   <div className="text-center py-6">
@@ -887,9 +841,7 @@ export default function HomePage() {
               </div>
 
               <p className="text-xs text-slate-500 text-center">
-                {userData?.role !== "free"
-                  ? "La suppression d'arrière-plan peut améliorer la précision de la recherche"
-                  : "Passez à Premium pour accéder à la suppression d'arrière-plan"}
+                La suppression d'arrière-plan peut améliorer la précision de la recherche
               </p>
             </div>
           )}
@@ -912,7 +864,7 @@ export default function HomePage() {
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                   size="sm"
-                  disabled={isSearching || (userData?.role === "free" && !canSearch)}
+                  disabled={isSearching}
                 >
                   {isSearching ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>
