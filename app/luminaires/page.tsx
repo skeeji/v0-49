@@ -32,7 +32,6 @@ export default function LuminairesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
-  const [limitReached, setLimitReached] = useState(false)
 
   // Refs pour accéder aux valeurs dans loadLuminaires sans créer de dépendances
   const yearRangeRef = useRef(yearRange)
@@ -60,14 +59,13 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour charger les luminaires avec limitation pour les comptes gratuits
+  // Fonction pour charger TOUS les luminaires (pas de limitation)
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
         if (page === 1) {
           setLoading(true)
           setError(null)
-          setLimitReached(false)
         } else {
           setLoadingMore(true)
         }
@@ -91,57 +89,15 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (data.success) {
-          let luminairesToShow = data.luminaires
-
-          // CORRECTION: Limiter à 10% pour les utilisateurs non connectés ou gratuits
-          if (!user || userData?.role === "free") {
-            const totalAvailable = data.pagination.total
-            const maxAllowed = Math.ceil(totalAvailable * 0.1)
-
-            console.log(`🔒 Limitation gratuite: ${maxAllowed}/${totalAvailable} luminaires autorisés`)
-
-            if (append && page > 1) {
-              const currentCount = luminaires.length
-              const remainingAllowed = maxAllowed - currentCount
-
-              if (remainingAllowed <= 0) {
-                console.log("🚫 Limite atteinte, arrêt du scroll infini")
-                setLimitReached(true)
-                setHasMore(false)
-                setLoadingMore(false)
-                return
-              }
-
-              luminairesToShow = luminairesToShow.slice(0, remainingAllowed)
-              setLuminaires((prev) => [...prev, ...luminairesToShow])
-
-              if (currentCount + luminairesToShow.length >= maxAllowed) {
-                setLimitReached(true)
-                setHasMore(false)
-              }
-            } else {
-              luminairesToShow = luminairesToShow.slice(0, maxAllowed)
-              setLuminaires(luminairesToShow)
-              setCurrentPage(1)
-
-              if (luminairesToShow.length >= maxAllowed) {
-                setLimitReached(true)
-                setHasMore(false)
-              } else {
-                setHasMore(data.pagination.hasMore)
-              }
-            }
+          // Charger TOUS les luminaires sans limitation
+          if (append && page > 1) {
+            setLuminaires((prev) => [...prev, ...data.luminaires])
           } else {
-            // Utilisateurs premium/admin : comportement normal
-            if (append && page > 1) {
-              setLuminaires((prev) => [...prev, ...data.luminaires])
-            } else {
-              setLuminaires(data.luminaires)
-              setCurrentPage(1)
-            }
-            setHasMore(data.pagination.hasMore)
+            setLuminaires(data.luminaires)
+            setCurrentPage(1)
           }
 
+          setHasMore(data.pagination.hasMore)
           setTotalItems(data.pagination.total)
         } else {
           throw new Error(data.error || "Erreur lors du chargement")
@@ -155,7 +111,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection, user, userData, luminaires.length],
+    [searchTerm, selectedDesigner, sortField, sortDirection],
   )
 
   // Charger les données globales au montage
@@ -169,37 +125,15 @@ export default function LuminairesPage() {
     loadLuminaires(1, false)
   }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified])
 
-  // Fonction pour charger plus de luminaires (scroll infini) avec contrôle de limite
+  // Fonction pour charger plus de luminaires (scroll infini normal)
   const loadMore = useCallback(() => {
-    // CORRECTION: Contrôle strict pour les utilisateurs non connectés ou gratuits
-    if (!user || userData?.role === "free") {
-      const limit = Math.ceil(totalItems * 0.1)
-      if (luminaires.length >= limit) {
-        console.log("🚫 Limite de 10% atteinte, arrêt du scroll infini")
-        setLimitReached(true)
-        setHasMore(false)
-        return
-      }
-    }
-
-    if (!loadingMore && hasMore && !loading && !limitReached) {
+    if (!loadingMore && hasMore && !loading) {
       setLoadingMore(true)
       const nextPage = currentPage + 1
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
-  }, [
-    user,
-    userData,
-    totalItems,
-    luminaires.length,
-    loadingMore,
-    hasMore,
-    loading,
-    limitReached,
-    currentPage,
-    loadLuminaires,
-  ])
+  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
 
   // Scroll infini optimisé
   useEffect(() => {
@@ -323,6 +257,14 @@ export default function LuminairesPage() {
     loadLuminaires(1, false)
   }
 
+  // Calculer la limite pour les comptes gratuits
+  const freeUserLimit = useMemo(() => {
+    if (!user || userData?.role === "free") {
+      return Math.ceil(totalItems * 0.1)
+    }
+    return totalItems
+  }, [user, userData, totalItems])
+
   if (loading && luminaires.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -355,6 +297,9 @@ export default function LuminairesPage() {
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
             {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
+            {(!user || userData?.role === "free") && totalItems > 0 && (
+              <span className="text-orange-600 ml-2">({freeUserLimit} accessibles)</span>
+            )}
           </p>
         </div>
 
@@ -401,11 +346,11 @@ export default function LuminairesPage() {
           <p className="flex items-center font-serif">
             <span className="mr-2">ℹ️</span>
             <span>
-              {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont affichés.
+              {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont accessibles.
               <Link href="/pricing" className="ml-1 underline font-medium">
                 Passez à Premium
               </Link>{" "}
-              pour voir toute la collection.
+              pour accéder à toute la collection.
             </span>
           </p>
         </div>
@@ -464,35 +409,18 @@ export default function LuminairesPage() {
         )}
       </div>
 
-      {/* Grille des luminaires */}
-      <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
-
-      {/* CORRECTION: Message de limite atteinte pour les utilisateurs gratuits */}
-      {limitReached && (!user || userData?.role === "free") && (
-        <div className="text-center mt-8 py-8 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl shadow-lg">
-          <div className="max-w-md mx-auto">
-            <div className="text-4xl mb-4">🔒</div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Limite atteinte</h3>
-            <p className="text-gray-600 mb-4">
-              Vous avez vu {luminaires.length} luminaires sur {totalItems} disponibles (10% de la collection)
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-              Passez à Premium pour découvrir {totalItems - luminaires.length} luminaires supplémentaires
-            </p>
-            <Button
-              asChild
-              size="lg"
-              style={{ backgroundColor: "#f2d895", color: "#000" }}
-              className="hover:opacity-90"
-            >
-              <Link href="/pricing">🚀 Passer à Premium</Link>
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Grille des luminaires avec limitation visuelle */}
+      <GalleryGrid
+        items={luminaires}
+        viewMode={viewMode}
+        onItemUpdate={handleItemUpdate}
+        columns={columns}
+        freeUserLimit={freeUserLimit}
+        isUserFree={!user || userData?.role === "free"}
+      />
 
       {/* Indicateur de chargement pour le scroll infini */}
-      {loadingMore && !limitReached && (
+      {loadingMore && (
         <div className="text-center mt-8">
           <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
@@ -501,8 +429,8 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Message fin de liste pour les utilisateurs premium */}
-      {!hasMore && luminaires.length > 0 && !limitReached && user && userData?.role !== "free" && (
+      {/* Message fin de liste */}
+      {!hasMore && luminaires.length > 0 && (
         <div className="text-center mt-8 py-4">
           <p className="text-gray-500">
             ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)

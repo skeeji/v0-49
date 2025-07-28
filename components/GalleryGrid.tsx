@@ -15,9 +15,18 @@ interface GalleryGridProps {
   viewMode: "grid" | "list"
   onItemUpdate: (id: string, updates: any) => void
   columns?: number
+  freeUserLimit?: number
+  isUserFree?: boolean
 }
 
-export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: GalleryGridProps) {
+export function GalleryGrid({
+  items,
+  viewMode,
+  onItemUpdate,
+  columns = 4,
+  freeUserLimit = items.length,
+  isUserFree = false,
+}: GalleryGridProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<string[]>([])
   const { userData } = useAuth()
@@ -81,72 +90,93 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const itemId = String(item.id || item._id || "")
           const itemName = String(item.name || item.nom || "Nom du luminaire")
           const itemDesigner = String(item.artist || item.designer || "Non renseigné")
           const itemYear = String(item.year || item.annee || "Non renseigné")
+          const isAccessible = isUserFree ? index < freeUserLimit : true
+          const CardWrapper = isAccessible ? Link : "div"
 
           return (
-            <div key={itemId} className="bg-white rounded-xl p-6 shadow-lg">
-              <div className="flex flex-col md:flex-row gap-6">
-                <Link
-                  href={`/luminaires/${itemId}`}
-                  className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
-                >
-                  <Image
-                    src={getImageUrl(item) || "/placeholder.svg"}
-                    alt={itemName}
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      console.log("❌ Erreur chargement image:", getImageUrl(item))
-                      const target = e.target as HTMLImageElement
-                      target.src = "/placeholder.svg?height=300&width=300"
-                    }}
-                  />
-                </Link>
-
-                <div className="flex-1 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <Link href={`/luminaires/${itemId}`}>
-                      <h3 className="text-xl font-serif text-gray-900 hover:text-orange-500 cursor-pointer">
-                        {itemName}
-                      </h3>
-                    </Link>
-
-                    <div className="flex items-center gap-2">
-                      <FavoriteToggleButton
-                        isActive={favorites.includes(itemId)}
-                        onClick={() => toggleFavorite(itemId)}
-                      />
-                      <Button onClick={() => setLightboxImage(getImageUrl(item))} variant="outline" size="sm">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      {userData?.role === "admin" && (
-                        <DeleteLuminaireButton
-                          luminaireId={itemId}
-                          luminaireName={itemName}
-                          onDelete={handleDeleteLuminaire}
-                        />
-                      )}
-                    </div>
+            <CardWrapper key={itemId} {...(isAccessible ? { href: `/luminaires/${itemId}` } : {})}>
+              <div
+                className={`bg-white rounded-xl p-6 shadow-lg transition-shadow ${
+                  isAccessible ? "hover:shadow-xl cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
+                }`}
+              >
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                    <Image
+                      src={getImageUrl(item) || "/placeholder.svg"}
+                      alt={itemName}
+                      fill
+                      className="object-cover"
+                      onError={(e) => {
+                        console.log("❌ Erreur chargement image:", getImageUrl(item))
+                        const target = e.target as HTMLImageElement
+                        target.src = "/placeholder.svg?height=300&width=300"
+                      }}
+                    />
                   </div>
 
-                  {/* Affichage simplifié : seulement nom, artiste et année */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
-                      <p className="text-gray-900">{itemDesigner}</p>
+                  <div className="flex-1 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <h3 className="text-xl font-serif text-gray-900">{itemName}</h3>
+
+                      {isAccessible && (
+                        <div className="flex items-center gap-2">
+                          <FavoriteToggleButton
+                            isActive={favorites.includes(itemId)}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              toggleFavorite(itemId)
+                            }}
+                          />
+                          <Button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setLightboxImage(getImageUrl(item))
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          {userData?.role === "admin" && (
+                            <DeleteLuminaireButton
+                              luminaireId={itemId}
+                              luminaireName={itemName}
+                              onDelete={handleDeleteLuminaire}
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
-                      <p className="text-gray-900">{itemYear}</p>
+
+                    {/* Affichage simplifié : seulement nom, artiste et année */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
+                        <p className="text-gray-900">{itemDesigner}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
+                        <p className="text-gray-900">{itemYear}</p>
+                      </div>
                     </div>
+
+                    {!isAccessible && (
+                      <div className="mt-2">
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">🔒 Premium requis</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
+            </CardWrapper>
           )
         })}
 
@@ -175,16 +205,22 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
 
   return (
     <div className={`grid ${getGridClass(columns)} gap-2 md:gap-3`}>
-      {items.map((item) => {
+      {items.map((item, index) => {
         const itemId = String(item.id || item._id || "")
         const itemName = String(item.name || item.nom || "Nom du luminaire")
         const itemDesigner = String(item.artist || item.designer || "Artiste non renseigné")
         const itemYear = String(item.year || item.annee || "Année inconnue")
+        const isAccessible = isUserFree ? index < freeUserLimit : true
+        const CardWrapper = isAccessible ? Link : "div"
 
         return (
-          <div key={itemId} className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow">
-            <Link href={`/luminaires/${itemId}`}>
-              <div className="aspect-square relative bg-gray-100 cursor-pointer hover:scale-105 transition-transform">
+          <CardWrapper key={itemId} {...(isAccessible ? { href: `/luminaires/${itemId}` } : {})}>
+            <div
+              className={`bg-white rounded-lg overflow-hidden shadow-md transition-shadow ${
+                isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
+              }`}
+            >
+              <div className="aspect-square relative bg-gray-100">
                 <Image
                   src={getImageUrl(item) || "/placeholder.svg"}
                   alt={itemName}
@@ -197,50 +233,60 @@ export function GalleryGrid({ items, viewMode, onItemUpdate, columns = 4 }: Gall
                   }}
                 />
 
-                <div className="absolute top-2 right-2">
-                  <FavoriteToggleButton
-                    isActive={favorites.includes(itemId)}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      toggleFavorite(itemId)
-                    }}
-                  />
-                </div>
-              </div>
-            </Link>
-
-            <div className="p-2 space-y-0.5">
-              <Link href={`/luminaires/${itemId}`}>
-                <h3 className="font-serif text-xs md:text-sm text-gray-900 hover:text-orange-500 cursor-pointer truncate">
-                  {itemName}
-                </h3>
-              </Link>
-
-              <p className="text-gray-600 text-xs truncate">{itemDesigner}</p>
-
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{itemYear}</span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    onClick={() => setLightboxImage(getImageUrl(item))}
-                    variant="ghost"
-                    size="sm"
-                    className="p-1 h-auto"
-                  >
-                    <Eye className="w-3 h-3" />
-                  </Button>
-                  {userData?.role === "admin" && (
-                    <DeleteLuminaireButton
-                      luminaireId={itemId}
-                      luminaireName={itemName}
-                      onDelete={handleDeleteLuminaire}
+                {isAccessible && (
+                  <div className="absolute top-2 right-2">
+                    <FavoriteToggleButton
+                      isActive={favorites.includes(itemId)}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleFavorite(itemId)
+                      }}
                     />
+                  </div>
+                )}
+
+                {!isAccessible && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                    <span className="text-white text-xs bg-black bg-opacity-50 px-2 py-1 rounded">🔒 Premium</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-2 space-y-0.5">
+                <h3 className="font-serif text-xs md:text-sm text-gray-900 truncate">{itemName}</h3>
+
+                <p className="text-gray-600 text-xs truncate">{itemDesigner}</p>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">{itemYear}</span>
+                  {isAccessible && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setLightboxImage(getImageUrl(item))
+                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 h-auto"
+                      >
+                        <Eye className="w-3 h-3" />
+                      </Button>
+                      {userData?.role === "admin" && (
+                        <DeleteLuminaireButton
+                          luminaireId={itemId}
+                          luminaireName={itemName}
+                          onDelete={handleDeleteLuminaire}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
             </div>
-          </div>
+          </CardWrapper>
         )
       })}
 
