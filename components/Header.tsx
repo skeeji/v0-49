@@ -44,7 +44,6 @@ export function Header() {
     { href: "/luminaires", label: "Luminaires" },
     { href: "/designers", label: "Designers" },
     { href: "/chronologie", label: "Chronologie" },
-    { href: "/pricing", label: "Tarifs" },
   ]
 
   if (userData?.role === "admin") {
