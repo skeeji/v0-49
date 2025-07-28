@@ -18,7 +18,7 @@ export default function DesignersPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
-  const { userData } = useAuth()
+  const { user, userData } = useAuth()
 
   const ITEMS_PER_PAGE = 50
 
@@ -115,14 +115,18 @@ export default function DesignersPage() {
 
           console.log(`✅ ${designersArray.length} designers finaux`)
 
-          // Pour les utilisateurs "free", limiter à 10% des designers
-          if (userData?.role === "free") {
+          // Pour les utilisateurs non connectés ou "free", limiter à 10% des designers
+          if (!user || userData?.role === "free") {
             const limitedDesigners = designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
             setDesigners(limitedDesigners)
             setFilteredDesigners(limitedDesigners)
+            console.log(
+              `🔒 Utilisateur gratuit : ${limitedDesigners.length}/${designersArray.length} designers affichés`,
+            )
           } else {
             setDesigners(designersArray)
             setFilteredDesigners(designersArray)
+            console.log(`✅ Utilisateur premium/admin : ${designersArray.length} designers affichés`)
           }
         }
       } catch (error) {
@@ -133,7 +137,7 @@ export default function DesignersPage() {
     }
 
     fetchData()
-  }, [userData])
+  }, [user, userData])
 
   // Filtrer et trier
   useEffect(() => {
@@ -226,14 +230,15 @@ export default function DesignersPage() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-serif text-gray-900 mb-8">Designers ({filteredDesigners.length})</h1>
 
-        {/* Message pour les utilisateurs "free" */}
-        {userData?.role === "free" && (
+        {/* Message pour les utilisateurs non connectés ou "free" */}
+        {(!user || userData?.role === "free") && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
             <p className="flex items-center font-serif">
               <span className="mr-2">ℹ️</span>
               <span>
-                Vous utilisez un compte gratuit. Seuls 10% des designers sont affichés.
-                <Link href="#" className="ml-1 underline font-medium">
+                {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des designers sont affichés (
+                {filteredDesigners.length}).
+                <Link href="/pricing" className="ml-1 underline font-medium">
                   Passez à Premium
                 </Link>{" "}
                 pour voir tous les designers.

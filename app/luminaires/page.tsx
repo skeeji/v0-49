@@ -10,6 +10,7 @@ import { Grid, List, Plus } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
+import Link from "next/link"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -31,6 +32,7 @@ export default function LuminairesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [limitReached, setLimitReached] = useState(false)
 
   // Refs pour accéder aux valeurs dans loadLuminaires sans créer de dépendances
   const yearRangeRef = useRef(yearRange)
@@ -42,7 +44,7 @@ export default function LuminairesPage() {
     sliderModifiedRef.current = sliderModified
   })
 
-  const { userData } = useAuth()
+  const { user, userData } = useAuth()
   const isAdmin = userData?.role === "admin"
 
   // Charger toutes les données pour les statistiques globales
@@ -58,13 +60,14 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour charger les luminaires - SANS yearRange et sliderModified dans les dépendances
+  // Fonction pour charger les luminaires
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
         if (page === 1) {
           setLoading(true)
           setError(null)
+          setLimitReached(false)
         } else {
           setLoadingMore(true)
         }
@@ -88,15 +91,55 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (data.success) {
-          if (append && page > 1) {
-            setLuminaires((prev) => [...prev, ...data.luminaires])
+          let luminairesToShow = data.luminaires
+
+          // Limiter à 10% pour les utilisateurs non connectés ou gratuits
+          if (!user || userData?.role === "free") {
+            const totalAvailable = data.pagination.total
+            const maxAllowed = Math.ceil(totalAvailable * 0.1)
+
+            if (append && page > 1) {
+              const currentCount = luminaires.length
+              const remainingAllowed = maxAllowed - currentCount
+
+              if (remainingAllowed <= 0) {
+                setLimitReached(true)
+                setHasMore(false)
+                setLoadingMore(false)
+                return
+              }
+
+              luminairesToShow = luminairesToShow.slice(0, remainingAllowed)
+              setLuminaires((prev) => [...prev, ...luminairesToShow])
+
+              if (currentCount + luminairesToShow.length >= maxAllowed) {
+                setLimitReached(true)
+                setHasMore(false)
+              }
+            } else {
+              luminairesToShow = luminairesToShow.slice(0, maxAllowed)
+              setLuminaires(luminairesToShow)
+              setCurrentPage(1)
+
+              if (luminairesToShow.length >= maxAllowed) {
+                setLimitReached(true)
+                setHasMore(false)
+              } else {
+                setHasMore(data.pagination.hasMore)
+              }
+            }
           } else {
-            setLuminaires(data.luminaires)
-            setCurrentPage(1)
+            // Utilisateurs premium/admin : comportement normal
+            if (append && page > 1) {
+              setLuminaires((prev) => [...prev, ...data.luminaires])
+            } else {
+              setLuminaires(data.luminaires)
+              setCurrentPage(1)
+            }
+            setHasMore(data.pagination.hasMore)
           }
 
           setTotalItems(data.pagination.total)
-          setHasMore(data.pagination.hasMore)
         } else {
           throw new Error(data.error || "Erreur lors du chargement")
         }
@@ -109,7 +152,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection], // yearRange et sliderModified SUPPRIMÉS
+    [searchTerm, selectedDesigner, sortField, sortDirection, user, userData, luminaires.length],
   )
 
   // Charger les données globales au montage
@@ -117,21 +160,31 @@ export default function LuminairesPage() {
     loadAllLuminaires()
   }, [loadAllLuminaires])
 
-  // Charger les luminaires - SANS yearRange dans les dépendances
+  // Charger les luminaires
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified]) // yearRange SUPPRIMÉ
+  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified])
 
   // Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
+    // Contrôle pour les utilisateurs non connectés ou gratuits
+    if (!user || userData?.role === "free") {
+      const limit = Math.ceil(totalItems * 0.1)
+      if (luminaires.length >= limit) {
+        setLimitReached(true)
+        setHasMore(false)
+        return
+      }
+    }
+
     if (!loadingMore && hasMore && !loading) {
       setLoadingMore(true)
       const nextPage = currentPage + 1
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
-  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
+  }, [user, userData, totalItems, luminaires.length, loadingMore, hasMore, loading, currentPage, loadLuminaires])
 
   // Scroll infini optimisé
   useEffect(() => {
@@ -220,34 +273,33 @@ export default function LuminairesPage() {
     return { designers }
   }, [allLuminaires])
 
-  // Calculer la plage d'années disponibles - CORRIGÉ pour inclure toutes les années
+  // Calculer la plage d'années disponibles
   const yearBounds = useMemo(() => {
     const years = allLuminaires
       .map((l) => {
         const year = l.annee || l.year
-        // Convertir en nombre et filtrer les valeurs invalides
         const numYear = Number.parseInt(year)
         return !isNaN(numYear) ? numYear : null
       })
       .filter(Boolean)
-      .sort((a, b) => a - b) // Tri croissant
+      .sort((a, b) => a - b)
 
     if (years.length === 0) return { min: 1900, max: 2024 }
 
     return {
-      min: years[0], // Premier élément = année la plus ancienne
-      max: years[years.length - 1], // Dernier élément = année la plus récente
+      min: years[0],
+      max: years[years.length - 1],
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années SANS déclencher le filtre
+  // Initialiser la plage d'années
   useEffect(() => {
     if (allLuminaires.length > 0 && yearRange.length === 0) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
-  // Fonction qui gère le changement du slider - ACTIVE le filtre
+  // Fonction qui gère le changement du slider
   const handleYearRangeChange = (newRange: number[]) => {
     console.log(`✅ Filtre chronologique activé par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
@@ -328,6 +380,22 @@ export default function LuminairesPage() {
         </div>
       </div>
 
+      {/* Message pour les utilisateurs non connectés ou gratuits */}
+      {(!user || userData?.role === "free") && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
+          <p className="flex items-center font-serif">
+            <span className="mr-2">ℹ️</span>
+            <span>
+              {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont affichés.
+              <Link href="/pricing" className="ml-1 underline font-medium">
+                Passez à Premium
+              </Link>{" "}
+              pour voir toute la collection.
+            </span>
+          </p>
+        </div>
+      )}
+
       {/* Filtres - Première ligne */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
@@ -384,6 +452,19 @@ export default function LuminairesPage() {
       {/* Grille des luminaires */}
       <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
 
+      {/* Message de limite atteinte pour les utilisateurs gratuits */}
+      {limitReached && (!user || userData?.role === "free") && (
+        <div className="text-center mt-8 py-6 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
+          <p className="font-semibold text-gray-700 mb-2">Vous avez atteint la limite de 10% de la collection</p>
+          <p className="text-sm text-gray-600 mb-4">
+            {luminaires.length} luminaires sur {totalItems} disponibles avec votre compte gratuit
+          </p>
+          <Button asChild style={{ backgroundColor: "#f2d895", color: "#000" }}>
+            <Link href="/pricing">Passer à Premium pour tout voir</Link>
+          </Button>
+        </div>
+      )}
+
       {/* Indicateur de chargement pour le scroll infini */}
       {loadingMore && (
         <div className="text-center mt-8">
@@ -395,7 +476,7 @@ export default function LuminairesPage() {
       )}
 
       {/* Message fin de liste */}
-      {!hasMore && luminaires.length > 0 && (
+      {!hasMore && luminaires.length > 0 && !limitReached && (
         <div className="text-center mt-8 py-4">
           <p className="text-gray-500">
             ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)

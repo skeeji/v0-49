@@ -8,6 +8,7 @@ import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DrawerNav } from "@/components/DrawerNav"
 import { useAuth } from "@/contexts/AuthContext"
+import { UserMenu } from "@/components/UserMenu"
 
 export function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -94,7 +95,9 @@ export function Header() {
 
             {/* Actions utilisateur */}
             <div className="flex items-center space-x-4">
-              {!user && (
+              {user ? (
+                <UserMenu />
+              ) : (
                 <Button
                   onClick={signInWithGoogle}
                   className="text-white font-medium px-6 py-2 rounded-lg transition-all duration-200 hover:shadow-lg"
