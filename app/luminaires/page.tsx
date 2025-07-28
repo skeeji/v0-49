@@ -60,7 +60,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour charger les luminaires
+  // Fonction pour charger les luminaires avec limitation pour les comptes gratuits
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -93,16 +93,19 @@ export default function LuminairesPage() {
         if (data.success) {
           let luminairesToShow = data.luminaires
 
-          // Limiter à 10% pour les utilisateurs non connectés ou gratuits
+          // CORRECTION: Limiter à 10% pour les utilisateurs non connectés ou gratuits
           if (!user || userData?.role === "free") {
             const totalAvailable = data.pagination.total
             const maxAllowed = Math.ceil(totalAvailable * 0.1)
+
+            console.log(`🔒 Limitation gratuite: ${maxAllowed}/${totalAvailable} luminaires autorisés`)
 
             if (append && page > 1) {
               const currentCount = luminaires.length
               const remainingAllowed = maxAllowed - currentCount
 
               if (remainingAllowed <= 0) {
+                console.log("🚫 Limite atteinte, arrêt du scroll infini")
                 setLimitReached(true)
                 setHasMore(false)
                 setLoadingMore(false)
@@ -166,25 +169,37 @@ export default function LuminairesPage() {
     loadLuminaires(1, false)
   }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified])
 
-  // Fonction pour charger plus de luminaires (scroll infini)
+  // Fonction pour charger plus de luminaires (scroll infini) avec contrôle de limite
   const loadMore = useCallback(() => {
-    // Contrôle pour les utilisateurs non connectés ou gratuits
+    // CORRECTION: Contrôle strict pour les utilisateurs non connectés ou gratuits
     if (!user || userData?.role === "free") {
       const limit = Math.ceil(totalItems * 0.1)
       if (luminaires.length >= limit) {
+        console.log("🚫 Limite de 10% atteinte, arrêt du scroll infini")
         setLimitReached(true)
         setHasMore(false)
         return
       }
     }
 
-    if (!loadingMore && hasMore && !loading) {
+    if (!loadingMore && hasMore && !loading && !limitReached) {
       setLoadingMore(true)
       const nextPage = currentPage + 1
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
-  }, [user, userData, totalItems, luminaires.length, loadingMore, hasMore, loading, currentPage, loadLuminaires])
+  }, [
+    user,
+    userData,
+    totalItems,
+    luminaires.length,
+    loadingMore,
+    hasMore,
+    loading,
+    limitReached,
+    currentPage,
+    loadLuminaires,
+  ])
 
   // Scroll infini optimisé
   useEffect(() => {
@@ -452,21 +467,32 @@ export default function LuminairesPage() {
       {/* Grille des luminaires */}
       <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
 
-      {/* Message de limite atteinte pour les utilisateurs gratuits */}
+      {/* CORRECTION: Message de limite atteinte pour les utilisateurs gratuits */}
       {limitReached && (!user || userData?.role === "free") && (
-        <div className="text-center mt-8 py-6 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
-          <p className="font-semibold text-gray-700 mb-2">Vous avez atteint la limite de 10% de la collection</p>
-          <p className="text-sm text-gray-600 mb-4">
-            {luminaires.length} luminaires sur {totalItems} disponibles avec votre compte gratuit
-          </p>
-          <Button asChild style={{ backgroundColor: "#f2d895", color: "#000" }}>
-            <Link href="/pricing">Passer à Premium pour tout voir</Link>
-          </Button>
+        <div className="text-center mt-8 py-8 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl shadow-lg">
+          <div className="max-w-md mx-auto">
+            <div className="text-4xl mb-4">🔒</div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Limite atteinte</h3>
+            <p className="text-gray-600 mb-4">
+              Vous avez vu {luminaires.length} luminaires sur {totalItems} disponibles (10% de la collection)
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Passez à Premium pour découvrir {totalItems - luminaires.length} luminaires supplémentaires
+            </p>
+            <Button
+              asChild
+              size="lg"
+              style={{ backgroundColor: "#f2d895", color: "#000" }}
+              className="hover:opacity-90"
+            >
+              <Link href="/pricing">🚀 Passer à Premium</Link>
+            </Button>
+          </div>
         </div>
       )}
 
       {/* Indicateur de chargement pour le scroll infini */}
-      {loadingMore && (
+      {loadingMore && !limitReached && (
         <div className="text-center mt-8">
           <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
@@ -475,8 +501,8 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Message fin de liste */}
-      {!hasMore && luminaires.length > 0 && !limitReached && (
+      {/* Message fin de liste pour les utilisateurs premium */}
+      {!hasMore && luminaires.length > 0 && !limitReached && user && userData?.role !== "free" && (
         <div className="text-center mt-8 py-4">
           <p className="text-gray-500">
             ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
