@@ -10,7 +10,7 @@ import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function DesignersPage() {
-  const [designers, setDesigners] = useState([])
+  const [allDesigners, setAllDesigners] = useState([])
   const [filteredDesigners, setFilteredDesigners] = useState([])
   const [displayedDesigners, setDisplayedDesigners] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -40,7 +40,7 @@ export default function DesignersPage() {
         if (luminairesData.success) {
           console.log(`👨‍🎨 Extraction des designers depuis ${luminairesData.luminaires.length} luminaires`)
 
-          // CORRECTION: Grouper les luminaires par designer et récupérer l'image du designer
+          // Grouper les luminaires par designer et récupérer l'image du designer
           const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
             const designerName = luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"
 
@@ -49,7 +49,6 @@ export default function DesignersPage() {
                 name: designerName,
                 count: 0,
                 luminaires: [],
-                // CORRECTION: Récupérer l'image du designer depuis designerImageFilename
                 image: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : "",
                 slug: encodeURIComponent(designerName),
                 years: [],
@@ -58,13 +57,11 @@ export default function DesignersPage() {
 
             acc[designerName].count++
 
-            // CORRECTION: Si on trouve une image de designer, l'utiliser
             if (luminaire.designerImageFilename && !acc[designerName].image) {
               acc[designerName].image = `/api/images/filename/${luminaire.designerImageFilename}`
               console.log(`🖼️ Image designer trouvée pour ${designerName}: ${luminaire.designerImageFilename}`)
             }
 
-            // Correction du bug d'affichage des images de luminaires
             const imageFilename = luminaire.filename || luminaire["Nom du fichier"]
 
             acc[designerName].luminaires.push({
@@ -87,7 +84,7 @@ export default function DesignersPage() {
 
           console.log(`👨‍🎨 ${Object.keys(designerGroups).length} designers uniques trouvés`)
 
-          // CORRECTION: Essayer aussi l'ancienne méthode en fallback
+          // Essayer aussi l'ancienne méthode en fallback
           try {
             const designersResponse = await fetch("/api/designers-data")
             const designersResult = await designersResponse.json()
@@ -117,19 +114,9 @@ export default function DesignersPage() {
 
           console.log(`✅ ${designersArray.length} designers finaux`)
 
-          // Pour les utilisateurs non connectés ou "free", limiter à 10% des designers
-          if (!user || userData?.role === "free") {
-            const limitedDesigners = designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
-            setDesigners(limitedDesigners)
-            setFilteredDesigners(limitedDesigners)
-            console.log(
-              `🔒 Utilisateur gratuit : ${limitedDesigners.length}/${designersArray.length} designers affichés`,
-            )
-          } else {
-            setDesigners(designersArray)
-            setFilteredDesigners(designersArray)
-            console.log(`✅ Utilisateur premium/admin : ${designersArray.length} designers affichés`)
-          }
+          // CORRECTION: Stocker TOUS les designers, pas seulement 10%
+          setAllDesigners(designersArray)
+          setFilteredDesigners(designersArray)
         }
       } catch (error) {
         console.error("❌ Erreur chargement données:", error)
@@ -139,11 +126,11 @@ export default function DesignersPage() {
     }
 
     fetchData()
-  }, [user, userData])
+  }, [])
 
   // Filtrer et trier
   useEffect(() => {
-    let filtered = [...designers]
+    let filtered = [...allDesigners]
 
     if (searchTerm) {
       filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -178,7 +165,7 @@ export default function DesignersPage() {
     setHasMore(true)
     setDisplayedDesigners([])
     setLimitReached(false)
-  }, [designers, searchTerm, sortBy])
+  }, [allDesigners, searchTerm, sortBy])
 
   // CORRECTION: Charger plus d'éléments avec limitation pour les comptes gratuits
   const loadMore = useCallback(() => {
@@ -269,16 +256,17 @@ export default function DesignersPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-8">Designers ({filteredDesigners.length})</h1>
+        <h1 className="text-4xl font-serif text-gray-900 mb-8">
+          Designers ({displayedDesigners.length}/{filteredDesigners.length})
+        </h1>
 
         {/* Message pour les utilisateurs non connectés ou "free" */}
         {(!user || userData?.role === "free") && (
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm text-orange-800">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
             <p className="flex items-center font-serif">
               <span className="mr-2">ℹ️</span>
               <span>
-                {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des designers sont affichés (
-                {filteredDesigners.length}).
+                {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des designers sont affichés.
                 <Link href="/pricing" className="ml-1 underline font-medium">
                   Passez à Premium
                 </Link>{" "}
