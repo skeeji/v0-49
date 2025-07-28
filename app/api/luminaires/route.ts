@@ -138,6 +138,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Add _id as secondary sort criterion for stable sorting
+    sort._id = 1
+
     // Compter le total avec le bon filtre
     const total = await collection.countDocuments(sortFilter)
     console.log(`📊 Total luminaires trouvés: ${total}`)
