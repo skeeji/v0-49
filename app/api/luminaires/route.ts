@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
     const designer = searchParams.get("designer") || ""
     const yearMin = searchParams.get("yearMin")
     const yearMax = searchParams.get("yearMax")
+
+    // Paramètres de tri
     const sortField = searchParams.get("sortField") || "nom"
     const sortDirection = searchParams.get("sortDirection") || "asc"
 
@@ -25,12 +27,12 @@ export async function GET(request: NextRequest) {
     // Filtre de recherche textuelle
     if (search) {
       filter.$or = [
-        { "Nom luminaire": { $regex: search, $options: "i" } },
         { nom: { $regex: search, $options: "i" } },
-        { "Artiste / Dates": { $regex: search, $options: "i" } },
+        { "Nom luminaire": { $regex: search, $options: "i" } },
         { designer: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
+        { "Artiste / Dates": { $regex: search, $options: "i" } },
         { materiaux: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
       ]
     }
 
@@ -39,8 +41,8 @@ export async function GET(request: NextRequest) {
       filter.$and = filter.$and || []
       filter.$and.push({
         $or: [
-          { "Artiste / Dates": { $regex: designer, $options: "i" } },
           { designer: { $regex: designer, $options: "i" } },
+          { "Artiste / Dates": { $regex: designer, $options: "i" } },
         ],
       })
     }
@@ -59,12 +61,41 @@ export async function GET(request: NextRequest) {
           {
             $expr: {
               $and: [
-                { $ne: [{ $type: "$annee" }, "missing"] },
                 {
-                  $and: [
-                    yearMin ? { $gte: [{ $toInt: "$annee" }, Number.parseInt(yearMin)] } : {},
-                    yearMax ? { $lte: [{ $toInt: "$annee" }, Number.parseInt(yearMax)] } : {},
-                  ].filter(Boolean),
+                  $gte: [
+                    {
+                      $toInt: {
+                        $arrayElemAt: [
+                          {
+                            $regexFindAll: {
+                              input: { $ifNull: ["$Artiste / Dates", ""] },
+                              regex: "\\b(1[0-9]{3}|20[0-9]{2})\\b",
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    yearMin ? Number.parseInt(yearMin) : 0,
+                  ],
+                },
+                {
+                  $lte: [
+                    {
+                      $toInt: {
+                        $arrayElemAt: [
+                          {
+                            $regexFindAll: {
+                              input: { $ifNull: ["$Artiste / Dates", ""] },
+                              regex: "\\b(1[0-9]{3}|20[0-9]{2})\\b",
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    yearMax ? Number.parseInt(yearMax) : 3000,
+                  ],
                 },
               ],
             },
@@ -73,36 +104,41 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Construction du tri
+    // Construction de l'objet de tri
     const sort: any = {}
 
-    // Mappage des champs de tri
+    // Mapping des champs de tri
     const sortFieldMap: { [key: string]: string } = {
-      nom: "Nom luminaire",
-      designer: "Artiste / Dates",
+      nom: "nom",
+      designer: "designer",
       annee: "annee",
     }
 
-    const actualSortField = sortFieldMap[sortField] || sortField
+    const actualSortField = sortFieldMap[sortField] || "nom"
     sort[actualSortField] = sortDirection === "desc" ? -1 : 1
 
-    // CORRECTION: Ajouter _id comme critère de tri secondaire pour stabilité
+    // Tri de fallback sur les champs alternatifs
+    if (actualSortField === "nom") {
+      sort["Nom luminaire"] = sortDirection === "desc" ? -1 : 1
+    } else if (actualSortField === "designer") {
+      sort["Artiste / Dates"] = sortDirection === "desc" ? -1 : 1
+    } else if (actualSortField === "annee") {
+      sort["year"] = sortDirection === "desc" ? -1 : 1
+    }
+
+    // CORRECTION: Ajouter _id comme critère de tri stable pour éviter les doublons
     sort._id = 1
 
     console.log("🔍 Filtre MongoDB:", JSON.stringify(filter, null, 2))
     console.log("📊 Tri MongoDB:", JSON.stringify(sort, null, 2))
 
-    // Exécution des requêtes
-    const [luminaires, totalCount] = await Promise.all([
-      db.collection("luminaires").find(filter).sort(sort).skip(skip).limit(limit).toArray(),
-      db.collection("luminaires").countDocuments(filter),
-    ])
+    // Compter le total d'éléments
+    const total = await db.collection("luminaires").countDocuments(filter)
 
-    console.log(`✅ ${luminaires.length} luminaires trouvés (page ${page}, total: ${totalCount})`)
+    // Récupérer les luminaires avec pagination
+    const luminaires = await db.collection("luminaires").find(filter).sort(sort).skip(skip).limit(limit).toArray()
 
-    // Calcul de la pagination
-    const totalPages = Math.ceil(totalCount / limit)
-    const hasMore = page < totalPages
+    console.log(`✅ ${luminaires.length} luminaires trouvés (page ${page}/${Math.ceil(total / limit)})`)
 
     return NextResponse.json({
       success: true,
@@ -113,9 +149,9 @@ export async function GET(request: NextRequest) {
       pagination: {
         page,
         limit,
-        total: totalCount,
-        totalPages,
-        hasMore,
+        total,
+        pages: Math.ceil(total / limit),
+        hasMore: page < Math.ceil(total / limit),
       },
     })
   } catch (error) {
@@ -129,12 +165,7 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase()
     const luminaireData = await request.json()
 
-    // Validation des données requises
-    if (!luminaireData.nom && !luminaireData["Nom luminaire"]) {
-      return NextResponse.json({ success: false, error: "Le nom du luminaire est requis" }, { status: 400 })
-    }
-
-    // Ajouter les métadonnées
+    // Ajouter un timestamp de création
     const newLuminaire = {
       ...luminaireData,
       createdAt: new Date(),
@@ -142,8 +173,6 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await db.collection("luminaires").insertOne(newLuminaire)
-
-    console.log("✅ Nouveau luminaire créé:", result.insertedId)
 
     return NextResponse.json({
       success: true,

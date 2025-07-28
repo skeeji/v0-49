@@ -7,9 +7,10 @@ import Link from "next/link"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function DesignersPage() {
-  const [allDesigners, setAllDesigners] = useState([])
+  const [designers, setDesigners] = useState([])
   const [filteredDesigners, setFilteredDesigners] = useState([])
   const [displayedDesigners, setDisplayedDesigners] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -18,6 +19,7 @@ export default function DesignersPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
+  const [limitReached, setLimitReached] = useState(false)
   const { user, userData } = useAuth()
 
   const ITEMS_PER_PAGE = 50
@@ -26,10 +28,6 @@ export default function DesignersPage() {
     threshold: 0,
     rootMargin: "100px",
   })
-
-  // Calculer la limite pour les comptes gratuits
-  const freeUserLimit =
-    !user || userData?.role === "free" ? Math.ceil(filteredDesigners.length * 0.1) : filteredDesigners.length
 
   useEffect(() => {
     async function fetchData() {
@@ -42,7 +40,7 @@ export default function DesignersPage() {
         if (luminairesData.success) {
           console.log(`👨‍🎨 Extraction des designers depuis ${luminairesData.luminaires.length} luminaires`)
 
-          // Grouper les luminaires par designer et récupérer l'image du designer
+          // CORRECTION: Grouper les luminaires par designer et récupérer l'image du designer
           const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
             const designerName = luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"
 
@@ -51,6 +49,7 @@ export default function DesignersPage() {
                 name: designerName,
                 count: 0,
                 luminaires: [],
+                // CORRECTION: Récupérer l'image du designer depuis designerImageFilename
                 image: luminaire.designerImageFilename ? `/api/images/filename/${luminaire.designerImageFilename}` : "",
                 slug: encodeURIComponent(designerName),
                 years: [],
@@ -59,11 +58,13 @@ export default function DesignersPage() {
 
             acc[designerName].count++
 
+            // CORRECTION: Si on trouve une image de designer, l'utiliser
             if (luminaire.designerImageFilename && !acc[designerName].image) {
               acc[designerName].image = `/api/images/filename/${luminaire.designerImageFilename}`
               console.log(`🖼️ Image designer trouvée pour ${designerName}: ${luminaire.designerImageFilename}`)
             }
 
+            // Correction du bug d'affichage des images de luminaires
             const imageFilename = luminaire.filename || luminaire["Nom du fichier"]
 
             acc[designerName].luminaires.push({
@@ -86,7 +87,7 @@ export default function DesignersPage() {
 
           console.log(`👨‍🎨 ${Object.keys(designerGroups).length} designers uniques trouvés`)
 
-          // Essayer aussi l'ancienne méthode en fallback
+          // CORRECTION: Essayer aussi l'ancienne méthode en fallback
           try {
             const designersResponse = await fetch("/api/designers-data")
             const designersResult = await designersResponse.json()
@@ -116,9 +117,19 @@ export default function DesignersPage() {
 
           console.log(`✅ ${designersArray.length} designers finaux`)
 
-          // Stocker TOUS les designers
-          setAllDesigners(designersArray)
-          setFilteredDesigners(designersArray)
+          // Pour les utilisateurs non connectés ou "free", limiter à 10% des designers
+          if (!user || userData?.role === "free") {
+            const limitedDesigners = designersArray.slice(0, Math.max(Math.floor(designersArray.length * 0.1), 5))
+            setDesigners(limitedDesigners)
+            setFilteredDesigners(limitedDesigners)
+            console.log(
+              `🔒 Utilisateur gratuit : ${limitedDesigners.length}/${designersArray.length} designers affichés`,
+            )
+          } else {
+            setDesigners(designersArray)
+            setFilteredDesigners(designersArray)
+            console.log(`✅ Utilisateur premium/admin : ${designersArray.length} designers affichés`)
+          }
         }
       } catch (error) {
         console.error("❌ Erreur chargement données:", error)
@@ -128,11 +139,11 @@ export default function DesignersPage() {
     }
 
     fetchData()
-  }, [])
+  }, [user, userData])
 
   // Filtrer et trier
   useEffect(() => {
-    let filtered = [...allDesigners]
+    let filtered = [...designers]
 
     if (searchTerm) {
       filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -166,37 +177,76 @@ export default function DesignersPage() {
     setPage(0)
     setHasMore(true)
     setDisplayedDesigners([])
-  }, [allDesigners, searchTerm, sortBy])
+    setLimitReached(false)
+  }, [designers, searchTerm, sortBy])
 
-  // Charger plus d'éléments - maintenant charge TOUS les designers
+  // CORRECTION: Charger plus d'éléments avec limitation pour les comptes gratuits
   const loadMore = useCallback(() => {
-    if (isLoadingMore || !hasMore) return
+    if (isLoadingMore || !hasMore || limitReached) return
 
     setIsLoadingMore(true)
 
     setTimeout(() => {
       const startIndex = page * ITEMS_PER_PAGE
       const endIndex = startIndex + ITEMS_PER_PAGE
-      const newItems = filteredDesigners.slice(startIndex, endIndex)
+      let newItems = filteredDesigners.slice(startIndex, endIndex)
 
-      if (page === 0) {
-        setDisplayedDesigners(newItems)
+      // CORRECTION: Limiter à 10% pour les utilisateurs non connectés ou gratuits
+      if (!user || userData?.role === "free") {
+        const maxAllowed = Math.ceil(filteredDesigners.length * 0.1)
+
+        if (page === 0) {
+          // Première page : limiter directement
+          newItems = newItems.slice(0, maxAllowed)
+          setDisplayedDesigners(newItems)
+
+          if (newItems.length >= maxAllowed) {
+            console.log(`🔒 Limite de 10% atteinte pour les designers: ${newItems.length}/${filteredDesigners.length}`)
+            setLimitReached(true)
+            setHasMore(false)
+          }
+        } else {
+          // Pages suivantes : vérifier si on dépasse la limite
+          const currentCount = displayedDesigners.length
+          const remainingAllowed = maxAllowed - currentCount
+
+          if (remainingAllowed <= 0) {
+            console.log("🚫 Limite de 10% atteinte, arrêt du scroll infini")
+            setLimitReached(true)
+            setHasMore(false)
+            setIsLoadingMore(false)
+            return
+          }
+
+          newItems = newItems.slice(0, remainingAllowed)
+          setDisplayedDesigners((prev) => [...prev, ...newItems])
+
+          if (currentCount + newItems.length >= maxAllowed) {
+            setLimitReached(true)
+            setHasMore(false)
+          }
+        }
       } else {
-        setDisplayedDesigners((prev) => [...prev, ...newItems])
+        // Utilisateurs premium/admin : comportement normal
+        if (page === 0) {
+          setDisplayedDesigners(newItems)
+        } else {
+          setDisplayedDesigners((prev) => [...prev, ...newItems])
+        }
+        setHasMore(endIndex < filteredDesigners.length)
       }
 
       setPage((prev) => prev + 1)
-      setHasMore(endIndex < filteredDesigners.length)
       setIsLoadingMore(false)
     }, 300)
-  }, [page, filteredDesigners, isLoadingMore, hasMore])
+  }, [page, filteredDesigners, isLoadingMore, hasMore, limitReached, user, userData, displayedDesigners.length])
 
   // Charger plus quand on arrive en bas
   useEffect(() => {
-    if (inView && !isLoadingMore && hasMore) {
+    if (inView && !isLoadingMore && hasMore && !limitReached) {
       loadMore()
     }
-  }, [inView, loadMore, isLoadingMore, hasMore])
+  }, [inView, loadMore, isLoadingMore, hasMore, limitReached])
 
   // Charger la première page
   useEffect(() => {
@@ -219,21 +269,16 @@ export default function DesignersPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-8">
-          Designers ({displayedDesigners.length}/{filteredDesigners.length})
-          {(!user || userData?.role === "free") && filteredDesigners.length > 0 && (
-            <span className="text-orange-600 text-2xl ml-2">({freeUserLimit} accessibles)</span>
-          )}
-        </h1>
+        <h1 className="text-4xl font-serif text-gray-900 mb-8">Designers ({filteredDesigners.length})</h1>
 
-        {/* Message pour les utilisateurs non connectés ou "free" - couleurs du site */}
+        {/* Message pour les utilisateurs non connectés ou "free" */}
         {(!user || userData?.role === "free") && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm text-orange-800">
             <p className="flex items-center font-serif">
               <span className="mr-2">ℹ️</span>
               <span>
-                {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des designers sont
-                accessibles.
+                {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des designers sont affichés (
+                {filteredDesigners.length}).
                 <Link href="/pricing" className="ml-1 underline font-medium">
                   Passez à Premium
                 </Link>{" "}
@@ -272,84 +317,95 @@ export default function DesignersPage() {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {displayedDesigners.map((designer, index) => {
-                const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
-                const DesignerCard = isAccessible ? Link : "div"
-
-                return (
-                  <DesignerCard key={index} {...(isAccessible ? { href: `/designers/${designer.slug}` } : {})}>
-                    <div
-                      className={`bg-white rounded-xl p-6 shadow-lg transition-all cursor-pointer h-full ${
-                        isAccessible ? "hover:shadow-xl" : "opacity-50 grayscale cursor-not-allowed"
-                      }`}
-                    >
-                      <div className="text-center">
-                        {/* Portrait circulaire */}
-                        <div className="w-24 h-24 mx-auto mb-4 relative">
-                          {designer.image ? (
-                            <Image
-                              src={designer.image || "/placeholder.svg"}
-                              alt={designer.name}
-                              fill
-                              className="object-cover rounded-full"
-                              onError={(e) => {
-                                e.currentTarget.src = "/placeholder.svg"
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
-                              <div className="text-center">
-                                <div className="text-2xl text-gray-400 mb-1">👤</div>
-                                <span className="text-xs text-gray-500 font-serif">Image manquante</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
-
-                        <p className="text-gray-600 mb-4 font-serif">
-                          {designer.count} luminaire{designer.count > 1 ? "s" : ""}
-                        </p>
-
-                        {/* Aperçu des luminaires */}
-                        <div className="grid grid-cols-3 gap-2 mb-4">
-                          {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
-                            <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
-                              <Image
-                                src={luminaire.image || "/placeholder.svg"}
-                                alt={luminaire.name}
-                                fill
-                                className="object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg?height=80&width=80"
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-
-                        {isAccessible ? (
-                          <span
-                            className="font-medium font-serif hover:opacity-80 transition-opacity"
-                            style={{ color: "#d4a574" }}
-                          >
-                            Voir le designer →
-                          </span>
+              {displayedDesigners.map((designer, index) => (
+                <Link key={index} href={`/designers/${designer.slug}`}>
+                  <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow cursor-pointer h-full">
+                    <div className="text-center">
+                      {/* Portrait circulaire */}
+                      <div className="w-24 h-24 mx-auto mb-4 relative">
+                        {designer.image ? (
+                          <Image
+                            src={designer.image || "/placeholder.svg"}
+                            alt={designer.name}
+                            fill
+                            className="object-cover rounded-full"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg"
+                            }}
+                          />
                         ) : (
-                          <div className="text-center">
-                            <span className="text-gray-400 font-serif text-sm">🔒 Premium requis</span>
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
+                            <div className="text-center">
+                              <div className="text-2xl text-gray-400 mb-1">👤</div>
+                              <span className="text-xs text-gray-500 font-serif">Image manquante</span>
+                            </div>
                           </div>
                         )}
                       </div>
+
+                      <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
+
+                      <p className="text-gray-600 mb-4 font-serif">
+                        {designer.count} luminaire{designer.count > 1 ? "s" : ""}
+                      </p>
+
+                      {/* Aperçu des luminaires */}
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
+                          <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
+                            <Image
+                              src={luminaire.image || "/placeholder.svg"}
+                              alt={luminaire.name}
+                              fill
+                              className="object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <span
+                        className="font-medium font-serif hover:opacity-80 transition-opacity"
+                        style={{ color: "#d4a574" }}
+                      >
+                        Voir le designer →
+                      </span>
                     </div>
-                  </DesignerCard>
-                )
-              })}
+                  </div>
+                </Link>
+              ))}
             </div>
 
+            {/* CORRECTION: Message de limite atteinte pour les utilisateurs gratuits */}
+            {limitReached && (!user || userData?.role === "free") && (
+              <div className="text-center mt-8 py-8 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl shadow-lg">
+                <div className="max-w-md mx-auto">
+                  <div className="text-4xl mb-4">🔒</div>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">Limite atteinte</h3>
+                  <p className="text-gray-600 mb-4">
+                    Vous avez vu {displayedDesigners.length} designers sur {filteredDesigners.length} disponibles (10%
+                    de la collection)
+                  </p>
+                  <p className="text-sm text-gray-500 mb-6">
+                    Passez à Premium pour découvrir {filteredDesigners.length - displayedDesigners.length} designers
+                    supplémentaires
+                  </p>
+                  <Button
+                    asChild
+                    size="lg"
+                    style={{ backgroundColor: "#f2d895", color: "#000" }}
+                    className="hover:opacity-90"
+                  >
+                    <Link href="/pricing">🚀 Passer à Premium</Link>
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Indicateur de chargement */}
-            {hasMore && (
+            {hasMore && !limitReached && (
               <div ref={ref} className="text-center py-8">
                 {isLoadingMore && (
                   <div className="flex items-center justify-center gap-2">
@@ -360,7 +416,7 @@ export default function DesignersPage() {
               </div>
             )}
 
-            {!hasMore && displayedDesigners.length > 0 && (
+            {!hasMore && displayedDesigners.length > 0 && !limitReached && user && userData?.role !== "free" && (
               <div className="text-center py-8 text-gray-500">
                 <p className="font-serif">Tous les designers ont été chargés</p>
               </div>
