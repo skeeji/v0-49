@@ -1,16 +1,86 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { CheckCircle, XCircle } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false)
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [formData, setFormData] = useState({
+    nom: "",
+    prenom: "",
+    email: "",
+    telephone: "",
+    duree: "",
+    message: "",
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const monthlyPrice = 30
   const annualPrice = 22 // 2 mois offerts
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+      message:
+        field === "duree" && value
+          ? `Bonjour, Je souhaite avoir un abonnement premium pour une durée de ${value}.`
+          : prev.message,
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch("/api/send-premium-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        alert("Votre demande a été envoyée avec succès !")
+        setIsDialogOpen(false)
+        setFormData({
+          nom: "",
+          prenom: "",
+          email: "",
+          telephone: "",
+          duree: "",
+          message: "",
+        })
+      } else {
+        alert("Erreur lors de l'envoi de la demande")
+      }
+    } catch (error) {
+      alert("Erreur lors de l'envoi de la demande")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -103,14 +173,98 @@ export default function PricingPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button
-                className="w-full text-white"
-                style={{ backgroundColor: "#f2d895" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
-              >
-                Passer à Premium
-              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    className="w-full text-white"
+                    style={{ backgroundColor: "#f2d895" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  >
+                    Passer à Premium
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Demande d'abonnement Premium</DialogTitle>
+                    <DialogDescription>Remplissez ce formulaire pour demander un abonnement Premium</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="nom">Nom *</Label>
+                        <Input
+                          id="nom"
+                          value={formData.nom}
+                          onChange={(e) => handleInputChange("nom", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="prenom">Prénom *</Label>
+                        <Input
+                          id="prenom"
+                          value={formData.prenom}
+                          onChange={(e) => handleInputChange("prenom", e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Adresse email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange("email", e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="telephone">Téléphone *</Label>
+                      <Input
+                        id="telephone"
+                        type="tel"
+                        value={formData.telephone}
+                        onChange={(e) => handleInputChange("telephone", e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="duree">Durée souhaitée *</Label>
+                      <Select onValueChange={(value) => handleInputChange("duree", value)} required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionnez une durée" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1 mois">1 mois</SelectItem>
+                          <SelectItem value="3 mois">3 mois</SelectItem>
+                          <SelectItem value="6 mois">6 mois</SelectItem>
+                          <SelectItem value="1 an">1 an</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="message">Message</Label>
+                      <Textarea
+                        id="message"
+                        value={formData.message}
+                        onChange={(e) => handleInputChange("message", e.target.value)}
+                        rows={3}
+                        readOnly
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isSubmitting}
+                      style={{ backgroundColor: "#f2d895" }}
+                    >
+                      {isSubmitting ? "Envoi en cours..." : "Envoyer la demande"}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
 
               <div className="space-y-3 pt-4">
                 <div className="flex items-start space-x-3">
