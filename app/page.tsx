@@ -191,8 +191,15 @@ export default function HomePage() {
   }
 
   const handleImageSearch = async (file: File) => {
-    // Vérifier la limite pour les utilisateurs non connectés ou gratuits
-    if (!user || userData?.role === "free") {
+    // Vérifier si l'utilisateur est connecté
+    if (!user) {
+      toast.error("Connexion requise pour utiliser la recherche IA")
+      setShowLoginModal(true)
+      return
+    }
+
+    // Vérifier la limite pour les utilisateurs gratuits connectés
+    if (userData?.role === "free") {
       if (searchCount >= monthlySearchLimit) {
         toast.error(`Limite de ${monthlySearchLimit} recherches par mois atteinte`)
         setShowLoginModal(true)
@@ -210,8 +217,8 @@ export default function HomePage() {
       const apiResponse = await callImageSimilarityAPI(file)
 
       if (apiResponse.success && apiResponse.data && apiResponse.data.length > 0) {
-        // Incrémenter le compteur pour les utilisateurs non connectés ou gratuits
-        if (!user || userData?.role === "free") {
+        // Incrémenter le compteur pour les utilisateurs gratuits
+        if (userData?.role === "free") {
           setSearchCount((prev) => prev + 1)
         }
 
@@ -225,7 +232,7 @@ export default function HomePage() {
           toast.success(`${processedResults.length} luminaire(s) similaire(s) trouvé(s)`)
 
           // Message d'avertissement pour les utilisateurs gratuits
-          if (!user || userData?.role === "free") {
+          if (userData?.role === "free") {
             const remaining = monthlySearchLimit - searchCount - 1
             if (remaining <= 1) {
               toast.warning(`Plus que ${remaining} recherche(s) restante(s) ce mois-ci`)
@@ -629,19 +636,6 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Message pour les utilisateurs qui ont atteint la limite */}
-          {(!user || userData?.role === "free") && searchCount >= monthlySearchLimit && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-              <p className="text-sm text-yellow-800 font-medium mb-2">Limite de recherches atteinte</p>
-              <p className="text-sm text-yellow-700 mb-3">
-                Vous avez utilisé vos {monthlySearchLimit} recherches gratuites ce mois-ci.
-              </p>
-              <Button asChild size="sm" style={{ backgroundColor: "#f2d895", color: "#000" }}>
-                <Link href="/pricing">Passer à Premium</Link>
-              </Button>
-            </div>
-          )}
-
           {/* Affichage de l'image après recherche */}
           {capturedImage && !isSearching && searchResults.length > 0 && (
             <div className="mb-8">
@@ -671,42 +665,43 @@ export default function HomePage() {
           {!searchMode && !capturedImage && !isSearching && (
             <div className="space-y-4">
               <Button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  if (!user) {
+                    toast.error("Connexion requise pour utiliser la recherche IA")
+                    setShowLoginModal(true)
+                    return
+                  }
+                  fileInputRef.current?.click()
+                }}
                 className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
                 style={{ backgroundColor: "#f2d895" }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
-                disabled={isSearching || ((!user || userData?.role === "free") && searchCount >= monthlySearchLimit)}
+                disabled={isSearching}
               >
                 <Upload className="w-5 h-5 mr-3" />
                 Téléverser une image
               </Button>
 
               <Button
-                onClick={startCamera}
+                onClick={() => {
+                  if (!user) {
+                    toast.error("Connexion requise pour utiliser la recherche IA")
+                    setShowLoginModal(true)
+                    return
+                  }
+                  startCamera()
+                }}
                 className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
-                style={{ backgroundColor: !user || userData?.role === "free" ? "#ccc" : "#f2d895" }}
-                onMouseEnter={(e) => {
-                  if (user && userData?.role !== "free") {
-                    e.currentTarget.style.backgroundColor = "#e6c77a"
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (user && userData?.role !== "free") {
-                    e.currentTarget.style.backgroundColor = "#f2d895"
-                  }
-                }}
-                disabled={isSearching || isCameraLoading || !user || userData?.role === "free"}
+                style={{ backgroundColor: "#f2d895" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                disabled={isSearching || isCameraLoading}
               >
                 {isCameraLoading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-white mr-3"></div>
                     Activation caméra...
-                  </>
-                ) : !user || userData?.role === "free" ? (
-                  <>
-                    <Camera className="w-5 h-5 mr-3" />
-                    Fonctionnalité Premium
                   </>
                 ) : (
                   <>
@@ -717,7 +712,8 @@ export default function HomePage() {
               </Button>
 
               <p className="text-xs text-slate-500 text-center leading-relaxed">
-                Notre IA analyse votre image et trouve les 10 luminaires les plus similaires dans notre collection
+                Connectez-vous pour utiliser notre IA qui analyse votre image et trouve les 10 luminaires les plus
+                similaires
               </p>
             </div>
           )}
