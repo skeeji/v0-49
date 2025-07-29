@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,18 +9,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 })
     }
 
-    // Configuration du transporteur Gmail
-    const transporter = nodemailer.createTransporter({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    })
-
-    // Configuration de l'email
-    const mailOptions = {
-      from: process.env.GMAIL_USER,
+    // Configuration de l'email avec Resend
+    const emailData = {
+      from: "noreply@votre-domaine.com", // Remplacez par votre domaine vérifié
       to: "paul.quentin1@gmail.com",
       subject: `Nouvelle demande d'abonnement Premium - ${prenom} ${nom}`,
       html: `
@@ -88,24 +78,44 @@ export async function POST(request: NextRequest) {
       `,
     }
 
-    // Envoi de l'email
-    const info = await transporter.sendMail(mailOptions)
+    // Vérification de la clé API Resend
+    if (!process.env.RESEND_API_KEY) {
+      console.error("RESEND_API_KEY non configurée")
+      return NextResponse.json({ error: "Configuration email manquante" }, { status: 500 })
+    }
 
-    console.log("Email envoyé avec succès:", info.messageId)
-    console.log("Aperçu:", nodemailer.getTestMessageUrl(info))
+    // Envoi avec Resend
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(emailData),
+    })
+
+    if (!resendResponse.ok) {
+      const errorData = await resendResponse.json()
+      console.error("Erreur Resend:", errorData)
+      return NextResponse.json({ error: "Erreur lors de l'envoi de l'email", details: errorData }, { status: 500 })
+    }
+
+    const result = await resendResponse.json()
+    console.log("Email envoyé avec succès via Resend:", result)
 
     return NextResponse.json({
       success: true,
       message: "Demande envoyée avec succès",
-      messageId: info.messageId,
+      emailId: result.id,
     })
   } catch (error) {
-    console.error("Erreur lors de l'envoi de l'email:", error)
+    console.error("Erreur complète lors de l'envoi de l'email:", error)
 
     return NextResponse.json(
       {
         error: "Erreur lors de l'envoi de l'email",
         details: error.message,
+        timestamp: new Date().toISOString(),
       },
       { status: 500 },
     )
