@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import nodemailer from "nodemailer"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,9 +10,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 })
     }
 
-    // Configuration de l'email avec Resend
-    const emailData = {
-      from: "noreply@votre-domaine.com", // Remplacez par votre domaine vérifié
+    // Configuration du transporteur Gmail
+    const transporter = nodemailer.createTransporter({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    })
+
+    // Configuration de l'email
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
       to: "paul.quentin1@gmail.com",
       subject: `Nouvelle demande d'abonnement Premium - ${prenom} ${nom}`,
       html: `
@@ -78,78 +88,24 @@ export async function POST(request: NextRequest) {
       `,
     }
 
-    // Tentative d'envoi avec Resend
-    try {
-      const resendResponse = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(emailData),
-      })
+    // Envoi de l'email
+    const info = await transporter.sendMail(mailOptions)
 
-      if (!resendResponse.ok) {
-        const errorData = await resendResponse.json()
-        console.error("Erreur Resend:", errorData)
-        throw new Error(`Resend API error: ${resendResponse.status}`)
-      }
+    console.log("Email envoyé avec succès:", info.messageId)
+    console.log("Aperçu:", nodemailer.getTestMessageUrl(info))
 
-      const result = await resendResponse.json()
-      console.log("Email envoyé avec succès via Resend:", result)
-
-      return NextResponse.json({
-        success: true,
-        message: "Demande envoyée avec succès",
-        emailId: result.id,
-      })
-    } catch (resendError) {
-      console.error("Erreur avec Resend, tentative avec Nodemailer:", resendError)
-
-      // Fallback avec Nodemailer + Gmail SMTP
-      const nodemailer = require("nodemailer")
-
-      const transporter = nodemailer.createTransporter({
-        service: "gmail",
-        auth: {
-          user: process.env.GMAIL_USER || "votre-email@gmail.com",
-          pass: process.env.GMAIL_APP_PASSWORD || "votre-mot-de-passe-app",
-        },
-      })
-
-      const mailOptions = {
-        from: process.env.GMAIL_USER || "votre-email@gmail.com",
-        to: "paul.quentin1@gmail.com",
-        subject: emailData.subject,
-        html: emailData.html,
-        text: emailData.text,
-      }
-
-      const info = await transporter.sendMail(mailOptions)
-      console.log("Email envoyé avec succès via Gmail:", info.messageId)
-
-      return NextResponse.json({
-        success: true,
-        message: "Demande envoyée avec succès",
-        messageId: info.messageId,
-      })
-    }
-  } catch (error) {
-    console.error("Erreur complète lors de l'envoi de l'email:", error)
-
-    // Log détaillé pour le debugging
-    console.error("Stack trace:", error.stack)
-    console.error("Variables d'environnement disponibles:", {
-      RESEND_API_KEY: process.env.RESEND_API_KEY ? "Définie" : "Non définie",
-      GMAIL_USER: process.env.GMAIL_USER ? "Définie" : "Non définie",
-      GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD ? "Définie" : "Non définie",
+    return NextResponse.json({
+      success: true,
+      message: "Demande envoyée avec succès",
+      messageId: info.messageId,
     })
+  } catch (error) {
+    console.error("Erreur lors de l'envoi de l'email:", error)
 
     return NextResponse.json(
       {
         error: "Erreur lors de l'envoi de l'email",
         details: error.message,
-        timestamp: new Date().toISOString(),
       },
       { status: 500 },
     )
