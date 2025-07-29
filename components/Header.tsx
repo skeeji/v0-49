@@ -1,9 +1,11 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DrawerNav } from "@/components/DrawerNav"
@@ -15,6 +17,7 @@ export function Header() {
   const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
   const { user, userData, signInWithGoogle } = useAuth()
   const pathname = usePathname()
+  const router = useRouter()
 
   useEffect(() => {
     const loadLogo = async () => {
@@ -41,6 +44,17 @@ export function Header() {
     loadLogo()
   }, [])
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (pathname === "/") {
+      // Si on est déjà sur la page d'accueil, on recharge la page
+      window.location.reload()
+    } else {
+      // Sinon on navigue vers la page d'accueil
+      router.push("/")
+    }
+  }
+
   const navItems = [
     { href: "/luminaires", label: "Luminaires" },
     { href: "/designers", label: "Designers" },
@@ -62,7 +76,7 @@ export function Header() {
         <div className="container mx-auto px-4 h-full">
           <div className="flex items-center justify-between h-full">
             {/* Logo - Taille encore plus grande */}
-            <Link href="/" className="flex items-center">
+            <a href="/" onClick={handleLogoClick} className="flex items-center cursor-pointer">
               <div className="w-32 h-32 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
@@ -74,7 +88,7 @@ export function Header() {
                   }}
                 />
               </div>
-            </Link>
+            </a>
 
             {/* Navigation desktop */}
             <nav className="hidden md:flex items-center space-x-8">
