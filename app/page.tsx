@@ -33,8 +33,8 @@ export default function HomePage() {
   const [showLoginModal, setShowLoginModal] = useState(false)
 
   // États pour les restrictions
-  const [searchCount, setSearchCount] = useState(0)
-  const [monthlySearchLimit] = useState(3)
+  // const [searchCount, setSearchCount] = useState(0)
+  // const [monthlySearchLimit] = useState(3)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -200,10 +200,9 @@ export default function HomePage() {
 
     // Vérifier la limite pour les utilisateurs gratuits connectés
     if (userData?.role === "free") {
-      if (searchCount >= monthlySearchLimit) {
-        toast.error(`Limite de ${monthlySearchLimit} recherches par mois atteinte`)
-        setShowLoginModal(true)
-        return
+      const canProceed = await incrementSearchCount()
+      if (!canProceed) {
+        return // Le message d'erreur est déjà affiché par incrementSearchCount
       }
     }
 
@@ -217,11 +216,6 @@ export default function HomePage() {
       const apiResponse = await callImageSimilarityAPI(file)
 
       if (apiResponse.success && apiResponse.data && apiResponse.data.length > 0) {
-        // Incrémenter le compteur pour les utilisateurs gratuits
-        if (userData?.role === "free") {
-          setSearchCount((prev) => prev + 1)
-        }
-
         console.log(`🎉 API réussie! ${apiResponse.data.length} résultats`)
         const processedResults = processApiResults(apiResponse.data)
 
@@ -233,7 +227,7 @@ export default function HomePage() {
 
           // Message d'avertissement pour les utilisateurs gratuits
           if (userData?.role === "free") {
-            const remaining = monthlySearchLimit - searchCount - 1
+            const remaining = 3 - (userData.searchCount || 0)
             if (remaining <= 1) {
               toast.warning(`Plus que ${remaining} recherche(s) restante(s) ce mois-ci`)
             }
@@ -690,18 +684,35 @@ export default function HomePage() {
                     setShowLoginModal(true)
                     return
                   }
+                  if (userData?.role === "free") {
+                    toast.error("Fonctionnalité réservée aux comptes Premium")
+                    return
+                  }
                   startCamera()
                 }}
                 className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
-                style={{ backgroundColor: "#f2d895" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
-                disabled={isSearching || isCameraLoading}
+                style={{ backgroundColor: userData?.role === "free" ? "#ccc" : "#f2d895" }}
+                onMouseEnter={(e) => {
+                  if (userData?.role !== "free") {
+                    e.currentTarget.style.backgroundColor = "#e6c77a"
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (userData?.role !== "free") {
+                    e.currentTarget.style.backgroundColor = "#f2d895"
+                  }
+                }}
+                disabled={isSearching || isCameraLoading || userData?.role === "free"}
               >
                 {isCameraLoading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-white mr-3"></div>
                     Activation caméra...
+                  </>
+                ) : userData?.role === "free" ? (
+                  <>
+                    <Camera className="w-5 h-5 mr-3" />
+                    Fonctionnalité Premium
                   </>
                 ) : (
                   <>
