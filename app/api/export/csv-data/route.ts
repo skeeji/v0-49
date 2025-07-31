@@ -11,12 +11,20 @@ export async function GET(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Récupérer toutes les données depuis MongoDB
-    const luminaires = await collection.find({}).toArray()
+    // Récupérer toutes les données depuis MongoDB avec tri pour éviter les doublons
+    const luminaires = await collection.find({}).sort({ _id: 1 }).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
     // LOGIQUE CORRIGÉE POUR L'EXPORT CSV
-    const csvData = luminaires.map((luminaire) => {
+    const csvData = luminaires.map((luminaire, index) => {
+      console.log(`🔍 Luminaire ${index + 1}:`, {
+        nom: luminaire.nom,
+        collaboration: luminaire.collaboration,
+        specialite: luminaire.specialite,
+        periode: luminaire.periode,
+        toutesLesCles: Object.keys(luminaire),
+      })
+
       // Champs simples avec fallback
       const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
       const designer = luminaire.designer || luminaire["Artiste / Dates"] || ""
@@ -27,25 +35,21 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ
+      // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ - Priorité aux champs modifiés
       let specialite = ""
-      // D'abord chercher dans 'periode'
-      if (luminaire.periode && String(luminaire.periode).trim() !== "") {
+      if (luminaire.specialite && String(luminaire.specialite).trim() !== "") {
+        specialite = String(luminaire.specialite).trim()
+      } else if (luminaire.periode && String(luminaire.periode).trim() !== "") {
         specialite = String(luminaire.periode).trim()
-      }
-      // Sinon chercher dans 'Spécialité'
-      else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
+      } else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
         specialite = String(luminaire["Spécialité"]).trim()
       }
 
-      // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE
+      // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE - Priorité aux champs modifiés
       let collaboration = ""
-      // D'abord chercher dans 'collaboration'
       if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
         collaboration = String(luminaire.collaboration).trim()
-      }
-      // Sinon chercher dans 'Collaboration / Œuvre'
-      else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
+      } else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
         collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
       }
 
@@ -67,6 +71,13 @@ export async function GET(request: NextRequest) {
       } else if (luminaire.filename) {
         images = luminaire.filename
       }
+
+      console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {
+        nom: nom,
+        specialite: specialite,
+        collaboration: collaboration,
+        materiaux: materiaux,
+      })
 
       return {
         ID: luminaire._id.toString(),
