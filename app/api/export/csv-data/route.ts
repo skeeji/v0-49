@@ -15,18 +15,16 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // UTILISATION DE LA MÊME LOGIQUE QUE LA PAGE LUMINAIRE ID
+    // UTILISATION DES MÊMES CLÉS QUE LE PDF DE LA PAGE ID
     const csvData = luminaires.map((luminaire, index) => {
       // Debug pour les premiers luminaires seulement
       if (index < 3) {
-        console.log(`🔍 Luminaire ${index + 1} - Valeurs brutes:`, {
+        console.log(`🔍 Luminaire ${index + 1} - Clés utilisées par le PDF:`, {
           nom: luminaire.nom || luminaire["Nom luminaire"],
-          periode: luminaire.periode,
-          collaboration: luminaire.collaboration,
-          materiaux: luminaire.materiaux,
-          Spécialité: luminaire["Spécialité"],
-          "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
-          Matériaux: luminaire.Matériaux,
+          // CLÉS EXACTES UTILISÉES DANS LE PDF
+          periode: luminaire.periode, // <- CLÉ POUR SPÉCIALITÉ
+          collaboration: luminaire.collaboration, // <- CLÉ POUR COLLABORATION
+          materiaux: luminaire.materiaux, // <- CLÉ POUR MATÉRIAUX
         })
       }
 
@@ -40,44 +38,20 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // LOGIQUE EXACTE DE LA PAGE LUMINAIRE ID POUR SPÉCIALITÉ
-      const specialty = (() => {
-        // D'abord chercher dans 'periode'
-        if (luminaire.periode && String(luminaire.periode).trim() !== "") {
-          return String(luminaire.periode).trim()
-        }
-        // Sinon chercher dans 'Spécialité'
-        if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
-          return String(luminaire["Spécialité"]).trim()
-        }
-        return ""
-      })()
+      // UTILISATION DES MÊMES CLÉS QUE LE PDF
+      // Dans le PDF: luminaire.specialty (qui vient de periode)
+      const specialite = String(luminaire.periode || luminaire["Spécialité"] || "").trim()
 
-      // LOGIQUE EXACTE DE LA PAGE LUMINAIRE ID POUR COLLABORATION / ŒUVRE
-      const collaboration = (() => {
-        // D'abord chercher dans 'collaboration'
-        if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
-          return String(luminaire.collaboration).trim()
-        }
-        // Sinon chercher dans 'Collaboration / Œuvre'
-        if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
-          return String(luminaire["Collaboration / Œuvre"]).trim()
-        }
-        return ""
-      })()
+      // Dans le PDF: luminaire.collaboration (qui vient de collaboration)
+      const collaboration = String(luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "").trim()
 
-      // LOGIQUE EXACTE DE LA PAGE LUMINAIRE ID POUR MATÉRIAUX
-      const materials = (() => {
-        // D'abord chercher dans 'materiaux' (liste)
-        if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-          return luminaire.materiaux.join(", ")
-        }
-        // Sinon chercher dans 'Matériaux' (texte)
-        if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
-          return String(luminaire.Matériaux).trim()
-        }
-        return ""
-      })()
+      // Dans le PDF: luminaire.materials (qui vient de materiaux)
+      let materiaux = ""
+      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+        materiaux = luminaire.materiaux.join(", ")
+      } else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
+        materiaux = String(luminaire.Matériaux).trim()
+      }
 
       // Images
       let images = ""
@@ -93,12 +67,12 @@ export async function GET(request: NextRequest) {
         "Artiste / Dates": designer,
         Année: annee,
         Editeur: editeur,
-        Spécialité: specialty,
+        Spécialité: specialite,
         "Collaboration / Œuvre": collaboration,
         Description: description,
         Signé: signe,
         Dimensions: dimensions,
-        Matériaux: materials,
+        Matériaux: materiaux,
         Estimation: estimation,
         Prix: estimation,
         "Image luminaire": images,
