@@ -11,18 +11,20 @@ export async function GET(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Récupérer toutes les données depuis MongoDB avec tri pour éviter les doublons
-    const luminaires = await collection.find({}).sort({ _id: 1 }).toArray()
+    // Récupérer toutes les données depuis MongoDB
+    const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
     // LOGIQUE CORRIGÉE POUR L'EXPORT CSV
     const csvData = luminaires.map((luminaire, index) => {
-      console.log(`🔍 Luminaire ${index + 1}:`, {
-        nom: luminaire.nom,
+      // Debug: afficher toutes les clés disponibles pour ce luminaire
+      console.log(`🔍 Luminaire ${index + 1} - Clés disponibles:`, Object.keys(luminaire))
+      console.log(`🔍 Luminaire ${index + 1} - Valeurs collaboration/spécialité:`, {
         collaboration: luminaire.collaboration,
+        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
         specialite: luminaire.specialite,
         periode: luminaire.periode,
-        toutesLesCles: Object.keys(luminaire),
+        Spécialité: luminaire["Spécialité"],
       })
 
       // Champs simples avec fallback
@@ -35,25 +37,53 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ - Priorité aux champs modifiés
+      // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ - Chercher dans tous les champs possibles
       let specialite = ""
-      if (luminaire.specialite && String(luminaire.specialite).trim() !== "") {
+      // Priorité 1: champ 'specialite' (modifié via l'interface)
+      if (
+        luminaire.specialite !== undefined &&
+        luminaire.specialite !== null &&
+        String(luminaire.specialite).trim() !== ""
+      ) {
         specialite = String(luminaire.specialite).trim()
-      } else if (luminaire.periode && String(luminaire.periode).trim() !== "") {
+      }
+      // Priorité 2: champ 'periode' (peut être utilisé comme spécialité)
+      else if (
+        luminaire.periode !== undefined &&
+        luminaire.periode !== null &&
+        String(luminaire.periode).trim() !== ""
+      ) {
         specialite = String(luminaire.periode).trim()
-      } else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
+      }
+      // Priorité 3: champ original 'Spécialité'
+      else if (
+        luminaire["Spécialité"] !== undefined &&
+        luminaire["Spécialité"] !== null &&
+        String(luminaire["Spécialité"]).trim() !== ""
+      ) {
         specialite = String(luminaire["Spécialité"]).trim()
       }
 
-      // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE - Priorité aux champs modifiés
+      // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE - Chercher dans tous les champs possibles
       let collaboration = ""
-      if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
+      // Priorité 1: champ 'collaboration' (modifié via l'interface)
+      if (
+        luminaire.collaboration !== undefined &&
+        luminaire.collaboration !== null &&
+        String(luminaire.collaboration).trim() !== ""
+      ) {
         collaboration = String(luminaire.collaboration).trim()
-      } else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
+      }
+      // Priorité 2: champ original 'Collaboration / Œuvre'
+      else if (
+        luminaire["Collaboration / Œuvre"] !== undefined &&
+        luminaire["Collaboration / Œuvre"] !== null &&
+        String(luminaire["Collaboration / Œuvre"]).trim() !== ""
+      ) {
         collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
       }
 
-      // LOGIQUE CORRIGÉE POUR MATÉRIAUX
+      // LOGIQUE POUR MATÉRIAUX
       let materiaux = ""
       // D'abord chercher dans 'materiaux' (liste)
       if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
@@ -72,11 +102,10 @@ export async function GET(request: NextRequest) {
         images = luminaire.filename
       }
 
-      console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {
+      console.log(`📋 Luminaire ${index + 1} - Valeurs finales pour export:`, {
         nom: nom,
         specialite: specialite,
         collaboration: collaboration,
-        materiaux: materiaux,
       })
 
       return {
@@ -138,14 +167,7 @@ export async function GET(request: NextRequest) {
     console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
 
     // Vérification détaillée des champs critiques
-    const criticalFields = [
-      "Nom luminaire",
-      "Artiste / Dates",
-      "Matériaux",
-      "Collaboration / Œuvre",
-      "Spécialité",
-      "Signé",
-    ]
+    const criticalFields = ["Spécialité", "Collaboration / Œuvre"]
 
     criticalFields.forEach((field) => {
       const filledCount = csvData.filter(
@@ -156,8 +178,8 @@ export async function GET(request: NextRequest) {
       // Afficher quelques exemples de valeurs
       const examples = csvData
         .filter((row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "")
-        .slice(0, 3)
-        .map((row) => row[field as keyof typeof row])
+        .slice(0, 5)
+        .map((row, idx) => `${idx + 1}: "${row[field as keyof typeof row]}"`)
 
       if (examples.length > 0) {
         console.log(`📋 Exemples pour "${field}":`, examples)
