@@ -122,34 +122,6 @@ export default function DesignerDetailPage() {
     }
   }
 
-  const updateDesignerName = async (newName: string) => {
-    if (!canEdit) return
-
-    try {
-      // Mettre à jour tous les luminaires de ce designer
-      const updatePromises = designerLuminaires.map(async (luminaire) => {
-        const response = await fetch(`/api/luminaires/${luminaire.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ "Artiste / Dates": newName }),
-        })
-        return response.json()
-      })
-
-      await Promise.all(updatePromises)
-
-      // Mettre à jour l'état local
-      setDesigner((prev) => ({ ...prev, nom: newName }))
-      setDesignerLuminaires((prev) => prev.map((lum) => ({ ...lum, artist: newName })))
-
-      console.log("✅ Nom du designer mis à jour avec succès")
-    } catch (error) {
-      console.error("❌ Erreur mise à jour nom designer:", error)
-    }
-  }
-
   const updateLuminaire = (id: string, updates: any) => {
     if (!canEdit) return
     setDesignerLuminaires((prev) => prev.map((lum) => (lum.id === id ? { ...lum, ...updates } : lum)))
@@ -218,15 +190,17 @@ export default function DesignerDetailPage() {
             </div>
 
             <div className="flex-1 text-center md:text-left">
-              <div className="mb-4">
-                <EditableField
-                  value={designer.nom}
-                  onSave={updateDesignerName}
-                  className="text-4xl font-serif text-gray-900"
-                  placeholder="Nom du designer"
-                  disabled={!canEdit}
-                />
-              </div>
+              <EditableField
+                value={designer.nom}
+                onSave={(newName) => {
+                  if (!canEdit) return
+                  setDesigner((prev) => ({ ...prev, nom: newName }))
+                  // Optionnel: sauvegarder en base de données si nécessaire
+                }}
+                className="text-4xl font-serif text-gray-900 mb-4"
+                placeholder="Nom du designer"
+                disabled={!canEdit}
+              />
               <p className="text-lg text-gray-600 mb-6 font-serif">
                 {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
               </p>
