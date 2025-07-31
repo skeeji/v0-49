@@ -15,20 +15,18 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // LOGIQUE CORRIGÉE POUR L'EXPORT CSV
+    // UTILISATION DE LA MÊME LOGIQUE QUE LA PAGE LUMINAIRE ID
     const csvData = luminaires.map((luminaire, index) => {
       // Debug pour les premiers luminaires seulement
-      if (index < 5) {
-        console.log(`🔍 Luminaire ${index + 1} - Debug détaillé:`, {
+      if (index < 3) {
+        console.log(`🔍 Luminaire ${index + 1} - Valeurs brutes:`, {
           nom: luminaire.nom || luminaire["Nom luminaire"],
-          // Tous les champs possibles pour spécialité
           periode: luminaire.periode,
-          specialty: luminaire.specialty,
-          specialite: luminaire.specialite,
-          Spécialité: luminaire["Spécialité"],
-          // Tous les champs possibles pour collaboration
           collaboration: luminaire.collaboration,
+          materiaux: luminaire.materiaux,
+          Spécialité: luminaire["Spécialité"],
           "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
+          Matériaux: luminaire.Matériaux,
         })
       }
 
@@ -42,47 +40,44 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // SPÉCIALITÉ - Tester tous les champs possibles
-      let specialite = ""
+      // LOGIQUE EXACTE DE LA PAGE LUMINAIRE ID POUR SPÉCIALITÉ
+      const specialty = (() => {
+        // D'abord chercher dans 'periode'
+        if (luminaire.periode && String(luminaire.periode).trim() !== "") {
+          return String(luminaire.periode).trim()
+        }
+        // Sinon chercher dans 'Spécialité'
+        if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
+          return String(luminaire["Spécialité"]).trim()
+        }
+        return ""
+      })()
 
-      // Test 1: Champ original du CSV
-      if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
-        specialite = String(luminaire["Spécialité"]).trim()
-      }
-      // Test 2: Champ periode (potentiellement modifié)
-      else if (luminaire.periode && String(luminaire.periode).trim() !== "") {
-        specialite = String(luminaire.periode).trim()
-      }
-      // Test 3: Champ specialty (potentiellement modifié)
-      else if (luminaire.specialty && String(luminaire.specialty).trim() !== "") {
-        specialite = String(luminaire.specialty).trim()
-      }
-      // Test 4: Champ specialite (potentiellement modifié)
-      else if (luminaire.specialite && String(luminaire.specialite).trim() !== "") {
-        specialite = String(luminaire.specialite).trim()
-      }
+      // LOGIQUE EXACTE DE LA PAGE LUMINAIRE ID POUR COLLABORATION / ŒUVRE
+      const collaboration = (() => {
+        // D'abord chercher dans 'collaboration'
+        if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
+          return String(luminaire.collaboration).trim()
+        }
+        // Sinon chercher dans 'Collaboration / Œuvre'
+        if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
+          return String(luminaire["Collaboration / Œuvre"]).trim()
+        }
+        return ""
+      })()
 
-      // COLLABORATION / ŒUVRE - Tester tous les champs possibles
-      let collaboration = ""
-
-      // Test 1: Champ original du CSV
-      if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
-        collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
-      }
-      // Test 2: Champ collaboration (potentiellement modifié)
-      else if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
-        collaboration = String(luminaire.collaboration).trim()
-      }
-
-      // MATÉRIAUX
-      let materiaux = ""
-      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-        materiaux = luminaire.materiaux.join(", ")
-      } else if (luminaire.materials && String(luminaire.materials).trim() !== "") {
-        materiaux = String(luminaire.materials).trim()
-      } else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
-        materiaux = String(luminaire.Matériaux).trim()
-      }
+      // LOGIQUE EXACTE DE LA PAGE LUMINAIRE ID POUR MATÉRIAUX
+      const materials = (() => {
+        // D'abord chercher dans 'materiaux' (liste)
+        if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+          return luminaire.materiaux.join(", ")
+        }
+        // Sinon chercher dans 'Matériaux' (texte)
+        if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
+          return String(luminaire.Matériaux).trim()
+        }
+        return ""
+      })()
 
       // Images
       let images = ""
@@ -98,12 +93,12 @@ export async function GET(request: NextRequest) {
         "Artiste / Dates": designer,
         Année: annee,
         Editeur: editeur,
-        Spécialité: specialite,
+        Spécialité: specialty,
         "Collaboration / Œuvre": collaboration,
         Description: description,
         Signé: signe,
         Dimensions: dimensions,
-        Matériaux: materiaux,
+        Matériaux: materials,
         Estimation: estimation,
         Prix: estimation,
         "Image luminaire": images,
@@ -111,11 +106,12 @@ export async function GET(request: NextRequest) {
       }
 
       // Debug pour les premiers luminaires
-      if (index < 5) {
+      if (index < 3) {
         console.log(`📋 Luminaire ${index + 1} - Résultat final:`, {
           nom: result["Nom luminaire"],
           specialite: result["Spécialité"],
           collaboration: result["Collaboration / Œuvre"],
+          materiaux: result["Matériaux"],
         })
       }
 
