@@ -17,19 +17,20 @@ export async function GET(request: NextRequest) {
 
     // LOGIQUE CORRIGÉE POUR L'EXPORT CSV
     const csvData = luminaires.map((luminaire, index) => {
-      // Debug: afficher toutes les clés disponibles pour ce luminaire
-      console.log(`🔍 Luminaire ${index + 1} - Toutes les clés:`, Object.keys(luminaire))
-      console.log(`🔍 Luminaire ${index + 1} - Valeurs spécifiques:`, {
-        // Champs originaux CSV
-        Spécialité: luminaire["Spécialité"],
-        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
-        // Champs potentiellement modifiés
-        periode: luminaire.periode,
-        collaboration: luminaire.collaboration,
-        specialite: luminaire.specialite,
-        // Autres variantes
-        specialty: luminaire.specialty,
-      })
+      // Debug pour les premiers luminaires seulement
+      if (index < 5) {
+        console.log(`🔍 Luminaire ${index + 1} - Debug détaillé:`, {
+          nom: luminaire.nom || luminaire["Nom luminaire"],
+          // Tous les champs possibles pour spécialité
+          periode: luminaire.periode,
+          specialty: luminaire.specialty,
+          specialite: luminaire.specialite,
+          Spécialité: luminaire["Spécialité"],
+          // Tous les champs possibles pour collaboration
+          collaboration: luminaire.collaboration,
+          "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
+        })
+      }
 
       // Champs simples avec fallback
       const nom = luminaire.nom || luminaire["Nom luminaire"] || ""
@@ -41,35 +42,39 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ
-      // D'après le code de la page luminaire, specialty est mappé vers "periode"
+      // SPÉCIALITÉ - Tester tous les champs possibles
       let specialite = ""
-      if (luminaire.periode && String(luminaire.periode).trim() !== "") {
-        specialite = String(luminaire.periode).trim()
-        console.log(`✅ Spécialité trouvée dans 'periode': "${specialite}"`)
-      } else if (luminaire.specialty && String(luminaire.specialty).trim() !== "") {
-        specialite = String(luminaire.specialty).trim()
-        console.log(`✅ Spécialité trouvée dans 'specialty': "${specialite}"`)
-      } else if (luminaire.specialite && String(luminaire.specialite).trim() !== "") {
-        specialite = String(luminaire.specialite).trim()
-        console.log(`✅ Spécialité trouvée dans 'specialite': "${specialite}"`)
-      } else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
+
+      // Test 1: Champ original du CSV
+      if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
         specialite = String(luminaire["Spécialité"]).trim()
-        console.log(`✅ Spécialité trouvée dans 'Spécialité': "${specialite}"`)
+      }
+      // Test 2: Champ periode (potentiellement modifié)
+      else if (luminaire.periode && String(luminaire.periode).trim() !== "") {
+        specialite = String(luminaire.periode).trim()
+      }
+      // Test 3: Champ specialty (potentiellement modifié)
+      else if (luminaire.specialty && String(luminaire.specialty).trim() !== "") {
+        specialite = String(luminaire.specialty).trim()
+      }
+      // Test 4: Champ specialite (potentiellement modifié)
+      else if (luminaire.specialite && String(luminaire.specialite).trim() !== "") {
+        specialite = String(luminaire.specialite).trim()
       }
 
-      // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE
-      // D'après le code, collaboration reste "collaboration"
+      // COLLABORATION / ŒUVRE - Tester tous les champs possibles
       let collaboration = ""
-      if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
-        collaboration = String(luminaire.collaboration).trim()
-        console.log(`✅ Collaboration trouvée dans 'collaboration': "${collaboration}"`)
-      } else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
+
+      // Test 1: Champ original du CSV
+      if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
         collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
-        console.log(`✅ Collaboration trouvée dans 'Collaboration / Œuvre': "${collaboration}"`)
+      }
+      // Test 2: Champ collaboration (potentiellement modifié)
+      else if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
+        collaboration = String(luminaire.collaboration).trim()
       }
 
-      // LOGIQUE POUR MATÉRIAUX
+      // MATÉRIAUX
       let materiaux = ""
       if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
         materiaux = luminaire.materiaux.join(", ")
@@ -79,7 +84,7 @@ export async function GET(request: NextRequest) {
         materiaux = String(luminaire.Matériaux).trim()
       }
 
-      // Transformation des images en chaîne
+      // Images
       let images = ""
       if (Array.isArray(luminaire.images)) {
         images = luminaire.images.join(", ")
@@ -105,11 +110,14 @@ export async function GET(request: NextRequest) {
         "Image designer": luminaire.designerImageFilename || "",
       }
 
-      console.log(`📋 Luminaire ${index + 1} - Résultat final:`, {
-        nom: result["Nom luminaire"],
-        specialite: result["Spécialité"],
-        collaboration: result["Collaboration / Œuvre"],
-      })
+      // Debug pour les premiers luminaires
+      if (index < 5) {
+        console.log(`📋 Luminaire ${index + 1} - Résultat final:`, {
+          nom: result["Nom luminaire"],
+          specialite: result["Spécialité"],
+          collaboration: result["Collaboration / Œuvre"],
+        })
+      }
 
       return result
     })
@@ -118,7 +126,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucune donnée à exporter" }, { status: 404 })
     }
 
-    // Créer les en-têtes CSV dans l'ordre exact demandé
+    // Vérification finale des colonnes critiques
+    console.log("🔍 Vérification finale des colonnes critiques:")
+
+    const specialiteCount = csvData.filter((row) => row["Spécialité"] && row["Spécialité"].trim() !== "").length
+    const collaborationCount = csvData.filter(
+      (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"].trim() !== "",
+    ).length
+    const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"].trim() !== "").length
+
+    console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
+    console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
+    console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
+
+    // Exemples de données exportées
+    console.log("📋 Exemples de données exportées:")
+    csvData.slice(0, 3).forEach((row, idx) => {
+      console.log(`Exemple ${idx + 1}:`, {
+        nom: row["Nom luminaire"],
+        specialite: row["Spécialité"],
+        collaboration: row["Collaboration / Œuvre"],
+        materiaux: row["Matériaux"],
+      })
+    })
+
+    // Créer les en-têtes CSV
     const headers = [
       "ID",
       "Nom luminaire",
@@ -151,25 +183,7 @@ export async function GET(request: NextRequest) {
       ),
     ].join("\n")
 
-    console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
-
-    // Statistiques finales
-    const specialiteCount = csvData.filter((row) => row["Spécialité"] && row["Spécialité"].trim() !== "").length
-    const collaborationCount = csvData.filter(
-      (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"].trim() !== "",
-    ).length
-
-    console.log(`📊 Statistiques finales:`)
-    console.log(`   - Spécialité remplie: ${specialiteCount}/${csvData.length}`)
-    console.log(`   - Collaboration remplie: ${collaborationCount}/${csvData.length}`)
-
-    // Exemples des premières valeurs
-    console.log(`📋 Premiers exemples:`)
-    csvData.slice(0, 3).forEach((row, idx) => {
-      console.log(
-        `   ${idx + 1}. "${row["Nom luminaire"]}" - Spécialité: "${row["Spécialité"]}" - Collaboration: "${row["Collaboration / Œuvre"]}"`,
-      )
-    })
+    console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
 
     // Retourner le CSV avec BOM UTF-8
     const csvWithBOM = "\uFEFF" + csvContent
