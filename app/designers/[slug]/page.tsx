@@ -190,7 +190,17 @@ export default function DesignerDetailPage() {
             </div>
 
             <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl font-serif text-gray-900 mb-4">{designer.nom}</h1>
+              <EditableField
+                value={designer.nom}
+                onSave={(newName) => {
+                  if (!canEdit) return
+                  setDesigner((prev) => ({ ...prev, nom: newName }))
+                  // Optionnel: sauvegarder en base de données si nécessaire
+                }}
+                className="text-4xl font-serif text-gray-900 mb-4"
+                placeholder="Nom du designer"
+                disabled={!canEdit}
+              />
               <p className="text-lg text-gray-600 mb-6 font-serif">
                 {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
               </p>
