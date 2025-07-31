@@ -9,9 +9,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 })
     }
 
-    // Configuration de l'email avec Resend
+    // Configuration de l'email avec Resend et le domaine vérifié
     const emailData = {
-      from: "noreply@send.resend.dev", // Utilisation du domaine par défaut de Resend
+      from: "contact@gersaintparis.com", // ✅ NOUVEAU : Utilisation du domaine vérifié
       to: "paul.quentin1@gmail.com",
       subject: `Nouvelle demande d'abonnement Premium - ${prenom} ${nom}`,
       html: `
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
           <div style="margin-top: 30px; padding: 15px; background-color: #f0f0f0; border-radius: 8px; text-align: center;">
             <p style="margin: 0; color: #888; font-size: 14px;">
-              Email envoyé automatiquement depuis le site Luminaires Gallery
+              Email envoyé automatiquement depuis gersaintparis.com
             </p>
             <p style="margin: 5px 0 0 0; color: #888; font-size: 12px;">
               Date : ${new Date().toLocaleString("fr-FR")}
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     console.log("Tentative d'envoi d'email avec Resend...")
     console.log("Destinataire:", emailData.to)
-    console.log("Expéditeur:", emailData.from)
+    console.log("Expéditeur:", emailData.from) // ✅ Maintenant contact@gersaintparis.com
 
     // Envoi avec Resend
     const resendResponse = await fetch("https://api.resend.com/emails", {
@@ -137,6 +137,8 @@ export async function POST(request: NextRequest) {
       message: "Demande envoyée avec succès",
       emailId: result.id || "unknown",
       debug: {
+        from: emailData.from, // ✅ Confirmation de l'expéditeur
+        to: emailData.to,
         apiKeyUsed: apiKey.substring(0, 10) + "...",
         responseStatus: resendResponse.status,
         timestamp: new Date().toISOString(),
