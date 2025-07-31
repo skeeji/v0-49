@@ -18,13 +18,17 @@ export async function GET(request: NextRequest) {
     // LOGIQUE CORRIGÉE POUR L'EXPORT CSV
     const csvData = luminaires.map((luminaire, index) => {
       // Debug: afficher toutes les clés disponibles pour ce luminaire
-      console.log(`🔍 Luminaire ${index + 1} - Clés disponibles:`, Object.keys(luminaire))
-      console.log(`🔍 Luminaire ${index + 1} - Valeurs collaboration/spécialité:`, {
-        collaboration: luminaire.collaboration,
-        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
-        specialite: luminaire.specialite,
-        periode: luminaire.periode,
+      console.log(`🔍 Luminaire ${index + 1} - Toutes les clés:`, Object.keys(luminaire))
+      console.log(`🔍 Luminaire ${index + 1} - Valeurs spécifiques:`, {
+        // Champs originaux CSV
         Spécialité: luminaire["Spécialité"],
+        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
+        // Champs potentiellement modifiés
+        periode: luminaire.periode,
+        collaboration: luminaire.collaboration,
+        specialite: luminaire.specialite,
+        // Autres variantes
+        specialty: luminaire.specialty,
       })
 
       // Champs simples avec fallback
@@ -37,60 +41,41 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ - Chercher dans tous les champs possibles
+      // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ
+      // D'après le code de la page luminaire, specialty est mappé vers "periode"
       let specialite = ""
-      // Priorité 1: champ 'specialite' (modifié via l'interface)
-      if (
-        luminaire.specialite !== undefined &&
-        luminaire.specialite !== null &&
-        String(luminaire.specialite).trim() !== ""
-      ) {
-        specialite = String(luminaire.specialite).trim()
-      }
-      // Priorité 2: champ 'periode' (peut être utilisé comme spécialité)
-      else if (
-        luminaire.periode !== undefined &&
-        luminaire.periode !== null &&
-        String(luminaire.periode).trim() !== ""
-      ) {
+      if (luminaire.periode && String(luminaire.periode).trim() !== "") {
         specialite = String(luminaire.periode).trim()
-      }
-      // Priorité 3: champ original 'Spécialité'
-      else if (
-        luminaire["Spécialité"] !== undefined &&
-        luminaire["Spécialité"] !== null &&
-        String(luminaire["Spécialité"]).trim() !== ""
-      ) {
+        console.log(`✅ Spécialité trouvée dans 'periode': "${specialite}"`)
+      } else if (luminaire.specialty && String(luminaire.specialty).trim() !== "") {
+        specialite = String(luminaire.specialty).trim()
+        console.log(`✅ Spécialité trouvée dans 'specialty': "${specialite}"`)
+      } else if (luminaire.specialite && String(luminaire.specialite).trim() !== "") {
+        specialite = String(luminaire.specialite).trim()
+        console.log(`✅ Spécialité trouvée dans 'specialite': "${specialite}"`)
+      } else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
         specialite = String(luminaire["Spécialité"]).trim()
+        console.log(`✅ Spécialité trouvée dans 'Spécialité': "${specialite}"`)
       }
 
-      // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE - Chercher dans tous les champs possibles
+      // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE
+      // D'après le code, collaboration reste "collaboration"
       let collaboration = ""
-      // Priorité 1: champ 'collaboration' (modifié via l'interface)
-      if (
-        luminaire.collaboration !== undefined &&
-        luminaire.collaboration !== null &&
-        String(luminaire.collaboration).trim() !== ""
-      ) {
+      if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
         collaboration = String(luminaire.collaboration).trim()
-      }
-      // Priorité 2: champ original 'Collaboration / Œuvre'
-      else if (
-        luminaire["Collaboration / Œuvre"] !== undefined &&
-        luminaire["Collaboration / Œuvre"] !== null &&
-        String(luminaire["Collaboration / Œuvre"]).trim() !== ""
-      ) {
+        console.log(`✅ Collaboration trouvée dans 'collaboration': "${collaboration}"`)
+      } else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
         collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
+        console.log(`✅ Collaboration trouvée dans 'Collaboration / Œuvre': "${collaboration}"`)
       }
 
       // LOGIQUE POUR MATÉRIAUX
       let materiaux = ""
-      // D'abord chercher dans 'materiaux' (liste)
       if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
         materiaux = luminaire.materiaux.join(", ")
-      }
-      // Sinon chercher dans 'Matériaux' (texte)
-      else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
+      } else if (luminaire.materials && String(luminaire.materials).trim() !== "") {
+        materiaux = String(luminaire.materials).trim()
+      } else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
         materiaux = String(luminaire.Matériaux).trim()
       }
 
@@ -102,13 +87,7 @@ export async function GET(request: NextRequest) {
         images = luminaire.filename
       }
 
-      console.log(`📋 Luminaire ${index + 1} - Valeurs finales pour export:`, {
-        nom: nom,
-        specialite: specialite,
-        collaboration: collaboration,
-      })
-
-      return {
+      const result = {
         ID: luminaire._id.toString(),
         "Nom luminaire": nom,
         "Artiste / Dates": designer,
@@ -125,6 +104,14 @@ export async function GET(request: NextRequest) {
         "Image luminaire": images,
         "Image designer": luminaire.designerImageFilename || "",
       }
+
+      console.log(`📋 Luminaire ${index + 1} - Résultat final:`, {
+        nom: result["Nom luminaire"],
+        specialite: result["Spécialité"],
+        collaboration: result["Collaboration / Œuvre"],
+      })
+
+      return result
     })
 
     if (csvData.length === 0) {
@@ -166,24 +153,22 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ Export CSV généré avec ${csvData.length} luminaires et ${headers.length} colonnes`)
 
-    // Vérification détaillée des champs critiques
-    const criticalFields = ["Spécialité", "Collaboration / Œuvre"]
+    // Statistiques finales
+    const specialiteCount = csvData.filter((row) => row["Spécialité"] && row["Spécialité"].trim() !== "").length
+    const collaborationCount = csvData.filter(
+      (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"].trim() !== "",
+    ).length
 
-    criticalFields.forEach((field) => {
-      const filledCount = csvData.filter(
-        (row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "",
-      ).length
-      console.log(`🔍 Champ "${field}": ${filledCount}/${csvData.length} entrées remplies`)
+    console.log(`📊 Statistiques finales:`)
+    console.log(`   - Spécialité remplie: ${specialiteCount}/${csvData.length}`)
+    console.log(`   - Collaboration remplie: ${collaborationCount}/${csvData.length}`)
 
-      // Afficher quelques exemples de valeurs
-      const examples = csvData
-        .filter((row) => row[field as keyof typeof row] && String(row[field as keyof typeof row]).trim() !== "")
-        .slice(0, 5)
-        .map((row, idx) => `${idx + 1}: "${row[field as keyof typeof row]}"`)
-
-      if (examples.length > 0) {
-        console.log(`📋 Exemples pour "${field}":`, examples)
-      }
+    // Exemples des premières valeurs
+    console.log(`📋 Premiers exemples:`)
+    csvData.slice(0, 3).forEach((row, idx) => {
+      console.log(
+        `   ${idx + 1}. "${row["Nom luminaire"]}" - Spécialité: "${row["Spécialité"]}" - Collaboration: "${row["Collaboration / Œuvre"]}"`,
+      )
     })
 
     // Retourner le CSV avec BOM UTF-8
