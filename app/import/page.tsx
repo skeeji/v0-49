@@ -558,14 +558,8 @@ export default function ImportPage() {
           // Priorité : collaboration (modifié) → Collaboration / Œuvre (original)
           const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
 
-          // LOGIQUE DE SECOURS POUR MATÉRIAUX
-          let materiaux = ""
-          const materiauxValue = luminaire.Matériaux || luminaire.materiaux || luminaire.materials || ""
-          if (Array.isArray(materiauxValue) && materiauxValue.length > 0) {
-            materiaux = materiauxValue.join("; ")
-          } else if (typeof materiauxValue === "string" && materiauxValue.trim() !== "") {
-            materiaux = materiauxValue.trim()
-          }
+          // LOGIQUE CORRIGÉE POUR MATÉRIAUX - PRIORITÉ AUX MODIFICATIONS
+          const materiaux = luminaire.materiaux || luminaire["Matériaux"] || ""
 
           console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {
             nom: luminaire.nom,
