@@ -551,31 +551,12 @@ export default function ImportPage() {
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
-          // LOGIQUE DE SECOURS POUR SPÉCIALITÉ - COPIE EXACTE DE LA PAGE LUMINAIRE ID
-          const specialite = (() => {
-            // D'abord chercher dans 'periode'
-            if (luminaire.periode && String(luminaire.periode).trim() !== "") {
-              return String(luminaire.periode).trim()
-            }
-            // Sinon chercher dans 'Spécialité'
-            if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
-              return String(luminaire["Spécialité"]).trim()
-            }
-            return ""
-          })()
+          // LOGIQUE SIMPLE COMME LES AUTRES COLONNES QUI FONCTIONNENT
+          // Priorité : periode (modifié) → specialite → Spécialité (original)
+          const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
 
-          // LOGIQUE DE SECOURS POUR COLLABORATION / ŒUVRE - COPIE EXACTE DE LA PAGE LUMINAIRE ID
-          const collaboration = (() => {
-            // D'abord chercher dans 'collaboration'
-            if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
-              return String(luminaire.collaboration).trim()
-            }
-            // Sinon chercher dans 'Collaboration / Œuvre'
-            if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
-              return String(luminaire["Collaboration / Œuvre"]).trim()
-            }
-            return ""
-          })()
+          // Priorité : collaboration (modifié) → Collaboration / Œuvre (original)
+          const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
 
           // LOGIQUE DE SECOURS POUR MATÉRIAUX
           let materiaux = ""
