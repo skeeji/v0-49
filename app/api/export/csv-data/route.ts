@@ -15,15 +15,18 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // UTILISATION DE LA MÊME LOGIQUE EXACTE QUE LE PDF
+    // LOGIQUE CORRIGÉE : PRIORITÉ AUX CHAMPS MODIFIÉS
     const csvData = luminaires.map((luminaire, index) => {
       // Debug pour les premiers luminaires seulement
       if (index < 3) {
-        console.log(`🔍 Luminaire ${index + 1} - Données brutes:`, {
-          periode: luminaire.periode,
-          Spécialité: luminaire["Spécialité"],
-          collaboration: luminaire.collaboration,
-          "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
+        console.log(`🔍 Luminaire ${index + 1} - Comparaison valeurs:`, {
+          nom: luminaire.nom || luminaire["Nom luminaire"],
+          // Valeurs originales du CSV
+          "Spécialité (original)": luminaire["Spécialité"],
+          "Collaboration / Œuvre (original)": luminaire["Collaboration / Œuvre"],
+          // Valeurs modifiées sur le site
+          "periode (modifié)": luminaire.periode,
+          "collaboration (modifié)": luminaire.collaboration,
         })
       }
 
@@ -37,44 +40,37 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // LOGIQUE EXACTE DU PDF POUR SPÉCIALITÉ
-      const specialty = (() => {
-        // D'abord chercher dans 'periode'
-        if (luminaire.periode && String(luminaire.periode).trim() !== "") {
-          return String(luminaire.periode).trim()
-        }
-        // Sinon chercher dans 'Spécialité'
-        if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
-          return String(luminaire["Spécialité"]).trim()
-        }
-        return ""
-      })()
+      // SPÉCIALITÉ : PRIORITÉ AU CHAMP MODIFIÉ 'periode'
+      let specialite = ""
+      if (luminaire.periode && String(luminaire.periode).trim() !== "") {
+        // Valeur modifiée sur le site
+        specialite = String(luminaire.periode).trim()
+        if (index < 3) console.log(`✅ Spécialité modifiée trouvée: "${specialite}"`)
+      } else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
+        // Valeur originale du CSV
+        specialite = String(luminaire["Spécialité"]).trim()
+        if (index < 3) console.log(`📋 Spécialité originale utilisée: "${specialite}"`)
+      }
 
-      // LOGIQUE EXACTE DU PDF POUR COLLABORATION / ŒUVRE
-      const collaboration = (() => {
-        // D'abord chercher dans 'collaboration'
-        if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
-          return String(luminaire.collaboration).trim()
-        }
-        // Sinon chercher dans 'Collaboration / Œuvre'
-        if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
-          return String(luminaire["Collaboration / Œuvre"]).trim()
-        }
-        return ""
-      })()
+      // COLLABORATION / ŒUVRE : PRIORITÉ AU CHAMP MODIFIÉ 'collaboration'
+      let collaboration = ""
+      if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
+        // Valeur modifiée sur le site
+        collaboration = String(luminaire.collaboration).trim()
+        if (index < 3) console.log(`✅ Collaboration modifiée trouvée: "${collaboration}"`)
+      } else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
+        // Valeur originale du CSV
+        collaboration = String(luminaire["Collaboration / Œuvre"]).trim()
+        if (index < 3) console.log(`📋 Collaboration originale utilisée: "${collaboration}"`)
+      }
 
-      // LOGIQUE EXACTE DU PDF POUR MATÉRIAUX
-      const materials = (() => {
-        // D'abord chercher dans 'materiaux' (liste)
-        if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-          return luminaire.materiaux.join(", ")
-        }
-        // Sinon chercher dans 'Matériaux' (texte)
-        if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
-          return String(luminaire.Matériaux).trim()
-        }
-        return ""
-      })()
+      // MATÉRIAUX
+      let materiaux = ""
+      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+        materiaux = luminaire.materiaux.join(", ")
+      } else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
+        materiaux = String(luminaire.Matériaux).trim()
+      }
 
       // Images
       let images = ""
@@ -84,32 +80,31 @@ export async function GET(request: NextRequest) {
         images = luminaire.filename
       }
 
-      // Debug pour les premiers luminaires
-      if (index < 3) {
-        console.log(`📋 Luminaire ${index + 1} - Valeurs calculées (comme dans le PDF):`, {
-          specialty: specialty,
-          collaboration: collaboration,
-          materials: materials,
-        })
-      }
-
-      // CRÉATION DE L'OBJET FINAL AVEC LES VALEURS DU PDF
       const result = {
         ID: luminaire._id.toString(),
         "Nom luminaire": nom,
         "Artiste / Dates": designer,
         Année: annee,
         Editeur: editeur,
-        Spécialité: specialty, // <- MÊME VALEUR QUE LE PDF
-        "Collaboration / Œuvre": collaboration, // <- MÊME VALEUR QUE LE PDF
+        Spécialité: specialite,
+        "Collaboration / Œuvre": collaboration,
         Description: description,
         Signé: signe,
         Dimensions: dimensions,
-        Matériaux: materials, // <- MÊME VALEUR QUE LE PDF
+        Matériaux: materiaux,
         Estimation: estimation,
         Prix: estimation,
         "Image luminaire": images,
         "Image designer": luminaire.designerImageFilename || "",
+      }
+
+      // Debug pour les premiers luminaires
+      if (index < 3) {
+        console.log(`📋 Luminaire ${index + 1} - Résultat final CSV:`, {
+          nom: result["Nom luminaire"],
+          specialite: result["Spécialité"],
+          collaboration: result["Collaboration / Œuvre"],
+        })
       }
 
       return result
