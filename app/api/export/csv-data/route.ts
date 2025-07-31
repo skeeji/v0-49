@@ -15,18 +15,15 @@ export async function GET(request: NextRequest) {
     const luminaires = await collection.find({}).toArray()
     console.log(`📊 ${luminaires.length} luminaires récupérés pour export CSV`)
 
-    // CORRECTION POUR UTILISER LES BONNES VALEURS
+    // UTILISATION DE LA MÊME LOGIQUE EXACTE QUE LE PDF
     const csvData = luminaires.map((luminaire, index) => {
       // Debug pour les premiers luminaires seulement
-      if (index < 5) {
-        console.log(`🔍 Luminaire ${index + 1} - Valeurs brutes:`, {
-          nom: luminaire.nom || luminaire["Nom luminaire"],
+      if (index < 3) {
+        console.log(`🔍 Luminaire ${index + 1} - Données brutes:`, {
           periode: luminaire.periode,
-          collaboration: luminaire.collaboration,
-          materiaux: luminaire.materiaux,
           Spécialité: luminaire["Spécialité"],
+          collaboration: luminaire.collaboration,
           "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
-          Matériaux: luminaire.Matériaux,
         })
       }
 
@@ -40,30 +37,44 @@ export async function GET(request: NextRequest) {
       const dimensions = luminaire.dimensions || ""
       const estimation = luminaire.estimation || luminaire.Prix || ""
 
-      // RÉCUPÉRATION DES VALEURS MODIFIÉES
-      // Spécialité : utiliser periode en priorité
-      let specialiteValue = ""
-      if (luminaire.periode && String(luminaire.periode).trim() !== "") {
-        specialiteValue = String(luminaire.periode).trim()
-      } else if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
-        specialiteValue = String(luminaire["Spécialité"]).trim()
-      }
+      // LOGIQUE EXACTE DU PDF POUR SPÉCIALITÉ
+      const specialty = (() => {
+        // D'abord chercher dans 'periode'
+        if (luminaire.periode && String(luminaire.periode).trim() !== "") {
+          return String(luminaire.periode).trim()
+        }
+        // Sinon chercher dans 'Spécialité'
+        if (luminaire["Spécialité"] && String(luminaire["Spécialité"]).trim() !== "") {
+          return String(luminaire["Spécialité"]).trim()
+        }
+        return ""
+      })()
 
-      // Collaboration : utiliser collaboration en priorité
-      let collaborationValue = ""
-      if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
-        collaborationValue = String(luminaire.collaboration).trim()
-      } else if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
-        collaborationValue = String(luminaire["Collaboration / Œuvre"]).trim()
-      }
+      // LOGIQUE EXACTE DU PDF POUR COLLABORATION / ŒUVRE
+      const collaboration = (() => {
+        // D'abord chercher dans 'collaboration'
+        if (luminaire.collaboration && String(luminaire.collaboration).trim() !== "") {
+          return String(luminaire.collaboration).trim()
+        }
+        // Sinon chercher dans 'Collaboration / Œuvre'
+        if (luminaire["Collaboration / Œuvre"] && String(luminaire["Collaboration / Œuvre"]).trim() !== "") {
+          return String(luminaire["Collaboration / Œuvre"]).trim()
+        }
+        return ""
+      })()
 
-      // Matériaux : utiliser materiaux en priorité
-      let materiauxValue = ""
-      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-        materiauxValue = luminaire.materiaux.join(", ")
-      } else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
-        materiauxValue = String(luminaire.Matériaux).trim()
-      }
+      // LOGIQUE EXACTE DU PDF POUR MATÉRIAUX
+      const materials = (() => {
+        // D'abord chercher dans 'materiaux' (liste)
+        if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+          return luminaire.materiaux.join(", ")
+        }
+        // Sinon chercher dans 'Matériaux' (texte)
+        if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
+          return String(luminaire.Matériaux).trim()
+        }
+        return ""
+      })()
 
       // Images
       let images = ""
@@ -74,28 +85,27 @@ export async function GET(request: NextRequest) {
       }
 
       // Debug pour les premiers luminaires
-      if (index < 5) {
-        console.log(`📋 Luminaire ${index + 1} - Valeurs extraites:`, {
-          nom: nom,
-          specialite: specialiteValue,
-          collaboration: collaborationValue,
-          materiaux: materiauxValue,
+      if (index < 3) {
+        console.log(`📋 Luminaire ${index + 1} - Valeurs calculées (comme dans le PDF):`, {
+          specialty: specialty,
+          collaboration: collaboration,
+          materials: materials,
         })
       }
 
-      // CRÉATION DE L'OBJET FINAL AVEC LES BONNES VALEURS
+      // CRÉATION DE L'OBJET FINAL AVEC LES VALEURS DU PDF
       const result = {
         ID: luminaire._id.toString(),
         "Nom luminaire": nom,
         "Artiste / Dates": designer,
         Année: annee,
         Editeur: editeur,
-        Spécialité: specialiteValue,
-        "Collaboration / Œuvre": collaborationValue,
+        Spécialité: specialty, // <- MÊME VALEUR QUE LE PDF
+        "Collaboration / Œuvre": collaboration, // <- MÊME VALEUR QUE LE PDF
         Description: description,
         Signé: signe,
         Dimensions: dimensions,
-        Matériaux: materiauxValue,
+        Matériaux: materials, // <- MÊME VALEUR QUE LE PDF
         Estimation: estimation,
         Prix: estimation,
         "Image luminaire": images,
@@ -122,9 +132,9 @@ export async function GET(request: NextRequest) {
     console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
     console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
 
-    // Exemples de données exportées avec vérification
+    // Exemples de données exportées
     console.log("📋 Exemples de données dans le CSV final:")
-    csvData.slice(0, 5).forEach((row, idx) => {
+    csvData.slice(0, 3).forEach((row, idx) => {
       console.log(`CSV Ligne ${idx + 1}:`, {
         nom: row["Nom luminaire"],
         specialite: row["Spécialité"],
@@ -152,29 +162,18 @@ export async function GET(request: NextRequest) {
       "Image designer",
     ]
 
-    // Créer le contenu CSV avec vérification
+    // Créer le contenu CSV
     const csvContent = [
       headers.join(","),
-      ...csvData.map((row, rowIndex) => {
-        const csvRow = headers
+      ...csvData.map((row) =>
+        headers
           .map((header) => {
             const value = row[header as keyof typeof row] || ""
             const cleanValue = String(value).replace(/"/g, '""')
-
-            // Debug pour les premières lignes
-            if (
-              rowIndex < 3 &&
-              (header === "Spécialité" || header === "Collaboration / Œuvre" || header === "Matériaux")
-            ) {
-              console.log(`🔍 Ligne ${rowIndex + 1} - ${header}: "${cleanValue}"`)
-            }
-
             return `"${cleanValue}"`
           })
-          .join(",")
-
-        return csvRow
-      }),
+          .join(","),
+      ),
     ].join("\n")
 
     console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
