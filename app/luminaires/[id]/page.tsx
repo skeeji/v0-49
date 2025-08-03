@@ -466,9 +466,7 @@ export default function LuminaireDetailPage() {
                 {generatingPDF ? "Génération..." : "PDF"}
               </Button>
             )}
-            {(userData?.role === "admin" || userData?.role === "premium") && (
-              <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
-            )}
+            <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
           </div>
         </div>
 
