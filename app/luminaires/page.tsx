@@ -218,7 +218,7 @@ export default function LuminairesPage() {
 
   // Options pour les filtres
   const filterOptions = useMemo(() => {
-    const designers = [...new Set(allLuminaires.map((l) => l.designer).filter(Boolean))].sort()
+    const designers = [...new Set(allLuminaires.map((l) => l["Artiste / Dates"]).filter(Boolean))].sort()
     return { designers }
   }, [allLuminaires])
 
@@ -341,7 +341,7 @@ export default function LuminairesPage() {
       {(!user || userData?.role === "free") && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm" style={{ color: "#d4a574" }}>
           <p className="flex items-center font-serif">
-            <span className="mr-2">ℹ️</span>
+            <span className="mr-2"></span>
             <span>
               {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont accessibles
               ({freeUserLimit} luminaires).
@@ -391,18 +391,20 @@ export default function LuminairesPage() {
           value={yearRange}
           onValueCommit={handleYearRangeChange}
         />
-        <div className="mt-2 text-sm" style={{ color: "#d4a574" }}>
-          Filtre actif: {yearRange[0]} - {yearRange[1]}
-          <button
-            onClick={() => {
-              setYearRange([yearBounds.min, yearBounds.max])
-              setSliderModified(false)
-            }}
-            className="ml-2 underline hover:no-underline"
-          >
-            Réinitialiser
-          </button>
-        </div>
+        {sliderModified && (
+          <div className="mt-2 text-sm" style={{ color: "#d4a574" }}>
+            Filtre actif: {yearRange[0]} - {yearRange[1]}
+            <button
+              onClick={() => {
+                setYearRange([yearBounds.min, yearBounds.max])
+                setSliderModified(false)
+              }}
+              className="ml-2 underline hover:no-underline"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Grille des luminaires avec limitation visuelle */}
