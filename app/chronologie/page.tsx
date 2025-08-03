@@ -237,14 +237,6 @@ export default function ChronologiePage() {
           {totalLuminaires} luminaires classés par période historique
         </p>
 
-        {!canEdit && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 text-sm text-blue-800">
-            <p className="font-serif text-center">
-              Mode lecture seule. Seuls les administrateurs peuvent modifier les descriptions des périodes.
-            </p>
-          </div>
-        )}
-
         <div className="space-y-16">
           {timelineData.map((period, index) => (
             <TimelineBlock

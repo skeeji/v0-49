@@ -6,6 +6,7 @@ import { signInWithPopup, signOut, onAuthStateChanged, type User } from "firebas
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
 import { auth, db, googleProvider, isFirebaseConfigured, type UserData } from "@/lib/firebase"
 import { toast } from "sonner"
+import Link from "next/link"
 
 interface AuthContextType {
   user: User | null
@@ -178,7 +179,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Vérifier la limite pour les utilisateurs gratuits
     if (userData.role === "free" && currentSearchCount >= 3) {
-      toast.error("Limite de 3 recherches par jour atteinte. Passez à Premium pour des recherches illimitées.")
+      toast.error(
+        <div>
+          Limite de 3 recherches par jour atteinte.{" "}
+          <Link href="/pricing" className="underline font-medium">
+            Passez à Premium
+          </Link>{" "}
+          pour des recherches illimitées.
+        </div>,
+      )
       return false
     }
 
