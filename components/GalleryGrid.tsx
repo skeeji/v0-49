@@ -29,22 +29,52 @@ export function GalleryGrid({
 }: GalleryGridProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<string[]>([])
-  const { userData } = useAuth()
+  const { user, userData } = useAuth()
 
-  // Charger les favoris une seule fois au montage du composant
+  // Charger les favoris depuis la base de données pour les utilisateurs connectés
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedFavorites = localStorage.getItem("favorites")
-      if (storedFavorites) {
-        setFavorites(JSON.parse(storedFavorites))
+    const loadFavorites = async () => {
+      if (user?.email) {
+        try {
+          const response = await fetch(`/api/users/favorites?email=${encodeURIComponent(user.email)}`)
+          const data = await response.json()
+          if (data.success) {
+            setFavorites(data.favorites || [])
+          }
+        } catch (error) {
+          console.error("❌ Erreur chargement favoris:", error)
+        }
       }
     }
-  }, [])
 
-  const toggleFavorite = (id: string) => {
-    const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
-    setFavorites(newFavorites)
-    localStorage.setItem("favorites", JSON.stringify(newFavorites))
+    loadFavorites()
+  }, [user?.email])
+
+  const toggleFavorite = async (id: string) => {
+    if (!user?.email) return
+
+    const isCurrentlyFavorite = favorites.includes(id)
+    const action = isCurrentlyFavorite ? "remove" : "add"
+
+    try {
+      const response = await fetch("/api/users/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          luminaireId: id,
+          action,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        const newFavorites = isCurrentlyFavorite ? favorites.filter((fav) => fav !== id) : [...favorites, id]
+        setFavorites(newFavorites)
+      }
+    } catch (error) {
+      console.error("❌ Erreur mise à jour favoris:", error)
+    }
   }
 
   // Fonction pour obtenir l'URL de l'image
@@ -82,13 +112,26 @@ export function GalleryGrid({
     return "/placeholder.svg?height=300&width=300"
   }
 
-  const handleDeleteLuminaire = () => {
-    // Recharger la page pour mettre à jour la liste
-    window.location.reload()
+  const handleDeleteLuminaire = async (luminaireId: string) => {
+    try {
+      const response = await fetch(`/api/luminaires/${luminaireId}`, {
+        method: "DELETE",
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Recharger la page pour mettre à jour la liste
+        window.location.reload()
+      } else {
+        console.error("❌ Erreur suppression:", data.error)
+      }
+    } catch (error) {
+      console.error("❌ Erreur suppression:", error)
+    }
   }
 
   // Vérifier si l'utilisateur peut voir les favoris (connecté et pas gratuit)
-  const canUseFavorites = userData && userData.role !== "free"
+  const canUseFavorites = user && userData?.role !== "free"
 
   if (viewMode === "list") {
     return (
@@ -154,7 +197,7 @@ export function GalleryGrid({
                             <DeleteLuminaireButton
                               luminaireId={itemId}
                               luminaireName={itemName}
-                              onDelete={handleDeleteLuminaire}
+                              onDelete={() => handleDeleteLuminaire(itemId)}
                             />
                           )}
                         </div>
@@ -283,7 +326,7 @@ export function GalleryGrid({
                         <DeleteLuminaireButton
                           luminaireId={itemId}
                           luminaireName={itemName}
-                          onDelete={handleDeleteLuminaire}
+                          onDelete={() => handleDeleteLuminaire(itemId)}
                         />
                       )}
                     </div>

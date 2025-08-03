@@ -48,15 +48,24 @@ export default function LuminairesPage() {
   const isAdmin = userData?.role === "admin"
   const [favorites, setFavorites] = useState<string[]>([])
 
-  // Charger les favoris depuis localStorage
+  // Charger les favoris depuis la base de données pour les utilisateurs connectés
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedFavorites = localStorage.getItem("favorites")
-      if (storedFavorites) {
-        setFavorites(JSON.parse(storedFavorites))
+    const loadFavorites = async () => {
+      if (user?.email) {
+        try {
+          const response = await fetch(`/api/users/favorites?email=${encodeURIComponent(user.email)}`)
+          const data = await response.json()
+          if (data.success) {
+            setFavorites(data.favorites || [])
+          }
+        } catch (error) {
+          console.error("❌ Erreur chargement favoris:", error)
+        }
       }
     }
-  }, [])
+
+    loadFavorites()
+  }, [user?.email])
 
   // Charger toutes les données pour les statistiques globales
   const loadAllLuminaires = useCallback(async () => {
@@ -96,10 +105,8 @@ export default function LuminairesPage() {
           params.append("yearMax", yearRangeRef.current[1].toString())
         }
 
-        // Ajouter le designer seulement s'il est sélectionné
-        if (selectedDesigner) {
-          params.append("designer", selectedDesigner)
-        }
+        // CORRECTION: Ajouter le designer même s'il est vide pour permettre le reset
+        params.append("designer", selectedDesigner)
 
         console.log("🔍 Paramètres de requête:", params.toString())
 
