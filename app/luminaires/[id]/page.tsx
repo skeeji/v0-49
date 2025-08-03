@@ -274,7 +274,7 @@ export default function LuminaireDetailPage() {
       year: "annee",
       signed: "signe",
       dimensions: "dimensions",
-      materials: "Matériaux", // CORRECTION: utiliser "Matériaux" au lieu de "materiaux"
+      materials: "materiaux", // CORRECTION: utiliser "materiaux" pour la cohérence
       estimation: "estimation",
       editeur: "editeur",
     }
@@ -290,6 +290,27 @@ export default function LuminaireDetailPage() {
         body: JSON.stringify({ [keyToUpdate]: value }),
       })
       console.log(`✅ Luminaire mis à jour - ${field} (${keyToUpdate}):`, value)
+
+      // CORRECTION: Mettre à jour aussi les champs CSV pour cohérence
+      if (field === "artist") {
+        await fetch(`/api/luminaires/${luminaire._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ "Artiste / Dates": value }),
+        })
+      } else if (field === "specialty") {
+        await fetch(`/api/luminaires/${luminaire._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ Spécialité: value }),
+        })
+      } else if (field === "collaboration") {
+        await fetch(`/api/luminaires/${luminaire._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ "Collaboration / Œuvre": value }),
+        })
+      }
     } catch (error) {
       console.error("❌ Erreur de mise à jour:", error)
     }

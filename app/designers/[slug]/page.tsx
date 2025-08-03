@@ -122,6 +122,97 @@ export default function DesignerDetailPage() {
     }
   }
 
+  const updateDesignerName = async (newName: string) => {
+    if (!canEdit) return
+
+    try {
+      // Mettre à jour tous les luminaires de ce designer
+      const updatePromises = designerLuminaires.map(async (luminaire) => {
+        const response = await fetch(`/api/luminaires/${luminaire.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            "Artiste / Dates": newName,
+            designer: newName, // CORRECTION: Mettre à jour les deux champs
+          }),
+        })
+        return response.json()
+      })
+
+      await Promise.all(updatePromises)
+
+      // Mettre à jour l'état local
+      setDesigner((prev) => ({ ...prev, nom: newName }))
+      setDesignerLuminaires((prev) => prev.map((lum) => ({ ...lum, artist: newName })))
+
+      console.log("✅ Nom du designer mis à jour avec succès")
+    } catch (error) {
+      console.error("❌ Erreur mise à jour nom designer:", error)
+    }
+  }
+
+  const updateDesignerSpecialty = async (newSpecialty: string) => {
+    if (!canEdit) return
+
+    try {
+      // Mettre à jour tous les luminaires de ce designer
+      const updatePromises = designerLuminaires.map(async (luminaire) => {
+        const response = await fetch(`/api/luminaires/${luminaire.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            Spécialité: newSpecialty,
+            periode: newSpecialty,
+          }),
+        })
+        return response.json()
+      })
+
+      await Promise.all(updatePromises)
+
+      // Mettre à jour localStorage
+      updateDescription(newSpecialty)
+
+      console.log("✅ Spécialité du designer mise à jour avec succès")
+    } catch (error) {
+      console.error("❌ Erreur mise à jour spécialité designer:", error)
+    }
+  }
+
+  const updateDesignerCollaboration = async (newCollaboration: string) => {
+    if (!canEdit) return
+
+    try {
+      // Mettre à jour tous les luminaires de ce designer
+      const updatePromises = designerLuminaires.map(async (luminaire) => {
+        const response = await fetch(`/api/luminaires/${luminaire.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            "Collaboration / Œuvre": newCollaboration,
+            collaboration: newCollaboration,
+          }),
+        })
+        return response.json()
+      })
+
+      await Promise.all(updatePromises)
+
+      // Mettre à jour localStorage
+      updateCollaboration(newCollaboration)
+
+      console.log("✅ Collaboration du designer mise à jour avec succès")
+    } catch (error) {
+      console.error("❌ Erreur mise à jour collaboration designer:", error)
+    }
+  }
+
   const updateLuminaire = (id: string, updates: any) => {
     if (!canEdit) return
     setDesignerLuminaires((prev) => prev.map((lum) => (lum.id === id ? { ...lum, ...updates } : lum)))
@@ -194,8 +285,7 @@ export default function DesignerDetailPage() {
                 value={designer.nom}
                 onSave={(newName) => {
                   if (!canEdit) return
-                  setDesigner((prev) => ({ ...prev, nom: newName }))
-                  // Optionnel: sauvegarder en base de données si nécessaire
+                  updateDesignerName(newName)
                 }}
                 className="text-4xl font-serif text-gray-900 mb-4"
                 placeholder="Nom du designer"
@@ -207,12 +297,17 @@ export default function DesignerDetailPage() {
 
               <div className="bg-white rounded-lg p-4 border border-gray-200 mb-4">
                 <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Spécialité</h3>
-                <EditableField value={description} onSave={updateDescription} multiline disabled={!canEdit} />
+                <EditableField value={description} onSave={updateDesignerSpecialty} multiline disabled={!canEdit} />
               </div>
 
               <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Collaboration / Œuvre</h3>
-                <EditableField value={collaboration} onSave={updateCollaboration} multiline disabled={!canEdit} />
+                <EditableField
+                  value={collaboration}
+                  onSave={updateDesignerCollaboration}
+                  multiline
+                  disabled={!canEdit}
+                />
               </div>
             </div>
           </div>

@@ -83,12 +83,27 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // MATÉRIAUX
+      // MATÉRIAUX - CORRECTION: Priorité aux champs modifiés
       let materiaux = ""
-      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-        materiaux = luminaire.materiaux.join(", ")
-      } else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
-        materiaux = String(luminaire.Matériaux).trim()
+
+      // Test de tous les champs possibles pour matériaux avec priorité aux modifications
+      const materiauxFields = [
+        luminaire.materiaux, // Champ modifié (priorité)
+        luminaire["Matériaux"], // Champ original CSV
+      ]
+
+      for (const field of materiauxFields) {
+        if (field) {
+          if (Array.isArray(field) && field.length > 0) {
+            materiaux = field.join(", ")
+            if (index < 5) console.log(`✅ MATÉRIAUX TROUVÉS (array): "${materiaux}"`)
+            break
+          } else if (typeof field === "string" && field.trim() !== "") {
+            materiaux = field.trim()
+            if (index < 5) console.log(`✅ MATÉRIAUX TROUVÉS (string): "${materiaux}"`)
+            break
+          }
+        }
       }
 
       // Images
