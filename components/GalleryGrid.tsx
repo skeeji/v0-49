@@ -2,210 +2,351 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import Link from "next/link"
 import { Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
+import { Lightbox } from "@/components/Lightbox"
 import { DeleteLuminaireButton } from "@/components/DeleteLuminaireButton"
 import { useAuth } from "@/contexts/AuthContext"
+import Link from "next/link"
 
 interface GalleryGridProps {
   items: any[]
   viewMode: "grid" | "list"
   onItemUpdate: (id: string, updates: any) => void
-  columns: number
-  freeUserLimit: number
-  isUserFree: boolean
+  columns?: number
+  freeUserLimit?: number
+  isUserFree?: boolean
 }
 
-export function GalleryGrid({ items, viewMode, onItemUpdate, columns, freeUserLimit, isUserFree }: GalleryGridProps) {
-  const { userData } = useAuth()
+export function GalleryGrid({
+  items,
+  viewMode,
+  onItemUpdate,
+  columns = 4,
+  freeUserLimit = items.length,
+  isUserFree = false,
+}: GalleryGridProps) {
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<string[]>([])
+  const { user, userData } = useAuth()
 
-  const isAdmin = userData?.role === "admin"
-  const canSeeFavorites = userData?.role === "admin" || userData?.role === "premium"
-
-  // Charger les favoris depuis localStorage
+  // Charger les favoris depuis la base de données pour les utilisateurs connectés
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedFavorites = localStorage.getItem("favorites")
-      if (storedFavorites) {
-        setFavorites(JSON.parse(storedFavorites))
+    const loadFavorites = async () => {
+      if (user?.email) {
+        try {
+          const response = await fetch(`/api/users/favorites?email=${encodeURIComponent(user.email)}`)
+          const data = await response.json()
+          if (data.success) {
+            setFavorites(data.favorites || [])
+          }
+        } catch (error) {
+          console.error("❌ Erreur chargement favoris:", error)
+        }
       }
     }
-  }, [])
 
-  const handleFavoriteToggle = (itemId: string) => {
-    const newFavorites = favorites.includes(itemId) ? favorites.filter((id) => id !== itemId) : [...favorites, itemId]
+    loadFavorites()
+  }, [user?.email])
 
-    setFavorites(newFavorites)
-    localStorage.setItem("favorites", JSON.stringify(newFavorites))
-  }
+  const toggleFavorite = async (id: string) => {
+    if (!user?.email) return
 
-  const handleDelete = async (itemId: string) => {
+    const isCurrentlyFavorite = favorites.includes(id)
+    const action = isCurrentlyFavorite ? "remove" : "add"
+
     try {
-      // Recharger la page après suppression
-      window.location.reload()
+      const response = await fetch("/api/users/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          luminaireId: id,
+          action,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        const newFavorites = isCurrentlyFavorite ? favorites.filter((fav) => fav !== id) : [...favorites, id]
+        setFavorites(newFavorites)
+      }
     } catch (error) {
-      console.error("❌ Erreur lors de la suppression:", error)
+      console.error("❌ Erreur mise à jour favoris:", error)
     }
   }
 
-  // Limiter les éléments pour les utilisateurs gratuits
-  const displayedItems = isUserFree ? items.slice(0, freeUserLimit) : items
+  // Fonction pour obtenir l'URL de l'image
+  const getImageUrl = (item: any) => {
+    if (item["Nom du fichier"]) {
+      if (item["Nom du fichier"].startsWith("http")) {
+        return item["Nom du fichier"]
+      }
+      return `/api/images/filename/${item["Nom du fichier"]}`
+    }
+
+    if (item.filename) {
+      if (item.filename.startsWith("http")) {
+        return item.filename
+      }
+      return `/api/images/filename/${item.filename}`
+    }
+
+    if (item.image) {
+      if (item.image.startsWith("/api/images/")) {
+        return item.image
+      }
+      if (typeof item.image === "string" && /^[0-9a-fA-F]{24}$/.test(item.image)) {
+        return `/api/images/${item.image}`
+      }
+      if (item.image.startsWith("http")) {
+        return item.image
+      }
+      if (item.image.includes(".")) {
+        return `/api/images/filename/${item.image}`
+      }
+      return `/api/images/${item.image}`
+    }
+
+    return "/placeholder.svg?height=300&width=300"
+  }
+
+  const handleDeleteLuminaire = async (luminaireId: string) => {
+    try {
+      const response = await fetch(`/api/luminaires/${luminaireId}`, {
+        method: "DELETE",
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Supprimer l'élément de la liste locale au lieu de recharger la page
+        const updatedItems = items.filter((item) => String(item.id || item._id) !== luminaireId)
+        // Déclencher une mise à jour via le parent
+        if (onItemUpdate) {
+          onItemUpdate(luminaireId, { deleted: true })
+        }
+        // Recharger la page en dernier recours
+        window.location.reload()
+      } else {
+        console.error("❌ Erreur suppression:", data.error)
+        alert("Erreur lors de la suppression du luminaire")
+      }
+    } catch (error) {
+      console.error("❌ Erreur suppression:", error)
+      alert("Erreur lors de la suppression du luminaire")
+    }
+  }
+
+  // Vérifier si l'utilisateur peut voir les favoris (connecté et pas gratuit)
+  const canUseFavorites = user && userData?.role !== "free"
 
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
-        {displayedItems.map((item, index) => (
-          <Card key={item._id || item.id} className="overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex gap-4">
-                <div className="w-24 h-24 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                  {item.image ? (
+        {items.map((item, index) => {
+          const itemId = String(item.id || item._id || "")
+          const itemName = String(item.name || item.nom || "Nom du luminaire")
+          const itemDesigner = String(item.artist || item.designer || "Non renseigné")
+          const itemYear = String(item.year || item.annee || "Non renseigné")
+          const isAccessible = isUserFree ? index < freeUserLimit : true
+          const CardWrapper = isAccessible ? Link : "div"
+
+          return (
+            <CardWrapper key={itemId} {...(isAccessible ? { href: `/luminaires/${itemId}` } : {})}>
+              <div
+                className={`bg-white rounded-xl p-6 shadow-lg transition-shadow ${
+                  isAccessible ? "hover:shadow-xl cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
+                }`}
+              >
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                     <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={item.nom || item.name || "Luminaire"}
+                      src={getImageUrl(item) || "/placeholder.svg"}
+                      alt={itemName}
                       fill
                       className="object-cover"
                       onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg"
+                        console.log("❌ Erreur chargement image:", getImageUrl(item))
+                        const target = e.target as HTMLImageElement
+                        target.src = "/placeholder.svg?height=300&width=300"
                       }}
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="text-2xl text-gray-400">🏮</div>
+                  </div>
+
+                  <div className="flex-1 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <h3 className="text-xl font-serif text-gray-900">{itemName}</h3>
+
+                      {isAccessible && (
+                        <div className="flex items-center gap-2">
+                          {canUseFavorites && (
+                            <FavoriteToggleButton
+                              isActive={favorites.includes(itemId)}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                toggleFavorite(itemId)
+                              }}
+                            />
+                          )}
+                          <Button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setLightboxImage(getImageUrl(item))
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          {userData?.role === "admin" && (
+                            <DeleteLuminaireButton
+                              luminaireId={itemId}
+                              luminaireName={itemName}
+                              onDelete={() => handleDeleteLuminaire(itemId)}
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-serif text-lg text-gray-900 truncate">{item.nom || item.name || "Sans nom"}</h3>
-                  <p className="text-gray-600 text-sm truncate">
-                    {item.designer || item.artist || item["Artiste / Dates"] || "Designer inconnu"}
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    {item.annee || item.year || item["Année"] || "Année inconnue"}
-                  </p>
-                </div>
+                    {/* Affichage simplifié : seulement nom, artiste et année */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
+                        <p className="text-gray-900">{itemDesigner}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
+                        <p className="text-gray-900">{itemYear}</p>
+                      </div>
+                    </div>
 
-                <div className="flex items-center gap-2">
-                  {canSeeFavorites && (
-                    <FavoriteToggleButton
-                      isActive={favorites.includes(String(item._id || item.id))}
-                      onClick={() => handleFavoriteToggle(String(item._id || item.id))}
-                    />
-                  )}
-
-                  <Link href={`/luminaires/${item._id || item.id}`}>
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </Link>
-
-                  {isAdmin && (
-                    <DeleteLuminaireButton
-                      luminaireId={String(item._id || item.id)}
-                      luminaireName={item.nom || item.name || "Sans nom"}
-                      onDelete={() => handleDelete(String(item._id || item.id))}
-                    />
-                  )}
+                    {!isAccessible && (
+                      <div className="mt-2">
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">🔒 Premium requis</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </CardWrapper>
+          )
+        })}
 
-        {isUserFree && items.length > freeUserLimit && (
-          <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">
-              Vous avez atteint la limite de {freeUserLimit} luminaires pour les comptes gratuits.
-            </p>
-            <Link href="/pricing">
-              <Button>Passer à Premium</Button>
-            </Link>
-          </div>
-        )}
+        {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
       </div>
     )
   }
 
+  // Correction du mapping des colonnes pour afficher le bon nombre
+  const getGridClass = (cols: number) => {
+    switch (cols) {
+      case 3:
+        return "grid-cols-2 sm:grid-cols-3"
+      case 4:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+      case 5:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+      case 6:
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+      case 8:
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+      default:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+    }
+  }
+
   return (
-    <>
-      <div
-        className="grid gap-6"
-        style={{
-          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-        }}
-      >
-        {displayedItems.map((item, index) => (
-          <Card key={item._id || item.id} className="group overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="aspect-square relative bg-gray-100">
-              {item.image ? (
+    <div className={`grid ${getGridClass(columns)} gap-2 md:gap-3`}>
+      {items.map((item, index) => {
+        const itemId = String(item.id || item._id || "")
+        const itemName = String(item.name || item.nom || "Nom du luminaire")
+        const itemDesigner = String(item.artist || item.designer || "Artiste non renseigné")
+        const itemYear = String(item.year || item.annee || "Année inconnue")
+        const isAccessible = isUserFree ? index < freeUserLimit : true
+        const CardWrapper = isAccessible ? Link : "div"
+
+        return (
+          <CardWrapper key={itemId} {...(isAccessible ? { href: `/luminaires/${itemId}` } : {})}>
+            <div
+              className={`bg-white rounded-lg overflow-hidden shadow-md transition-shadow ${
+                isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
+              }`}
+            >
+              <div className="aspect-square relative bg-gray-100">
                 <Image
-                  src={item.image || "/placeholder.svg"}
-                  alt={item.nom || item.name || "Luminaire"}
+                  src={getImageUrl(item) || "/placeholder.svg"}
+                  alt={itemName}
                   fill
                   className="object-cover"
                   onError={(e) => {
-                    e.currentTarget.src = "/placeholder.svg"
+                    console.log("❌ Erreur chargement image:", getImageUrl(item))
+                    const target = e.target as HTMLImageElement
+                    target.src = "/placeholder.svg?height=300&width=300"
                   }}
                 />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="text-6xl text-gray-400">🏮</div>
-                </div>
-              )}
 
-              {/* Overlay avec boutons */}
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200">
-                <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {canSeeFavorites && (
+                {isAccessible && canUseFavorites && (
+                  <div className="absolute top-2 right-2">
                     <FavoriteToggleButton
-                      isActive={favorites.includes(String(item._id || item.id))}
-                      onClick={() => handleFavoriteToggle(String(item._id || item.id))}
+                      isActive={favorites.includes(itemId)}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleFavorite(itemId)
+                      }}
                     />
-                  )}
+                  </div>
+                )}
 
-                  <Link href={`/luminaires/${item._id || item.id}`}>
-                    <Button variant="outline" size="sm" className="bg-white/90 hover:bg-white">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </Link>
+                {!isAccessible && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                    <span className="text-white text-xs bg-black bg-opacity-50 px-2 py-1 rounded">🔒 Premium</span>
+                  </div>
+                )}
+              </div>
 
-                  {isAdmin && (
-                    <DeleteLuminaireButton
-                      luminaireId={String(item._id || item.id)}
-                      luminaireName={item.nom || item.name || "Sans nom"}
-                      onDelete={() => handleDelete(String(item._id || item.id))}
-                    />
+              <div className="p-2 space-y-0.5">
+                <h3 className="font-serif text-xs md:text-sm text-gray-900 truncate">{itemName}</h3>
+
+                <p className="text-gray-600 text-xs truncate">{itemDesigner}</p>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">{itemYear}</span>
+                  {isAccessible && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setLightboxImage(getImageUrl(item))
+                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 h-auto"
+                      >
+                        <Eye className="w-3 h-3" />
+                      </Button>
+                      {userData?.role === "admin" && (
+                        <DeleteLuminaireButton
+                          luminaireId={itemId}
+                          luminaireName={itemName}
+                          onDelete={() => handleDeleteLuminaire(itemId)}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
             </div>
+          </CardWrapper>
+        )
+      })}
 
-            <CardContent className="p-4">
-              <h3 className="font-serif text-lg text-gray-900 truncate mb-1">{item.nom || item.name || "Sans nom"}</h3>
-              <p className="text-gray-600 text-sm truncate mb-1">
-                {item.designer || item.artist || item["Artiste / Dates"] || "Designer inconnu"}
-              </p>
-              <p className="text-gray-500 text-sm">{item.annee || item.year || item["Année"] || "Année inconnue"}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {isUserFree && items.length > freeUserLimit && (
-        <div className="text-center py-8">
-          <p className="text-gray-500 mb-4">
-            Vous avez atteint la limite de {freeUserLimit} luminaires pour les comptes gratuits.
-          </p>
-          <Link href="/pricing">
-            <Button>Passer à Premium</Button>
-          </Link>
-        </div>
-      )}
-    </>
+      {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
+    </div>
   )
 }

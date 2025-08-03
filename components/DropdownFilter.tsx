@@ -11,21 +11,18 @@ interface DropdownFilterProps {
 
 export function DropdownFilter({ label, value, onChange, options }: DropdownFilterProps) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue placeholder={`Tous les ${label.toLowerCase()}`} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tous les {label.toLowerCase()}</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value || "all"} onValueChange={onChange}>
+      <SelectTrigger>
+        <SelectValue placeholder={`Tous les ${label.toLowerCase()}`} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Tous les {label.toLowerCase()}</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option} value={option}>
+            {option}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
