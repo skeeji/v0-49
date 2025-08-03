@@ -245,7 +245,18 @@ export default function LuminairesPage() {
 
   // Options pour les filtres
   const filterOptions = useMemo(() => {
-    const designers = [...new Set(allLuminaires.map((l) => l.designer || l["Artiste / Dates"]).filter(Boolean))].sort()
+    const designers = [
+      ...new Set(
+        allLuminaires
+          .map((l) => {
+            const designer = l.designer || l["Artiste / Dates"]
+            if (!designer) return null
+            // Supprimer les dates entre parenthèses (ex: "Jean Dupont (1980 - 2015)" devient "Jean Dupont")
+            return designer.replace(/\s*$$[^)]*$$\s*$/, "").trim()
+          })
+          .filter(Boolean),
+      ),
+    ].sort()
     return { designers }
   }, [allLuminaires])
 

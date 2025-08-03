@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Eye } from "lucide-react"
@@ -112,7 +114,12 @@ export function GalleryGrid({
     return "/placeholder.svg?height=300&width=300"
   }
 
-  const handleDeleteLuminaire = async (luminaireId: string) => {
+  const handleDeleteLuminaire = async (luminaireId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
     if (!confirm("Êtes-vous sûr de vouloir supprimer ce luminaire ?")) {
       return
     }
@@ -214,7 +221,7 @@ export function GalleryGrid({
                             <DeleteLuminaireButton
                               luminaireId={itemId}
                               luminaireName={itemName}
-                              onDelete={() => handleDeleteLuminaire(itemId)}
+                              onDelete={(e) => handleDeleteLuminaire(itemId, e)}
                             />
                           )}
                         </div>
@@ -343,7 +350,7 @@ export function GalleryGrid({
                         <DeleteLuminaireButton
                           luminaireId={itemId}
                           luminaireName={itemName}
-                          onDelete={() => handleDeleteLuminaire(itemId)}
+                          onDelete={(e) => handleDeleteLuminaire(itemId, e)}
                         />
                       )}
                     </div>
