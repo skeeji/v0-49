@@ -221,9 +221,6 @@ export default function DesignersPage() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-serif text-gray-900 mb-8">
           Designers ({displayedDesigners.length}/{filteredDesigners.length})
-          {(!user || userData?.role === "free") && filteredDesigners.length > 0 && (
-            <span className="text-orange-600 text-2xl ml-2">({freeUserLimit} accessibles)</span>
-          )}
         </h1>
 
         {/* Message pour les utilisateurs non connectés ou "free" */}
