@@ -157,6 +157,24 @@ export function GalleryGrid({
   // Vérifier si l'utilisateur peut voir les favoris (connecté et pas gratuit)
   const canUseFavorites = user && userData?.role !== "free"
 
+  // Correction du mapping des colonnes pour afficher le bon nombre
+  const getGridClass = (cols: number) => {
+    switch (cols) {
+      case 3:
+        return "grid-cols-2 sm:grid-cols-3"
+      case 4:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+      case 5:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+      case 6:
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+      case 8:
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+      default:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+    }
+  }
+
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
@@ -247,8 +265,8 @@ export function GalleryGrid({
                     )}
                   </div>
                 </div>
-              </div>
-            </CardWrapper>
+              </CardWrapper>
+            )
           )
         })}
 
@@ -257,26 +275,8 @@ export function GalleryGrid({
     )
   }
 
-  // Correction du mapping des colonnes pour afficher le bon nombre
-  const getGridClass = (cols: number) => {
-    switch (cols) {
-      case 3:
-        return "grid-cols-2 sm:grid-cols-3"
-      case 4:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-      case 5:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-      case 6:
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
-      case 8:
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
-      default:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-    }
-  }
-
   return (
-    <div className={`grid ${getGridClass(columns)} gap-2 md:gap-3`}>
+    <div className={\`grid ${getGridClass(columns)} gap-2 md:gap-3`}>
       {items.map((item, index) => {
         const itemId = String(item.id || item._id || "")
         const itemName = String(item.name || item.nom || "Nom du luminaire")
@@ -364,5 +364,5 @@ export function GalleryGrid({
 
       {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
     </div>
-  )
+  )\
 }

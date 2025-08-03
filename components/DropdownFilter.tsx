@@ -16,7 +16,7 @@ export function DropdownFilter({ label, value, onChange, options }: DropdownFilt
         <SelectValue placeholder={`Tous les ${label.toLowerCase()}s`} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="">Tous les {label.toLowerCase()}s</SelectItem>
+        <SelectItem value="all">Tous les {label.toLowerCase()}s</SelectItem>
         {options.map((option) => (
           <SelectItem key={option} value={option}>
             {option}
