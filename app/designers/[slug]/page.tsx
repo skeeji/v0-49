@@ -245,14 +245,6 @@ export default function DesignerDetailPage() {
           </Link>
         </div>
 
-        {!canEdit && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-            <p className="font-serif">
-              Mode lecture seule. Seuls les administrateurs peuvent modifier les informations.
-            </p>
-          </div>
-        )}
-
         <div className="bg-white rounded-xl p-8 shadow-lg mb-8">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             <div className="w-48 h-48 relative flex-shrink-0">

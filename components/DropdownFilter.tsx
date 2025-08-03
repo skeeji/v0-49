@@ -11,12 +11,12 @@ interface DropdownFilterProps {
 
 export function DropdownFilter({ label, value, onChange, options }: DropdownFilterProps) {
   return (
-    <Select value={value === "" ? "all" : value} onValueChange={onChange}>
+    <Select value={value} onValueChange={onChange}>
       <SelectTrigger>
-        <SelectValue placeholder={`Tous les ${label.toLowerCase()}`} />
+        <SelectValue placeholder={`Tous les ${label.toLowerCase()}s`} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">Tous les {label.toLowerCase()}</SelectItem>
+        <SelectItem value="">Tous les {label.toLowerCase()}s</SelectItem>
         {options.map((option) => (
           <SelectItem key={option} value={option}>
             {option}

@@ -114,10 +114,10 @@ export function GalleryGrid({
     return "/placeholder.svg?height=300&width=300"
   }
 
-  const handleDeleteLuminaire = async (luminaireId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault()
-      e.stopPropagation()
+  const handleDeleteLuminaire = async (luminaireId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
     }
 
     if (!confirm("Êtes-vous sûr de vouloir supprimer ce luminaire ?")) {
@@ -221,7 +221,7 @@ export function GalleryGrid({
                             <DeleteLuminaireButton
                               luminaireId={itemId}
                               luminaireName={itemName}
-                              onDelete={(e) => handleDeleteLuminaire(itemId, e)}
+                              onDelete={(event) => handleDeleteLuminaire(itemId, event)}
                             />
                           )}
                         </div>
@@ -350,7 +350,7 @@ export function GalleryGrid({
                         <DeleteLuminaireButton
                           luminaireId={itemId}
                           luminaireName={itemName}
-                          onDelete={(e) => handleDeleteLuminaire(itemId, e)}
+                          onDelete={(event) => handleDeleteLuminaire(itemId, event)}
                         />
                       )}
                     </div>
