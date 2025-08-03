@@ -83,27 +83,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // MATÉRIAUX - CORRECTION: Priorité aux champs modifiés
+      // MATÉRIAUX - UTILISER LA MÊME LOGIQUE QUE LE PDF DE LA PAGE LUMINAIRE INDIVIDUELLE
       let materiaux = ""
 
-      // Test de tous les champs possibles pour matériaux avec priorité aux modifications
-      const materiauxFields = [
-        luminaire.materiaux, // Champ modifié (priorité)
-        luminaire["Matériaux"], // Champ original CSV
-      ]
-
-      for (const field of materiauxFields) {
-        if (field) {
-          if (Array.isArray(field) && field.length > 0) {
-            materiaux = field.join(", ")
-            if (index < 5) console.log(`✅ MATÉRIAUX TROUVÉS (array): "${materiaux}"`)
-            break
-          } else if (typeof field === "string" && field.trim() !== "") {
-            materiaux = field.trim()
-            if (index < 5) console.log(`✅ MATÉRIAUX TROUVÉS (string): "${materiaux}"`)
-            break
-          }
-        }
+      // LOGIQUE EXACTE DU PDF : D'abord chercher dans 'materiaux' (liste), puis dans 'Matériaux' (texte)
+      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+        materiaux = luminaire.materiaux.join(", ")
+        if (index < 5) console.log(`✅ MATÉRIAUX TROUVÉS (array): "${materiaux}"`)
+      } else if (luminaire.Matériaux && String(luminaire.Matériaux).trim() !== "") {
+        materiaux = String(luminaire.Matériaux).trim()
+        if (index < 5) console.log(`✅ MATÉRIAUX TROUVÉS (string): "${materiaux}"`)
       }
 
       // Images
@@ -159,6 +148,9 @@ export async function GET(request: NextRequest) {
     console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
     console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
 
+    const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"].trim() !== "").length
+    console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
+
     // Afficher quelques exemples de valeurs
     console.log("📋 EXEMPLES DE VALEURS DANS LE CSV:")
     csvData.slice(0, 5).forEach((row, idx) => {
@@ -167,6 +159,7 @@ export async function GET(request: NextRequest) {
         dimensions: row["Dimensions"],
         specialite: row["Spécialité"],
         collaboration: row["Collaboration / Œuvre"],
+        materiaux: row["Matériaux"], // Ajouter cette ligne
       })
     })
 

@@ -274,7 +274,7 @@ export default function LuminaireDetailPage() {
       year: "annee",
       signed: "signe",
       dimensions: "dimensions",
-      materials: "materiaux", // CORRECTION: utiliser "materiaux" pour la cohérence
+      materials: "Matériaux", // CORRECTION: utiliser "Matériaux" au lieu de "materiaux"
       estimation: "estimation",
       editeur: "editeur",
     }
