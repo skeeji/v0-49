@@ -44,13 +44,20 @@ export async function GET(request: NextRequest) {
     }
 
     if (designer) {
-      filter.$and = filter.$and || []
-      filter.$and.push({
+      filter.$or = filter.$or || []
+      const designerFilter = {
         $or: [
           { designer: { $regex: designer, $options: "i" } },
           { "Artiste / Dates": { $regex: designer, $options: "i" } },
         ],
-      })
+      }
+
+      if (filter.$or) {
+        filter.$and = filter.$and || []
+        filter.$and.push(designerFilter)
+      } else {
+        Object.assign(filter, designerFilter)
+      }
     }
 
     if (periode) {

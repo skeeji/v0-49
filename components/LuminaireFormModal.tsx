@@ -151,24 +151,47 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       let uploadedImages: string[] = []
       if (images.length > 0) {
         console.log(`📸 Upload de ${images.length} images principales...`)
+
+        // Vérifier la taille des fichiers avant upload
+        const maxSize = 5 * 1024 * 1024 // 5MB par fichier
+        const oversizedFiles = images.filter((img) => img.size > maxSize)
+
+        if (oversizedFiles.length > 0) {
+          toast.error(`Fichiers trop volumineux (max 5MB): ${oversizedFiles.map((f) => f.name).join(", ")}`)
+          setIsSubmitting(false)
+          return
+        }
+
         const imageFormData = new FormData()
         images.forEach((image) => {
           imageFormData.append("images", image)
         })
 
-        const imageResponse = await fetch("/api/upload/images", {
-          method: "POST",
-          body: imageFormData,
-        })
+        try {
+          const imageResponse = await fetch("/api/upload/images", {
+            method: "POST",
+            body: imageFormData,
+          })
 
-        const imageData = await imageResponse.json()
-        console.log("📸 Réponse upload images:", imageData)
+          if (!imageResponse.ok) {
+            if (imageResponse.status === 413) {
+              throw new Error("Fichiers trop volumineux. Veuillez réduire la taille des images (max 5MB par fichier).")
+            }
+            throw new Error(`Erreur HTTP ${imageResponse.status}`)
+          }
 
-        if (imageData.success) {
-          uploadedImages = imageData.filenames || []
-          console.log("✅ Images uploadées:", uploadedImages)
-        } else {
-          throw new Error(`Erreur lors de l'upload des images: ${imageData.error}`)
+          const imageData = await imageResponse.json()
+          console.log("📸 Réponse upload images:", imageData)
+
+          if (imageData.success) {
+            uploadedImages = imageData.filenames || []
+            console.log("✅ Images uploadées:", uploadedImages)
+          } else {
+            throw new Error(`Erreur lors de l'upload des images: ${imageData.error}`)
+          }
+        } catch (error: any) {
+          console.error("❌ Erreur upload images:", error)
+          throw new Error(`Upload des images échoué: ${error.message}`)
         }
       }
 
@@ -176,21 +199,42 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       let designerImageFilename = ""
       if (designerImage) {
         console.log("👤 Upload de l'image designer...")
+
+        // Vérifier la taille du fichier
+        const maxSize = 5 * 1024 * 1024 // 5MB
+        if (designerImage.size > maxSize) {
+          toast.error("Image du designer trop volumineuse (max 5MB)")
+          setIsSubmitting(false)
+          return
+        }
+
         const designerFormData = new FormData()
         designerFormData.append("images", designerImage)
         designerFormData.append("designer", formData.designer)
 
-        const designerImageResponse = await fetch("/api/upload/images", {
-          method: "POST",
-          body: designerFormData,
-        })
+        try {
+          const designerImageResponse = await fetch("/api/upload/images", {
+            method: "POST",
+            body: designerFormData,
+          })
 
-        const designerImageData = await designerImageResponse.json()
-        console.log("👤 Réponse upload image designer:", designerImageData)
+          if (!designerImageResponse.ok) {
+            if (designerImageResponse.status === 413) {
+              throw new Error("Image du designer trop volumineuse. Veuillez réduire la taille (max 5MB).")
+            }
+            throw new Error(`Erreur HTTP ${designerImageResponse.status}`)
+          }
 
-        if (designerImageData.success && designerImageData.filenames && designerImageData.filenames.length > 0) {
-          designerImageFilename = designerImageData.filenames[0]
-          console.log("✅ Image designer uploadée:", designerImageFilename)
+          const designerImageData = await designerImageResponse.json()
+          console.log("👤 Réponse upload image designer:", designerImageData)
+
+          if (designerImageData.success && designerImageData.filenames && designerImageData.filenames.length > 0) {
+            designerImageFilename = designerImageData.filenames[0]
+            console.log("✅ Image designer uploadée:", designerImageFilename)
+          }
+        } catch (error: any) {
+          console.error("❌ Erreur upload image designer:", error)
+          throw new Error(`Upload de l'image designer échoué: ${error.message}`)
         }
       }
 

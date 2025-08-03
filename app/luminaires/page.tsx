@@ -32,6 +32,7 @@ export default function LuminairesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [showFavorites, setShowFavorites] = useState(false)
 
   // Refs pour accéder aux valeurs dans loadLuminaires sans créer de dépendances
   const yearRangeRef = useRef(yearRange)
@@ -45,6 +46,7 @@ export default function LuminairesPage() {
 
   const { user, userData } = useAuth()
   const isAdmin = userData?.role === "admin"
+  const [favorites, setFavorites] = useState<string[]>([])
 
   // Charger toutes les données pour les statistiques globales
   const loadAllLuminaires = useCallback(async () => {
@@ -269,6 +271,14 @@ export default function LuminairesPage() {
     return totalItems
   }, [user, userData, totalItems])
 
+  // Calculer les luminaires à afficher
+  const displayedLuminaires = useMemo(() => {
+    if (showFavorites) {
+      return luminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
+    }
+    return luminaires
+  }, [luminaires, showFavorites, favorites])
+
   if (loading && luminaires.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -315,6 +325,15 @@ export default function LuminairesPage() {
               Ajouter
             </Button>
           )}
+
+          <Button
+            onClick={() => setShowFavorites(!showFavorites)}
+            variant={showFavorites ? "default" : "outline"}
+            style={showFavorites ? { backgroundColor: "#f2d895", color: "#000" } : {}}
+            className="hover:opacity-90"
+          >
+            ❤️ Favoris ({favorites.length})
+          </Button>
 
           <div className="flex items-center gap-2">
             <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
@@ -413,7 +432,7 @@ export default function LuminairesPage() {
 
       {/* Grille des luminaires avec limitation visuelle */}
       <GalleryGrid
-        items={luminaires}
+        items={displayedLuminaires}
         viewMode={viewMode}
         onItemUpdate={handleItemUpdate}
         columns={columns}
