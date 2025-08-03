@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Camera, Upload, X, Sparkles } from 'lucide-react'
+import { Camera, Upload, X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -14,26 +14,26 @@ import { LoginModal } from "@/components/LoginModal"
 const apiUrl = "https://image-similarity-api-590690354412.us-central1.run.app/api/search"
 
 export default function HomePage() {
-  const [isSearching, setIsSearching = useState(false)
-  const [searchResults, setSearchResults = useState([])
-  const [luminaires, setLuminaires = useState([])
-  const [welcomeVideo, setWelcomeVideo = useState("")
-  const [isCameraActive, setIsCameraActive = useState(false)
-  const [stream, setStream = useState<MediaStream | null>(null)
-  const [capturedImage, setCapturedImage = useState<string | null>(null)
-  const [selectedFile, setSelectedFile = useState<File | null>(null)
-  const [searchMode, setSearchMode = useState<"camera" | "upload" | null>(null)
-  const [isCapturing, setIsCapturing = useState(false)
-  const [isCameraLoading, setIsCameraLoading = useState(false)
-  const [canSearchAgain, setCanSearchAgain = useState(false)
-  const [isRemovingBackground, setIsRemovingBackground = useState(false)
-  const [backgroundRemovedImage, setBackgroundRemovedImage = useState<string | null>(null)
-  const [showBackgroundOptions, setShowBackgroundOptions = useState(false)
-  const [selectedImageForSearch, setSelectedImageForSearch = useState<File | null>(null)
-  const [showLoginModal, setShowLoginModal = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState([])
+  const [luminaires, setLuminaires] = useState([])
+  const [welcomeVideo, setWelcomeVideo] = useState("")
+  const [isCameraActive, setIsCameraActive] = useState(false)
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [searchMode, setSearchMode] = useState<"camera" | "upload" | null>(null)
+  const [isCapturing, setIsCapturing] = useState(false)
+  const [isCameraLoading, setIsCameraLoading] = useState(false)
+  const [canSearchAgain, setCanSearchAgain] = useState(false)
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false)
+  const [backgroundRemovedImage, setBackgroundRemovedImage] = useState<string | null>(null)
+  const [showBackgroundOptions, setShowBackgroundOptions] = useState(false)
+  const [selectedImageForSearch, setSelectedImageForSearch] = useState<File | null>(null)
+  const [showLoginModal, setShowLoginModal] = useState(false)
 
   // États pour les restrictions
-  // const [searchCount, setSearchCount = useState(0)
+  // const [searchCount, setSearchCount] = useState(0)
   // const [monthlySearchLimit] = useState(3)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -628,19 +628,19 @@ export default function HomePage() {
             <p className="text-slate-600 leading-relaxed">
               Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
             </p>
-
-            {/* Appel à l'action pour les comptes premium */}
-            {(!user || userData?.role === "free") && (
-              <div className="mt-4 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800 font-medium">
-                  🌟 Passez à Premium pour des recherches illimitées et la suppression d'arrière-plan !
-                  <Link href="/pricing" className="ml-1 underline font-bold hover:no-underline">
-                    Découvrir Premium
-                  </Link>
-                </p>
-              </div>
-            )}
           </div>
+
+          {/* Appel à l'action pour les comptes premium */}
+          {(!user || userData?.role === "free") && (
+            <div className="mt-4 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800 font-medium">
+                🌟 Passez à Premium pour des recherches illimitées et la suppression d'arrière-plan !
+                <Link href="/pricing" className="ml-1 underline font-bold hover:no-underline">
+                  Découvrir Premium
+                </Link>
+              </p>
+            </div>
+          )}
 
           {/* Affichage de l'image après recherche */}
           {capturedImage && !isSearching && searchResults.length > 0 && (

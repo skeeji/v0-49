@@ -78,15 +78,15 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // Ajouter le designer seulement s'il est sélectionné
-        if (selectedDesigner) {
-          params.append("designer", selectedDesigner)
-        }
-
         // Utiliser les refs pour accéder aux valeurs actuelles sans dépendances
         if (sliderModifiedRef.current) {
           params.append("yearMin", yearRangeRef.current[0].toString())
           params.append("yearMax", yearRangeRef.current[1].toString())
+        }
+
+        // Ajouter le designer seulement s'il est sélectionné
+        if (selectedDesigner) {
+          params.append("designer", selectedDesigner)
         }
 
         const response = await fetch(`/api/luminaires?${params}`)
