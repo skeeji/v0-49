@@ -816,6 +816,19 @@ export default function HomePage() {
                 ></div>
                 <p className="text-lg font-medium text-slate-800 mb-2">Analyse IA en cours...</p>
                 <p className="text-sm text-slate-600">Recherche des luminaires similaires dans notre collection</p>
+
+                {/* Message d'avertissement pour les utilisateurs gratuits */}
+                {userData?.role === "free" && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      Plus que {3 - (userData.searchCount || 0)} recherche(s) restante(s) ce mois-ci.
+                      <Link href="/pricing" className="ml-1 underline font-medium">
+                        Passez à Premium
+                      </Link>{" "}
+                      pour des recherches illimitées.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

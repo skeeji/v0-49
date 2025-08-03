@@ -514,7 +514,7 @@ export default function LuminaireDetailPage() {
                 />
 
                 <div className="space-y-4">
-                  {/* 1. Artiste / Dates - Lien sans style */}
+                  {/* 1. Artiste / Dates - Toujours affiché */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Artiste / Dates</label>
                     {luminaire.artist ? (
@@ -540,100 +540,116 @@ export default function LuminaireDetailPage() {
                     )}
                   </div>
 
-                  {/* 2. Spécialité */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Spécialité</label>
-                    <EditableField
-                      value={String(luminaire.specialty || "")}
-                      onSave={(v) => handleUpdate("specialty", v)}
-                      placeholder="Spécialité"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 2. Spécialité - Affiché seulement si renseigné ou admin */}
+                  {(canEdit || (luminaire.specialty && String(luminaire.specialty).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Spécialité</label>
+                      <EditableField
+                        value={String(luminaire.specialty || "")}
+                        onSave={(v) => handleUpdate("specialty", v)}
+                        placeholder="Spécialité"
+                        multiline
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
 
-                  {/* 3. Collaboration / Œuvre */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
-                    <EditableField
-                      value={String(luminaire.collaboration || "")}
-                      onSave={(v) => handleUpdate("collaboration", v)}
-                      placeholder="Collaboration / Œuvre"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 3. Collaboration / Œuvre - Affiché seulement si renseigné ou admin */}
+                  {(canEdit || (luminaire.collaboration && String(luminaire.collaboration).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
+                      <EditableField
+                        value={String(luminaire.collaboration || "")}
+                        onSave={(v) => handleUpdate("collaboration", v)}
+                        placeholder="Collaboration / Œuvre"
+                        multiline
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
 
-                  {/* 4. Editeur */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
-                    <EditableField
-                      value={String(luminaire.editeur || "")}
-                      onSave={(v) => handleUpdate("editeur", v)}
-                      placeholder="Editeur"
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 4. Editeur - Affiché seulement si renseigné ou admin */}
+                  {(canEdit || (luminaire.editeur && String(luminaire.editeur).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
+                      <EditableField
+                        value={String(luminaire.editeur || "")}
+                        onSave={(v) => handleUpdate("editeur", v)}
+                        placeholder="Editeur"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
 
-                  {/* 5. Description */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                    <EditableField
-                      value={String(luminaire.description || "")}
-                      onSave={(v) => handleUpdate("description", v)}
-                      placeholder="Description"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 5. Description - Affiché seulement si renseigné ou admin */}
+                  {(canEdit || (luminaire.description && String(luminaire.description).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                      <EditableField
+                        value={String(luminaire.description || "")}
+                        onSave={(v) => handleUpdate("description", v)}
+                        placeholder="Description"
+                        multiline
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
 
-                  {/* 6. Année */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
-                    <EditableField
-                      value={String(luminaire.year || "")}
-                      onSave={(v) => handleUpdate("year", v)}
-                      placeholder="Année"
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 6. Année - Affiché seulement si renseigné ou admin */}
+                  {(canEdit || (luminaire.year && String(luminaire.year).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
+                      <EditableField
+                        value={String(luminaire.year || "")}
+                        onSave={(v) => handleUpdate("year", v)}
+                        placeholder="Année"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
 
-                  {/* 7. Dimensions */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
-                    <EditableField
-                      value={String(luminaire.dimensions || "")}
-                      onSave={(v) => handleUpdate("dimensions", v)}
-                      placeholder="Dimensions"
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 7. Dimensions - Affiché seulement si renseigné ou admin */}
+                  {(canEdit || (luminaire.dimensions && String(luminaire.dimensions).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
+                      <EditableField
+                        value={String(luminaire.dimensions || "")}
+                        onSave={(v) => handleUpdate("dimensions", v)}
+                        placeholder="Dimensions"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
 
-                  {/* 8. Matériaux - AFFICHAGE GARANTI */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
-                    <EditableField
-                      value={String(luminaire.materials || "")}
-                      onSave={(v) => handleUpdate("materials", v)}
-                      placeholder="Matériaux"
-                      multiline
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 8. Matériaux - Affiché seulement si renseigné ou admin */}
+                  {(canEdit || (luminaire.materials && String(luminaire.materials).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
+                      <EditableField
+                        value={String(luminaire.materials || "")}
+                        onSave={(v) => handleUpdate("materials", v)}
+                        placeholder="Matériaux"
+                        multiline
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
 
-                  {/* 9. Signé */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
-                    <EditableField
-                      value={String(luminaire.signed || "")}
-                      onSave={(v) => handleUpdate("signed", v)}
-                      placeholder="Signé"
-                      disabled={!canEdit}
-                    />
-                  </div>
+                  {/* 9. Signé - Affiché seulement si renseigné ou admin */}
+                  {(canEdit || (luminaire.signed && String(luminaire.signed).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
+                      <EditableField
+                        value={String(luminaire.signed || "")}
+                        onSave={(v) => handleUpdate("signed", v)}
+                        placeholder="Signé"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
 
-                  {/* 10. Estimation - CORRECTION: Masqué pour les utilisateurs non connectés ou gratuits */}
-                  {canSeeEstimation && (
+                  {/* 10. Estimation - Affiché seulement si utilisateur peut la voir ET si renseigné ou admin */}
+                  {canSeeEstimation && (canEdit || (luminaire.estimation && String(luminaire.estimation).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
                       <EditableField

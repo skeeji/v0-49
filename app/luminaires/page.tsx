@@ -218,7 +218,7 @@ export default function LuminairesPage() {
 
   // Options pour les filtres
   const filterOptions = useMemo(() => {
-    const designers = [...new Set(allLuminaires.map((l) => l["Artiste / Dates"]).filter(Boolean))].sort()
+    const designers = [...new Set(allLuminaires.map((l) => l.designer || l["Artiste / Dates"]).filter(Boolean))].sort()
     return { designers }
   }, [allLuminaires])
 
