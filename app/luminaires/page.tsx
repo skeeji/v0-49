@@ -391,20 +391,18 @@ export default function LuminairesPage() {
           value={yearRange}
           onValueCommit={handleYearRangeChange}
         />
-        {sliderModified && (
-          <div className="mt-2 text-sm text-orange-600">
-            ⚠️ Filtre actif: {yearRange[0]} - {yearRange[1]}
-            <button
-              onClick={() => {
-                setYearRange([yearBounds.min, yearBounds.max])
-                setSliderModified(false)
-              }}
-              className="ml-2 underline hover:no-underline"
-            >
-              Réinitialiser
-            </button>
-          </div>
-        )}
+        <div className="mt-2 text-sm" style={{ color: "#d4a574" }}>
+          Filtre actif: {yearRange[0]} - {yearRange[1]}
+          <button
+            onClick={() => {
+              setYearRange([yearBounds.min, yearBounds.max])
+              setSliderModified(false)
+            }}
+            className="ml-2 underline hover:no-underline"
+          >
+            Réinitialiser
+          </button>
+        </div>
       </div>
 
       {/* Grille des luminaires avec limitation visuelle */}

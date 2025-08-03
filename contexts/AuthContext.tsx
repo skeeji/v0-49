@@ -3,6 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useState } from "react"
 import { toast } from "react-toastify"
+import Link from "next/link"
 
 interface AuthContextType {
   isAuthenticated: boolean
@@ -28,12 +29,15 @@ export const AuthProvider: React.FC = ({ children }) => {
 
   const incrementSearchCount = () => {
     if (searchCount >= 3) {
-      toast.error("Limite de 3 recherches par mois atteinte. Passez à Premium pour des recherches illimitées.", {
-        action: {
-          label: "Voir Premium",
-          onClick: () => (window.location.href = "/pricing"),
-        },
-      })
+      toast.error(
+        <div>
+          Limite de 3 recherches par jour atteinte.{" "}
+          <Link href="/pricing" className="underline font-medium">
+            Passez à Premium
+          </Link>{" "}
+          pour des recherches illimitées.
+        </div>,
+      )
     } else {
       setSearchCount(searchCount + 1)
     }
