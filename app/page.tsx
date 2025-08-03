@@ -628,6 +628,18 @@ export default function HomePage() {
             <p className="text-slate-600 leading-relaxed">
               Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
             </p>
+
+            {/* Appel à l'action pour les comptes premium */}
+            {userData?.role === "free" && (
+              <div className="mt-4 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800 font-medium">
+                  🌟 Passez à Premium pour des recherches illimitées et la suppression d'arrière-plan !
+                  <Link href="/pricing" className="ml-1 underline font-bold hover:no-underline">
+                    Découvrir Premium
+                  </Link>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Affichage de l'image après recherche */}

@@ -466,15 +466,11 @@ export default function LuminaireDetailPage() {
                 {generatingPDF ? "Génération..." : "PDF"}
               </Button>
             )}
-            <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
+            {(userData?.role === "admin" || userData?.role === "premium") && (
+              <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
+            )}
           </div>
         </div>
-
-        {!canEdit && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-            <p>Mode lecture seule.</p>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
           {/* Image du luminaire UNIQUEMENT */}
