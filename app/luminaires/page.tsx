@@ -1,54 +1,43 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { GalleryGrid } from "@/components/GalleryGrid"
+import { useState, useEffect } from "react"
 import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
+import { SortSelector } from "@/components/SortSelector"
+import { GalleryGrid } from "@/components/GalleryGrid"
 import { RangeSlider } from "@/components/RangeSlider"
-import { Button } from "@/components/ui/button"
-import { Grid, List, Plus } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
+import { Button } from "@/components/ui/button"
+import { Plus, Grid3X3, List, Heart } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import Link from "next/link"
 
 export default function LuminairesPage() {
-  const [luminaires, setLuminaires] = useState<any[]>([])
-  const [allLuminaires, setAllLuminaires] = useState<any[]>([])
+  const [luminaires, setLuminaires] = useState([])
+  const [filteredLuminaires, setFilteredLuminaires] = useState([])
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [columns, setColumns] = useState(4)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-
-  // États pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDesigner, setSelectedDesigner] = useState("")
-  const [yearRange, setYearRange] = useState<number[]>([])
-  const [sliderModified, setSliderModified] = useState(false)
+  const [selectedPeriode, setSelectedPeriode] = useState("")
+  const [selectedMateriaux, setSelectedMateriaux] = useState("")
+  const [selectedCouleurs, setSelectedCouleurs] = useState("")
+  const [yearRange, setYearRange] = useState([1900, 2024])
   const [sortField, setSortField] = useState("nom")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [sortDirection, setSortDirection] = useState("asc")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [columns, setColumns] = useState(4)
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalItems, setTotalItems] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
+  const [totalPages, setTotalPages] = useState(1)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [showFavorites, setShowFavorites] = useState(false)
-
-  // Refs pour accéder aux valeurs dans loadLuminaires sans créer de dépendances
-  const yearRangeRef = useRef(yearRange)
-  const sliderModifiedRef = useRef(sliderModified)
-
-  // Mettre à jour les refs à chaque rendu
-  useEffect(() => {
-    yearRangeRef.current = yearRange
-    sliderModifiedRef.current = sliderModified
-  })
-
-  const { user, userData } = useAuth()
-  const isAdmin = userData?.role === "admin"
   const [favorites, setFavorites] = useState<string[]>([])
 
-  // Charger les favoris depuis la base de données pour les utilisateurs connectés
+  const { userData, user } = useAuth()
+
+  const isUserFree = userData?.role === "free"
+  const freeUserLimit = 20
+
+  // Charger les favoris depuis la base de données
   useEffect(() => {
     const loadFavorites = async () => {
       if (user?.email) {
@@ -67,435 +56,275 @@ export default function LuminairesPage() {
     loadFavorites()
   }, [user?.email])
 
-  // Charger toutes les données pour les statistiques globales
-  const loadAllLuminaires = useCallback(async () => {
+  const fetchLuminaires = async () => {
     try {
-      const response = await fetch(`/api/luminaires?limit=10000&page=1`)
-      const data = await response.json()
-      if (data.success) {
-        setAllLuminaires(data.luminaires)
-      }
-    } catch (err) {
-      console.error("❌ Erreur chargement données globales:", err)
-    }
-  }, [])
-
-  // Fonction pour charger TOUS les luminaires (pas de limitation)
-  const loadLuminaires = useCallback(
-    async (page = 1, append = false) => {
-      try {
-        if (page === 1) {
-          setLoading(true)
-          setError(null)
-        } else {
-          setLoadingMore(true)
-        }
-
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: "50",
-          search: searchTerm,
-          sortField,
-          sortDirection,
-        })
-
-        // Utiliser les refs pour accéder aux valeurs actuelles sans dépendances
-        if (sliderModifiedRef.current) {
-          params.append("yearMin", yearRangeRef.current[0].toString())
-          params.append("yearMax", yearRangeRef.current[1].toString())
-        }
-
-        // CORRECTION: Ajouter le designer même s'il est vide pour permettre le reset
-        params.append("designer", selectedDesigner)
-
-        console.log("🔍 Paramètres de requête:", params.toString())
-
-        const response = await fetch(`/api/luminaires?${params}`)
-        const data = await response.json()
-
-        if (data.success) {
-          // Charger TOUS les luminaires sans limitation
-          if (append && page > 1) {
-            setLuminaires((prev) => [...prev, ...data.luminaires])
-          } else {
-            setLuminaires(data.luminaires)
-            setCurrentPage(1)
-          }
-
-          setHasMore(data.pagination.hasMore)
-          setTotalItems(data.pagination.total)
-        } else {
-          throw new Error(data.error || "Erreur lors du chargement")
-        }
-      } catch (err: any) {
-        console.error("❌ Erreur chargement:", err)
-        setError(err.message)
-        toast.error("Erreur lors du chargement des luminaires")
-      } finally {
-        setLoading(false)
-        setLoadingMore(false)
-      }
-    },
-    [searchTerm, selectedDesigner, sortField, sortDirection],
-  )
-
-  // Charger les données globales au montage
-  useEffect(() => {
-    loadAllLuminaires()
-  }, [loadAllLuminaires])
-
-  // Charger les luminaires
-  useEffect(() => {
-    setCurrentPage(1)
-    loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified])
-
-  // Fonction pour charger plus de luminaires (scroll infini normal)
-  const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading) {
-      setLoadingMore(true)
-      const nextPage = currentPage + 1
-      setCurrentPage(nextPage)
-      loadLuminaires(nextPage, true)
-    }
-  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
-
-  // Scroll infini optimisé
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = document.documentElement.scrollTop
-      const scrollHeight = document.documentElement.scrollHeight
-      const clientHeight = document.documentElement.clientHeight
-
-      if (scrollTop + clientHeight >= scrollHeight - 1000) {
-        loadMore()
-      }
-    }
-
-    let timeoutId: NodeJS.Timeout
-
-    const throttledHandleScroll = () => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(handleScroll, 200)
-    }
-
-    window.addEventListener("scroll", throttledHandleScroll, { passive: true })
-
-    return () => {
-      window.removeEventListener("scroll", throttledHandleScroll)
-      clearTimeout(timeoutId)
-    }
-  }, [loadMore])
-
-  // Fonction pour mettre à jour un luminaire
-  const handleItemUpdate = useCallback(async (id: string, updates: any) => {
-    try {
-      const response = await fetch(`/api/luminaires/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
+      setLoading(true)
+      console.log("🔍 Récupération des luminaires avec les paramètres:", {
+        page: currentPage,
+        search: searchTerm,
+        designer: selectedDesigner,
+        yearMin: yearRange[0],
+        yearMax: yearRange[1],
+        sortField,
+        sortDirection,
       })
 
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: "20",
+        search: searchTerm,
+        designer: selectedDesigner, // Toujours envoyer le paramètre, même vide
+        yearMin: yearRange[0].toString(),
+        yearMax: yearRange[1].toString(),
+        sortField,
+        sortDirection,
+      })
+
+      const response = await fetch(`/api/luminaires?${params}`)
       const data = await response.json()
 
       if (data.success) {
-        setLuminaires((prev) => prev.map((item) => (item._id === id ? { ...item, ...updates } : item)))
-        toast.success("Luminaire mis à jour avec succès")
+        setLuminaires(data.luminaires)
+        setTotalPages(data.pagination?.pages || 1)
+        console.log(`✅ ${data.luminaires.length} luminaires chargés`)
       } else {
-        throw new Error(data.error)
+        console.error("❌ Erreur API:", data.error)
+        toast.error("Erreur lors du chargement des luminaires")
       }
-    } catch (err: any) {
-      console.error("❌ Erreur mise à jour:", err)
-      toast.error("Erreur lors de la mise à jour")
+    } catch (error) {
+      console.error("❌ Erreur fetch:", error)
+      toast.error("Erreur de connexion")
+    } finally {
+      setLoading(false)
     }
-  }, [])
-
-  // Fonction pour créer un nouveau luminaire
-  const handleCreateLuminaire = useCallback(
-    async (luminaireData: any) => {
-      try {
-        const response = await fetch("/api/luminaires", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(luminaireData),
-        })
-
-        const data = await response.json()
-
-        if (data.success) {
-          toast.success("Luminaire créé avec succès")
-          setIsModalOpen(false)
-          loadLuminaires(1, false)
-          loadAllLuminaires()
-        } else {
-          throw new Error(data.error)
-        }
-
-        return data
-      } catch (err: any) {
-        console.error("❌ Erreur création:", err)
-        toast.error("Erreur lors de la création")
-        return { success: false, error: err.message }
-      }
-    },
-    [loadLuminaires, loadAllLuminaires],
-  )
-
-  // Options pour les filtres
-  const filterOptions = useMemo(() => {
-    const designers = [...new Set(allLuminaires.map((l) => l.designer || l["Artiste / Dates"]).filter(Boolean))].sort()
-    return { designers }
-  }, [allLuminaires])
-
-  // Calculer la plage d'années disponibles
-  const yearBounds = useMemo(() => {
-    const years = allLuminaires
-      .map((l) => {
-        const year = l.annee || l.year
-        const numYear = Number.parseInt(year)
-        return !isNaN(numYear) ? numYear : null
-      })
-      .filter(Boolean)
-      .sort((a, b) => a - b)
-
-    if (years.length === 0) return { min: 1900, max: 2024 }
-
-    return {
-      min: years[0],
-      max: years[years.length - 1],
-    }
-  }, [allLuminaires])
-
-  // Initialiser la plage d'années
-  useEffect(() => {
-    if (allLuminaires.length > 0 && yearRange.length === 0) {
-      setYearRange([yearBounds.min, yearBounds.max])
-    }
-  }, [yearBounds, allLuminaires.length, yearRange.length])
-
-  // Fonction qui gère le changement du slider
-  const handleYearRangeChange = (newRange: number[]) => {
-    console.log(`✅ Filtre chronologique activé par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
-    setYearRange(newRange)
-    setSliderModified(true)
-    setCurrentPage(1)
-    loadLuminaires(1, false)
   }
 
-  // Calculer la limite pour les comptes gratuits
-  const freeUserLimit = useMemo(() => {
-    if (!user || userData?.role === "free") {
-      return Math.ceil(totalItems * 0.1)
-    }
-    return totalItems
-  }, [user, userData, totalItems])
+  // Charger les luminaires au montage et lors des changements de filtres
+  useEffect(() => {
+    fetchLuminaires()
+  }, [currentPage, searchTerm, selectedDesigner, yearRange, sortField, sortDirection])
 
-  // Calculer les luminaires à afficher
-  const displayedLuminaires = useMemo(() => {
+  // Filtrer les luminaires pour les favoris
+  useEffect(() => {
     if (showFavorites) {
-      return luminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
+      const favoriteLuminaires = luminaires.filter((luminaire: any) =>
+        favorites.includes(luminaire._id || luminaire.id),
+      )
+      setFilteredLuminaires(favoriteLuminaires)
+    } else {
+      setFilteredLuminaires(luminaires)
     }
-    return luminaires
   }, [luminaires, showFavorites, favorites])
 
-  if (loading && luminaires.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Chargement des luminaires...</p>
-          </div>
-        </div>
-      </div>
-    )
+  const handleItemUpdate = (id: string, updates: any) => {
+    setLuminaires((prev) => prev.map((item: any) => (item._id === id ? { ...item, ...updates } : item)))
   }
 
-  if (error && luminaires.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Erreur: {error}</p>
-          <Button onClick={() => loadLuminaires(1, false)}>Réessayer</Button>
-        </div>
-      </div>
-    )
+  const handleFormSubmit = () => {
+    setShowFormModal(false)
+    fetchLuminaires() // Recharger les données
+    toast.success("Luminaire ajouté avec succès")
   }
+
+  const resetFilters = () => {
+    setSearchTerm("")
+    setSelectedDesigner("")
+    setSelectedPeriode("")
+    setSelectedMateriaux("")
+    setSelectedCouleurs("")
+    setYearRange([1900, 2024])
+    setCurrentPage(1)
+    setShowFavorites(false)
+  }
+
+  const toggleFavorites = () => {
+    setShowFavorites(!showFavorites)
+  }
+
+  // Options pour les filtres (simulées - dans un vrai projet, elles viendraient de l'API)
+  const designerOptions = [
+    "Tous les designers",
+    "Jean-Démosthène Dugourc",
+    "André-Charles Boulle",
+    "Charles Cressent",
+    "Jean-François Oeben",
+    "David Roentgen",
+  ]
+
+  const periodeOptions = ["Toutes les périodes", "Louis XIV", "Louis XV", "Louis XVI", "Empire", "Restauration"]
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* En-tête */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
-          <p className="text-gray-600">
-            {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4 mt-4 lg:mt-0">
-          {isAdmin && (
-            <Button
-              onClick={() => setIsModalOpen(true)}
-              style={{ backgroundColor: "#f2d895", color: "#000" }}
-              className="hover:opacity-90"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Ajouter
-            </Button>
-          )}
-
-          {user && userData?.role !== "free" && (
-            <Button
-              onClick={() => setShowFavorites(!showFavorites)}
-              variant={showFavorites ? "default" : "outline"}
-              style={showFavorites ? { backgroundColor: "#f2d895", color: "#000" } : {}}
-              className="hover:opacity-90"
-            >
-              ❤️ Favoris ({favorites.length})
-            </Button>
-          )}
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        {/* En-tête */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-serif text-gray-900 mb-2">Collection de Luminaires</h1>
+            <p className="text-gray-600">
+              {loading ? "Chargement..." : `${filteredLuminaires.length} luminaires`}
+              {showFavorites && " favoris"}
+            </p>
+          </div>
 
           <div className="flex items-center gap-2">
-            <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
-              <Grid className="w-4 h-4" />
-            </Button>
-            <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
-              <List className="w-4 h-4" />
-            </Button>
+            {/* Bouton Favoris pour les utilisateurs premium/admin */}
+            {user && userData?.role !== "free" && (
+              <Button
+                onClick={toggleFavorites}
+                variant={showFavorites ? "default" : "outline"}
+                className="flex items-center gap-2"
+              >
+                <Heart className={`w-4 h-4 ${showFavorites ? "fill-current" : ""}`} />
+                Favoris ({favorites.length})
+              </Button>
+            )}
+
+            {userData?.role === "admin" && (
+              <Button onClick={() => setShowFormModal(true)} className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Ajouter
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Barre de recherche */}
+        <div className="mb-6">
+          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
+        </div>
+
+        {/* Filtres */}
+        <div className="bg-white rounded-lg p-6 mb-6 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <DropdownFilter
+              label="Designer"
+              value={selectedDesigner}
+              onChange={setSelectedDesigner}
+              options={designerOptions}
+            />
+            <DropdownFilter
+              label="Période"
+              value={selectedPeriode}
+              onChange={setSelectedPeriode}
+              options={periodeOptions}
+            />
+            <DropdownFilter
+              label="Matériaux"
+              value={selectedMateriaux}
+              onChange={setSelectedMateriaux}
+              options={["Tous les matériaux", "Bronze", "Cristal", "Laiton", "Fer forgé"]}
+            />
+            <DropdownFilter
+              label="Couleurs"
+              value={selectedCouleurs}
+              onChange={setSelectedCouleurs}
+              options={["Toutes les couleurs", "Or", "Argent", "Bronze", "Noir"]}
+            />
           </div>
 
-          {viewMode === "grid" && (
-            <select
-              value={columns}
-              onChange={(e) => setColumns(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-            >
-              <option value={3}>3 colonnes</option>
-              <option value={4}>4 colonnes</option>
-              <option value={5}>5 colonnes</option>
-              <option value={6}>6 colonnes</option>
-              <option value={8}>8 colonnes</option>
-            </select>
-          )}
-        </div>
-      </div>
-
-      {/* Message pour les utilisateurs non connectés ou gratuits */}
-      {(!user || userData?.role === "free") && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm" style={{ color: "#d4a574" }}>
-          <p className="flex items-center font-serif">
-            <span className="mr-2"></span>
-            <span>
-              {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont accessibles
-              ({freeUserLimit} luminaires).
-              <Link href="/pricing" className="ml-1 underline font-medium">
-                Passez à Premium
-              </Link>{" "}
-              pour accéder à toute la collection.
-            </span>
-          </p>
-        </div>
-      )}
-
-      {/* Filtres - Première ligne */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
-
-        <DropdownFilter
-          label="Designer"
-          value={selectedDesigner}
-          onChange={setSelectedDesigner}
-          options={filterOptions.designers}
-        />
-
-        <select
-          value={`${sortField}-${sortDirection}`}
-          onChange={(e) => {
-            const [field, direction] = e.target.value.split("-")
-            setSortField(field)
-            setSortDirection(direction as "asc" | "desc")
-          }}
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-        >
-          <option value="nom-asc">Nom A-Z</option>
-          <option value="nom-desc">Nom Z-A</option>
-          <option value="designer-asc">Designer A-Z</option>
-          <option value="designer-desc">Designer Z-A</option>
-          <option value="annee-asc">Année croissante</option>
-          <option value="annee-desc">Année décroissante</option>
-        </select>
-      </div>
-
-      {/* Filtres - Deuxième ligne : Slider chronologique */}
-      <div className="mb-8">
-        <RangeSlider
-          min={yearBounds.min}
-          max={yearBounds.max}
-          value={yearRange}
-          onValueCommit={handleYearRangeChange}
-        />
-        {sliderModified && (
-          <div className="mt-2 text-sm" style={{ color: "#d4a574" }}>
-            Filtre actif: {yearRange[0]} - {yearRange[1]}
-            <button
-              onClick={() => {
-                setYearRange([yearBounds.min, yearBounds.max])
-                setSliderModified(false)
-              }}
-              className="ml-2 underline hover:no-underline"
-            >
-              Réinitialiser
-            </button>
+          <div className="mb-4">
+            <RangeSlider label="Période (années)" min={1900} max={2024} value={yearRange} onChange={setYearRange} />
           </div>
+
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <Button onClick={resetFilters} variant="outline" size="sm">
+              Réinitialiser les filtres
+            </Button>
+
+            <div className="flex items-center gap-4">
+              <SortSelector
+                sortField={sortField}
+                sortDirection={sortDirection}
+                onSortFieldChange={setSortField}
+                onSortDirectionChange={setSortDirection}
+              />
+
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setViewMode("grid")}
+                  variant={viewMode === "grid" ? "default" : "outline"}
+                  size="sm"
+                >
+                  <Grid3X3 className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => setViewMode("list")}
+                  variant={viewMode === "list" ? "default" : "outline"}
+                  size="sm"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {viewMode === "grid" && (
+                <select
+                  value={columns}
+                  onChange={(e) => setColumns(Number(e.target.value))}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value={3}>3 colonnes</option>
+                  <option value={4}>4 colonnes</option>
+                  <option value={5}>5 colonnes</option>
+                  <option value={6}>6 colonnes</option>
+                  <option value={8}>8 colonnes</option>
+                </select>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Grille des luminaires */}
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+        ) : (
+          <>
+            <GalleryGrid
+              items={filteredLuminaires}
+              viewMode={viewMode}
+              onItemUpdate={handleItemUpdate}
+              columns={columns}
+              freeUserLimit={freeUserLimit}
+              isUserFree={isUserFree}
+            />
+
+            {/* Pagination */}
+            {totalPages > 1 && !showFavorites && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <Button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm"
+                >
+                  Précédent
+                </Button>
+                <span className="px-4 py-2 text-sm text-gray-600">
+                  Page {currentPage} sur {totalPages}
+                </span>
+                <Button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm"
+                >
+                  Suivant
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Modal d'ajout de luminaire */}
+        {showFormModal && (
+          <LuminaireFormModal
+            isOpen={showFormModal}
+            onClose={() => setShowFormModal(false)}
+            onSubmit={handleFormSubmit}
+          />
         )}
       </div>
-
-      {/* Grille des luminaires avec limitation visuelle */}
-      <GalleryGrid
-        items={displayedLuminaires}
-        viewMode={viewMode}
-        onItemUpdate={handleItemUpdate}
-        columns={columns}
-        freeUserLimit={freeUserLimit}
-        isUserFree={!user || userData?.role === "free"}
-      />
-
-      {/* Indicateur de chargement pour le scroll infini */}
-      {loadingMore && (
-        <div className="text-center mt-8">
-          <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
-            <span className="text-orange-500">Chargement de plus de luminaires...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Message fin de liste */}
-      {!hasMore && luminaires.length > 0 && (
-        <div className="text-center mt-8 py-4">
-          <p className="text-gray-500">
-            ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
-          </p>
-        </div>
-      )}
-
-      {/* Message aucun résultat */}
-      {luminaires.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">Aucun luminaire trouvé</p>
-          <p className="text-gray-400 text-sm mt-2">Essayez de modifier vos critères de recherche</p>
-        </div>
-      )}
-
-      {/* Modal de création */}
-      {isAdmin && (
-        <LuminaireFormModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSubmit={handleCreateLuminaire}
-        />
-      )}
     </div>
   )
 }
