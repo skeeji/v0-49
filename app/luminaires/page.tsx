@@ -74,10 +74,14 @@ export default function LuminairesPage() {
           page: page.toString(),
           limit: "50",
           search: searchTerm,
-          designer: selectedDesigner,
           sortField,
           sortDirection,
         })
+
+        // Ajouter le designer seulement s'il est sélectionné
+        if (selectedDesigner) {
+          params.append("designer", selectedDesigner)
+        }
 
         // Utiliser les refs pour accéder aux valeurs actuelles sans dépendances
         if (sliderModifiedRef.current) {
