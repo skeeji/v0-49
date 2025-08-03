@@ -6,9 +6,9 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const email = searchParams.get("email")
+    const userEmail = searchParams.get("email")
 
-    if (!email) {
+    if (!userEmail) {
       return NextResponse.json({ success: false, error: "Email requis" }, { status: 400 })
     }
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("users")
 
-    const user = await collection.findOne({ email })
+    const user = await collection.findOne({ email: userEmail })
     const favorites = user?.favorites || []
 
     return NextResponse.json({
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       favorites,
     })
   } catch (error: any) {
-    console.error("❌ Erreur GET favorites:", error)
+    console.error("❌ Erreur récupération favoris:", error)
     return NextResponse.json(
       {
         success: false,
@@ -48,30 +48,18 @@ export async function POST(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("users")
 
-    let updateOperation
     if (action === "add") {
-      updateOperation = { $addToSet: { favorites: luminaireId } }
+      await collection.updateOne({ email }, { $addToSet: { favorites: luminaireId } }, { upsert: true })
     } else if (action === "remove") {
-      updateOperation = { $pull: { favorites: luminaireId } }
-    } else {
-      return NextResponse.json({ success: false, error: "Action invalide" }, { status: 400 })
+      await collection.updateOne({ email }, { $pull: { favorites: luminaireId } })
     }
-
-    await collection.updateOne(
-      { email },
-      {
-        ...updateOperation,
-        $setOnInsert: { email, createdAt: new Date() },
-      },
-      { upsert: true },
-    )
 
     return NextResponse.json({
       success: true,
       message: `Favori ${action === "add" ? "ajouté" : "supprimé"} avec succès`,
     })
   } catch (error: any) {
-    console.error("❌ Erreur POST favorites:", error)
+    console.error("❌ Erreur mise à jour favoris:", error)
     return NextResponse.json(
       {
         success: false,

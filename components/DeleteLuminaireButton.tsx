@@ -28,8 +28,6 @@ export function DeleteLuminaireButton({ luminaireId, luminaireName, onDelete }: 
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      console.log("🗑️ Suppression du luminaire:", luminaireId)
-
       const response = await fetch(`/api/luminaires/${luminaireId}`, {
         method: "DELETE",
       })
