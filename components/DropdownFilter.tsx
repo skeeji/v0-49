@@ -11,7 +11,7 @@ interface DropdownFilterProps {
 
 export function DropdownFilter({ label, value, onChange, options }: DropdownFilterProps) {
   return (
-    <Select value={value || "all"} onValueChange={onChange}>
+    <Select value={value === "" ? "all" : value} onValueChange={onChange}>
       <SelectTrigger>
         <SelectValue placeholder={`Tous les ${label.toLowerCase()}`} />
       </SelectTrigger>

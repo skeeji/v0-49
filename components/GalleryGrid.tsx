@@ -113,28 +113,37 @@ export function GalleryGrid({
   }
 
   const handleDeleteLuminaire = async (luminaireId: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce luminaire ?")) {
+      return
+    }
+
     try {
+      console.log("🗑️ Tentative de suppression du luminaire:", luminaireId)
+
       const response = await fetch(`/api/luminaires/${luminaireId}`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
       })
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
+      console.log("📊 Réponse de suppression:", data)
+
       if (data.success) {
-        // Supprimer l'élément de la liste locale au lieu de recharger la page
-        const updatedItems = items.filter((item) => String(item.id || item._id) !== luminaireId)
-        // Déclencher une mise à jour via le parent
-        if (onItemUpdate) {
-          onItemUpdate(luminaireId, { deleted: true })
-        }
-        // Recharger la page en dernier recours
+        console.log("✅ Suppression réussie, rechargement de la page...")
         window.location.reload()
       } else {
         console.error("❌ Erreur suppression:", data.error)
-        alert("Erreur lors de la suppression du luminaire")
+        alert(`Erreur lors de la suppression: ${data.error}`)
       }
     } catch (error) {
       console.error("❌ Erreur suppression:", error)
-      alert("Erreur lors de la suppression du luminaire")
+      alert(`Erreur lors de la suppression: ${error.message}`)
     }
   }
 

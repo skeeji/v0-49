@@ -105,8 +105,10 @@ export default function LuminairesPage() {
           params.append("yearMax", yearRangeRef.current[1].toString())
         }
 
-        // CORRECTION: Ajouter le designer même s'il est vide pour permettre le reset
-        params.append("designer", selectedDesigner)
+        // CORRECTION: Gérer correctement le filtre "all" pour les designers
+        if (selectedDesigner && selectedDesigner !== "all") {
+          params.append("designer", selectedDesigner)
+        }
 
         console.log("🔍 Paramètres de requête:", params.toString())
 
@@ -293,7 +295,13 @@ export default function LuminairesPage() {
   // Calculer les luminaires à afficher
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
-      return luminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
+      // CORRECTION: Éviter les doublons dans les favoris
+      const favoriteItems = luminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
+      // Supprimer les doublons basés sur l'ID
+      const uniqueFavorites = favoriteItems.filter(
+        (item, index, self) => index === self.findIndex((t) => String(t.id || t._id) === String(item.id || item._id)),
+      )
+      return uniqueFavorites
     }
     return luminaires
   }, [luminaires, showFavorites, favorites])
