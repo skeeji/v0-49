@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const sortDirection = searchParams.get("sortDirection") || "asc"
 
     console.log(
-      `📊 Paramètres: page=${page}, limit=${limit}, search="${search}", yearMin=${yearMin}, yearMax=${yearMax}, sortField=${sortField}`,
+      `📊 Paramètres: page=${page}, limit=${limit}, search="${search}", designer="${designer}", yearMin=${yearMin}, yearMax=${yearMax}, sortField=${sortField}`,
     )
 
     const client = await clientPromise
@@ -43,9 +43,9 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    // Filtre par designer - CORRECTION: utiliser $and pour combiner avec les autres filtres
     if (designer) {
-      filter.$or = filter.$or || []
-      const designerFilter = {
+      const designerCondition = {
         $or: [
           { designer: { $regex: designer, $options: "i" } },
           { "Artiste / Dates": { $regex: designer, $options: "i" } },
@@ -53,10 +53,12 @@ export async function GET(request: NextRequest) {
       }
 
       if (filter.$or) {
-        filter.$and = filter.$and || []
-        filter.$and.push(designerFilter)
+        // Si on a déjà un filtre de recherche, on combine avec $and
+        filter.$and = [{ $or: filter.$or }, designerCondition]
+        delete filter.$or
       } else {
-        Object.assign(filter, designerFilter)
+        // Sinon on applique directement le filtre designer
+        Object.assign(filter, designerCondition)
       }
     }
 

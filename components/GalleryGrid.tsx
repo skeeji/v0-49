@@ -87,6 +87,9 @@ export function GalleryGrid({
     window.location.reload()
   }
 
+  // Vérifier si l'utilisateur peut voir les favoris (connecté et pas gratuit)
+  const canUseFavorites = userData && userData.role !== "free"
+
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
@@ -126,14 +129,16 @@ export function GalleryGrid({
 
                       {isAccessible && (
                         <div className="flex items-center gap-2">
-                          <FavoriteToggleButton
-                            isActive={favorites.includes(itemId)}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              toggleFavorite(itemId)
-                            }}
-                          />
+                          {canUseFavorites && (
+                            <FavoriteToggleButton
+                              isActive={favorites.includes(itemId)}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                toggleFavorite(itemId)
+                              }}
+                            />
+                          )}
                           <Button
                             onClick={(e) => {
                               e.preventDefault()
@@ -233,7 +238,7 @@ export function GalleryGrid({
                   }}
                 />
 
-                {isAccessible && (
+                {isAccessible && canUseFavorites && (
                   <div className="absolute top-2 right-2">
                     <FavoriteToggleButton
                       isActive={favorites.includes(itemId)}

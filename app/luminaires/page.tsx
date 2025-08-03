@@ -48,6 +48,16 @@ export default function LuminairesPage() {
   const isAdmin = userData?.role === "admin"
   const [favorites, setFavorites] = useState<string[]>([])
 
+  // Charger les favoris depuis localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedFavorites = localStorage.getItem("favorites")
+      if (storedFavorites) {
+        setFavorites(JSON.parse(storedFavorites))
+      }
+    }
+  }, [])
+
   // Charger toutes les données pour les statistiques globales
   const loadAllLuminaires = useCallback(async () => {
     try {
@@ -90,6 +100,8 @@ export default function LuminairesPage() {
         if (selectedDesigner) {
           params.append("designer", selectedDesigner)
         }
+
+        console.log("🔍 Paramètres de requête:", params.toString())
 
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
@@ -326,14 +338,16 @@ export default function LuminairesPage() {
             </Button>
           )}
 
-          <Button
-            onClick={() => setShowFavorites(!showFavorites)}
-            variant={showFavorites ? "default" : "outline"}
-            style={showFavorites ? { backgroundColor: "#f2d895", color: "#000" } : {}}
-            className="hover:opacity-90"
-          >
-            ❤️ Favoris ({favorites.length})
-          </Button>
+          {user && userData?.role !== "free" && (
+            <Button
+              onClick={() => setShowFavorites(!showFavorites)}
+              variant={showFavorites ? "default" : "outline"}
+              style={showFavorites ? { backgroundColor: "#f2d895", color: "#000" } : {}}
+              className="hover:opacity-90"
+            >
+              ❤️ Favoris ({favorites.length})
+            </Button>
+          )}
 
           <div className="flex items-center gap-2">
             <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
