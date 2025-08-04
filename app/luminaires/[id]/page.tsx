@@ -690,36 +690,18 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                 {/* 10. Estimation - Logique Corrigée */}
-{canSeeEstimation ? (
-  // Si l'utilisateur a les droits, on vérifie s'il faut afficher le champ
-  (canEdit || (luminaire.estimation && String(luminaire.estimation).trim())) && (
-    <div>
-      <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
-      <EditableField
-        value={String(luminaire.estimation || "")}
-        onSave={(v) => handleUpdate("estimation", v)}
-        placeholder="Estimation"
-        disabled={!canEdit}
-      />
-    </div>
-  )
-) : (
-  // Sinon (utilisateur non connecté ou gratuit), on affiche le message Premium
-  !authLoading && (
-    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-      <p className="text-sm text-yellow-800 flex items-center">
-        <span className="mr-2">🔒</span>
-        <span>
-          L'estimation est réservée aux comptes Premium.
-          <Link href="/pricing" className="ml-1 underline font-medium">
-            Passer à Premium
-          </Link>
-        </span>
-      </p>
-    </div>
-  )
-)}
+                  {/* 10. Estimation - Logique corrigée pour premium */}
+                  {!authLoading && user && (userData?.role === "admin" || userData?.role === "premium") ? (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
+                      <EditableField
+                        value={String(luminaire.estimation || "")}
+                        onSave={(v) => handleUpdate("estimation", v)}
+                        placeholder="Estimation"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  ) : (
                     !authLoading && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                         <p className="text-sm text-yellow-800 flex items-center">
