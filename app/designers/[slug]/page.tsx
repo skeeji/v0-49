@@ -245,6 +245,8 @@ export default function DesignerDetailPage() {
           </Link>
         </div>
 
+        {/* Remove the "Read-only mode" message */}
+
         <div className="bg-white rounded-xl p-8 shadow-lg mb-8">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             <div className="w-48 h-48 relative flex-shrink-0">

@@ -1,80 +1,115 @@
 "use client"
-import { useState } from "react"
+
+import { useState, useRef, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Pencil, Save, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Check, X, Edit } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface EditableFieldProps {
   value: string
   onSave: (value: string) => void
   placeholder?: string
   multiline?: boolean
-  disabled?: boolean
   className?: string
+  disabled?: boolean
 }
 
 export function EditableField({
-  value,
+  value: initialValue,
   onSave,
-  placeholder = "",
+  placeholder = "Entrez du texte",
   multiline = false,
-  disabled = false,
   className = "",
+  disabled = false,
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(value)
+  const [value, setValue] = useState(initialValue)
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const { userData } = useAuth()
+  const canEdit = userData?.role === "admin"
 
-  const handleSave = () => {
-    onSave(editValue)
+  useEffect(() => {
+    setValue(initialValue)
+  }, [initialValue])
+
+  const handleEditClick = () => {
+    if (!canEdit || disabled) return
+    setIsEditing(true)
+  }
+
+  const handleSaveClick = () => {
+    if (!canEdit || disabled) return
+
+    onSave(value)
     setIsEditing(false)
   }
 
-  const handleCancel = () => {
-    setEditValue(value)
+  const handleCancelClick = () => {
+    setValue(initialValue)
     setIsEditing(false)
   }
 
-  if (disabled) {
-    return (
-      <div className={`p-2 ${className}`}>{value || <span className="text-gray-400 italic">{placeholder}</span>}</div>
-    )
-  }
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isEditing])
 
-  if (isEditing) {
+  if (!canEdit || disabled) {
     return (
-      <div className="space-y-2">
+      <div className={className}>
         {multiline ? (
-          <Textarea
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            placeholder={placeholder}
-            className="min-h-[100px]"
-          />
+          <div className="whitespace-pre-line">{initialValue || placeholder}</div>
         ) : (
-          <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder={placeholder} />
+          initialValue || placeholder
         )}
-        <div className="flex gap-2">
-          <Button size="sm" onClick={handleSave}>
-            <Check className="w-4 h-4" />
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleCancel}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
       </div>
     )
   }
 
   return (
-    <div
-      className={`group cursor-pointer p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 ${className}`}
-      onClick={() => setIsEditing(true)}
-    >
-      <div className="flex items-center justify-between">
-        <span>{value || <span className="text-gray-400 italic">{placeholder}</span>}</span>
-        <Edit className="w-4 h-4 opacity-0 group-hover:opacity-50" />
-      </div>
+    <div className={`flex items-center ${className}`}>
+      {isEditing ? (
+        <>
+          {multiline ? (
+            <Textarea
+              ref={inputRef}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={placeholder}
+              className="flex-1 mr-2"
+            />
+          ) : (
+            <Input
+              ref={inputRef}
+              type="text"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={placeholder}
+              className="flex-1 mr-2"
+            />
+          )}
+          <Button variant="ghost" size="sm" onClick={handleSaveClick}>
+            <Save className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleCancelClick}>
+            <X className="w-4 h-4" />
+          </Button>
+        </>
+      ) : (
+        <>
+          {multiline ? (
+            <div className="flex-1 whitespace-pre-line">{initialValue || placeholder}</div>
+          ) : (
+            <div className="flex-1">{initialValue || placeholder}</div>
+          )}
+          <Button variant="ghost" size="sm" onClick={handleEditClick}>
+            <Pencil className="w-4 h-4" />
+          </Button>
+        </>
+      )}
     </div>
   )
 }
