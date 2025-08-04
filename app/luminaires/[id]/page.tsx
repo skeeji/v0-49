@@ -25,6 +25,15 @@ export default function LuminaireDetailPage() {
   // CORRECTION: Masquer l'estimation pour les utilisateurs non connectés ou gratuits
   const canSeeEstimation = user && (userData?.role === "admin" || userData?.role === "premium")
 
+  // Debug pour voir les valeurs
+  console.log("🔍 Debug estimation:", {
+    user: !!user,
+    userData: userData,
+    userRole: userData?.role,
+    authLoading,
+    canSeeEstimation,
+  })
+
   useEffect(() => {
     if (!params.id) return
 
@@ -681,8 +690,8 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 10. Estimation - Affiché si utilisateur peut la voir (admin/premium) */}
-                  {canSeeEstimation && (
+                  {/* 10. Estimation - Logique corrigée pour premium */}
+                  {!authLoading && user && (userData?.role === "admin" || userData?.role === "premium") ? (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
                       <EditableField
@@ -692,21 +701,20 @@ export default function LuminaireDetailPage() {
                         disabled={!canEdit}
                       />
                     </div>
-                  )}
-
-                  {/* Message pour les utilisateurs qui ne peuvent pas voir l'estimation - SEULEMENT pour gratuits et hors connexion */}
-                  {!canSeeEstimation && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="text-sm text-yellow-800 flex items-center">
-                        <span className="mr-2">🔒</span>
-                        <span>
-                          L'estimation est réservée aux comptes Premium.
-                          <Link href="/pricing" className="ml-1 underline font-medium">
-                            Passer à Premium
-                          </Link>
-                        </span>
-                      </p>
-                    </div>
+                  ) : (
+                    !authLoading && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p className="text-sm text-yellow-800 flex items-center">
+                          <span className="mr-2">🔒</span>
+                          <span>
+                            L'estimation est réservée aux comptes Premium.
+                            <Link href="/pricing" className="ml-1 underline font-medium">
+                              Passer à Premium
+                            </Link>
+                          </span>
+                        </p>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
