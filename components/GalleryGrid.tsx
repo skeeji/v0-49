@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Eye } from "lucide-react"
@@ -18,7 +17,6 @@ interface GalleryGridProps {
   columns?: number
   freeUserLimit?: number
   isUserFree?: boolean
-  onDelete: (id: string) => void // Add onDelete prop
 }
 
 export function GalleryGrid({
@@ -28,7 +26,6 @@ export function GalleryGrid({
   columns = 4,
   freeUserLimit = items.length,
   isUserFree = false,
-  onDelete, // Destructure onDelete prop
 }: GalleryGridProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<string[]>([])
@@ -115,16 +112,7 @@ export function GalleryGrid({
     return "/placeholder.svg?height=300&width=300"
   }
 
-  const handleDeleteLuminaire = async (luminaireId: string, event?: React.MouseEvent) => {
-    if (event) {
-      event.preventDefault()
-      event.stopPropagation()
-    }
-
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce luminaire ?")) {
-      return
-    }
-
+  const handleDeleteLuminaire = async (luminaireId: string) => {
     try {
       console.log("🗑️ Tentative de suppression du luminaire:", luminaireId)
 
@@ -143,8 +131,8 @@ export function GalleryGrid({
       console.log("📊 Réponse de suppression:", data)
 
       if (data.success) {
-        console.log("✅ Suppression réussie, appel de onDelete...")
-        onDelete(luminaireId)
+        console.log("✅ Suppression réussie, rechargement de la page...")
+        window.location.reload()
       } else {
         console.error("❌ Erreur suppression:", data.error)
         alert(`Erreur lors de la suppression: ${data.error}`)
@@ -157,24 +145,6 @@ export function GalleryGrid({
 
   // Vérifier si l'utilisateur peut voir les favoris (connecté et pas gratuit)
   const canUseFavorites = user && userData?.role !== "free"
-
-  // Correction du mapping des colonnes pour afficher le bon nombre
-  const getGridClass = (cols: number) => {
-    switch (cols) {
-      case 3:
-        return "grid-cols-2 sm:grid-cols-3"
-      case 4:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-      case 5:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-      case 6:
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
-      case 8:
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
-      default:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-    }
-  }
 
   if (viewMode === "list") {
     return (
@@ -274,6 +244,24 @@ export function GalleryGrid({
         {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
       </div>
     )
+  }
+
+  // Correction du mapping des colonnes pour afficher le bon nombre
+  const getGridClass = (cols: number) => {
+    switch (cols) {
+      case 3:
+        return "grid-cols-2 sm:grid-cols-3"
+      case 4:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+      case 5:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+      case 6:
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+      case 8:
+        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+      default:
+        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+    }
   }
 
   return (

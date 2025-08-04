@@ -30,9 +30,9 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     signe: "",
     editeur: "",
     dimensions: "",
-    materiaux: [],
+    materiaux: [] as string[],
     estimation: "",
-    couleurs: [],
+    couleurs: [] as string[],
   })
 
   const [images, setImages] = useState<File[]>([])
