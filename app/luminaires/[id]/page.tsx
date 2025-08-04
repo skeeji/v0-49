@@ -681,8 +681,8 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 10. Estimation - Affiché seulement si utilisateur peut la voir ET si renseigné ou admin */}
-                  {canSeeEstimation && (canEdit || (luminaire.estimation && String(luminaire.estimation).trim())) && (
+                  {/* 10. Estimation - Affiché si utilisateur peut la voir (admin/premium) */}
+                  {canSeeEstimation && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
                       <EditableField
