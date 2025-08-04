@@ -116,12 +116,20 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (data.success) {
-          // Charger TOUS les luminaires sans limitation
           if (append && page > 1) {
-            setLuminaires((prev) => [...prev, ...data.luminaires])
+            // CORRECTION: Éviter les doublons en filtrant les luminaires déjà présents
+            const existingIds = new Set(luminaires.map((l) => l._id))
+            const newLuminaires = data.luminaires.filter((l) => !existingIds.has(l._id))
+
+            console.log(
+              `📊 Page ${page}: ${data.luminaires.length} luminaires reçus, ${newLuminaires.length} nouveaux ajoutés`,
+            )
+
+            if (newLuminaires.length > 0) {
+              setLuminaires((prev) => [...prev, ...newLuminaires])
+            }
           } else {
             setLuminaires(data.luminaires)
-            setCurrentPage(1)
           }
 
           setHasMore(data.pagination.hasMore)
@@ -138,7 +146,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection],
+    [searchTerm, selectedDesigner, sortField, sortDirection, luminaires],
   )
 
   // Charger les données globales au montage
@@ -155,8 +163,8 @@ export default function LuminairesPage() {
   // Fonction pour charger plus de luminaires (scroll infini normal)
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) {
-      setLoadingMore(true)
       const nextPage = currentPage + 1
+      console.log(`🔄 Chargement page ${nextPage}`)
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
