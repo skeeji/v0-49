@@ -694,7 +694,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* Message pour les utilisateurs qui ne peuvent pas voir l'estimation */}
+                  {/* Message pour les utilisateurs qui ne peuvent pas voir l'estimation - SEULEMENT pour gratuits et hors connexion */}
                   {!canSeeEstimation && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <p className="text-sm text-yellow-800 flex items-center">
