@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Camera, Upload, X, Sparkles } from "lucide-react"
+import { Camera, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -620,7 +620,6 @@ export default function HomePage() {
         <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-10 max-w-lg w-full shadow-2xl border border-white/20">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 mr-3" style={{ color: "#f2d895" }} />
               <h2 className="text-2xl md:text-3xl font-serif" style={{ color: "#f2d895" }}>
                 Recherche IA
               </h2>

@@ -51,7 +51,7 @@ export default function DesignerDetailPage() {
             year: lum.annee || lum["Année"] || "",
             name: lum["Nom luminaire"] || lum.nom || "Sans nom",
             specialty: lum["Spécialité"] || lum.periode || "",
-            collaboration: lum["Collaboration / Œuvre"] || lum.description || "",
+            collaboration: lum["Collaboration / Œuvre"] || lum.collaboration || "",
           }))
 
           setDesignerLuminaires(adaptedLuminaires)
@@ -71,9 +71,12 @@ export default function DesignerDetailPage() {
             const fullDesignerField = adaptedLuminaires[0].artist
             const defaultSpecialty = adaptedLuminaires[0].specialty
 
-            // Récupérer toutes les collaborations/œuvres uniques pour ce designer
+            // CORRECTION: Récupérer SEULEMENT les collaborations/œuvres, PAS les descriptions
             const allCollaborations = adaptedLuminaires
-              .map((lum) => lum.collaboration)
+              .map((lum) => {
+                // CORRECTION: Chercher SEULEMENT dans les champs collaboration
+                return lum["Collaboration / Œuvre"] || lum.collaboration || ""
+              })
               .filter((collab) => collab && collab.trim() !== "")
               .filter((value, index, self) => self.indexOf(value) === index) // Supprimer les doublons
               .join(" • ")
@@ -82,7 +85,8 @@ export default function DesignerDetailPage() {
             const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
 
             setDescription(storedDescriptions[fullDesignerField] || defaultSpecialty)
-            setCollaboration(storedCollaborations[fullDesignerField] || allCollaborations)
+            // CORRECTION: Si pas de collaboration stockée ET pas de collaboration par défaut, laisser vide
+            setCollaboration(storedCollaborations[fullDesignerField] || allCollaborations || "")
           }
         } else {
           console.error("❌ Erreur API:", result.error)

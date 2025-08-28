@@ -294,7 +294,8 @@ export default function LuminaireDetailPage() {
 
     const keyToUpdate = keyMapping[field] || field
 
-    setLuminaire((prev: any) => ({ ...prev, [field]: String(value) }))
+    // CORRECTION: Préserver le formatage exact (espaces, sauts de ligne, majuscules)
+    setLuminaire((prev: any) => ({ ...prev, [field]: value }))
 
     try {
       await fetch(`/api/luminaires/${luminaire._id}`, {
