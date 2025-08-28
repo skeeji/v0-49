@@ -268,9 +268,20 @@ export default function LuminairesPage() {
     allLuminaires.forEach((l) => {
       const matList = l.materiaux || l["Matériaux"] || ""
       if (Array.isArray(matList)) {
-        matList.forEach((mat) => mat && materiaux.add(mat.trim()))
+        matList.forEach((mat) => {
+          if (mat && typeof mat === "string" && mat.trim()) {
+            materiaux.add(mat.trim())
+          }
+        })
       } else if (typeof matList === "string" && matList.trim()) {
-        matList.split(/[,;]+/).forEach((mat) => mat.trim() && materiaux.add(mat.trim()))
+        // Diviser par virgules, points-virgules, ou tirets
+        matList.split(/[,;-]+/).forEach((mat) => {
+          const cleanMat = mat.trim()
+          if (cleanMat && !cleanMat.match(/^\d+\.?$/)) {
+            // Ignorer les numéros comme "1.", "2.", etc.
+            materiaux.add(cleanMat)
+          }
+        })
       }
     })
 
