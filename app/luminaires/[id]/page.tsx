@@ -60,52 +60,52 @@ export default function LuminaireDetailPage() {
             Signé: result.data.Signé,
           })
 
-          // Formater le luminaire avec compatibilité CSV et formulaire
+          // Formater le luminaire avec compatibilité CSV et formulaire - CORRECTION: Préserver le formatage exact
           const formattedLuminaire = {
             ...result.data,
             id: String(result.data._id || ""),
             _id: String(result.data._id || ""),
             image: result.data.image || (result.data.filename ? `/api/images/filename/${result.data.filename}` : null),
 
-            // Champs principaux avec compatibilité CSV/formulaire
-            artist: String(result.data.designer || result.data["Artiste / Dates"] || ""),
-            year: String(result.data.annee || result.data["Année"] || ""),
-            name: String(result.data.nom || result.data["Nom luminaire"] || ""),
+            // Champs principaux avec compatibilité CSV/formulaire - PRÉSERVER LE FORMATAGE EXACT
+            artist: result.data.designer || result.data["Artiste / Dates"] || "",
+            year: result.data.annee || result.data["Année"] || "",
+            name: result.data.nom || result.data["Nom luminaire"] || "",
 
-            // Champs avec compatibilité CSV/formulaire
-            description: String(result.data.description || result.data["Description"] || ""),
-            dimensions: String(result.data.dimensions || result.data["Dimensions"] || ""),
-            estimation: String(result.data.estimation || result.data["Estimation"] || ""),
-            editeur: String(result.data.editeur || result.data["Editeur"] || ""),
-            categorie: String(result.data.categorie || result.data["Catégorie"] || ""),
+            // Champs avec compatibilité CSV/formulaire - PRÉSERVER LE FORMATAGE EXACT
+            description: result.data.description || result.data["Description"] || "",
+            dimensions: result.data.dimensions || result.data["Dimensions"] || "",
+            estimation: result.data.estimation || result.data["Estimation"] || "",
+            editeur: result.data.editeur || result.data["Editeur"] || "",
+            categorie: result.data.categorie || result.data["Catégorie"] || "",
 
-            // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ
+            // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ - PRÉSERVER LE FORMATAGE EXACT
             specialty: (() => {
               // D'abord chercher dans 'periode'
               if (result.data.periode && String(result.data.periode).trim() !== "") {
-                return String(result.data.periode).trim()
+                return result.data.periode
               }
               // Sinon chercher dans 'Spécialité'
               if (result.data["Spécialité"] && String(result.data["Spécialité"]).trim() !== "") {
-                return String(result.data["Spécialité"]).trim()
+                return result.data["Spécialité"]
               }
               return ""
             })(),
 
-            // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE - SEULEMENT COLLABORATION
+            // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE - SEULEMENT COLLABORATION - PRÉSERVER LE FORMATAGE EXACT
             collaboration: (() => {
               // CORRECTION: Chercher SEULEMENT dans les champs collaboration, PAS dans description
               if (result.data.collaboration && String(result.data.collaboration).trim() !== "") {
-                return String(result.data.collaboration).trim()
+                return result.data.collaboration
               }
               // Sinon chercher dans 'Collaboration / Œuvre'
               if (result.data["Collaboration / Œuvre"] && String(result.data["Collaboration / Œuvre"]).trim() !== "") {
-                return String(result.data["Collaboration / Œuvre"]).trim()
+                return result.data["Collaboration / Œuvre"]
               }
               return ""
             })(),
 
-            // LOGIQUE CORRIGÉE POUR MATÉRIAUX
+            // LOGIQUE CORRIGÉE POUR MATÉRIAUX - PRÉSERVER LE FORMATAGE EXACT
             materials: (() => {
               // D'abord chercher dans 'materiaux' (liste)
               if (Array.isArray(result.data.materiaux) && result.data.materiaux.length > 0) {
@@ -113,18 +113,18 @@ export default function LuminaireDetailPage() {
               }
               // Sinon chercher dans 'Matériaux' (texte)
               if (result.data.Matériaux && String(result.data.Matériaux).trim() !== "") {
-                return String(result.data.Matériaux).trim()
+                return result.data.Matériaux
               }
               return ""
             })(),
 
-            // Gestion de Signé - RECHERCHE EXHAUSTIVE
+            // Gestion de Signé - RECHERCHE EXHAUSTIVE - PRÉSERVER LE FORMATAGE EXACT
             signed: (() => {
               const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
 
               for (const key of signeKeys) {
                 if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") {
-                  return result.data[key].trim()
+                  return result.data[key]
                 }
               }
               return ""
@@ -294,7 +294,7 @@ export default function LuminaireDetailPage() {
 
     const keyToUpdate = keyMapping[field] || field
 
-    // CORRECTION: Préserver le formatage exact (espaces, sauts de ligne, majuscules)
+    // CORRECTION: Préserver le formatage exact (espaces, sauts de ligne, majuscules) - PAS de conversion String()
     setLuminaire((prev: any) => ({ ...prev, [field]: value }))
 
     try {
@@ -559,7 +559,7 @@ export default function LuminaireDetailPage() {
               <div className="space-y-6 font-serif">
                 {/* Nom du luminaire (titre) */}
                 <EditableField
-                  value={String(luminaire.name || "")}
+                  value={luminaire.name || ""}
                   onSave={(v) => handleUpdate("name", v)}
                   className="text-2xl font-serif text-gray-900"
                   placeholder="Nom du luminaire"
@@ -577,7 +577,7 @@ export default function LuminaireDetailPage() {
                         style={{ textDecoration: "none", color: "inherit" }}
                       >
                         <EditableField
-                          value={String(luminaire.artist || "")}
+                          value={luminaire.artist || ""}
                           onSave={(v) => handleUpdate("artist", v)}
                           placeholder="Artiste / Dates"
                           disabled={!canEdit}
@@ -585,7 +585,7 @@ export default function LuminaireDetailPage() {
                       </Link>
                     ) : (
                       <EditableField
-                        value={String(luminaire.artist || "")}
+                        value={luminaire.artist || ""}
                         onSave={(v) => handleUpdate("artist", v)}
                         placeholder="Artiste / Dates"
                         disabled={!canEdit}
@@ -598,7 +598,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Catégorie</label>
                       <EditableField
-                        value={String(luminaire.categorie || "")}
+                        value={luminaire.categorie || ""}
                         onSave={(v) => handleUpdate("categorie", v)}
                         placeholder="Catégorie (suspension, applique, lampe de table...)"
                         disabled={!canEdit}
@@ -611,7 +611,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Spécialité</label>
                       <EditableField
-                        value={String(luminaire.specialty || "")}
+                        value={luminaire.specialty || ""}
                         onSave={(v) => handleUpdate("specialty", v)}
                         placeholder="Spécialité"
                         multiline
@@ -625,7 +625,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
                       <EditableField
-                        value={String(luminaire.collaboration || "")}
+                        value={luminaire.collaboration || ""}
                         onSave={(v) => handleUpdate("collaboration", v)}
                         placeholder="Collaboration / Œuvre"
                         multiline
@@ -639,7 +639,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
                       <EditableField
-                        value={String(luminaire.editeur || "")}
+                        value={luminaire.editeur || ""}
                         onSave={(v) => handleUpdate("editeur", v)}
                         placeholder="Editeur"
                         disabled={!canEdit}
@@ -652,7 +652,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
                       <EditableField
-                        value={String(luminaire.description || "")}
+                        value={luminaire.description || ""}
                         onSave={(v) => handleUpdate("description", v)}
                         placeholder="Description"
                         multiline
@@ -666,7 +666,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
                       <EditableField
-                        value={String(luminaire.year || "")}
+                        value={luminaire.year || ""}
                         onSave={(v) => handleUpdate("year", v)}
                         placeholder="Année"
                         disabled={!canEdit}
@@ -679,7 +679,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
                       <EditableField
-                        value={String(luminaire.dimensions || "")}
+                        value={luminaire.dimensions || ""}
                         onSave={(v) => handleUpdate("dimensions", v)}
                         placeholder="Dimensions"
                         disabled={!canEdit}
@@ -692,7 +692,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
                       <EditableField
-                        value={String(luminaire.materials || "")}
+                        value={luminaire.materials || ""}
                         onSave={(v) => handleUpdate("materials", v)}
                         placeholder="Matériaux"
                         multiline
@@ -706,7 +706,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
                       <EditableField
-                        value={String(luminaire.signed || "")}
+                        value={luminaire.signed || ""}
                         onSave={(v) => handleUpdate("signed", v)}
                         placeholder="Signé"
                         disabled={!canEdit}
@@ -722,7 +722,7 @@ export default function LuminaireDetailPage() {
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
                       <EditableField
-                        value={String(luminaire.estimation || "")}
+                        value={luminaire.estimation || ""}
                         onSave={(v) => handleUpdate("estimation", v)}
                         placeholder="Estimation"
                         disabled={!canEdit}

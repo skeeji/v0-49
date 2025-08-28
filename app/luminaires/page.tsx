@@ -263,22 +263,17 @@ export default function LuminairesPage() {
   const filterOptions = useMemo(() => {
     const categories = [...new Set(allLuminaires.map((l) => l.categorie || l["Catégorie"]).filter(Boolean))].sort()
 
-    // Extraire tous les matériaux uniques
+    // CORRECTION: Utiliser la même logique que l'export CSV pour les matériaux
     const materiaux = new Set<string>()
     allLuminaires.forEach((l) => {
-      const matList = l.materiaux || l["Matériaux"] || ""
-      if (Array.isArray(matList)) {
-        matList.forEach((mat) => {
-          if (mat && typeof mat === "string" && mat.trim()) {
-            materiaux.add(mat.trim())
-          }
-        })
-      } else if (typeof matList === "string" && matList.trim()) {
-        // Diviser par virgules, points-virgules, ou tirets
-        matList.split(/[,;-]+/).forEach((mat) => {
+      // Utiliser la même logique que dans l'export CSV
+      const matValue = l["Matériaux"] || (Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux) || ""
+
+      if (typeof matValue === "string" && matValue.trim()) {
+        // Diviser par virgules et nettoyer
+        matValue.split(",").forEach((mat) => {
           const cleanMat = mat.trim()
-          if (cleanMat && !cleanMat.match(/^\d+\.?$/)) {
-            // Ignorer les numéros comme "1.", "2.", etc.
+          if (cleanMat && cleanMat.length > 0) {
             materiaux.add(cleanMat)
           }
         })
