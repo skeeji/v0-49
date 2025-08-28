@@ -92,9 +92,9 @@ export default function LuminaireDetailPage() {
               return ""
             })(),
 
-            // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE
+            // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE - SEULEMENT COLLABORATION
             collaboration: (() => {
-              // D'abord chercher dans 'collaboration'
+              // CORRECTION: Chercher SEULEMENT dans les champs collaboration, PAS dans description
               if (result.data.collaboration && String(result.data.collaboration).trim() !== "") {
                 return String(result.data.collaboration).trim()
               }
@@ -713,8 +713,11 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 11. Estimation - Logique corrigée pour premium */}
-                  {!authLoading && user && (userData?.role === "admin" || userData?.role === "premium") ? (
+                  {/* 11. Estimation - CORRECTION: Afficher seulement si renseigné ET premium */}
+                  {!authLoading &&
+                  user &&
+                  (userData?.role === "admin" || userData?.role === "premium") &&
+                  (canEdit || (luminaire.estimation && String(luminaire.estimation).trim())) ? (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
                       <EditableField
@@ -725,7 +728,8 @@ export default function LuminaireDetailPage() {
                       />
                     </div>
                   ) : (
-                    !authLoading && (
+                    !authLoading &&
+                    !user && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                         <p className="text-sm text-yellow-800 flex items-center">
                           <span className="mr-2">🔒</span>

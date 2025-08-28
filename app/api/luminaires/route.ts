@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const limit = Number.parseInt(searchParams.get("limit") || "20")
     const search = searchParams.get("search") || ""
     const categorie = searchParams.get("categorie") || ""
+    const materiau = searchParams.get("materiau") || ""
     const yearMin = searchParams.get("yearMin")
     const yearMax = searchParams.get("yearMax")
     const sortField = searchParams.get("sortField") || "nom"
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
       limit,
       search,
       categorie,
+      materiau,
       yearMin,
       yearMax,
       sortField,
@@ -58,6 +60,22 @@ export async function GET(request: NextRequest) {
       } else {
         // Sinon on applique directement le filtre catégorie
         filter.$or = categorieFilter.$or
+      }
+    }
+
+    // Filtre par matériau
+    if (materiau && materiau.trim() !== "") {
+      const materiauFilter = {
+        $or: [{ materiaux: { $regex: materiau, $options: "i" } }, { Matériaux: { $regex: materiau, $options: "i" } }],
+      }
+
+      if (filter.$and) {
+        filter.$and.push(materiauFilter)
+      } else if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, materiauFilter]
+        delete filter.$or
+      } else {
+        Object.assign(filter, materiauFilter)
       }
     }
 

@@ -25,6 +25,7 @@ export default function LuminairesPage() {
   // États pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategorie, setSelectedCategorie] = useState("")
+  const [selectedMateriau, setSelectedMateriau] = useState("")
   const [yearRange, setYearRange] = useState<number[]>([])
   const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
@@ -110,6 +111,11 @@ export default function LuminairesPage() {
           params.append("categorie", selectedCategorie)
         }
 
+        // Ajouter le filtre matériaux
+        if (selectedMateriau && selectedMateriau !== "all") {
+          params.append("materiau", selectedMateriau)
+        }
+
         console.log("🔍 Paramètres de requête:", params.toString())
 
         const response = await fetch(`/api/luminaires?${params}`)
@@ -146,7 +152,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedCategorie, sortField, sortDirection, luminaires],
+    [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, luminaires],
   )
 
   // Charger les données globales au montage
@@ -158,20 +164,22 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedCategorie, sortField, sortDirection, sliderModified])
+  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified])
 
   // Fonction pour charger plus de luminaires (scroll infini normal)
   const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading) {
+    if (!loadingMore && hasMore && !loading && !showFavorites) {
       const nextPage = currentPage + 1
       console.log(`🔄 Chargement page ${nextPage}`)
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
-  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
+  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires, showFavorites])
 
-  // Scroll infini optimisé
+  // Scroll infini optimisé - CORRECTION: désactiver quand on affiche les favoris
   useEffect(() => {
+    if (showFavorites) return // Pas de scroll infini pour les favoris
+
     const handleScroll = () => {
       const scrollTop = document.documentElement.scrollTop
       const scrollHeight = document.documentElement.scrollHeight
@@ -195,7 +203,7 @@ export default function LuminairesPage() {
       window.removeEventListener("scroll", throttledHandleScroll)
       clearTimeout(timeoutId)
     }
-  }, [loadMore])
+  }, [loadMore, showFavorites])
 
   // Fonction pour mettre à jour un luminaire
   const handleItemUpdate = useCallback(async (id: string, updates: any) => {
@@ -254,7 +262,22 @@ export default function LuminairesPage() {
   // Options pour les filtres
   const filterOptions = useMemo(() => {
     const categories = [...new Set(allLuminaires.map((l) => l.categorie || l["Catégorie"]).filter(Boolean))].sort()
-    return { categories }
+
+    // Extraire tous les matériaux uniques
+    const materiaux = new Set<string>()
+    allLuminaires.forEach((l) => {
+      const matList = l.materiaux || l["Matériaux"] || ""
+      if (Array.isArray(matList)) {
+        matList.forEach((mat) => mat && materiaux.add(mat.trim()))
+      } else if (typeof matList === "string" && matList.trim()) {
+        matList.split(/[,;]+/).forEach((mat) => mat.trim() && materiaux.add(mat.trim()))
+      }
+    })
+
+    return {
+      categories,
+      materiaux: Array.from(materiaux).sort(),
+    }
   }, [allLuminaires])
 
   // Calculer la plage d'années disponibles
@@ -300,11 +323,11 @@ export default function LuminairesPage() {
     return totalItems
   }, [user, userData, totalItems])
 
-  // Calculer les luminaires à afficher
+  // Calculer les luminaires à afficher - CORRECTION: charger tous les favoris
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
-      // CORRECTION: Éviter les doublons dans les favoris
-      const favoriteItems = luminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
+      // CORRECTION: Filtrer depuis allLuminaires pour avoir tous les favoris
+      const favoriteItems = allLuminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
       // Supprimer les doublons basés sur l'ID
       const uniqueFavorites = favoriteItems.filter(
         (item, index, self) => index === self.findIndex((t) => String(t.id || t._id) === String(item.id || item._id)),
@@ -312,7 +335,7 @@ export default function LuminairesPage() {
       return uniqueFavorites
     }
     return luminaires
-  }, [luminaires, showFavorites, favorites])
+  }, [luminaires, allLuminaires, showFavorites, favorites])
 
   if (loading && luminaires.length === 0) {
     return (
@@ -345,7 +368,7 @@ export default function LuminairesPage() {
         <div>
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
-            {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
+            {totalItems > 0 ? `${displayedLuminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
           </p>
         </div>
 
@@ -415,7 +438,7 @@ export default function LuminairesPage() {
       )}
 
       {/* Filtres - Première ligne */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
         <DropdownFilter
@@ -423,6 +446,13 @@ export default function LuminairesPage() {
           value={selectedCategorie}
           onChange={setSelectedCategorie}
           options={filterOptions.categories}
+        />
+
+        <DropdownFilter
+          label="Matériaux"
+          value={selectedMateriau}
+          onChange={setSelectedMateriau}
+          options={filterOptions.materiaux}
         />
 
         <select
@@ -477,8 +507,8 @@ export default function LuminairesPage() {
         isUserFree={!user || userData?.role === "free"}
       />
 
-      {/* Indicateur de chargement pour le scroll infini */}
-      {loadingMore && (
+      {/* Indicateur de chargement pour le scroll infini - CORRECTION: masquer pour les favoris */}
+      {loadingMore && !showFavorites && (
         <div className="text-center mt-8">
           <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
@@ -487,8 +517,8 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Message fin de liste */}
-      {!hasMore && luminaires.length > 0 && (
+      {/* Message fin de liste - CORRECTION: masquer pour les favoris */}
+      {!hasMore && luminaires.length > 0 && !showFavorites && (
         <div className="text-center mt-8 py-4">
           <p className="text-gray-500">
             ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
@@ -497,10 +527,12 @@ export default function LuminairesPage() {
       )}
 
       {/* Message aucun résultat */}
-      {luminaires.length === 0 && !loading && (
+      {displayedLuminaires.length === 0 && !loading && (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">Aucun luminaire trouvé</p>
-          <p className="text-gray-400 text-sm mt-2">Essayez de modifier vos critères de recherche</p>
+          <p className="text-gray-500 text-lg">{showFavorites ? "Aucun favori trouvé" : "Aucun luminaire trouvé"}</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {showFavorites ? "Ajoutez des luminaires à vos favoris" : "Essayez de modifier vos critères de recherche"}
+          </p>
         </div>
       )}
 
