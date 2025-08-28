@@ -33,6 +33,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     materiaux: [] as string[],
     estimation: "",
     couleurs: [] as string[],
+    categorie: "",
   })
 
   const [images, setImages] = useState<File[]>([])
@@ -119,6 +120,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       materiaux: [],
       estimation: "",
       couleurs: [],
+      categorie: "",
     })
     setImages([])
     setDesignerImage(null)
@@ -252,6 +254,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         estimation: formData.estimation.trim(),
         materiaux: formData.materiaux,
         couleurs: formData.couleurs,
+        categorie: formData.categorie.trim(),
         images: uploadedImages,
         filename: uploadedImages[0] || "",
         designerImageFilename: designerImageFilename,
@@ -320,6 +323,27 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                 onChange={(e) => handleInputChange("annee", e.target.value)}
                 placeholder="Année de création"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="categorie">Catégorie</Label>
+              <Select value={formData.categorie} onValueChange={(value) => handleInputChange("categorie", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir une catégorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Suspension">Suspension</SelectItem>
+                  <SelectItem value="Applique">Applique</SelectItem>
+                  <SelectItem value="Lampe de table">Lampe de table</SelectItem>
+                  <SelectItem value="Lampadaire">Lampadaire</SelectItem>
+                  <SelectItem value="Plafonnier">Plafonnier</SelectItem>
+                  <SelectItem value="Lustre">Lustre</SelectItem>
+                  <SelectItem value="Spot">Spot</SelectItem>
+                  <SelectItem value="Lampe de bureau">Lampe de bureau</SelectItem>
+                  <SelectItem value="Veilleuse">Veilleuse</SelectItem>
+                  <SelectItem value="Autre">Autre</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

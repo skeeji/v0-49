@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "20")
     const search = searchParams.get("search") || ""
-    const designer = searchParams.get("designer") || ""
+    const categorie = searchParams.get("categorie") || ""
     const yearMin = searchParams.get("yearMin")
     const yearMax = searchParams.get("yearMax")
     const sortField = searchParams.get("sortField") || "nom"
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       search,
-      designer,
+      categorie,
       yearMin,
       yearMax,
       sortField,
@@ -45,22 +45,19 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Filtre par designer - CORRECTION: ne pas filtrer si designer est vide
-    if (designer && designer.trim() !== "") {
-      const designerFilter = {
-        $or: [
-          { designer: { $regex: designer, $options: "i" } },
-          { "Artiste / Dates": { $regex: designer, $options: "i" } },
-        ],
+    // Filtre par catégorie - CORRECTION: ne pas filtrer si catégorie est vide
+    if (categorie && categorie.trim() !== "") {
+      const categorieFilter = {
+        $or: [{ categorie: { $regex: categorie, $options: "i" } }, { Catégorie: { $regex: categorie, $options: "i" } }],
       }
 
       if (filter.$or) {
         // Si on a déjà un filtre de recherche, on combine avec $and
-        filter.$and = [{ $or: filter.$or }, designerFilter]
+        filter.$and = [{ $or: filter.$or }, categorieFilter]
         delete filter.$or
       } else {
-        // Sinon on applique directement le filtre designer
-        filter.$or = designerFilter.$or
+        // Sinon on applique directement le filtre catégorie
+        filter.$or = categorieFilter.$or
       }
     }
 
@@ -135,6 +132,7 @@ export async function GET(request: NextRequest) {
       estimation: luminaire.estimation || luminaire["Estimation"] || "",
       editeur: luminaire.editeur || "",
       materiaux: luminaire.materiaux || [],
+      categorie: luminaire.categorie || luminaire["Catégorie"] || "",
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
       image: luminaire.images?.[0]
         ? `/api/images/filename/${luminaire.images[0]}`
@@ -156,6 +154,7 @@ export async function GET(request: NextRequest) {
       Dimensions: luminaire["Dimensions"] || "",
       Estimation: luminaire["Estimation"] || "",
       Matériaux: luminaire["Matériaux"] || "",
+      Catégorie: luminaire["Catégorie"] || "",
     }))
 
     return NextResponse.json({

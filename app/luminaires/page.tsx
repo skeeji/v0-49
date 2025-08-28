@@ -24,7 +24,7 @@ export default function LuminairesPage() {
 
   // États pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedDesigner, setSelectedDesigner] = useState("")
+  const [selectedCategorie, setSelectedCategorie] = useState("")
   const [yearRange, setYearRange] = useState<number[]>([])
   const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
@@ -105,9 +105,9 @@ export default function LuminairesPage() {
           params.append("yearMax", yearRangeRef.current[1].toString())
         }
 
-        // CORRECTION: Gérer correctement le filtre "all" pour les designers
-        if (selectedDesigner && selectedDesigner !== "all") {
-          params.append("designer", selectedDesigner)
+        // CORRECTION: Gérer correctement le filtre "all" pour les catégories
+        if (selectedCategorie && selectedCategorie !== "all") {
+          params.append("categorie", selectedCategorie)
         }
 
         console.log("🔍 Paramètres de requête:", params.toString())
@@ -146,7 +146,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedDesigner, sortField, sortDirection, luminaires],
+    [searchTerm, selectedCategorie, sortField, sortDirection, luminaires],
   )
 
   // Charger les données globales au montage
@@ -158,7 +158,7 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, sortField, sortDirection, sliderModified])
+  }, [searchTerm, selectedCategorie, sortField, sortDirection, sliderModified])
 
   // Fonction pour charger plus de luminaires (scroll infini normal)
   const loadMore = useCallback(() => {
@@ -253,8 +253,8 @@ export default function LuminairesPage() {
 
   // Options pour les filtres
   const filterOptions = useMemo(() => {
-    const designers = [...new Set(allLuminaires.map((l) => l.designer || l["Artiste / Dates"]).filter(Boolean))].sort()
-    return { designers }
+    const categories = [...new Set(allLuminaires.map((l) => l.categorie || l["Catégorie"]).filter(Boolean))].sort()
+    return { categories }
   }, [allLuminaires])
 
   // Calculer la plage d'années disponibles
@@ -419,10 +419,10 @@ export default function LuminairesPage() {
         <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
         <DropdownFilter
-          label="Designer"
-          value={selectedDesigner}
-          onChange={setSelectedDesigner}
-          options={filterOptions.designers}
+          label="Catégorie"
+          value={selectedCategorie}
+          onChange={setSelectedCategorie}
+          options={filterOptions.categories}
         />
 
         <select

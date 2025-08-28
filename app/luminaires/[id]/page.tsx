@@ -77,6 +77,7 @@ export default function LuminaireDetailPage() {
             dimensions: String(result.data.dimensions || result.data["Dimensions"] || ""),
             estimation: String(result.data.estimation || result.data["Estimation"] || ""),
             editeur: String(result.data.editeur || result.data["Editeur"] || ""),
+            categorie: String(result.data.categorie || result.data["Catégorie"] || ""),
 
             // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ
             specialty: (() => {
@@ -135,6 +136,7 @@ export default function LuminaireDetailPage() {
             signed: formattedLuminaire.signed,
             specialty: formattedLuminaire.specialty,
             collaboration: formattedLuminaire.collaboration,
+            categorie: formattedLuminaire.categorie,
           })
 
           setLuminaire(formattedLuminaire)
@@ -287,6 +289,7 @@ export default function LuminaireDetailPage() {
       materials: "Matériaux", // CORRECTION: utiliser "Matériaux" au lieu de "materiaux"
       estimation: "estimation",
       editeur: "editeur",
+      categorie: "categorie",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -319,6 +322,12 @@ export default function LuminaireDetailPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ "Collaboration / Œuvre": value }),
+        })
+      } else if (field === "categorie") {
+        await fetch(`/api/luminaires/${luminaire._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ Catégorie: value }),
         })
       }
     } catch (error) {
@@ -363,6 +372,7 @@ export default function LuminaireDetailPage() {
       }
 
       addField("Artiste / Dates", luminaire.artist)
+      addField("Catégorie", luminaire.categorie)
       addField("Editeur", luminaire.editeur)
       addField("Année", luminaire.year)
       addField("Spécialité", luminaire.specialty)
@@ -582,7 +592,20 @@ export default function LuminaireDetailPage() {
                     )}
                   </div>
 
-                  {/* 2. Spécialité - Affiché seulement si renseigné ou admin */}
+                  {/* 2. Catégorie - Visible et modifiable seulement par admin */}
+                  {canEdit && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Catégorie</label>
+                      <EditableField
+                        value={String(luminaire.categorie || "")}
+                        onSave={(v) => handleUpdate("categorie", v)}
+                        placeholder="Catégorie (suspension, applique, lampe de table...)"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
+
+                  {/* 3. Spécialité - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.specialty && String(luminaire.specialty).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Spécialité</label>
@@ -596,7 +619,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 3. Collaboration / Œuvre - Affiché seulement si renseigné ou admin */}
+                  {/* 4. Collaboration / Œuvre - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.collaboration && String(luminaire.collaboration).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
@@ -610,7 +633,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 4. Editeur - Affiché seulement si renseigné ou admin */}
+                  {/* 5. Editeur - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.editeur && String(luminaire.editeur).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
@@ -623,7 +646,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 5. Description - Affiché seulement si renseigné ou admin */}
+                  {/* 6. Description - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.description && String(luminaire.description).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
@@ -637,7 +660,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 6. Année - Affiché seulement si renseigné ou admin */}
+                  {/* 7. Année - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.year && String(luminaire.year).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
@@ -650,7 +673,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 7. Dimensions - Affiché seulement si renseigné ou admin */}
+                  {/* 8. Dimensions - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.dimensions && String(luminaire.dimensions).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
@@ -663,7 +686,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 8. Matériaux - Affiché seulement si renseigné ou admin */}
+                  {/* 9. Matériaux - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.materials && String(luminaire.materials).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
@@ -677,7 +700,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 9. Signé - Affiché seulement si renseigné ou admin */}
+                  {/* 10. Signé - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.signed && String(luminaire.signed).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
@@ -690,7 +713,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 10. Estimation - Logique corrigée pour premium */}
+                  {/* 11. Estimation - Logique corrigée pour premium */}
                   {!authLoading && user && (userData?.role === "admin" || userData?.role === "premium") ? (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>

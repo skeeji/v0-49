@@ -42,6 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       estimation: luminaire.estimation || luminaire["Estimation"] || "",
       editeur: luminaire.editeur || "",
       materiaux: luminaire.materiaux || [],
+      categorie: luminaire.categorie || luminaire["Catégorie"] || "",
 
       // Image
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       Dimensions: luminaire["Dimensions"] || "",
       Estimation: luminaire["Estimation"] || "",
       Matériaux: luminaire["Matériaux"] || "",
+      Catégorie: luminaire["Catégorie"] || "",
     }
 
     return NextResponse.json({

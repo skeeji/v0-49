@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
           // TOUS LES CHAMPS POSSIBLES POUR COLLABORATION
           collaboration: luminaire.collaboration,
           "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"],
+          // TOUS LES CHAMPS POSSIBLES POUR CATÉGORIE
+          categorie: luminaire.categorie,
+          Catégorie: luminaire["Catégorie"],
           // DIMENSIONS POUR COMPARAISON
           dimensions: luminaire.dimensions,
           Dimensions: luminaire["Dimensions"],
@@ -83,6 +86,23 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // CATÉGORIE - RECHERCHE EXHAUSTIVE DANS TOUS LES CHAMPS POSSIBLES
+      let categorie = ""
+
+      // Test de tous les champs possibles pour catégorie
+      const categorieFields = [
+        luminaire.categorie, // Champ utilisé par handleUpdate("categorie", v) -> "categorie"
+        luminaire["Catégorie"], // Champ original CSV
+      ]
+
+      for (const field of categorieFields) {
+        if (field && String(field).trim() !== "") {
+          categorie = String(field).trim()
+          if (index < 5) console.log(`✅ CATÉGORIE TROUVÉE: "${categorie}" dans champ:`, field)
+          break
+        }
+      }
+
       // MATÉRIAUX - UTILISER LA MÊME LOGIQUE QUE LE PDF DE LA PAGE LUMINAIRE INDIVIDUELLE
       let materiaux = ""
 
@@ -108,6 +128,7 @@ export async function GET(request: NextRequest) {
         "Nom luminaire": nom,
         "Artiste / Dates": designer,
         Année: annee,
+        Catégorie: categorie,
         Editeur: editeur,
         Spécialité: specialite,
         "Collaboration / Œuvre": collaboration,
@@ -128,6 +149,7 @@ export async function GET(request: NextRequest) {
           dimensions: result["Dimensions"],
           specialite: result["Spécialité"],
           collaboration: result["Collaboration / Œuvre"],
+          categorie: result["Catégorie"],
         })
       }
 
@@ -144,9 +166,11 @@ export async function GET(request: NextRequest) {
     const collaborationCount = csvData.filter(
       (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"].trim() !== "",
     ).length
+    const categorieCount = csvData.filter((row) => row["Catégorie"] && row["Catégorie"].trim() !== "").length
 
     console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
     console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
+    console.log(`📊 Catégorie remplie: ${categorieCount}/${csvData.length} luminaires`)
 
     const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"].trim() !== "").length
     console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
@@ -159,6 +183,7 @@ export async function GET(request: NextRequest) {
         dimensions: row["Dimensions"],
         specialite: row["Spécialité"],
         collaboration: row["Collaboration / Œuvre"],
+        categorie: row["Catégorie"],
         materiaux: row["Matériaux"], // Ajouter cette ligne
       })
     })
@@ -169,6 +194,7 @@ export async function GET(request: NextRequest) {
       "Nom luminaire",
       "Artiste / Dates",
       "Année",
+      "Catégorie",
       "Editeur",
       "Spécialité",
       "Collaboration / Œuvre",
