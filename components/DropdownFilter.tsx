@@ -1,28 +1,24 @@
 "use client"
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import type React from "react"
 
 interface DropdownFilterProps {
   label: string
-  value: string
-  onChange: (value: string) => void
   options: string[]
+  onChange: (value: string) => void
 }
 
-export function DropdownFilter({ label, value, onChange, options }: DropdownFilterProps) {
+const DropdownFilter: React.FC<DropdownFilterProps> = ({ label, options, onChange }) => {
   return (
-    <Select value={value === "" ? "all" : value} onValueChange={onChange}>
-      <SelectTrigger>
-        <SelectValue placeholder={`Tous les ${label.toLowerCase()}`} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">Tous les {label.toLowerCase()}</SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option} value={option}>
-            {option}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <select onChange={(e) => onChange(e.target.value)}>
+      <option value="">{label}</option>
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
   )
 }
+
+export default DropdownFilter
