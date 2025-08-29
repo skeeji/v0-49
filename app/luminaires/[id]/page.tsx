@@ -388,7 +388,7 @@ export default function LuminaireDetailPage() {
         addField("Estimation", luminaire.estimation)
       }
 
-      // Ajouter l'image si disponible - Version simplifiée
+      // Ajouter l'image si disponible - Version haute qualité
       if (luminaire.image) {
         try {
           // Créer un élément image temporaire
@@ -399,23 +399,47 @@ export default function LuminaireDetailPage() {
           await new Promise<void>((resolve) => {
             tempImg.onload = () => {
               try {
-                // Créer un canvas
+                // Créer un canvas haute résolution
                 const canvas = document.createElement("canvas")
                 const ctx = canvas.getContext("2d")
 
                 if (ctx) {
-                  // Définir la taille du canvas
-                  canvas.width = 100
-                  canvas.height = 100
+                  // Calculer les dimensions pour maintenir le ratio
+                  const maxWidth = 400
+                  const maxHeight = 400
+                  let { width, height } = tempImg
 
-                  // Dessiner l'image
-                  ctx.drawImage(tempImg, 0, 0, 100, 100)
+                  // Redimensionner en gardant le ratio
+                  if (width > height) {
+                    if (width > maxWidth) {
+                      height = (height * maxWidth) / width
+                      width = maxWidth
+                    }
+                  } else {
+                    if (height > maxHeight) {
+                      width = (width * maxHeight) / height
+                      height = maxHeight
+                    }
+                  }
 
-                  // Convertir en base64
-                  const dataURL = canvas.toDataURL("image/jpeg", 0.7)
+                  // Définir la taille du canvas en haute résolution
+                  canvas.width = width * 2 // Double résolution
+                  canvas.height = height * 2
 
-                  // Ajouter au PDF
-                  pdf.addImage(dataURL, "JPEG", 20, yPos + 10, 100, 100)
+                  // Configurer le contexte pour une qualité optimale
+                  ctx.imageSmoothingEnabled = true
+                  ctx.imageSmoothingQuality = "high"
+
+                  // Dessiner l'image en haute résolution
+                  ctx.drawImage(tempImg, 0, 0, width * 2, height * 2)
+
+                  // Convertir en base64 avec qualité maximale
+                  const dataURL = canvas.toDataURL("image/jpeg", 0.95)
+
+                  // Ajouter au PDF avec les bonnes dimensions
+                  pdf.addImage(dataURL, "JPEG", 20, yPos + 10, width / 2, height / 2)
+
+                  console.log(`✅ Image ajoutée au PDF: ${width / 2}x${height / 2}px`)
                 }
               } catch (error) {
                 console.error("❌ Erreur traitement image PDF:", error)
