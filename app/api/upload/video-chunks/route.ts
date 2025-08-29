@@ -1,15 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getDatabase } from "@/lib/mongodb"
 import { uploadFile } from "@/lib/gridfs"
-import { writeFile, readFile, unlink } from "fs/promises"
-import { join } from "path"
-import { tmpdir } from "os"
+import fs from "fs"
+import path from "path"
+import os from "os"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🎥 API upload/video-chunks: Début upload chunk vidéo")
+    console.log("🎥 API upload/video-chunks: Début traitement chunk vidéo")
 
     const formData = await request.formData()
     const chunk = formData.get("chunk") as File
@@ -22,39 +22,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Paramètres manquants" })
     }
 
-    console.log(`📦 Chunk ${chunkIndex + 1}/${totalChunks} reçu: ${chunk.size} bytes`)
+    console.log(`📦 Chunk ${chunkIndex + 1}/${totalChunks} reçu pour ${fileName}`)
 
-    // Créer un nom de fichier temporaire unique basé sur le nom original
-    const tempDir = tmpdir()
-    const safeFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_")
-    const tempFileName = `video_${Date.now()}_${safeFileName}`
-    const tempFilePath = join(tempDir, tempFileName)
-
-    // Sauvegarder le chunk
-    const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
-
-    if (chunkIndex === 0) {
-      // Premier chunk - créer le fichier
-      await writeFile(tempFilePath, chunkBuffer)
-      console.log(`✅ Premier chunk sauvegardé: ${tempFilePath}`)
-    } else {
-      // Chunks suivants - ajouter au fichier existant
-      try {
-        const existingData = await readFile(tempFilePath)
-        const combinedData = Buffer.concat([existingData, chunkBuffer])
-        await writeFile(tempFilePath, combinedData)
-        console.log(`✅ Chunk ${chunkIndex + 1} ajouté au fichier`)
-      } catch (readError) {
-        console.error(`❌ Erreur lecture fichier temporaire:`, readError)
-        return NextResponse.json({ success: false, error: "Fichier temporaire introuvable" })
-      }
+    // Créer le dossier temporaire
+    const tempDir = path.join(os.tmpdir(), "video-chunks")
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true })
     }
 
-    // Si c'est le dernier chunk, traiter le fichier complet
+    // Sauvegarder le chunk
+    const chunkPath = path.join(tempDir, `${fileName}.chunk.${chunkIndex}`)
+    const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
+    fs.writeFileSync(chunkPath, chunkBuffer)
+
+    console.log(`✅ Chunk ${chunkIndex + 1} sauvegardé: ${chunkPath}`)
+
+    // Si c'est le dernier chunk, assembler le fichier complet
     if (chunkIndex === totalChunks - 1) {
-      console.log("🎬 Dernier chunk reçu, assemblage et upload final...")
+      console.log("🔧 Assemblage du fichier complet...")
 
       try {
+        // Lire et assembler tous les chunks
+        const chunks = []
+        for (let i = 0; i < totalChunks; i++) {
+          const chunkFilePath = path.join(tempDir, `${fileName}.chunk.${i}`)
+          if (fs.existsSync(chunkFilePath)) {
+            const chunkData = fs.readFileSync(chunkFilePath)
+            chunks.push(chunkData)
+            console.log(`📖 Chunk ${i + 1} lu: ${chunkData.length} bytes`)
+          } else {
+            throw new Error(`Chunk ${i} manquant: ${chunkFilePath}`)
+          }
+        }
+
+        // Assembler le fichier complet
+        const completeFile = Buffer.concat(chunks)
+        console.log(`🔧 Fichier assemblé: ${completeFile.length} bytes`)
+
+        // Uploader vers GridFS
         const db = await getDatabase()
 
         // Supprimer l'ancienne vidéo s'il y en a une
@@ -64,13 +69,8 @@ export async function POST(request: NextRequest) {
           await db.collection("videos").deleteOne({ _id: oldVideo._id })
         }
 
-        // Lire le fichier complet
-        const completeBuffer = await readFile(tempFilePath)
-        console.log(`📁 Fichier complet assemblé: ${completeBuffer.length} bytes`)
-
-        // Uploader vers GridFS
         console.log("📤 Upload vers GridFS...")
-        const fileId = await uploadFile(fileName, completeBuffer, fileType)
+        const fileId = await uploadFile(fileName, completeFile, fileType)
         console.log("✅ Fichier uploadé vers GridFS, ID:", fileId)
 
         // Sauvegarder les métadonnées en base
@@ -78,51 +78,55 @@ export async function POST(request: NextRequest) {
           filename: fileName,
           fileId: fileId,
           contentType: fileType,
-          size: completeBuffer.length,
+          size: completeFile.length,
           uploadDate: new Date(),
         }
 
         const result = await db.collection("videos").insertOne(videoDoc)
         console.log("✅ Métadonnées vidéo sauvegardées, ID:", result.insertedId)
 
-        // Nettoyer le fichier temporaire
-        try {
-          await unlink(tempFilePath)
-          console.log("🧹 Fichier temporaire supprimé")
-        } catch (cleanupError) {
-          console.warn("⚠️ Erreur nettoyage fichier temporaire:", cleanupError)
+        // Nettoyer les fichiers temporaires
+        for (let i = 0; i < totalChunks; i++) {
+          const chunkFilePath = path.join(tempDir, `${fileName}.chunk.${i}`)
+          if (fs.existsSync(chunkFilePath)) {
+            fs.unlinkSync(chunkFilePath)
+          }
         }
+        console.log("🧹 Fichiers temporaires nettoyés")
 
         return NextResponse.json({
           success: true,
           message: "Vidéo uploadée avec succès",
           videoId: result.insertedId,
-          isComplete: true,
         })
-      } catch (finalError) {
-        console.error("❌ Erreur lors du traitement final:", finalError)
+      } catch (assemblyError: any) {
+        console.error("❌ Erreur lors de l'assemblage:", assemblyError)
 
-        // Nettoyer le fichier temporaire en cas d'erreur
+        // Nettoyer les fichiers temporaires en cas d'erreur
         try {
-          await unlink(tempFilePath)
+          for (let i = 0; i < totalChunks; i++) {
+            const chunkFilePath = path.join(tempDir, `${fileName}.chunk.${i}`)
+            if (fs.existsSync(chunkFilePath)) {
+              fs.unlinkSync(chunkFilePath)
+            }
+          }
         } catch (cleanupError) {
-          console.warn("⚠️ Erreur nettoyage après échec:", cleanupError)
+          console.error("❌ Erreur nettoyage:", cleanupError)
         }
 
         return NextResponse.json({
           success: false,
-          error: `Erreur traitement final: ${finalError.message}`,
+          error: `Erreur assemblage: ${assemblyError.message}`,
         })
       }
     }
 
-    // Chunk intermédiaire
+    // Pour les chunks intermédiaires, juste confirmer la réception
     return NextResponse.json({
       success: true,
       message: `Chunk ${chunkIndex + 1}/${totalChunks} reçu`,
-      isComplete: false,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Erreur upload chunk vidéo:", error)
     return NextResponse.json(
       {
