@@ -1,12 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getDatabase } from "@/lib/mongodb"
 import { uploadFile } from "@/lib/gridfs"
+import { writeFile, readFile, unlink } from "fs/promises"
+import { join } from "path"
+import { tmpdir } from "os"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🎥 API upload/video-chunks: Début upload vidéo par chunks")
+    console.log("🎥 API upload/video-chunks: Début upload chunk vidéo")
 
     const formData = await request.formData()
     const chunk = formData.get("chunk") as File
@@ -21,32 +24,31 @@ export async function POST(request: NextRequest) {
 
     console.log(`📦 Chunk ${chunkIndex + 1}/${totalChunks} reçu: ${chunk.size} bytes`)
 
-    const db = await getDatabase()
-    const chunksCollection = db.collection("video_chunks")
+    // Créer un nom de fichier temporaire unique
+    const tempDir = tmpdir()
+    const tempFileName = `video_${Date.now()}_${fileName.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+    const tempFilePath = join(tempDir, tempFileName)
 
-    // Stocker le chunk temporairement
+    // Sauvegarder le chunk
     const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
-    await chunksCollection.insertOne({
-      fileName,
-      chunkIndex,
-      data: chunkBuffer,
-      timestamp: new Date(),
-    })
 
-    // Si c'est le dernier chunk, assembler le fichier complet
+    if (chunkIndex === 0) {
+      // Premier chunk - créer le fichier
+      await writeFile(tempFilePath, chunkBuffer)
+    } else {
+      // Chunks suivants - ajouter au fichier existant
+      const existingData = await readFile(tempFilePath)
+      const combinedData = Buffer.concat([existingData, chunkBuffer])
+      await writeFile(tempFilePath, combinedData)
+    }
+
+    console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks} sauvegardé`)
+
+    // Si c'est le dernier chunk, traiter le fichier complet
     if (chunkIndex === totalChunks - 1) {
-      console.log("🔧 Assemblage des chunks...")
+      console.log("🎬 Dernier chunk reçu, assemblage et upload final...")
 
-      // Récupérer tous les chunks dans l'ordre
-      const allChunks = await chunksCollection.find({ fileName }).sort({ chunkIndex: 1 }).toArray()
-
-      if (allChunks.length !== totalChunks) {
-        return NextResponse.json({ success: false, error: "Chunks manquants" })
-      }
-
-      // Assembler le fichier complet
-      const completeBuffer = Buffer.concat(allChunks.map((chunk) => chunk.data))
-      console.log(`✅ Fichier assemblé: ${completeBuffer.length} bytes`)
+      const db = await getDatabase()
 
       // Supprimer l'ancienne vidéo s'il y en a une
       const oldVideo = await db.collection("videos").findOne({})
@@ -54,6 +56,10 @@ export async function POST(request: NextRequest) {
         console.log("🗑️ Suppression de l'ancienne vidéo")
         await db.collection("videos").deleteOne({ _id: oldVideo._id })
       }
+
+      // Lire le fichier complet
+      const completeBuffer = await readFile(tempFilePath)
+      console.log(`📁 Fichier complet assemblé: ${completeBuffer.length} bytes`)
 
       // Uploader vers GridFS
       console.log("📤 Upload vers GridFS...")
@@ -72,9 +78,13 @@ export async function POST(request: NextRequest) {
       const result = await db.collection("videos").insertOne(videoDoc)
       console.log("✅ Métadonnées vidéo sauvegardées, ID:", result.insertedId)
 
-      // Nettoyer les chunks temporaires
-      await chunksCollection.deleteMany({ fileName })
-      console.log("🧹 Chunks temporaires supprimés")
+      // Nettoyer le fichier temporaire
+      try {
+        await unlink(tempFilePath)
+        console.log("🧹 Fichier temporaire supprimé")
+      } catch (cleanupError) {
+        console.warn("⚠️ Erreur nettoyage fichier temporaire:", cleanupError)
+      }
 
       return NextResponse.json({
         success: true,
@@ -84,13 +94,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Chunk intermédiaire
     return NextResponse.json({
       success: true,
       message: `Chunk ${chunkIndex + 1}/${totalChunks} reçu`,
       isComplete: false,
     })
   } catch (error) {
-    console.error("❌ Erreur upload vidéo chunks:", error)
+    console.error("❌ Erreur upload chunk vidéo:", error)
     return NextResponse.json(
       {
         success: false,
