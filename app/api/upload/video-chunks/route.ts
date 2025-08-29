@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getDatabase } from "@/lib/mongodb"
 import { uploadFile } from "@/lib/gridfs"
-import { writeFile, readFile, unlink } from "fs/promises"
-import { join } from "path"
-import { tmpdir } from "os"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
@@ -24,31 +21,32 @@ export async function POST(request: NextRequest) {
 
     console.log(`📦 Chunk ${chunkIndex + 1}/${totalChunks} reçu: ${chunk.size} bytes`)
 
-    // Créer un nom de fichier temporaire unique
-    const tempDir = tmpdir()
-    const tempFileName = `video_${Date.now()}_${fileName.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-    const tempFilePath = join(tempDir, tempFileName)
+    const db = await getDatabase()
+    const chunksCollection = db.collection("video_chunks")
 
-    // Sauvegarder le chunk
+    // Stocker le chunk temporairement
     const chunkBuffer = Buffer.from(await chunk.arrayBuffer())
+    await chunksCollection.insertOne({
+      fileName,
+      chunkIndex,
+      data: chunkBuffer,
+      timestamp: new Date(),
+    })
 
-    if (chunkIndex === 0) {
-      // Premier chunk - créer le fichier
-      await writeFile(tempFilePath, chunkBuffer)
-    } else {
-      // Chunks suivants - ajouter au fichier existant
-      const existingData = await readFile(tempFilePath)
-      const combinedData = Buffer.concat([existingData, chunkBuffer])
-      await writeFile(tempFilePath, combinedData)
-    }
-
-    console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks} sauvegardé`)
-
-    // Si c'est le dernier chunk, traiter le fichier complet
+    // Si c'est le dernier chunk, assembler le fichier complet
     if (chunkIndex === totalChunks - 1) {
-      console.log("🎬 Dernier chunk reçu, assemblage et upload final...")
+      console.log("🔧 Assemblage des chunks...")
 
-      const db = await getDatabase()
+      // Récupérer tous les chunks dans l'ordre
+      const allChunks = await chunksCollection.find({ fileName }).sort({ chunkIndex: 1 }).toArray()
+
+      if (allChunks.length !== totalChunks) {
+        return NextResponse.json({ success: false, error: "Chunks manquants" })
+      }
+
+      // Assembler le fichier complet
+      const completeBuffer = Buffer.concat(allChunks.map((chunk) => chunk.data))
+      console.log(`✅ Fichier assemblé: ${completeBuffer.length} bytes`)
 
       // Supprimer l'ancienne vidéo s'il y en a une
       const oldVideo = await db.collection("videos").findOne({})
@@ -56,10 +54,6 @@ export async function POST(request: NextRequest) {
         console.log("🗑️ Suppression de l'ancienne vidéo")
         await db.collection("videos").deleteOne({ _id: oldVideo._id })
       }
-
-      // Lire le fichier complet
-      const completeBuffer = await readFile(tempFilePath)
-      console.log(`📁 Fichier complet assemblé: ${completeBuffer.length} bytes`)
 
       // Uploader vers GridFS
       console.log("📤 Upload vers GridFS...")
@@ -78,13 +72,9 @@ export async function POST(request: NextRequest) {
       const result = await db.collection("videos").insertOne(videoDoc)
       console.log("✅ Métadonnées vidéo sauvegardées, ID:", result.insertedId)
 
-      // Nettoyer le fichier temporaire
-      try {
-        await unlink(tempFilePath)
-        console.log("🧹 Fichier temporaire supprimé")
-      } catch (cleanupError) {
-        console.warn("⚠️ Erreur nettoyage fichier temporaire:", cleanupError)
-      }
+      // Nettoyer les chunks temporaires
+      await chunksCollection.deleteMany({ fileName })
+      console.log("🧹 Chunks temporaires supprimés")
 
       return NextResponse.json({
         success: true,
@@ -94,14 +84,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Chunk intermédiaire
     return NextResponse.json({
       success: true,
       message: `Chunk ${chunkIndex + 1}/${totalChunks} reçu`,
       isComplete: false,
     })
   } catch (error) {
-    console.error("❌ Erreur upload chunk vidéo:", error)
+    console.error("❌ Erreur upload vidéo chunks:", error)
     return NextResponse.json(
       {
         success: false,

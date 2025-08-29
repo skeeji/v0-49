@@ -500,11 +500,11 @@ export default function ImportPage() {
     try {
       console.log("🎥 Début de l'upload vidéo par chunks:", file.name)
 
-      // Diviser en chunks de 1MB pour éviter nginx 413
-      const CHUNK_SIZE = 1024 * 1024 // 1MB
+      // Diviser en chunks de 100KB pour éviter nginx 413
+      const CHUNK_SIZE = 100 * 1024 // 100KB
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
 
-      console.log(`📦 Upload par chunks: ${totalChunks} chunks de ${CHUNK_SIZE} bytes`)
+      console.log(`📦 Upload par chunks: ${totalChunks} chunks de 100KB`)
 
       for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
         const start = chunkIndex * CHUNK_SIZE
@@ -541,7 +541,7 @@ export default function ImportPage() {
 
         // Petite pause entre les chunks
         if (chunkIndex < totalChunks - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 200))
+          await new Promise((resolve) => setTimeout(resolve, 100))
         }
       }
 
@@ -563,7 +563,7 @@ export default function ImportPage() {
 
       console.log("✅ Upload vidéo terminé avec succès")
     } catch (error: any) {
-      console.error("❌ Erreur critique lors de l'upload vidéo:", error)
+      console.error("❌ Erreur lors de l'upload vidéo:", error)
 
       setResults((prev) => ({
         ...prev,
