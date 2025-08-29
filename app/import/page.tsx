@@ -86,6 +86,17 @@ export default function ImportPage() {
 
     console.log(`📁 Fichier CSV sélectionné: ${file.name}, taille: ${file.size} bytes`)
 
+    // Vérifier la taille du fichier
+    const fileSizeMB = Math.round(file.size / 1024 / 1024)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "❌ Fichier trop volumineux",
+        description: `Le fichier fait ${fileSizeMB}MB. Maximum autorisé: 10MB`,
+        variant: "destructive",
+      })
+      return
+    }
+
     const estimatedLines = Math.floor(file.size / 130)
     console.log(`📊 Estimation: ~${estimatedLines} lignes dans le CSV`)
 
@@ -103,6 +114,11 @@ export default function ImportPage() {
         method: "POST",
         body: formData,
       })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Erreur ${response.status}: ${errorText}`)
+      }
 
       const result = await response.json()
       console.log("📊 Réponse API CSV:", result)
@@ -125,7 +141,7 @@ export default function ImportPage() {
       console.error("❌ Erreur critique lors de l'import CSV:", error)
       toast({
         title: "❌ Erreur critique",
-        description: "Impossible d'importer le CSV",
+        description: `Impossible d'importer le CSV: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -196,6 +212,19 @@ export default function ImportPage() {
 
     console.log(`🖼️ Début de l'upload images: ${files.length} fichiers`)
 
+    // Vérifier la taille totale
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+    const totalSizeMB = Math.round(totalSize / 1024 / 1024)
+
+    if (totalSize > 100 * 1024 * 1024) {
+      toast({
+        title: "❌ Batch trop volumineux",
+        description: `${totalSizeMB}MB total. Réduisez le nombre de fichiers (max 100MB)`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsUploading(true)
     setCurrentStep("Upload des images...")
     setUploadProgress(5)
@@ -203,8 +232,8 @@ export default function ImportPage() {
     const allResults: ImportResult[] = []
 
     try {
-      // Traiter par petits batches de 50 fichiers
-      const BATCH_SIZE = 50
+      // Traiter par petits batches de 10 fichiers pour éviter les erreurs 413
+      const BATCH_SIZE = 10
       let totalUploaded = 0
       let totalAssociated = 0
 
@@ -228,6 +257,11 @@ export default function ImportPage() {
             method: "POST",
             body: formData,
           })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`Erreur ${response.status}: ${errorText}`)
+          }
 
           const result = await response.json()
           allResults.push(result)
@@ -279,6 +313,19 @@ export default function ImportPage() {
 
     console.log(`👤 Début de l'upload images designers: ${files.length} fichiers`)
 
+    // Vérifier la taille totale
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+    const totalSizeMB = Math.round(totalSize / 1024 / 1024)
+
+    if (totalSize > 100 * 1024 * 1024) {
+      toast({
+        title: "❌ Batch trop volumineux",
+        description: `${totalSizeMB}MB total. Réduisez le nombre de fichiers (max 100MB)`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsUploading(true)
     setCurrentStep("Upload des images designers...")
     setUploadProgress(5)
@@ -286,8 +333,8 @@ export default function ImportPage() {
     const allResults: ImportResult[] = []
 
     try {
-      // Traiter par petits batches de 50 fichiers
-      const BATCH_SIZE = 50
+      // Traiter par petits batches de 10 fichiers
+      const BATCH_SIZE = 10
       let totalUploaded = 0
 
       for (let i = 0; i < files.length; i += BATCH_SIZE) {
@@ -312,6 +359,11 @@ export default function ImportPage() {
             method: "POST",
             body: formData,
           })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`Erreur ${response.status}: ${errorText}`)
+          }
 
           const result = await response.json()
           allResults.push(result)
@@ -551,13 +603,15 @@ export default function ImportPage() {
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
-          // LOGIQUE DE SECOURS POUR SPÉCIALITÉ
-          let specialite = ""
-          specialite = luminaire.Spécialité || luminaire.specialite || luminaire.periode || luminaire.Période || ""
+          // LOGIQUE SIMPLE COMME LES AUTRES COLONNES QUI FONCTIONNENT
+          // Priorité : periode (modifié) → specialite → Spécialité (original)
+          const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
 
-          // LOGIQUE DE SECOURS POUR COLLABORATION / ŒUVRE
-          let collaboration = ""
-          collaboration = luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre || ""
+          // Priorité : collaboration (modifié) → Collaboration / Œuvre (original)
+          const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
+
+          // Priorité : categorie (modifié) → Catégorie (original)
+          const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
 
           // LOGIQUE DE SECOURS POUR MATÉRIAUX
           let materiaux = ""
@@ -572,6 +626,7 @@ export default function ImportPage() {
             nom: luminaire.nom,
             specialite: specialite,
             collaboration: collaboration,
+            categorie: categorie,
             materiaux: materiaux,
             designerImageFilename: designerImageFilename,
           })
@@ -581,6 +636,7 @@ export default function ImportPage() {
             "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
             "Artiste / Dates": designerName,
             Année: luminaire.annee || luminaire["Année"] || "",
+            Catégorie: categorie,
             Editeur: luminaire.editeur || luminaire["Editeur"] || "",
             Spécialité: specialite,
             "Collaboration / Œuvre": collaboration,
@@ -599,6 +655,7 @@ export default function ImportPage() {
           "Nom luminaire",
           "Artiste / Dates",
           "Année",
+          "Catégorie",
           "Editeur",
           "Spécialité",
           "Collaboration / Œuvre",
@@ -631,10 +688,12 @@ export default function ImportPage() {
           (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"] !== "",
         ).length
         const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"] !== "").length
+        const categorieCount = csvData.filter((row) => row["Catégorie"] && row["Catégorie"] !== "").length
 
         console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
         console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
         console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
+        console.log(`📊 Catégorie remplie: ${categorieCount}/${csvData.length} luminaires`)
 
         // Afficher quelques exemples pour debug
         console.log("📋 Exemples de données exportées:")
@@ -643,6 +702,7 @@ export default function ImportPage() {
             nom: row["Nom luminaire"],
             specialite: row["Spécialité"],
             collaboration: row["Collaboration / Œuvre"],
+            categorie: row["Catégorie"],
             materiaux: row["Matériaux"],
           })
         })
@@ -662,7 +722,7 @@ export default function ImportPage() {
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations, ${materiauxCount} matériaux`,
+          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations, ${materiauxCount} matériaux, ${categorieCount} catégories`,
         })
       }
     } catch (error) {
@@ -785,6 +845,11 @@ export default function ImportPage() {
           <div className="text-center">
             <h1 className="text-3xl font-serif text-gray-900 mb-4">Import des Données</h1>
             <p className="text-gray-600">Importez vos fichiers CSV et images pour alimenter la galerie</p>
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <strong>Limites :</strong> CSV max 10MB, Images par batch max 100MB (10 fichiers par batch)
+              </p>
+            </div>
           </div>
 
           {/* Barre de progression globale */}
@@ -857,6 +922,7 @@ export default function ImportPage() {
                   <Upload className="w-5 h-5" />
                   CSV Luminaires
                 </CardTitle>
+                <CardDescription>Max 10MB</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <input ref={csvFileRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
@@ -939,6 +1005,7 @@ export default function ImportPage() {
                   <ImageIcon className="w-5 h-5" />
                   Images
                 </CardTitle>
+                <CardDescription>Max 100MB par batch</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <input
@@ -990,7 +1057,7 @@ export default function ImportPage() {
                   <Users className="w-5 h-5" />
                   Images Designers
                 </CardTitle>
-                <CardDescription>Images spécifiquement pour les designers</CardDescription>
+                <CardDescription>Images spécifiquement pour les designers (Max 100MB)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <input

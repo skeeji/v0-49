@@ -50,6 +50,18 @@ export async function POST(request: NextRequest) {
 
     console.log(`📁 Fichier reçu: ${file.name} (${file.size} bytes)`)
 
+    // Vérifier la taille du fichier
+    if (file.size > 10 * 1024 * 1024) {
+      // 10MB max
+      return NextResponse.json(
+        {
+          error: "Fichier trop volumineux (max 10MB)",
+          details: `Taille: ${Math.round(file.size / 1024 / 1024)}MB`,
+        },
+        { status: 413 },
+      )
+    }
+
     // Lire le fichier avec l'encoding UTF-8
     const text = await file.text()
     const lines = text.split("\n").filter((line) => line.trim())
@@ -72,53 +84,79 @@ export async function POST(request: NextRequest) {
     let processed = 0
     const errors: string[] = []
 
-    // Traiter chaque ligne
-    for (let i = 1; i < lines.length; i++) {
-      try {
-        processed++
-        const line = lines[i].trim()
-        if (!line) continue
+    // Traitement par chunks de 500 lignes pour éviter les timeouts
+    const CHUNK_SIZE = 500
+    const totalLines = lines.length - 1 // Exclure l'en-tête
 
-        const values = parseCSVLine(line)
+    for (let chunkStart = 1; chunkStart < lines.length; chunkStart += CHUNK_SIZE) {
+      const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, lines.length)
+      const chunk = lines.slice(chunkStart, chunkEnd)
 
-        // Créer l'objet luminaire en gardant les valeurs exactes du CSV
-        const luminaire: any = {
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
+      console.log(
+        `📦 Traitement chunk ${Math.floor(chunkStart / CHUNK_SIZE) + 1}: lignes ${chunkStart} à ${chunkEnd - 1}`,
+      )
 
-        // Mapper chaque colonne SANS MODIFICATION
-        headers.forEach((header, index) => {
-          const value = values[index] || ""
-          // CORRECTION: Garder les valeurs exactes, même vides
-          luminaire[header] = value.trim()
-        })
+      // Préparer les documents pour insertion en batch
+      const documents = []
 
-        // CORRECTION: Ne pas ajouter d'année automatiquement
-        // Garder la valeur exacte de la colonne "Année"
-        if (luminaire["Année"]) {
-          // Extraire seulement si une année est présente
-          const yearMatch = luminaire["Année"].toString().match(/\b(1[8-9]\d{2}|20\d{2})\b/)
-          if (yearMatch) {
-            luminaire.annee = Number.parseInt(yearMatch[0])
+      for (let i = 0; i < chunk.length; i++) {
+        try {
+          processed++
+          const line = chunk[i].trim()
+          if (!line) continue
+
+          const values = parseCSVLine(line)
+
+          // Créer l'objet luminaire
+          const luminaire: any = {
+            createdAt: new Date(),
+            updatedAt: new Date(),
           }
-          // Sinon, ne pas ajouter de champ annee
+
+          // Mapper chaque colonne selon le schéma fourni
+          headers.forEach((header, index) => {
+            const value = values[index] || ""
+            luminaire[header] = value.trim()
+          })
+
+          // Extraire l'année si présente
+          if (luminaire["Année"]) {
+            const yearMatch = luminaire["Année"].toString().match(/\b(1[8-9]\d{2}|20\d{2})\b/)
+            if (yearMatch) {
+              luminaire.annee = Number.parseInt(yearMatch[0])
+            }
+          }
+
+          // Champs de compatibilité selon le schéma fourni
+          luminaire.nom = luminaire["Nom luminaire"] || ""
+          luminaire.designer = luminaire["Artiste / Dates"] || ""
+          luminaire.filename = luminaire["Nom du fichier"] || ""
+          luminaire.signe = luminaire["Signé"] || ""
+          luminaire.specialite = luminaire["Spécialité"] || ""
+          luminaire.collaboration = luminaire["Collaboration / Œuvre"] || ""
+
+          documents.push(luminaire)
+        } catch (error: any) {
+          errors.push(`Ligne ${chunkStart + i}: ${error.message}`)
+          if (errors.length > 100) break
         }
+      }
 
-        // Ajouter les champs de mapping pour compatibilité
-        luminaire.nom = luminaire["Nom luminaire"] || ""
-        luminaire.designer = luminaire["Artiste / Dates"] || ""
-        luminaire.filename = luminaire["Nom du fichier"] || ""
-
-        await collection.insertOne(luminaire)
-        imported++
-
-        if (imported % 1000 === 0) {
-          console.log(`📊 ${imported} luminaires importés...`)
+      // Insertion en batch
+      if (documents.length > 0) {
+        try {
+          await collection.insertMany(documents, { ordered: false })
+          imported += documents.length
+          console.log(`✅ Chunk inséré: ${documents.length} luminaires (total: ${imported})`)
+        } catch (batchError: any) {
+          console.error(`❌ Erreur insertion batch:`, batchError)
+          errors.push(`Erreur batch: ${batchError.message}`)
         }
-      } catch (error: any) {
-        errors.push(`Ligne ${i + 1}: ${error.message}`)
-        if (errors.length > 100) break // Limiter les erreurs
+      }
+
+      // Pause entre les chunks pour éviter la surcharge
+      if (chunkEnd < lines.length) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
     }
 
@@ -129,7 +167,7 @@ export async function POST(request: NextRequest) {
       message: `Import terminé: ${imported} luminaires importés sur ${processed} lignes traitées`,
       imported,
       processed,
-      errors,
+      errors: errors.slice(0, 20), // Limiter les erreurs affichées
       totalErrors: errors.length,
     })
   } catch (error: any) {

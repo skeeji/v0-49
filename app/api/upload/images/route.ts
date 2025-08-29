@@ -18,6 +18,23 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`📁 ${files.length} fichiers reçus pour upload`)
+
+    // Vérifier la taille totale des fichiers
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+    const totalSizeMB = Math.round(totalSize / 1024 / 1024)
+    console.log(`📊 Taille totale: ${totalSizeMB}MB`)
+
+    if (totalSize > 100 * 1024 * 1024) {
+      // 100MB max par batch
+      return NextResponse.json(
+        {
+          error: `Batch trop volumineux (${totalSizeMB}MB). Réduisez le nombre de fichiers.`,
+          details: `Maximum autorisé: 100MB`,
+        },
+        { status: 413 },
+      )
+    }
+
     if (designer) {
       console.log(`👤 Designer spécifié: ${designer}`)
     }
@@ -36,133 +53,127 @@ export async function POST(request: NextRequest) {
     const errors: string[] = []
     const filenames: string[] = []
 
-    // Traitement par batch de 50 fichiers
-    const BATCH_SIZE = 50
-    const batches = []
-    for (let i = 0; i < files.length; i += BATCH_SIZE) {
-      batches.push(files.slice(i, i + BATCH_SIZE))
-    }
+    // Traitement séquentiel pour éviter les surcharges
+    console.log(`📦 Traitement séquentiel de ${files.length} fichiers`)
 
-    console.log(`📦 Traitement en ${batches.length} batches de ${BATCH_SIZE} fichiers`)
+    for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+      const file = files[fileIndex]
 
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const batch = batches[batchIndex]
-      console.log(`📦 Batch ${batchIndex + 1}/${batches.length}: ${batch.length} fichiers`)
+      try {
+        console.log(`📁 Traitement ${fileIndex + 1}/${files.length}: ${file.name} (${Math.round(file.size / 1024)}KB)`)
 
-      for (const file of batch) {
-        try {
-          // Vérifier si le fichier existe déjà
-          const existingFile = await bucket.find({ filename: file.name }).toArray()
-          if (existingFile.length > 0) {
-            console.log(`⚠️ Fichier déjà existant: ${file.name}`)
-            associated++
-            filenames.push(file.name)
-            continue
+        // Vérifier si le fichier existe déjà
+        const existingFile = await bucket.find({ filename: file.name }).toArray()
+        if (existingFile.length > 0) {
+          console.log(`⚠️ Fichier déjà existant: ${file.name}`)
+          associated++
+          filenames.push(file.name)
+          continue
+        }
+
+        // Déterminer si c'est une image de designer
+        let isDesignerImage = false
+
+        if (forceDesignerImages === "true") {
+          isDesignerImage = true
+          console.log(`👤 Image forcée comme designer: ${file.name}`)
+        } else if (designer && designer.trim() !== "") {
+          isDesignerImage = true
+          console.log(`👤 Image de designer (formulaire): ${file.name} pour ${designer}`)
+        } else if (isFromImportPage) {
+          const filename = file.name.toLowerCase()
+          const designerKeywords = [
+            "designer",
+            "artiste",
+            "artist",
+            "portrait",
+            "photo",
+            "createur",
+            "créateur",
+            "auteur",
+            "concepteur",
+          ]
+          isDesignerImage = designerKeywords.some((keyword) => filename.includes(keyword))
+          console.log(`🔍 Analyse fichier "${file.name}": ${isDesignerImage ? "IMAGE DESIGNER" : "image luminaire"}`)
+        }
+
+        // Créer les métadonnées
+        const metadata: any = {
+          type: isDesignerImage ? "designer-image" : "luminaire-image",
+          originalName: file.name,
+          uploadDate: new Date(),
+          uploadSource: isFromImportPage ? "import_page" : "form_upload",
+        }
+
+        if (isDesignerImage) {
+          metadata.isDesignerImage = true
+          metadata.designerImageSource = designer ? "form_upload" : "import_page"
+          if (designer) {
+            metadata.designer = designer
           }
+          console.log(`👤 MARQUAGE: Image "${file.name}" marquée comme image de designer`)
+        }
 
-          // Déterminer si c'est une image de designer
-          let isDesignerImage = false
+        // Upload du fichier
+        const uploadStream = bucket.openUploadStream(file.name, { metadata })
+        const buffer = await file.arrayBuffer()
+        const uint8Array = new Uint8Array(buffer)
 
-          // Si forceDesignerImages est défini, toutes les images sont des images de designers
-          if (forceDesignerImages === "true") {
-            isDesignerImage = true
-            console.log(`👤 Image forcée comme designer: ${file.name}`)
-          }
-          // Si un designer est spécifié dans le formulaire, c'est une image de designer
-          else if (designer && designer.trim() !== "") {
-            isDesignerImage = true
-            console.log(`👤 Image de designer (formulaire): ${file.name} pour ${designer}`)
-          }
-          // Sinon, vérifier si c'est depuis la page import avec des mots-clés
-          else if (isFromImportPage) {
-            const filename = file.name.toLowerCase()
-            const designerKeywords = [
-              "designer",
-              "artiste",
-              "artist",
-              "portrait",
-              "photo",
-              "createur",
-              "créateur",
-              "auteur",
-              "concepteur",
+        await new Promise<void>((resolve, reject) => {
+          uploadStream.end(uint8Array, (error) => {
+            if (error) {
+              reject(error)
+            } else {
+              resolve()
+            }
+          })
+        })
+
+        uploaded++
+        filenames.push(file.name)
+        console.log(`✅ Upload réussi: ${file.name}`)
+
+        // Associer l'image au luminaire correspondant (seulement pour les images de luminaires)
+        if (!isDesignerImage) {
+          try {
+            // Essayer plusieurs champs pour l'association
+            const queries = [
+              { "Nom du fichier": file.name },
+              { filename: file.name },
+              { "Image luminaire (Nom du fichier)": file.name },
             ]
 
-            isDesignerImage = designerKeywords.some((keyword) => filename.includes(keyword))
-            console.log(`🔍 Analyse fichier "${file.name}": ${isDesignerImage ? "IMAGE DESIGNER" : "image luminaire"}`)
-          }
-
-          // Créer les métadonnées avec marquage spécial
-          const metadata: any = {
-            type: isDesignerImage ? "designer-image" : "luminaire-image",
-            originalName: file.name,
-            uploadDate: new Date(),
-            uploadSource: isFromImportPage ? "import_page" : "form_upload",
-          }
-
-          // MARQUAGE SPÉCIAL POUR LES IMAGES DE DESIGNERS
-          if (isDesignerImage) {
-            metadata.isDesignerImage = true
-            metadata.designerImageSource = designer ? "form_upload" : "import_page"
-            if (designer) {
-              metadata.designer = designer
-            }
-            console.log(`👤 MARQUAGE: Image "${file.name}" marquée comme image de designer`)
-          }
-
-          // Upload du fichier
-          const uploadStream = bucket.openUploadStream(file.name, { metadata })
-
-          const buffer = await file.arrayBuffer()
-          const uint8Array = new Uint8Array(buffer)
-
-          await new Promise<void>((resolve, reject) => {
-            uploadStream.end(uint8Array, (error) => {
-              if (error) {
-                reject(error)
-              } else {
-                resolve()
-              }
-            })
-          })
-
-          uploaded++
-          filenames.push(file.name)
-
-          // Associer l'image au luminaire correspondant (seulement pour les images de luminaires)
-          if (!isDesignerImage) {
-            try {
-              const luminaireResult = await db.collection("luminaires").updateOne(
-                { "Nom du fichier": file.name },
-                {
-                  $set: {
-                    imageUploaded: true,
-                    imageId: uploadStream.id,
-                    updatedAt: new Date(),
-                  },
+            let luminaireResult = null
+            for (const query of queries) {
+              luminaireResult = await db.collection("luminaires").updateOne(query, {
+                $set: {
+                  imageUploaded: true,
+                  imageId: uploadStream.id,
+                  updatedAt: new Date(),
                 },
-              )
-
-              if (luminaireResult.matchedCount > 0) {
-                associated++
-                console.log(`✅ Image "${file.name}" associée à un luminaire`)
-              }
-            } catch (associationError) {
-              console.log(`⚠️ Impossible d'associer ${file.name} à un luminaire`)
+              })
+              if (luminaireResult.matchedCount > 0) break
             }
-          } else {
-            console.log(`👤 Image designer "${file.name}" uploadée sans association luminaire`)
-          }
-        } catch (error: any) {
-          const errorMsg = `Erreur upload ${file.name}: ${error.message}`
-          errors.push(errorMsg)
-          console.error(`❌ ${errorMsg}`)
-        }
-      }
 
-      // Pause entre les batches pour éviter la surcharge
-      if (batchIndex < batches.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+            if (luminaireResult && luminaireResult.matchedCount > 0) {
+              associated++
+              console.log(`✅ Image "${file.name}" associée à un luminaire`)
+            } else {
+              console.log(`⚠️ Aucun luminaire trouvé pour l'image "${file.name}"`)
+            }
+          } catch (associationError) {
+            console.log(`⚠️ Impossible d'associer ${file.name}:`, associationError)
+          }
+        }
+
+        // Pause entre les fichiers pour éviter la surcharge
+        if (fileIndex < files.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 200))
+        }
+      } catch (error: any) {
+        const errorMsg = `Erreur upload ${file.name}: ${error.message}`
+        errors.push(errorMsg)
+        console.error(`❌ ${errorMsg}`)
       }
     }
 
@@ -174,7 +185,7 @@ export async function POST(request: NextRequest) {
       uploaded,
       associated,
       processed: files.length,
-      filenames, // Retourner la liste des noms de fichiers
+      filenames,
       errors: errors.slice(0, 10),
       totalErrors: errors.length,
     })
