@@ -132,9 +132,8 @@ export async function POST(request: NextRequest) {
           // Associer l'image au luminaire correspondant (seulement pour les images de luminaires)
           if (!isDesignerImage) {
             try {
-              // Essayer d'abord avec le nouveau format "Image luminaire (Nom du fichier)"
-              let luminaireResult = await db.collection("luminaires").updateOne(
-                { "Image luminaire (Nom du fichier)": file.name },
+              const luminaireResult = await db.collection("luminaires").updateOne(
+                { "Nom du fichier": file.name },
                 {
                   $set: {
                     imageUploaded: true,
@@ -144,42 +143,12 @@ export async function POST(request: NextRequest) {
                 },
               )
 
-              // Si pas trouvé, essayer avec l'ancien format "Nom du fichier"
-              if (luminaireResult.matchedCount === 0) {
-                luminaireResult = await db.collection("luminaires").updateOne(
-                  { "Nom du fichier": file.name },
-                  {
-                    $set: {
-                      imageUploaded: true,
-                      imageId: uploadStream.id,
-                      updatedAt: new Date(),
-                    },
-                  },
-                )
-              }
-
-              // Si pas trouvé, essayer avec le champ filename
-              if (luminaireResult.matchedCount === 0) {
-                luminaireResult = await db.collection("luminaires").updateOne(
-                  { filename: file.name },
-                  {
-                    $set: {
-                      imageUploaded: true,
-                      imageId: uploadStream.id,
-                      updatedAt: new Date(),
-                    },
-                  },
-                )
-              }
-
               if (luminaireResult.matchedCount > 0) {
                 associated++
                 console.log(`✅ Image "${file.name}" associée à un luminaire`)
-              } else {
-                console.log(`⚠️ Aucun luminaire trouvé pour l'image "${file.name}"`)
               }
             } catch (associationError) {
-              console.log(`⚠️ Impossible d'associer ${file.name} à un luminaire:`, associationError)
+              console.log(`⚠️ Impossible d'associer ${file.name} à un luminaire`)
             }
           } else {
             console.log(`👤 Image designer "${file.name}" uploadée sans association luminaire`)
