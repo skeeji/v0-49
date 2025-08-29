@@ -52,6 +52,37 @@ const periods = [
   "Contemporain",
 ]
 
+function parseCSVLine(line: string): string[] {
+  const result: string[] = []
+  let current = ""
+  let inQuotes = false
+  let i = 0
+
+  while (i < line.length) {
+    const char = line[i]
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"'
+        i += 2
+      } else {
+        inQuotes = !inQuotes
+        i++
+      }
+    } else if (char === "," && !inQuotes) {
+      result.push(current.trim())
+      current = ""
+      i++
+    } else {
+      current += char
+      i++
+    }
+  }
+
+  result.push(current.trim())
+  return result
+}
+
 export default function ImportPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -80,60 +111,113 @@ export default function ImportPage() {
 
   const { toast } = useToast()
 
+  // NOUVEAU: Import CSV par streaming
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
     console.log(`📁 Fichier CSV sélectionné: ${file.name}, taille: ${file.size} bytes`)
 
-    // Vérifier la taille du fichier
-    const fileSizeMB = Math.round(file.size / 1024 / 1024)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "❌ Fichier trop volumineux",
-        description: `Le fichier fait ${fileSizeMB}MB. Maximum autorisé: 10MB`,
-        variant: "destructive",
-      })
-      return
-    }
-
-    const estimatedLines = Math.floor(file.size / 130)
-    console.log(`📊 Estimation: ~${estimatedLines} lignes dans le CSV`)
-
     setIsUploading(true)
-    setCurrentStep("Import du CSV luminaires...")
-    setUploadProgress(10)
+    setCurrentStep("Lecture du CSV...")
+    setUploadProgress(5)
 
     try {
-      console.log("📥 Début de l'import CSV:", file.name)
+      // Lire le fichier côté client
+      const text = await file.text()
+      const lines = text.split("\n").filter((line) => line.trim())
 
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const response = await fetch("/api/upload/csv", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Erreur ${response.status}: ${errorText}`)
+      if (lines.length === 0) {
+        throw new Error("Fichier CSV vide")
       }
 
-      const result = await response.json()
-      console.log("📊 Réponse API CSV:", result)
+      const headers = parseCSVLine(lines[0])
+      console.log("📋 En-têtes détectés:", headers)
 
-      setResults((prev) => ({ ...prev, csv: result }))
+      // Diviser en petits chunks de 50 lignes
+      const CHUNK_SIZE = 50
+      const dataLines = lines.slice(1) // Exclure l'en-tête
+      const chunks = []
 
-      if (result.success) {
+      for (let i = 0; i < dataLines.length; i += CHUNK_SIZE) {
+        const chunkLines = dataLines.slice(i, i + CHUNK_SIZE)
+        const chunkData = chunkLines.map((line) => parseCSVLine(line))
+        chunks.push(chunkData)
+      }
+
+      console.log(`📦 ${chunks.length} chunks de ${CHUNK_SIZE} lignes créés`)
+
+      let totalImported = 0
+      let totalProcessed = 0
+      const allErrors: string[] = []
+
+      // Traiter chaque chunk
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+        setCurrentStep(`Import chunk ${chunkIndex + 1}/${chunks.length}...`)
+        setUploadProgress(10 + (chunkIndex / chunks.length) * 80)
+
+        try {
+          const response = await fetch("/api/upload/csv-stream", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              csvData: chunks[chunkIndex],
+              chunkIndex,
+              totalChunks: chunks.length,
+              headers,
+            }),
+          })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`Erreur chunk ${chunkIndex + 1}: ${response.status} - ${errorText}`)
+          }
+
+          const result = await response.json()
+
+          if (result.success) {
+            totalImported += result.imported || 0
+            totalProcessed += result.processed || 0
+            if (result.errors) {
+              allErrors.push(...result.errors)
+            }
+            console.log(`✅ Chunk ${chunkIndex + 1}: ${result.imported} importés`)
+          } else {
+            throw new Error(result.error)
+          }
+
+          // Pause entre les chunks
+          if (chunkIndex < chunks.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500))
+          }
+        } catch (chunkError: any) {
+          console.error(`❌ Erreur chunk ${chunkIndex + 1}:`, chunkError)
+          allErrors.push(`Chunk ${chunkIndex + 1}: ${chunkError.message}`)
+        }
+      }
+
+      const finalResult = {
+        success: totalImported > 0,
+        message: `Import terminé: ${totalImported} luminaires importés sur ${totalProcessed} lignes traitées`,
+        imported: totalImported,
+        processed: totalProcessed,
+        errors: allErrors.slice(0, 20),
+        totalErrors: allErrors.length,
+      }
+
+      setResults((prev) => ({ ...prev, csv: finalResult }))
+
+      if (totalImported > 0) {
         toast({
           title: "✅ CSV importé",
-          description: result.message,
+          description: finalResult.message,
         })
       } else {
         toast({
           title: "❌ Erreur CSV",
-          description: result.error,
+          description: "Aucun luminaire importé",
           variant: "destructive",
         })
       }
@@ -206,54 +290,37 @@ export default function ImportPage() {
     }
   }
 
+  // NOUVEAU: Upload d'images une par une
   const handleImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     if (files.length === 0) return
 
     console.log(`🖼️ Début de l'upload images: ${files.length} fichiers`)
 
-    // Vérifier la taille totale
-    const totalSize = files.reduce((sum, file) => sum + file.size, 0)
-    const totalSizeMB = Math.round(totalSize / 1024 / 1024)
-
-    if (totalSize > 100 * 1024 * 1024) {
-      toast({
-        title: "❌ Batch trop volumineux",
-        description: `${totalSizeMB}MB total. Réduisez le nombre de fichiers (max 100MB)`,
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsUploading(true)
     setCurrentStep("Upload des images...")
     setUploadProgress(5)
 
-    const allResults: ImportResult[] = []
+    let totalUploaded = 0
+    let totalAssociated = 0
+    let totalSkipped = 0
+    const errors: string[] = []
 
     try {
-      // Traiter par petits batches de 10 fichiers pour éviter les erreurs 413
-      const BATCH_SIZE = 10
-      let totalUploaded = 0
-      let totalAssociated = 0
-
-      for (let i = 0; i < files.length; i += BATCH_SIZE) {
-        const batch = files.slice(i, i + BATCH_SIZE)
-        const batchNumber = Math.floor(i / BATCH_SIZE) + 1
-        const totalBatches = Math.ceil(files.length / BATCH_SIZE)
-
-        setCurrentStep(`Upload batch ${batchNumber}/${totalBatches} (${batch.length} images)`)
+      // Traiter chaque image individuellement
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setCurrentStep(`Upload ${i + 1}/${files.length}: ${file.name}`)
         setUploadProgress(5 + (i / files.length) * 90)
 
-        console.log(`📦 Batch ${batchNumber}/${totalBatches}: ${batch.length} fichiers`)
-
-        const formData = new FormData()
-        batch.forEach((file) => {
-          formData.append("images", file)
-        })
-
         try {
-          const response = await fetch("/api/upload/images", {
+          console.log(`📁 Upload ${i + 1}/${files.length}: ${file.name} (${Math.round(file.size / 1024)}KB)`)
+
+          const formData = new FormData()
+          formData.append("image", file)
+          formData.append("isDesignerImage", "false")
+
+          const response = await fetch("/api/upload/single-image", {
             method: "POST",
             body: formData,
           })
@@ -264,34 +331,45 @@ export default function ImportPage() {
           }
 
           const result = await response.json()
-          allResults.push(result)
 
           if (result.success) {
-            totalUploaded += result.uploaded || 0
+            if (result.skipped) {
+              totalSkipped++
+            } else {
+              totalUploaded += result.uploaded || 0
+            }
             totalAssociated += result.associated || 0
-            console.log(`✅ Batch ${batchNumber}: ${result.uploaded} uploadées, ${result.associated} associées`)
+            console.log(`✅ ${file.name}: ${result.skipped ? "déjà existant" : "uploadé"}`)
           } else {
-            console.error(`❌ Erreur batch ${batchNumber}:`, result.error)
+            throw new Error(result.error)
           }
 
-          // Pause entre les batches
-          if (i + BATCH_SIZE < files.length) {
-            await new Promise((resolve) => setTimeout(resolve, 2000))
+          // Pause entre les uploads
+          if (i < files.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300))
           }
-        } catch (batchError: any) {
-          console.error(`❌ Erreur critique batch ${batchNumber}:`, batchError)
-          allResults.push({
-            success: false,
-            message: `Erreur batch ${batchNumber}: ${batchError.message}`,
-          })
+        } catch (fileError: any) {
+          const errorMsg = `Erreur ${file.name}: ${fileError.message}`
+          errors.push(errorMsg)
+          console.error(`❌ ${errorMsg}`)
         }
       }
 
-      setResults((prev) => ({ ...prev, images: allResults }))
+      const finalResult = {
+        success: true,
+        message: `Upload terminé: ${totalUploaded} nouvelles images, ${totalSkipped} déjà existantes, ${totalAssociated} associées`,
+        uploaded: totalUploaded,
+        associated: totalAssociated,
+        processed: files.length,
+        errors: errors.slice(0, 10),
+        totalErrors: errors.length,
+      }
+
+      setResults((prev) => ({ ...prev, images: [finalResult] }))
 
       toast({
         title: "✅ Upload terminé",
-        description: `${totalUploaded} images uploadées, ${totalAssociated} associées`,
+        description: finalResult.message,
       })
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'upload images:", error)
@@ -307,55 +385,36 @@ export default function ImportPage() {
     }
   }
 
+  // NOUVEAU: Upload d'images designers une par une
   const handleDesignerImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     if (files.length === 0) return
 
     console.log(`👤 Début de l'upload images designers: ${files.length} fichiers`)
 
-    // Vérifier la taille totale
-    const totalSize = files.reduce((sum, file) => sum + file.size, 0)
-    const totalSizeMB = Math.round(totalSize / 1024 / 1024)
-
-    if (totalSize > 100 * 1024 * 1024) {
-      toast({
-        title: "❌ Batch trop volumineux",
-        description: `${totalSizeMB}MB total. Réduisez le nombre de fichiers (max 100MB)`,
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsUploading(true)
     setCurrentStep("Upload des images designers...")
     setUploadProgress(5)
 
-    const allResults: ImportResult[] = []
+    let totalUploaded = 0
+    let totalSkipped = 0
+    const errors: string[] = []
 
     try {
-      // Traiter par petits batches de 10 fichiers
-      const BATCH_SIZE = 10
-      let totalUploaded = 0
-
-      for (let i = 0; i < files.length; i += BATCH_SIZE) {
-        const batch = files.slice(i, i + BATCH_SIZE)
-        const batchNumber = Math.floor(i / BATCH_SIZE) + 1
-        const totalBatches = Math.ceil(files.length / BATCH_SIZE)
-
-        setCurrentStep(`Upload designers batch ${batchNumber}/${totalBatches} (${batch.length} images)`)
+      // Traiter chaque image individuellement
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setCurrentStep(`Upload designer ${i + 1}/${files.length}: ${file.name}`)
         setUploadProgress(5 + (i / files.length) * 90)
 
-        console.log(`📦 Designer Batch ${batchNumber}/${totalBatches}: ${batch.length} fichiers`)
-
-        const formData = new FormData()
-        batch.forEach((file) => {
-          formData.append("images", file)
-        })
-        // Marquer explicitement comme images de designers
-        formData.append("forceDesignerImages", "true")
-
         try {
-          const response = await fetch("/api/upload/images", {
+          console.log(`👤 Upload ${i + 1}/${files.length}: ${file.name} (${Math.round(file.size / 1024)}KB)`)
+
+          const formData = new FormData()
+          formData.append("image", file)
+          formData.append("isDesignerImage", "true")
+
+          const response = await fetch("/api/upload/single-image", {
             method: "POST",
             body: formData,
           })
@@ -366,33 +425,43 @@ export default function ImportPage() {
           }
 
           const result = await response.json()
-          allResults.push(result)
 
           if (result.success) {
-            totalUploaded += result.uploaded || 0
-            console.log(`✅ Designer Batch ${batchNumber}: ${result.uploaded} uploadées`)
+            if (result.skipped) {
+              totalSkipped++
+            } else {
+              totalUploaded += result.uploaded || 0
+            }
+            console.log(`✅ Designer ${file.name}: ${result.skipped ? "déjà existant" : "uploadé"}`)
           } else {
-            console.error(`❌ Erreur designer batch ${batchNumber}:`, result.error)
+            throw new Error(result.error)
           }
 
-          // Pause entre les batches
-          if (i + BATCH_SIZE < files.length) {
-            await new Promise((resolve) => setTimeout(resolve, 2000))
+          // Pause entre les uploads
+          if (i < files.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300))
           }
-        } catch (batchError: any) {
-          console.error(`❌ Erreur critique designer batch ${batchNumber}:`, batchError)
-          allResults.push({
-            success: false,
-            message: `Erreur designer batch ${batchNumber}: ${batchError.message}`,
-          })
+        } catch (fileError: any) {
+          const errorMsg = `Erreur ${file.name}: ${fileError.message}`
+          errors.push(errorMsg)
+          console.error(`❌ ${errorMsg}`)
         }
       }
 
-      setResults((prev) => ({ ...prev, designerImages: allResults }))
+      const finalResult = {
+        success: true,
+        message: `Upload designers terminé: ${totalUploaded} nouvelles images, ${totalSkipped} déjà existantes`,
+        uploaded: totalUploaded,
+        processed: files.length,
+        errors: errors.slice(0, 10),
+        totalErrors: errors.length,
+      }
+
+      setResults((prev) => ({ ...prev, designerImages: [finalResult] }))
 
       toast({
         title: "✅ Upload designers terminé",
-        description: `${totalUploaded} images designers uploadées`,
+        description: finalResult.message,
       })
     } catch (error: any) {
       console.error("❌ Erreur critique lors de l'upload images designers:", error)
@@ -845,9 +914,9 @@ export default function ImportPage() {
           <div className="text-center">
             <h1 className="text-3xl font-serif text-gray-900 mb-4">Import des Données</h1>
             <p className="text-gray-600">Importez vos fichiers CSV et images pour alimenter la galerie</p>
-            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                <strong>Limites :</strong> CSV max 10MB, Images par batch max 100MB (10 fichiers par batch)
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>🚀 Nouvelle version optimisée :</strong> CSV par streaming, images une par une (max 5MB chacune)
               </p>
             </div>
           </div>
@@ -916,13 +985,13 @@ export default function ImportPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Upload CSV Luminaires */}
-            <Card>
+            <Card className="border-green-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-green-600">
                   <Upload className="w-5 h-5" />
                   CSV Luminaires
                 </CardTitle>
-                <CardDescription>Max 10MB</CardDescription>
+                <CardDescription>🚀 Streaming par chunks (toute taille)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <input ref={csvFileRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
@@ -999,13 +1068,13 @@ export default function ImportPage() {
             </Card>
 
             {/* Upload Images */}
-            <Card>
+            <Card className="border-green-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-green-600">
                   <ImageIcon className="w-5 h-5" />
                   Images
                 </CardTitle>
-                <CardDescription>Max 100MB par batch</CardDescription>
+                <CardDescription>🚀 Une par une (max 5MB chacune)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <input
@@ -1027,24 +1096,20 @@ export default function ImportPage() {
                 </Button>
 
                 {results.images && results.images.length > 0 && (
-                  <div className="text-sm space-y-1">
-                    {results.images.map((result, index) => (
-                      <div key={index}>
-                        {result.success ? (
-                          <div className="flex items-center gap-2 text-green-600">
-                            <CheckCircle className="w-4 h-4" />
-                            <span>
-                              Batch {index + 1}: {result.uploaded} uploadées, {result.associated} associées
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-red-600">
-                            <XCircle className="w-4 h-4" />
-                            <span>Batch {index + 1}: Erreur</span>
-                          </div>
-                        )}
+                  <div className="text-sm">
+                    {results.images[0].success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>
+                          {results.images[0].uploaded} uploadées, {results.images[0].associated} associées
+                        </span>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur upload</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -1057,7 +1122,7 @@ export default function ImportPage() {
                   <Users className="w-5 h-5" />
                   Images Designers
                 </CardTitle>
-                <CardDescription>Images spécifiquement pour les designers (Max 100MB)</CardDescription>
+                <CardDescription>🚀 Une par une (max 5MB chacune)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <input
@@ -1079,24 +1144,18 @@ export default function ImportPage() {
                 </Button>
 
                 {results.designerImages && results.designerImages.length > 0 && (
-                  <div className="text-sm space-y-1">
-                    {results.designerImages.map((result, index) => (
-                      <div key={index}>
-                        {result.success ? (
-                          <div className="flex items-center gap-2 text-green-600">
-                            <CheckCircle className="w-4 h-4" />
-                            <span>
-                              Batch {index + 1}: {result.uploaded} designers uploadées
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-red-600">
-                            <XCircle className="w-4 h-4" />
-                            <span>Batch {index + 1}: Erreur</span>
-                          </div>
-                        )}
+                  <div className="text-sm">
+                    {results.designerImages[0].success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>{results.designerImages[0].uploaded} designers uploadées</span>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur upload</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
