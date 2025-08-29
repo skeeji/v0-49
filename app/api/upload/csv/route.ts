@@ -87,36 +87,28 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         }
 
-        // Mapper chaque colonne SANS MODIFICATION - garder les noms exacts du CSV exporté
+        // Mapper chaque colonne SANS MODIFICATION
         headers.forEach((header, index) => {
           const value = values[index] || ""
+          // CORRECTION: Garder les valeurs exactes, même vides
           luminaire[header] = value.trim()
         })
 
-        // Extraire l'année si présente dans la colonne "Année"
+        // CORRECTION: Ne pas ajouter d'année automatiquement
+        // Garder la valeur exacte de la colonne "Année"
         if (luminaire["Année"]) {
+          // Extraire seulement si une année est présente
           const yearMatch = luminaire["Année"].toString().match(/\b(1[8-9]\d{2}|20\d{2})\b/)
           if (yearMatch) {
             luminaire.annee = Number.parseInt(yearMatch[0])
           }
+          // Sinon, ne pas ajouter de champ annee
         }
 
-        // Ajouter les champs de mapping pour compatibilité avec l'interface existante
+        // Ajouter les champs de mapping pour compatibilité
         luminaire.nom = luminaire["Nom luminaire"] || ""
         luminaire.designer = luminaire["Artiste / Dates"] || ""
-        luminaire.filename = luminaire["Image luminaire (Nom du fichier)"] || luminaire["Nom du fichier"] || ""
-        luminaire.signe = luminaire["Signé"] || ""
-        luminaire.editeur = luminaire["Editeur"] || ""
-        luminaire.description = luminaire["Description"] || ""
-        luminaire.dimensions = luminaire["Dimensions"] || ""
-        luminaire.estimation = luminaire["Estimation"] || ""
-
-        // Mapper les nouveaux champs du CSV exporté
-        luminaire.categorie = luminaire["Catégorie"] || ""
-        luminaire.specialite = luminaire["Spécialité"] || ""
-        luminaire.collaboration = luminaire["Collaboration / Œuvre"] || ""
-        luminaire.materiaux = luminaire["Matériaux"] || ""
-        luminaire.designerImageFilename = luminaire["Image designer (imagedesigner)"] || ""
+        luminaire.filename = luminaire["Nom du fichier"] || ""
 
         await collection.insertOne(luminaire)
         imported++
