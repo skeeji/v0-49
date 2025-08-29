@@ -551,15 +551,13 @@ export default function ImportPage() {
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
-          // LOGIQUE SIMPLE COMME LES AUTRES COLONNES QUI FONCTIONNENT
-          // Priorité : periode (modifié) → specialite → Spécialité (original)
-          const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
+          // LOGIQUE DE SECOURS POUR SPÉCIALITÉ
+          let specialite = ""
+          specialite = luminaire.Spécialité || luminaire.specialite || luminaire.periode || luminaire.Période || ""
 
-          // Priorité : collaboration (modifié) → Collaboration / Œuvre (original)
-          const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
-
-          // Priorité : categorie (modifié) → Catégorie (original)
-          const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
+          // LOGIQUE DE SECOURS POUR COLLABORATION / ŒUVRE
+          let collaboration = ""
+          collaboration = luminaire["Collaboration / Œuvre"] || luminaire.collaboration || luminaire.oeuvre || ""
 
           // LOGIQUE DE SECOURS POUR MATÉRIAUX
           let materiaux = ""
@@ -574,7 +572,6 @@ export default function ImportPage() {
             nom: luminaire.nom,
             specialite: specialite,
             collaboration: collaboration,
-            categorie: categorie,
             materiaux: materiaux,
             designerImageFilename: designerImageFilename,
           })
@@ -584,7 +581,6 @@ export default function ImportPage() {
             "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
             "Artiste / Dates": designerName,
             Année: luminaire.annee || luminaire["Année"] || "",
-            Catégorie: categorie,
             Editeur: luminaire.editeur || luminaire["Editeur"] || "",
             Spécialité: specialite,
             "Collaboration / Œuvre": collaboration,
@@ -603,7 +599,6 @@ export default function ImportPage() {
           "Nom luminaire",
           "Artiste / Dates",
           "Année",
-          "Catégorie",
           "Editeur",
           "Spécialité",
           "Collaboration / Œuvre",
@@ -636,12 +631,10 @@ export default function ImportPage() {
           (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"] !== "",
         ).length
         const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"] !== "").length
-        const categorieCount = csvData.filter((row) => row["Catégorie"] && row["Catégorie"] !== "").length
 
         console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
         console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
         console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
-        console.log(`📊 Catégorie remplie: ${categorieCount}/${csvData.length} luminaires`)
 
         // Afficher quelques exemples pour debug
         console.log("📋 Exemples de données exportées:")
@@ -650,7 +643,6 @@ export default function ImportPage() {
             nom: row["Nom luminaire"],
             specialite: row["Spécialité"],
             collaboration: row["Collaboration / Œuvre"],
-            categorie: row["Catégorie"],
             materiaux: row["Matériaux"],
           })
         })
@@ -670,7 +662,7 @@ export default function ImportPage() {
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations, ${materiauxCount} matériaux, ${categorieCount} catégories`,
+          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations, ${materiauxCount} matériaux`,
         })
       }
     } catch (error) {
