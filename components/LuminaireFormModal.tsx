@@ -34,9 +34,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
     estimation: "",
     couleurs: [] as string[],
     categorie: "",
-    lienSiteMarchand: "",
-    etiquette: "",
-    bibliographie: "",
   })
 
   const [images, setImages] = useState<File[]>([])
@@ -124,9 +121,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       estimation: "",
       couleurs: [],
       categorie: "",
-      lienSiteMarchand: "",
-      etiquette: "",
-      bibliographie: "",
     })
     setImages([])
     setDesignerImage(null)
@@ -160,7 +154,8 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       if (images.length > 0) {
         console.log(`📸 Upload de ${images.length} images principales...`)
 
-        const maxSize = 5 * 1024 * 1024
+        // Vérifier la taille des fichiers avant upload
+        const maxSize = 5 * 1024 * 1024 // 5MB par fichier
         const oversizedFiles = images.filter((img) => img.size > maxSize)
 
         if (oversizedFiles.length > 0) {
@@ -207,7 +202,8 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
       if (designerImage) {
         console.log("👤 Upload de l'image designer...")
 
-        const maxSize = 5 * 1024 * 1024
+        // Vérifier la taille du fichier
+        const maxSize = 5 * 1024 * 1024 // 5MB
         if (designerImage.size > maxSize) {
           toast.error("Image du designer trop volumineuse (max 5MB)")
           setIsSubmitting(false)
@@ -244,7 +240,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         }
       }
 
-      // Structure de données avec les nouveaux champs
+      // Structure de données simple et standardisée - ÉTAPE 1
       const luminaireData = {
         nom: formData.nom.trim(),
         designer: formData.designer.trim(),
@@ -259,9 +255,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
         materiaux: formData.materiaux,
         couleurs: formData.couleurs,
         categorie: formData.categorie.trim(),
-        lienSiteMarchand: formData.lienSiteMarchand.trim(),
-        etiquette: formData.etiquette.trim(),
-        bibliographie: formData.bibliographie.trim(),
         images: uploadedImages,
         filename: uploadedImages[0] || "",
         designerImageFilename: designerImageFilename,
@@ -271,6 +264,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
 
       console.log("💾 Données à sauvegarder:", luminaireData)
 
+      // Soumettre le luminaire
       const result = await onSubmit(luminaireData)
       console.log("💾 Résultat de la soumission:", result)
 
@@ -361,19 +355,9 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                 placeholder="Période ou spécialité"
               />
             </div>
-
-            <div>
-              <Label htmlFor="editeur">Éditeur</Label>
-              <Input
-                id="editeur"
-                value={formData.editeur}
-                onChange={(e) => handleInputChange("editeur", e.target.value)}
-                placeholder="Éditeur ou fabricant"
-              />
-            </div>
           </div>
 
-          {/* Description et Collaboration */}
+          {/* Description et Collaboration séparés */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="description">Description</Label>
@@ -398,41 +382,6 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
             </div>
           </div>
 
-          {/* NOUVEAUX CHAMPS */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="lienSiteMarchand">Lien site marchand</Label>
-              <Input
-                id="lienSiteMarchand"
-                type="url"
-                value={formData.lienSiteMarchand}
-                onChange={(e) => handleInputChange("lienSiteMarchand", e.target.value)}
-                placeholder="https://exemple.com/produit"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="etiquette">Étiquette</Label>
-              <Input
-                id="etiquette"
-                value={formData.etiquette}
-                onChange={(e) => handleInputChange("etiquette", e.target.value)}
-                placeholder="ex: Plafonnier / Lustre, Bronze, Verre, Noir"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="bibliographie">Bibliographie</Label>
-              <Textarea
-                id="bibliographie"
-                value={formData.bibliographie}
-                onChange={(e) => handleInputChange("bibliographie", e.target.value)}
-                placeholder="Références bibliographiques"
-                rows={3}
-              />
-            </div>
-          </div>
-
           {/* Informations détaillées */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -448,6 +397,16 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                   <SelectItem value="Inconnu">Inconnu</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="editeur">Éditeur</Label>
+              <Input
+                id="editeur"
+                value={formData.editeur}
+                onChange={(e) => handleInputChange("editeur", e.target.value)}
+                placeholder="Éditeur ou fabricant"
+              />
             </div>
 
             <div>

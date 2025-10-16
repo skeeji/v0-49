@@ -90,11 +90,6 @@ export async function POST(request: NextRequest) {
         luminaire.specialite = luminaire["Spécialité"] || ""
         luminaire.collaboration = luminaire["Collaboration / Œuvre"] || ""
 
-        // NOUVEAUX CHAMPS
-        luminaire.lienSiteMarchand = luminaire["Lien site marchand"] || ""
-        luminaire.etiquette = luminaire["Etiquette"] || ""
-        luminaire.bibliographie = luminaire["Bibliographie"] || ""
-
         documents.push(luminaire)
       } catch (error: any) {
         errors.push(`Ligne ${i + 1}: ${error.message}`)

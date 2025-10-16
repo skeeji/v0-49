@@ -129,11 +129,6 @@ export default function LuminaireDetailPage() {
               }
               return ""
             })(),
-
-            // NOUVEAUX CHAMPS
-            lienSiteMarchand: result.data.lienSiteMarchand || result.data["Lien site marchand"] || "",
-            etiquette: result.data.etiquette || result.data["Etiquette"] || "",
-            bibliographie: result.data.bibliographie || result.data["Bibliographie"] || "",
           }
 
           console.log("✅ Luminaire formaté:", {
@@ -295,9 +290,6 @@ export default function LuminaireDetailPage() {
       estimation: "estimation",
       editeur: "editeur",
       categorie: "categorie",
-      lienSiteMarchand: "lienSiteMarchand",
-      etiquette: "etiquette",
-      bibliographie: "bibliographie",
     }
 
     const keyToUpdate = keyMapping[field] || field
@@ -337,24 +329,6 @@ export default function LuminaireDetailPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ Catégorie: value }),
-        })
-      } else if (field === "lienSiteMarchand") {
-        await fetch(`/api/luminaires/${luminaire._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lienSiteMarchand: value }),
-        })
-      } else if (field === "etiquette") {
-        await fetch(`/api/luminaires/${luminaire._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ etiquette: value }),
-        })
-      } else if (field === "bibliographie") {
-        await fetch(`/api/luminaires/${luminaire._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bibliographie: value }),
         })
       }
     } catch (error) {
@@ -408,9 +382,6 @@ export default function LuminaireDetailPage() {
       addField("Signé", luminaire.signed)
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
-      addField("Lien site marchand", luminaire.lienSiteMarchand)
-      addField("Étiquette", luminaire.etiquette)
-      addField("Bibliographie", luminaire.bibliographie)
 
       // CORRECTION: Ajouter l'estimation seulement si l'utilisateur peut la voir
       if (canSeeEstimation) {
@@ -773,61 +744,11 @@ export default function LuminaireDetailPage() {
                       </div>
                     )
                   )}
-
-                  {/* 12. Lien site marchand - Affiché seulement si renseigné ou admin */}
-                  {(canEdit || (luminaire.lienSiteMarchand && String(luminaire.lienSiteMarchand).trim())) && (
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Lien site marchand</label>
-                      {luminaire.lienSiteMarchand && !canEdit ? (
-                        <a
-                          href={luminaire.lienSiteMarchand}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline break-all text-sm"
-                        >
-                          {luminaire.lienSiteMarchand}
-                        </a>
-                      ) : (
-                        <EditableField
-                          value={luminaire.lienSiteMarchand || ""}
-                          onSave={(v) => handleUpdate("lienSiteMarchand", v)}
-                          placeholder="https://exemple.com/produit"
-                          disabled={!canEdit}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* 13. Étiquette - Affiché seulement si renseigné ou admin */}
-                  {(canEdit || (luminaire.etiquette && String(luminaire.etiquette).trim())) && (
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Étiquette</label>
-                      <EditableField
-                        value={luminaire.etiquette || ""}
-                        onSave={(v) => handleUpdate("etiquette", v)}
-                        placeholder="Étiquette"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  )}
-
-                  {/* 14. Bibliographie - Affiché seulement si renseigné ou admin */}
-                  {(canEdit || (luminaire.bibliographie && String(luminaire.bibliographie).trim())) && (
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Bibliographie</label>
-                      <EditableField
-                        value={luminaire.bibliographie || ""}
-                        onSave={(v) => handleUpdate("bibliographie", v)}
-                        placeholder="Bibliographie"
-                        multiline
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
         {/* 6 Images similaires */}
         {similarLuminaires.length > 0 && (
@@ -866,4 +787,4 @@ export default function LuminaireDetailPage() {
       </div>
     </div>
   )
-}\
+}
