@@ -747,6 +747,11 @@ export default function ImportPage() {
             materiaux = materiauxValue.trim()
           }
 
+          // NOUVEAUX CHAMPS
+          const lienSiteMarchand = luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || ""
+          const etiquette = luminaire.etiquette || luminaire["Etiquette"] || ""
+          const bibliographie = luminaire.bibliographie || luminaire["Bibliographie"] || ""
+
           console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {
             nom: luminaire.nom,
             specialite: specialite,
@@ -754,6 +759,10 @@ export default function ImportPage() {
             categorie: categorie,
             materiaux: materiaux,
             designerImageFilename: designerImageFilename,
+            // Nouveau : Ajouter les nouveaux champs pour le logging
+            lienSiteMarchand: lienSiteMarchand,
+            etiquette: etiquette,
+            bibliographie: bibliographie,
           })
 
           return {
@@ -771,6 +780,10 @@ export default function ImportPage() {
             Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
             "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
             "Image designer (imagedesigner)": designerImageFilename,
+            // Nouveau : Ajouter les nouveaux champs
+            "Lien site marchand": lienSiteMarchand,
+            Etiquette: etiquette,
+            Bibliographie: bibliographie,
           }
         })
 
@@ -790,6 +803,10 @@ export default function ImportPage() {
           "Estimation",
           "Image luminaire (Nom du fichier)",
           "Image designer (imagedesigner)",
+          // Nouveau : Ajouter les nouveaux headers
+          "Lien site marchand",
+          "Etiquette",
+          "Bibliographie",
         ]
 
         const csvContent = [
@@ -815,10 +832,21 @@ export default function ImportPage() {
         const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"] !== "").length
         const categorieCount = csvData.filter((row) => row["Catégorie"] && row["Catégorie"] !== "").length
 
+        // Nouveau : Ajouter les vérifications pour les nouveaux champs
+        const lienSiteMarchandCount = csvData.filter(
+          (row) => row["Lien site marchand"] && row["Lien site marchand"] !== "",
+        ).length
+        const etiquetteCount = csvData.filter((row) => row["Etiquette"] && row["Etiquette"] !== "").length
+        const bibliographieCount = csvData.filter((row) => row["Bibliographie"] && row["Bibliographie"] !== "").length
+
         console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
         console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
         console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
         console.log(`📊 Catégorie remplie: ${categorieCount}/${csvData.length} luminaires`)
+        // Nouveau : Afficher les résultats des vérifications pour les nouveaux champs
+        console.log(`📊 Lien site marchand rempli: ${lienSiteMarchandCount}/${csvData.length} luminaires`)
+        console.log(`📊 Etiquette remplie: ${etiquetteCount}/${csvData.length} luminaires`)
+        console.log(`📊 Bibliographie remplie: ${bibliographieCount}/${csvData.length} luminaires`)
 
         // Afficher quelques exemples pour debug
         console.log("📋 Exemples de données exportées:")
@@ -829,6 +857,10 @@ export default function ImportPage() {
             collaboration: row["Collaboration / Œuvre"],
             categorie: row["Catégorie"],
             materiaux: row["Matériaux"],
+            // Nouveau : Ajouter les nouveaux champs pour les exemples
+            lienSiteMarchand: row["Lien site marchand"],
+            etiquette: row["Etiquette"],
+            bibliographie: row["Bibliographie"],
           })
         })
 
@@ -847,7 +879,10 @@ export default function ImportPage() {
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations, ${materiauxCount} matériaux, ${categorieCount} catégories`,
+          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations, ${materiauxCount} matériaux, ${categorieCount} catégories${
+            // Nouveau : Ajouter les nouvelles métriques dans la description du toast
+            `, ${lienSiteMarchandCount} liens marchands, ${etiquetteCount} étiquettes, ${bibliographieCount} bibliographies`
+          }`,
         })
       }
     } catch (error) {
