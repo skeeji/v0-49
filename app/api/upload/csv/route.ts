@@ -134,6 +134,11 @@ export async function POST(request: NextRequest) {
           luminaire.signe = luminaire["Signé"] || ""
           luminaire.specialite = luminaire["Spécialité"] || ""
           luminaire.collaboration = luminaire["Collaboration / Œuvre"] || ""
+          
+          // NOUVEAUX CHAMPS
+          luminaire.lienSiteMarchand = luminaire["Lien site marchand"] || ""
+          luminaire.etiquette = luminaire["Etiquette"] || ""
+          luminaire.bibliographie = luminaire["Bibliographie"] || ""
 
           documents.push(luminaire)
         } catch (error: any) {
