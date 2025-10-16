@@ -47,16 +47,18 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Filtre par catégorie
+    // Filtre par catégorie - CORRECTION: ne pas filtrer si catégorie est vide
     if (categorie && categorie.trim() !== "") {
       const categorieFilter = {
         $or: [{ categorie: { $regex: categorie, $options: "i" } }, { Catégorie: { $regex: categorie, $options: "i" } }],
       }
 
       if (filter.$or) {
+        // Si on a déjà un filtre de recherche, on combine avec $and
         filter.$and = [{ $or: filter.$or }, categorieFilter]
         delete filter.$or
       } else {
+        // Sinon on applique directement le filtre catégorie
         filter.$or = categorieFilter.$or
       }
     }
@@ -149,9 +151,6 @@ export async function GET(request: NextRequest) {
       editeur: luminaire.editeur || "",
       materiaux: luminaire.materiaux || [],
       categorie: luminaire.categorie || luminaire["Catégorie"] || "",
-      lienSiteMarchand: luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || "",
-      etiquette: luminaire.etiquette || luminaire["Etiquette"] || "",
-      bibliographie: luminaire.bibliographie || luminaire["Bibliographie"] || "",
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
       image: luminaire.images?.[0]
         ? `/api/images/filename/${luminaire.images[0]}`
@@ -174,9 +173,6 @@ export async function GET(request: NextRequest) {
       Estimation: luminaire["Estimation"] || "",
       Matériaux: luminaire["Matériaux"] || "",
       Catégorie: luminaire["Catégorie"] || "",
-      "Lien site marchand": luminaire["Lien site marchand"] || "",
-      Etiquette: luminaire["Etiquette"] || "",
-      Bibliographie: luminaire["Bibliographie"] || "",
     }))
 
     return NextResponse.json({

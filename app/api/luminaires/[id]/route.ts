@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     console.log("✅ Luminaire trouvé:", luminaire._id)
 
-    // Formater le luminaire avec tous les champs
+    // CORRECTION: Formater le luminaire avec tous les champs distincts
     const formattedLuminaire = {
       _id: luminaire._id.toString(),
 
@@ -35,19 +35,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       periode: luminaire.periode || luminaire["Spécialité"] || "",
       signe: luminaire.signe || luminaire["Signé"] || "",
 
-      // Champs séparés et distincts
-      description: luminaire.description || "",
-      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
+      // CORRECTION: Champs séparés et distincts
+      description: luminaire.description || "", // Description PROPRE
+      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "", // Collaboration PROPRE
       dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
       estimation: luminaire.estimation || luminaire["Estimation"] || "",
       editeur: luminaire.editeur || "",
       materiaux: luminaire.materiaux || [],
       categorie: luminaire.categorie || luminaire["Catégorie"] || "",
-
-      // NOUVEAUX CHAMPS
-      lienSiteMarchand: luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || "",
-      etiquette: luminaire.etiquette || luminaire["Etiquette"] || "",
-      bibliographie: luminaire.bibliographie || luminaire["Bibliographie"] || "",
 
       // Image
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
@@ -78,9 +73,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       Estimation: luminaire["Estimation"] || "",
       Matériaux: luminaire["Matériaux"] || "",
       Catégorie: luminaire["Catégorie"] || "",
-      "Lien site marchand": luminaire["Lien site marchand"] || "",
-      Etiquette: luminaire["Etiquette"] || "",
-      Bibliographie: luminaire["Bibliographie"] || "",
     }
 
     return NextResponse.json({
