@@ -23,50 +23,49 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     console.log("✅ Luminaire trouvé:", luminaire._id)
+    console.log("🔍 Clés disponibles:", Object.keys(luminaire))
+    console.log("🔍 Valeur materiaux:", luminaire.materiaux)
+    console.log("🔍 Valeur Matériaux:", luminaire.Matériaux)
 
-    // Formater le luminaire avec tous les champs distincts
+    // CORRECTION: Gestion unifiée des matériaux pour l'affichage
+    let materiauxForDisplay = ""
+    if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+      materiauxForDisplay = luminaire.materiaux.join(", ")
+      console.log("✅ Matériaux trouvés dans 'materiaux' (array):", materiauxForDisplay)
+    } else if (luminaire.Matériaux && typeof luminaire.Matériaux === "string" && luminaire.Matériaux.trim() !== "") {
+      materiauxForDisplay = luminaire.Matériaux.trim()
+      console.log("✅ Matériaux trouvés dans 'Matériaux' (string):", materiauxForDisplay)
+    }
+
     const formattedLuminaire = {
       _id: luminaire._id.toString(),
-
-      // Champs principaux
       nom: luminaire.nom || luminaire["Nom luminaire"] || "",
       designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
       annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
       periode: luminaire.periode || luminaire["Spécialité"] || "",
       signe: luminaire.signe || luminaire["Signé"] || "",
-
-      // Champs séparés et distincts
       description: luminaire.description || "",
       collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
       dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
       estimation: luminaire.estimation || luminaire["Estimation"] || "",
-      editeur: luminaire.editeur || "",
+      editeur: luminaire.editeur || luminaire["Editeur"] || "",
       materiaux: luminaire.materiaux || [],
+      Matériaux: materiauxForDisplay,
       categorie: luminaire.categorie || luminaire["Catégorie"] || "",
-
-      // NOUVEAUX CHAMPS - Ajout des 3 colonnes
       lienSiteMarchand: luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || "",
       etiquette: luminaire.etiquette || luminaire["Etiquette"] || "",
       bibliographie: luminaire.bibliographie || luminaire["Bibliographie"] || "",
-
-      // Image
       filename: luminaire.filename || luminaire["Nom du fichier"] || "",
       image: luminaire.images?.[0]
         ? `/api/images/filename/${luminaire.images[0]}`
         : luminaire.filename
           ? `/api/images/filename/${luminaire.filename}`
           : null,
-
-      // Image du designer
       designerImageFilename: luminaire.designerImageFilename || "",
-
-      // Autres champs
       images: luminaire.images || [],
       couleurs: luminaire.couleurs || [],
       createdAt: luminaire.createdAt,
       updatedAt: luminaire.updatedAt,
-
-      // Champs CSV originaux pour compatibilité
       "Nom luminaire": luminaire["Nom luminaire"] || "",
       "Artiste / Dates": luminaire["Artiste / Dates"] || "",
       Année: luminaire["Année"] || "",
@@ -76,12 +75,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       "Nom du fichier": luminaire["Nom du fichier"] || "",
       Dimensions: luminaire["Dimensions"] || "",
       Estimation: luminaire["Estimation"] || "",
-      Matériaux: luminaire["Matériaux"] || "",
       Catégorie: luminaire["Catégorie"] || "",
+      Editeur: luminaire["Editeur"] || luminaire.editeur || "",
       "Lien site marchand": luminaire["Lien site marchand"] || "",
       Etiquette: luminaire["Etiquette"] || "",
       Bibliographie: luminaire["Bibliographie"] || "",
     }
+
+    console.log("✅ Matériaux formatés pour affichage:", materiauxForDisplay)
 
     return NextResponse.json({
       success: true,
