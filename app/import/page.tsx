@@ -686,7 +686,6 @@ export default function ImportPage() {
     try {
       console.log("📊 Export de tous les luminaires...")
 
-      // CORRECTION: Récupérer TOUS les luminaires sans limite
       const luminairesResponse = await fetch("/api/luminaires?limit=100000")
       const luminairesData = await luminairesResponse.json()
 
@@ -701,16 +700,20 @@ export default function ImportPage() {
 
         console.log(`🔍 Export de ${luminairesData.luminaires.length} luminaires...`)
 
-        const csvData = luminairesData.luminaires.map((luminaire: any, index: number) => {
+        const csvData = luminairesData.luminaires.map((luminaire: any) => {
           const designerName = luminaire.designer || luminaire["Artiste / Dates"] || ""
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
+          // Récupérer les champs avec logique de secours
           const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
           const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
           const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
 
-          // CORRECTION: Gestion unifiée des matériaux pour l'export
+          // CORRECTION: Récupérer l'éditeur avec logique de secours
+          const editeur = luminaire.editeur || luminaire["Editeur"] || luminaire.Editeur || ""
+
+          // CORRECTION: Gestion unifiée des matériaux
           let materiaux = ""
           if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
             materiaux = luminaire.materiaux.join("; ")
@@ -732,7 +735,7 @@ export default function ImportPage() {
             "Artiste / Dates": designerName,
             Année: luminaire.annee || luminaire["Année"] || "",
             Catégorie: categorie,
-            Editeur: luminaire.editeur || luminaire["Editeur"] || "",
+            Editeur: editeur,
             Spécialité: specialite,
             "Collaboration / Œuvre": collaboration,
             Description: luminaire.description || luminaire["Description"] || "",
@@ -780,14 +783,17 @@ export default function ImportPage() {
           ),
         ].join("\n")
 
+        // Statistiques de remplissage
         const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"] !== "").length
+        const editeurCount = csvData.filter((row) => row["Editeur"] && row["Editeur"] !== "").length
         const lienSiteMarchandCount = csvData.filter(
           (row) => row["Lien site marchand"] && row["Lien site marchand"] !== "",
         ).length
         const etiquetteCount = csvData.filter((row) => row["Etiquette"] && row["Etiquette"] !== "").length
         const bibliographieCount = csvData.filter((row) => row["Bibliographie"] && row["Bibliographie"] !== "").length
 
-        console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
+        console.log(`📊 Matériaux: ${materiauxCount}/${csvData.length} luminaires`)
+        console.log(`📊 Editeur: ${editeurCount}/${csvData.length} luminaires`)
         console.log(`📊 Lien site marchand: ${lienSiteMarchandCount}/${csvData.length} luminaires`)
         console.log(`📊 Etiquette: ${etiquetteCount}/${csvData.length} luminaires`)
         console.log(`📊 Bibliographie: ${bibliographieCount}/${csvData.length} luminaires`)
@@ -806,7 +812,7 @@ export default function ImportPage() {
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires exportés`,
+          description: `${csvData.length} luminaires - ${materiauxCount} matériaux, ${editeurCount} éditeurs`,
         })
       }
     } catch (error) {
