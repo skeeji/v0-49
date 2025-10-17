@@ -22,10 +22,8 @@ export default function LuminaireDetailPage() {
   const { user, userData, loading: authLoading } = useAuth()
 
   const canEdit = !authLoading && userData?.role === "admin"
-  // CORRECTION: Masquer l'estimation pour les utilisateurs non connectés ou gratuits
   const canSeeEstimation = user && (userData?.role === "admin" || userData?.role === "premium")
 
-  // Debug pour voir les valeurs
   console.log("🔍 Debug estimation:", {
     user: !!user,
     userData: userData,
@@ -49,7 +47,6 @@ export default function LuminaireDetailPage() {
         console.log("📊 Réponse API luminaire:", result)
 
         if (result.success) {
-          // Debug des clés disponibles
           console.log("🔍 Clés disponibles dans le luminaire:", Object.keys(result.data))
           console.log("🔍 Valeurs matériaux et signé:", {
             materiaux: result.data.materiaux,
@@ -60,68 +57,54 @@ export default function LuminaireDetailPage() {
             Signé: result.data.Signé,
           })
 
-          // Formater le luminaire avec compatibilité CSV et formulaire - CORRECTION: Préserver le formatage exact
           const formattedLuminaire = {
             ...result.data,
             id: String(result.data._id || ""),
             _id: String(result.data._id || ""),
             image: result.data.image || (result.data.filename ? `/api/images/filename/${result.data.filename}` : null),
 
-            // Champs principaux avec compatibilité CSV/formulaire - PRÉSERVER LE FORMATAGE EXACT
             artist: result.data.designer || result.data["Artiste / Dates"] || "",
             year: result.data.annee || result.data["Année"] || "",
             name: result.data.nom || result.data["Nom luminaire"] || "",
 
-            // Champs avec compatibilité CSV/formulaire - PRÉSERVER LE FORMATAGE EXACT
             description: result.data.description || result.data["Description"] || "",
             dimensions: result.data.dimensions || result.data["Dimensions"] || "",
             estimation: result.data.estimation || result.data["Estimation"] || "",
             editeur: result.data.editeur || result.data["Editeur"] || "",
             categorie: result.data.categorie || result.data["Catégorie"] || "",
 
-            // LOGIQUE CORRIGÉE POUR SPÉCIALITÉ - PRÉSERVER LE FORMATAGE EXACT
             specialty: (() => {
-              // D'abord chercher dans 'periode'
               if (result.data.periode && String(result.data.periode).trim() !== "") {
                 return result.data.periode
               }
-              // Sinon chercher dans 'Spécialité'
               if (result.data["Spécialité"] && String(result.data["Spécialité"]).trim() !== "") {
                 return result.data["Spécialité"]
               }
               return ""
             })(),
 
-            // LOGIQUE CORRIGÉE POUR COLLABORATION / ŒUVRE - SEULEMENT COLLABORATION - PRÉSERVER LE FORMATAGE EXACT
             collaboration: (() => {
-              // CORRECTION: Chercher SEULEMENT dans les champs collaboration, PAS dans description
               if (result.data.collaboration && String(result.data.collaboration).trim() !== "") {
                 return result.data.collaboration
               }
-              // Sinon chercher dans 'Collaboration / Œuvre'
               if (result.data["Collaboration / Œuvre"] && String(result.data["Collaboration / Œuvre"]).trim() !== "") {
                 return result.data["Collaboration / Œuvre"]
               }
               return ""
             })(),
 
-            // LOGIQUE CORRIGÉE POUR MATÉRIAUX - PRÉSERVER LE FORMATAGE EXACT
             materials: (() => {
-              // D'abord chercher dans 'materiaux' (liste)
               if (Array.isArray(result.data.materiaux) && result.data.materiaux.length > 0) {
                 return result.data.materiaux.join(", ")
               }
-              // Sinon chercher dans 'Matériaux' (texte)
               if (result.data.Matériaux && String(result.data.Matériaux).trim() !== "") {
                 return result.data.Matériaux
               }
               return ""
             })(),
 
-            // Gestion de Signé - RECHERCHE EXHAUSTIVE - PRÉSERVER LE FORMATAGE EXACT
             signed: (() => {
               const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
-
               for (const key of signeKeys) {
                 if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") {
                   return result.data[key]
@@ -129,6 +112,11 @@ export default function LuminaireDetailPage() {
               }
               return ""
             })(),
+
+            // NOUVEAUX CHAMPS - Ajout des 3 colonnes
+            lienSiteMarchand: result.data.lienSiteMarchand || result.data["Lien site marchand"] || "",
+            etiquette: result.data.etiquette || result.data["Etiquette"] || "",
+            bibliographie: result.data.bibliographie || result.data["Bibliographie"] || "",
           }
 
           console.log("✅ Luminaire formaté:", {
@@ -137,11 +125,13 @@ export default function LuminaireDetailPage() {
             specialty: formattedLuminaire.specialty,
             collaboration: formattedLuminaire.collaboration,
             categorie: formattedLuminaire.categorie,
+            lienSiteMarchand: formattedLuminaire.lienSiteMarchand,
+            etiquette: formattedLuminaire.etiquette,
+            bibliographie: formattedLuminaire.bibliographie,
           })
 
           setLuminaire(formattedLuminaire)
 
-          // Charger TOUS les luminaires pour trouver les 6 plus proches
           const allLuminairesResponse = await fetch("/api/luminaires?limit=9999")
           const allLuminairesData = await allLuminairesResponse.json()
 
@@ -158,7 +148,6 @@ export default function LuminaireDetailPage() {
         setIsLoading(false)
       }
 
-      // Charger les favoris
       const favorites = JSON.parse(localStorage.getItem("favorites") || "[]")
       setIsFavorite(favorites.includes(String(params.id)))
     }
@@ -169,7 +158,6 @@ export default function LuminaireDetailPage() {
   const findSimilarLuminaires = (current: any, all: any[]) => {
     const currentYear = Number.parseInt(current.year) || 0
 
-    // Filtrer et scorer tous les luminaires avec logique de précision améliorée
     const scored = all
       .filter((item) => String(item._id) !== String(current._id))
       .map((item) => {
@@ -179,17 +167,14 @@ export default function LuminaireDetailPage() {
         const itemSpecialty = String(item["Spécialité"] || item.periode || item.specialite || "")
         const itemYear = Number.parseInt(String(item.annee || item["Année"] || "")) || 0
 
-        // PRIORITÉ 1 : Même artiste (score très élevé)
         if (itemArtist && current.artist && itemArtist.toLowerCase() === current.artist.toLowerCase()) {
           score += 50
         }
 
-        // PRIORITÉ 2 : Même spécialité/style (score élevé)
         if (itemSpecialty && current.specialty && itemSpecialty.toLowerCase() === current.specialty.toLowerCase()) {
           score += 30
         }
 
-        // PRIORITÉ 3 : Ressemblance visuelle par matériaux
         if (current.materials && item.materiaux) {
           const currentMaterials = current.materials
             .toLowerCase()
@@ -212,7 +197,6 @@ export default function LuminaireDetailPage() {
           score += commonMaterials.length * 15
         }
 
-        // PRIORITÉ 4 : Proximité d'année (score graduel très précis)
         if (currentYear > 0 && itemYear > 0) {
           const yearDiff = Math.abs(currentYear - itemYear)
           if (yearDiff === 0) score += 25
@@ -223,7 +207,6 @@ export default function LuminaireDetailPage() {
           else if (yearDiff <= 20) score += 2
         }
 
-        // BONUS : Ressemblance dans le nom (mots-clés communs)
         if (current.name && item["Nom luminaire"]) {
           const currentWords = current.name
             .toLowerCase()
@@ -239,7 +222,6 @@ export default function LuminaireDetailPage() {
           score += commonWords.length * 8
         }
 
-        // BONUS : Même éditeur
         if (current.editeur && item.editeur && current.editeur.toLowerCase() === item.editeur.toLowerCase()) {
           score += 12
         }
@@ -255,13 +237,11 @@ export default function LuminaireDetailPage() {
         }
       })
 
-    // Trier par score décroissant et prendre les 6 premiers avec score > 0
     const topSimilar = scored
       .filter((item) => item.similarityScore > 0)
       .sort((a, b) => b.similarityScore - a.similarityScore)
       .slice(0, 6)
 
-    // Si moins de 6, compléter avec des luminaires aléatoires de la même période
     if (topSimilar.length < 6) {
       const remaining = scored
         .filter((item) => !topSimilar.includes(item) && item.similarityScore === 0)
@@ -286,15 +266,17 @@ export default function LuminaireDetailPage() {
       year: "annee",
       signed: "signe",
       dimensions: "dimensions",
-      materials: "Matériaux", // CORRECTION: utiliser "Matériaux" au lieu de "materiaux"
+      materials: "Matériaux",
       estimation: "estimation",
       editeur: "editeur",
       categorie: "categorie",
+      lienSiteMarchand: "lienSiteMarchand",
+      etiquette: "etiquette",
+      bibliographie: "bibliographie",
     }
 
     const keyToUpdate = keyMapping[field] || field
 
-    // CORRECTION: Préserver le formatage exact (espaces, sauts de ligne, majuscules) - PAS de conversion String()
     setLuminaire((prev: any) => ({ ...prev, [field]: value }))
 
     try {
@@ -305,7 +287,6 @@ export default function LuminaireDetailPage() {
       })
       console.log(`✅ Luminaire mis à jour - ${field} (${keyToUpdate}):`, value)
 
-      // CORRECTION: Mettre à jour aussi les champs CSV pour cohérence
       if (field === "artist") {
         await fetch(`/api/luminaires/${luminaire._id}`, {
           method: "PUT",
@@ -329,6 +310,24 @@ export default function LuminaireDetailPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ Catégorie: value }),
+        })
+      } else if (field === "lienSiteMarchand") {
+        await fetch(`/api/luminaires/${luminaire._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ "Lien site marchand": value }),
+        })
+      } else if (field === "etiquette") {
+        await fetch(`/api/luminaires/${luminaire._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ Etiquette: value }),
+        })
+      } else if (field === "bibliographie") {
+        await fetch(`/api/luminaires/${luminaire._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ Bibliographie: value }),
         })
       }
     } catch (error) {
@@ -355,11 +354,9 @@ export default function LuminaireDetailPage() {
     try {
       const pdf = new jsPDF()
 
-      // Titre
       pdf.setFontSize(20)
       pdf.text(String(luminaire.name || "Luminaire sans nom"), 20, 30)
 
-      // Informations
       pdf.setFontSize(12)
       let yPos = 50
 
@@ -382,39 +379,30 @@ export default function LuminaireDetailPage() {
       addField("Signé", luminaire.signed)
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
+      addField("Lien site marchand", luminaire.lienSiteMarchand)
+      addField("Étiquette", luminaire.etiquette)
+      addField("Bibliographie", luminaire.bibliographie)
 
-      // CORRECTION: Ajouter l'estimation seulement si l'utilisateur peut la voir
       if (canSeeEstimation) {
         addField("Estimation", luminaire.estimation)
       }
 
-      // Ajouter l'image si disponible - Version simplifiée
       if (luminaire.image) {
         try {
-          // Créer un élément image temporaire
           const tempImg = document.createElement("img")
           tempImg.crossOrigin = "anonymous"
 
-          // Promesse pour charger l'image
           await new Promise<void>((resolve) => {
             tempImg.onload = () => {
               try {
-                // Créer un canvas
                 const canvas = document.createElement("canvas")
                 const ctx = canvas.getContext("2d")
 
                 if (ctx) {
-                  // Définir la taille du canvas
                   canvas.width = 100
                   canvas.height = 100
-
-                  // Dessiner l'image
                   ctx.drawImage(tempImg, 0, 0, 100, 100)
-
-                  // Convertir en base64
                   const dataURL = canvas.toDataURL("image/jpeg", 0.7)
-
-                  // Ajouter au PDF
                   pdf.addImage(dataURL, "JPEG", 20, yPos + 10, 100, 100)
                 }
               } catch (error) {
@@ -428,7 +416,6 @@ export default function LuminaireDetailPage() {
               resolve()
             }
 
-            // Charger l'image
             tempImg.src = luminaire.image
           })
         } catch (error) {
@@ -436,7 +423,6 @@ export default function LuminaireDetailPage() {
         }
       }
 
-      // Sauvegarder le PDF
       pdf.save(`${String(luminaire.name || "luminaire")}.pdf`)
     } catch (error) {
       console.error("❌ Erreur génération PDF:", error)
@@ -530,7 +516,6 @@ export default function LuminaireDetailPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
-          {/* Image du luminaire UNIQUEMENT */}
           <div className="aspect-square relative bg-gray-100 rounded-xl overflow-hidden">
             {luminaire.image ? (
               <Image
@@ -553,11 +538,9 @@ export default function LuminaireDetailPage() {
             )}
           </div>
 
-          {/* Informations avec scroll - même hauteur que l'image */}
           <div className="aspect-square bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="h-full overflow-y-auto p-6">
               <div className="space-y-6 font-serif">
-                {/* Nom du luminaire (titre) */}
                 <EditableField
                   value={luminaire.name || ""}
                   onSave={(v) => handleUpdate("name", v)}
@@ -567,7 +550,6 @@ export default function LuminaireDetailPage() {
                 />
 
                 <div className="space-y-4">
-                  {/* 1. Artiste / Dates - Toujours affiché */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Artiste / Dates</label>
                     {luminaire.artist ? (
@@ -593,7 +575,6 @@ export default function LuminaireDetailPage() {
                     )}
                   </div>
 
-                  {/* 2. Catégorie - Visible et modifiable seulement par admin */}
                   {canEdit && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Catégorie</label>
@@ -606,7 +587,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 3. Spécialité - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.specialty && String(luminaire.specialty).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Spécialité</label>
@@ -620,7 +600,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 4. Collaboration / Œuvre - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.collaboration && String(luminaire.collaboration).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Collaboration / Œuvre</label>
@@ -634,7 +613,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 5. Editeur - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.editeur && String(luminaire.editeur).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Editeur</label>
@@ -647,7 +625,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 6. Description - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.description && String(luminaire.description).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
@@ -661,7 +638,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 7. Année - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.year && String(luminaire.year).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Année</label>
@@ -674,7 +650,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 8. Dimensions - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.dimensions && String(luminaire.dimensions).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Dimensions</label>
@@ -687,7 +662,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 9. Matériaux - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.materials && String(luminaire.materials).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Matériaux</label>
@@ -701,7 +675,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 10. Signé - Affiché seulement si renseigné ou admin */}
                   {(canEdit || (luminaire.signed && String(luminaire.signed).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Signé</label>
@@ -714,7 +687,56 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* 11. Estimation - CORRECTION: Afficher seulement si renseigné ET premium */}
+                  {/* NOUVEAUX CHAMPS - Affichage des 3 colonnes */}
+                  {(canEdit || (luminaire.lienSiteMarchand && String(luminaire.lienSiteMarchand).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Lien site marchand</label>
+                      {luminaire.lienSiteMarchand && !canEdit ? (
+                        <a
+                          href={luminaire.lienSiteMarchand}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline break-all text-sm"
+                        >
+                          {luminaire.lienSiteMarchand}
+                        </a>
+                      ) : (
+                        <EditableField
+                          value={luminaire.lienSiteMarchand || ""}
+                          onSave={(v) => handleUpdate("lienSiteMarchand", v)}
+                          placeholder="https://exemple.com/produit"
+                          disabled={!canEdit}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {(canEdit || (luminaire.etiquette && String(luminaire.etiquette).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Étiquette</label>
+                      <EditableField
+                        value={luminaire.etiquette || ""}
+                        onSave={(v) => handleUpdate("etiquette", v)}
+                        placeholder="Étiquette"
+                        multiline
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
+
+                  {(canEdit || (luminaire.bibliographie && String(luminaire.bibliographie).trim())) && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Bibliographie</label>
+                      <EditableField
+                        value={luminaire.bibliographie || ""}
+                        onSave={(v) => handleUpdate("bibliographie", v)}
+                        placeholder="Bibliographie"
+                        multiline
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  )}
+
                   {!authLoading &&
                   user &&
                   (userData?.role === "admin" || userData?.role === "premium") &&
@@ -750,7 +772,6 @@ export default function LuminaireDetailPage() {
           </div>
         </div>
 
-        {/* 6 Images similaires */}
         {similarLuminaires.length > 0 && (
           <div className="bg-white rounded-xl p-8 shadow-lg">
             <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires similaires</h2>
