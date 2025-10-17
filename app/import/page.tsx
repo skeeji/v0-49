@@ -709,21 +709,25 @@ export default function ImportPage() {
           const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
           const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
 
-          // CORRECTION: Récupération de l'éditeur avec toutes les variantes possibles
-          const editeur = luminaire.editeur || luminaire.Editeur || luminaire["Editeur"] || ""
+          // Récupération de l'éditeur - vérifier toutes les variantes possibles
+          let editeur = ""
+          if (luminaire.editeur) {
+            editeur = luminaire.editeur
+          } else if (luminaire.Editeur) {
+            editeur = luminaire.Editeur
+          } else if (luminaire["Editeur"]) {
+            editeur = luminaire["Editeur"]
+          }
 
-          // CORRECTION: Gestion unifiée des matériaux - vérifier d'abord le tableau materiaux
+          // Gestion des matériaux
           let materiaux = ""
           if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
             materiaux = luminaire.materiaux.join("; ")
-            console.log(`✅ Luminaire ${index + 1} - Matériaux (array):`, materiaux)
           } else if (luminaire.Matériaux) {
             if (typeof luminaire.Matériaux === "string" && luminaire.Matériaux.trim() !== "") {
               materiaux = luminaire.Matériaux.trim()
-              console.log(`✅ Luminaire ${index + 1} - Matériaux (string):`, materiaux)
             } else if (Array.isArray(luminaire.Matériaux)) {
               materiaux = luminaire.Matériaux.join("; ")
-              console.log(`✅ Luminaire ${index + 1} - Matériaux (array Matériaux):`, materiaux)
             }
           }
 
@@ -793,11 +797,12 @@ export default function ImportPage() {
         const etiquetteCount = csvData.filter((row) => row["Etiquette"] && row["Etiquette"] !== "").length
         const bibliographieCount = csvData.filter((row) => row["Bibliographie"] && row["Bibliographie"] !== "").length
 
-        console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
-        console.log(`📊 Editeur rempli: ${editeurCount}/${csvData.length} luminaires`)
-        console.log(`📊 Lien site marchand: ${lienSiteMarchandCount}/${csvData.length} luminaires`)
-        console.log(`📊 Etiquette: ${etiquetteCount}/${csvData.length} luminaires`)
-        console.log(`📊 Bibliographie: ${bibliographieCount}/${csvData.length} luminaires`)
+        console.log(`📊 Statistiques export:`)
+        console.log(`   - Matériaux: ${materiauxCount}/${csvData.length} luminaires`)
+        console.log(`   - Editeur: ${editeurCount}/${csvData.length} luminaires`)
+        console.log(`   - Lien site marchand: ${lienSiteMarchandCount}/${csvData.length} luminaires`)
+        console.log(`   - Etiquette: ${etiquetteCount}/${csvData.length} luminaires`)
+        console.log(`   - Bibliographie: ${bibliographieCount}/${csvData.length} luminaires`)
 
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
         const link = document.createElement("a")
@@ -813,7 +818,7 @@ export default function ImportPage() {
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires - ${materiauxCount} matériaux, ${editeurCount} éditeurs`,
+          description: `${csvData.length} luminaires - ${editeurCount} éditeurs`,
         })
       }
     } catch (error) {
