@@ -47,18 +47,16 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Filtre par catégorie - CORRECTION: ne pas filtrer si catégorie est vide
+    // Filtre par catégorie
     if (categorie && categorie.trim() !== "") {
       const categorieFilter = {
         $or: [{ categorie: { $regex: categorie, $options: "i" } }, { Catégorie: { $regex: categorie, $options: "i" } }],
       }
 
       if (filter.$or) {
-        // Si on a déjà un filtre de recherche, on combine avec $and
         filter.$and = [{ $or: filter.$or }, categorieFilter]
         delete filter.$or
       } else {
-        // Sinon on applique directement le filtre catégorie
         filter.$or = categorieFilter.$or
       }
     }
@@ -137,43 +135,65 @@ export async function GET(request: NextRequest) {
     console.log(`✅ Trouvé ${luminaires.length} luminaires sur ${total} total`)
 
     // Formatage des résultats
-    const formattedLuminaires = luminaires.map((luminaire) => ({
-      _id: luminaire._id.toString(),
-      nom: luminaire.nom || luminaire["Nom luminaire"] || "",
-      designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
-      periode: luminaire.periode || luminaire["Spécialité"] || "",
-      signe: luminaire.signe || luminaire["Signé"] || "",
-      description: luminaire.description || "",
-      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
-      dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-      estimation: luminaire.estimation || luminaire["Estimation"] || "",
-      editeur: luminaire.editeur || "",
-      materiaux: luminaire.materiaux || [],
-      categorie: luminaire.categorie || luminaire["Catégorie"] || "",
-      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
-      image: luminaire.images?.[0]
-        ? `/api/images/filename/${luminaire.images[0]}`
-        : luminaire.filename
-          ? `/api/images/filename/${luminaire.filename}`
-          : null,
-      designerImageFilename: luminaire.designerImageFilename || "",
-      images: luminaire.images || [],
-      couleurs: luminaire.couleurs || [],
-      createdAt: luminaire.createdAt,
-      updatedAt: luminaire.updatedAt,
-      "Nom luminaire": luminaire["Nom luminaire"] || "",
-      "Artiste / Dates": luminaire["Artiste / Dates"] || "",
-      Année: luminaire["Année"] || "",
-      Spécialité: luminaire["Spécialité"] || "",
-      "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
-      Signé: luminaire["Signé"] || "",
-      "Nom du fichier": luminaire["Nom du fichier"] || "",
-      Dimensions: luminaire["Dimensions"] || "",
-      Estimation: luminaire["Estimation"] || "",
-      Matériaux: luminaire["Matériaux"] || "",
-      Catégorie: luminaire["Catégorie"] || "",
-    }))
+    const formattedLuminaires = luminaires.map((luminaire) => {
+      // CORRECTION: Gestion unifiée des matériaux
+      let materiauxFormatted = []
+      if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+        materiauxFormatted = luminaire.materiaux
+      } else if (luminaire.Matériaux) {
+        if (Array.isArray(luminaire.Matériaux)) {
+          materiauxFormatted = luminaire.Matériaux
+        } else if (typeof luminaire.Matériaux === "string") {
+          materiauxFormatted = luminaire.Matériaux.split(/[,;]/)
+            .map((m) => m.trim())
+            .filter((m) => m)
+        }
+      }
+
+      return {
+        _id: luminaire._id.toString(),
+        nom: luminaire.nom || luminaire["Nom luminaire"] || "",
+        designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
+        annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
+        periode: luminaire.periode || luminaire["Spécialité"] || "",
+        signe: luminaire.signe || luminaire["Signé"] || "",
+        description: luminaire.description || "",
+        collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
+        dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
+        estimation: luminaire.estimation || luminaire["Estimation"] || "",
+        editeur: luminaire.editeur || "",
+        materiaux: materiauxFormatted,
+        categorie: luminaire.categorie || luminaire["Catégorie"] || "",
+        lienSiteMarchand: luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || "",
+        etiquette: luminaire.etiquette || luminaire["Etiquette"] || "",
+        bibliographie: luminaire.bibliographie || luminaire["Bibliographie"] || "",
+        filename: luminaire.filename || luminaire["Nom du fichier"] || "",
+        image: luminaire.images?.[0]
+          ? `/api/images/filename/${luminaire.images[0]}`
+          : luminaire.filename
+            ? `/api/images/filename/${luminaire.filename}`
+            : null,
+        designerImageFilename: luminaire.designerImageFilename || "",
+        images: luminaire.images || [],
+        couleurs: luminaire.couleurs || [],
+        createdAt: luminaire.createdAt,
+        updatedAt: luminaire.updatedAt,
+        "Nom luminaire": luminaire["Nom luminaire"] || luminaire.nom || "",
+        "Artiste / Dates": luminaire["Artiste / Dates"] || luminaire.designer || "",
+        Année: luminaire["Année"] || luminaire.annee || "",
+        Spécialité: luminaire["Spécialité"] || luminaire.periode || "",
+        "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || luminaire.collaboration || "",
+        Signé: luminaire["Signé"] || luminaire.signe || "",
+        "Nom du fichier": luminaire["Nom du fichier"] || luminaire.filename || "",
+        Dimensions: luminaire["Dimensions"] || luminaire.dimensions || "",
+        Estimation: luminaire["Estimation"] || luminaire.estimation || "",
+        Matériaux: Array.isArray(materiauxFormatted) ? materiauxFormatted.join(", ") : materiauxFormatted,
+        Catégorie: luminaire["Catégorie"] || luminaire.categorie || "",
+        "Lien site marchand": luminaire["Lien site marchand"] || luminaire.lienSiteMarchand || "",
+        Etiquette: luminaire["Etiquette"] || luminaire.etiquette || "",
+        Bibliographie: luminaire["Bibliographie"] || luminaire.bibliographie || "",
+      }
+    })
 
     return NextResponse.json({
       success: true,
@@ -210,9 +230,26 @@ export async function POST(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Préparer les données pour l'insertion
+    // CORRECTION: Ajouter aussi les champs CSV pour compatibilité
     const newLuminaire = {
       ...luminaireData,
+      // Ajouter les champs CSV pour assurer la compatibilité
+      "Nom luminaire": luminaireData.nom || "",
+      "Artiste / Dates": luminaireData.designer || "",
+      Année: luminaireData.annee || "",
+      Spécialité: luminaireData.periode || "",
+      "Collaboration / Œuvre": luminaireData.collaboration || "",
+      Signé: luminaireData.signe || "",
+      "Nom du fichier": luminaireData.filename || "",
+      Dimensions: luminaireData.dimensions || "",
+      Estimation: luminaireData.estimation || "",
+      Matériaux: Array.isArray(luminaireData.materiaux)
+        ? luminaireData.materiaux.join(", ")
+        : luminaireData.materiaux || "",
+      Catégorie: luminaireData.categorie || "",
+      "Lien site marchand": luminaireData.lienSiteMarchand || "",
+      Etiquette: luminaireData.etiquette || "",
+      Bibliographie: luminaireData.bibliographie || "",
       createdAt: new Date(),
       updatedAt: new Date(),
     }
