@@ -48,20 +48,21 @@ export default function LuminaireDetailPage() {
 
         if (result.success) {
           console.log("🔍 Clés disponibles dans le luminaire:", Object.keys(result.data))
-          console.log("🔍 Valeurs matériaux et signé:", {
-            materiaux: result.data.materiaux,
-            Matériaux: result.data.Matériaux,
-            materials: result.data.materials,
-            signe: result.data.signe,
-            signed: result.data.signed,
-            Signé: result.data.Signé,
+          console.log("🔍 Valeurs image:", {
+            filename: result.data.filename,
+            "Nom du fichier": result.data["Nom du fichier"],
+            image: result.data.image,
           })
 
           const formattedLuminaire = {
             ...result.data,
             id: String(result.data._id || ""),
             _id: String(result.data._id || ""),
-            image: result.data.image || (result.data.filename ? `/api/images/filename/${result.data.filename}` : null),
+            image: result.data.filename
+              ? `/api/images/filename/${result.data.filename}`
+              : result.data["Nom du fichier"]
+                ? `/api/images/filename/${result.data["Nom du fichier"]}`
+                : null,
 
             artist: result.data.designer || result.data["Artiste / Dates"] || "",
             year: result.data.annee || result.data["Année"] || "",
@@ -113,13 +114,13 @@ export default function LuminaireDetailPage() {
               return ""
             })(),
 
-            // NOUVEAUX CHAMPS - Ajout des 3 colonnes
             lienSiteMarchand: result.data.lienSiteMarchand || result.data["Lien site marchand"] || "",
             etiquette: result.data.etiquette || result.data["Etiquette"] || "",
             bibliographie: result.data.bibliographie || result.data["Bibliographie"] || "",
           }
 
           console.log("✅ Luminaire formaté:", {
+            image: formattedLuminaire.image,
             materials: formattedLuminaire.materials,
             signed: formattedLuminaire.signed,
             specialty: formattedLuminaire.specialty,
@@ -229,7 +230,11 @@ export default function LuminaireDetailPage() {
         return {
           ...item,
           id: String(item._id || ""),
-          image: item.filename ? `/api/images/filename/${item.filename}` : null,
+          image: item.filename
+            ? `/api/images/filename/${item.filename}`
+            : item["Nom du fichier"]
+              ? `/api/images/filename/${item["Nom du fichier"]}`
+              : null,
           artist: itemArtist,
           year: String(item.annee || item["Année"] || ""),
           name: String(item["Nom luminaire"] || item.nom || "Sans nom"),
@@ -523,6 +528,7 @@ export default function LuminaireDetailPage() {
                 alt={String(luminaire.name || "Luminaire")}
                 fill
                 className="object-cover"
+                unoptimized
                 onError={(e) => {
                   console.log("❌ Erreur chargement image:", luminaire.image)
                   e.currentTarget.src = "/placeholder.svg"
@@ -687,7 +693,6 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {/* NOUVEAUX CHAMPS - Affichage des 3 colonnes */}
                   {(canEdit || (luminaire.lienSiteMarchand && String(luminaire.lienSiteMarchand).trim())) && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Lien site marchand</label>
@@ -738,34 +743,19 @@ export default function LuminaireDetailPage() {
                   )}
 
                   {!authLoading &&
-                  user &&
-                  (userData?.role === "admin" || userData?.role === "premium") &&
-                  (canEdit || (luminaire.estimation && String(luminaire.estimation).trim())) ? (
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
-                      <EditableField
-                        value={luminaire.estimation || ""}
-                        onSave={(v) => handleUpdate("estimation", v)}
-                        placeholder="Estimation"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  ) : (
-                    !authLoading &&
-                    !user && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <p className="text-sm text-yellow-800 flex items-center">
-                          <span className="mr-2">🔒</span>
-                          <span>
-                            L'estimation est réservée aux comptes Premium.
-                            <Link href="/pricing" className="ml-1 underline font-medium">
-                              Passer à Premium
-                            </Link>
-                          </span>
-                        </p>
+                    user &&
+                    (userData?.role === "admin" || userData?.role === "premium") &&
+                    (canEdit || (luminaire.estimation && String(luminaire.estimation).trim())) && (
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Estimation</label>
+                        <EditableField
+                          value={luminaire.estimation || ""}
+                          onSave={(v) => handleUpdate("estimation", v)}
+                          placeholder="Estimation"
+                          disabled={!canEdit}
+                        />
                       </div>
-                    )
-                  )}
+                    )}
                 </div>
               </div>
             </div>
@@ -786,6 +776,7 @@ export default function LuminaireDetailPage() {
                           alt={String(similar.name || "Luminaire")}
                           fill
                           className="object-cover"
+                          unoptimized
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
