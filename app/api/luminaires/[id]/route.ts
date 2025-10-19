@@ -6,9 +6,11 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("🔍 API /api/luminaires/[id] - Récupération luminaire ID:", params.id)
+    const id = params.id
+    console.log("🔍 API /api/luminaires/[id] GET - ID:", id)
 
-    if (!ObjectId.isValid(params.id)) {
+    if (!ObjectId.isValid(id)) {
+      console.log("❌ ID invalide:", id)
       return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
     }
 
@@ -16,84 +18,45 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const luminaire = await collection.findOne({ _id: new ObjectId(params.id) })
+    const luminaire = await collection.findOne({ _id: new ObjectId(id) })
 
     if (!luminaire) {
+      console.log("❌ Luminaire non trouvé:", id)
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log("✅ Luminaire trouvé:", luminaire._id)
-    console.log("🔍 Clés disponibles:", Object.keys(luminaire))
-    console.log("🔍 Valeur materiaux:", luminaire.materiaux)
-    console.log("🔍 Valeur Matériaux:", luminaire.Matériaux)
+    // CORRECTION: Construire correctement l'URL de l'image
+    let imageUrl = null
 
-    // CORRECTION: Gestion unifiée des matériaux pour l'affichage
-    let materiauxForDisplay = ""
-    if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
-      materiauxForDisplay = luminaire.materiaux.join(", ")
-      console.log("✅ Matériaux trouvés dans 'materiaux' (array):", materiauxForDisplay)
-    } else if (luminaire.Matériaux && typeof luminaire.Matériaux === "string" && luminaire.Matériaux.trim() !== "") {
-      materiauxForDisplay = luminaire.Matériaux.trim()
-      console.log("✅ Matériaux trouvés dans 'Matériaux' (string):", materiauxForDisplay)
+    // Priorité 1: Utiliser l'imageId si disponible
+    if (luminaire.imageId) {
+      imageUrl = `/api/images/${luminaire.imageId}`
+      console.log(`✅ Image trouvée par ID: ${imageUrl}`)
+    }
+    // Priorité 2: Utiliser le filename
+    else if (luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"]) {
+      const filename =
+        luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"]
+      imageUrl = `/api/images/filename/${filename}`
+      console.log(`✅ Image trouvée par filename: ${imageUrl}`)
     }
 
-    const formattedLuminaire = {
-      _id: luminaire._id.toString(),
-      nom: luminaire.nom || luminaire["Nom luminaire"] || "",
-      designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
-      annee: luminaire.annee || (luminaire["Année"] ? Number.parseInt(luminaire["Année"]) : null),
-      periode: luminaire.periode || luminaire["Spécialité"] || "",
-      signe: luminaire.signe || luminaire["Signé"] || "",
-      description: luminaire.description || "",
-      collaboration: luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
-      dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-      estimation: luminaire.estimation || luminaire["Estimation"] || "",
-      editeur: luminaire.editeur || luminaire["Editeur"] || "",
-      materiaux: luminaire.materiaux || [],
-      Matériaux: materiauxForDisplay,
-      categorie: luminaire.categorie || luminaire["Catégorie"] || "",
-      lienSiteMarchand: luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || "",
-      etiquette: luminaire.etiquette || luminaire["Etiquette"] || "",
-      bibliographie: luminaire.bibliographie || luminaire["Bibliographie"] || "",
-      filename: luminaire.filename || luminaire["Nom du fichier"] || "",
-      image: luminaire.images?.[0]
-        ? `/api/images/filename/${luminaire.images[0]}`
-        : luminaire.filename
-          ? `/api/images/filename/${luminaire.filename}`
-          : null,
-      designerImageFilename: luminaire.designerImageFilename || "",
-      images: luminaire.images || [],
-      couleurs: luminaire.couleurs || [],
-      createdAt: luminaire.createdAt,
-      updatedAt: luminaire.updatedAt,
-      "Nom luminaire": luminaire["Nom luminaire"] || "",
-      "Artiste / Dates": luminaire["Artiste / Dates"] || "",
-      Année: luminaire["Année"] || "",
-      Spécialité: luminaire["Spécialité"] || "",
-      "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || "",
-      Signé: luminaire["Signé"] || "",
-      "Nom du fichier": luminaire["Nom du fichier"] || "",
-      Dimensions: luminaire["Dimensions"] || "",
-      Estimation: luminaire["Estimation"] || "",
-      Catégorie: luminaire["Catégorie"] || "",
-      Editeur: luminaire["Editeur"] || luminaire.editeur || "",
-      "Lien site marchand": luminaire["Lien site marchand"] || "",
-      Etiquette: luminaire["Etiquette"] || "",
-      Bibliographie: luminaire["Bibliographie"] || "",
-    }
-
-    console.log("✅ Matériaux formatés pour affichage:", materiauxForDisplay)
+    console.log("✅ Luminaire trouvé:", luminaire.nom || luminaire["Nom luminaire"])
 
     return NextResponse.json({
       success: true,
-      data: formattedLuminaire,
+      data: {
+        ...luminaire,
+        _id: luminaire._id.toString(),
+        image: imageUrl,
+      },
     })
   } catch (error: any) {
-    console.error("❌ Erreur API /api/luminaires/[id]:", error)
+    console.error("❌ Erreur dans GET /api/luminaires/[id]:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la récupération du luminaire",
+        error: "Erreur serveur",
         details: error.message,
       },
       { status: 500 },
@@ -103,45 +66,42 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("📝 API /api/luminaires/[id] PUT - Mise à jour luminaire ID:", params.id)
+    const id = params.id
+    const body = await request.json()
 
-    if (!ObjectId.isValid(params.id)) {
+    console.log("📝 Mise à jour luminaire:", id, body)
+
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
     }
-
-    const updates = await request.json()
-    console.log("📊 Mises à jour reçues:", updates)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const result = await collection.updateOne(
-      { _id: new ObjectId(params.id) },
-      {
-        $set: {
-          ...updates,
-          updatedAt: new Date(),
-        },
-      },
-    )
+    const updateData = {
+      ...body,
+      updatedAt: new Date(),
+    }
+
+    const result = await collection.updateOne({ _id: new ObjectId(id) }, { $set: updateData })
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log("✅ Luminaire mis à jour avec succès")
+    console.log("✅ Luminaire mis à jour:", id)
 
     return NextResponse.json({
       success: true,
       message: "Luminaire mis à jour avec succès",
     })
   } catch (error: any) {
-    console.error("❌ Erreur API /api/luminaires/[id] PUT:", error)
+    console.error("❌ Erreur dans PUT /api/luminaires/[id]:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la mise à jour du luminaire",
+        error: "Erreur serveur",
         details: error.message,
       },
       { status: 500 },
@@ -151,9 +111,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log("🗑️ API /api/luminaires/[id] DELETE - Suppression luminaire ID:", params.id)
+    const id = params.id
+    console.log("🗑️ Suppression luminaire:", id)
 
-    if (!ObjectId.isValid(params.id)) {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
     }
 
@@ -161,24 +122,24 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const result = await collection.deleteOne({ _id: new ObjectId(params.id) })
+    const result = await collection.deleteOne({ _id: new ObjectId(id) })
 
     if (result.deletedCount === 0) {
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    console.log("✅ Luminaire supprimé avec succès")
+    console.log("✅ Luminaire supprimé:", id)
 
     return NextResponse.json({
       success: true,
       message: "Luminaire supprimé avec succès",
     })
   } catch (error: any) {
-    console.error("❌ Erreur API /api/luminaires/[id] DELETE:", error)
+    console.error("❌ Erreur dans DELETE /api/luminaires/[id]:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la suppression du luminaire",
+        error: "Erreur serveur",
         details: error.message,
       },
       { status: 500 },
