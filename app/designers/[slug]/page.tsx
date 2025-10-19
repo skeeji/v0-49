@@ -29,6 +29,7 @@ export default function DesignerDetailPage() {
     async function fetchDesignerData() {
       setIsLoading(true)
       try {
+        // Utiliser l'API designer spécifique
         const response = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
         const result = await response.json()
         console.log("📊 Réponse API designer:", result)
@@ -36,10 +37,12 @@ export default function DesignerDetailPage() {
         if (result.success) {
           setDesigner(result.data.designer)
 
+          // CORRECTION 2: Récupérer l'image du designer depuis les luminaires
           const designerImageFilename = result.data.luminaires.find(
             (lum: any) => lum.designerImageFilename,
           )?.designerImageFilename
 
+          // Adapter les données des luminaires pour GalleryGrid
           const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
             ...lum,
             id: lum._id,
@@ -54,6 +57,7 @@ export default function DesignerDetailPage() {
           setDesignerLuminaires(adaptedLuminaires)
           console.log("✅ Luminaires adaptés:", adaptedLuminaires.length)
 
+          // CORRECTION 2: Mettre à jour les données du designer avec l'image trouvée
           if (designerImageFilename) {
             setDesigner((prev) => ({
               ...prev,
@@ -62,22 +66,26 @@ export default function DesignerDetailPage() {
             console.log("✅ Image designer trouvée:", designerImageFilename)
           }
 
+          // Charger les descriptions stockées localement
           if (adaptedLuminaires.length > 0) {
             const fullDesignerField = adaptedLuminaires[0].artist
             const defaultSpecialty = adaptedLuminaires[0].specialty
 
+            // CORRECTION: Récupérer SEULEMENT les collaborations/œuvres, PAS les descriptions
             const allCollaborations = adaptedLuminaires
               .map((lum) => {
+                // CORRECTION: Chercher SEULEMENT dans les champs collaboration
                 return lum["Collaboration / Œuvre"] || lum.collaboration || ""
               })
               .filter((collab) => collab && collab.trim() !== "")
-              .filter((value, index, self) => self.indexOf(value) === index)
+              .filter((value, index, self) => self.indexOf(value) === index) // Supprimer les doublons
               .join(" • ")
 
             const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
             const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
 
             setDescription(storedDescriptions[fullDesignerField] || defaultSpecialty)
+            // CORRECTION: Si pas de collaboration stockée ET pas de collaboration par défaut, laisser vide
             setCollaboration(storedCollaborations[fullDesignerField] || allCollaborations || "")
           }
         } else {
@@ -95,6 +103,7 @@ export default function DesignerDetailPage() {
     fetchDesignerData()
   }, [params.slug])
 
+  // Fonctions pour mettre à jour les descriptions (seulement pour admin)
   const updateDescription = (newDescription: string) => {
     if (!canEdit) return
     setDescription(newDescription)
@@ -121,6 +130,7 @@ export default function DesignerDetailPage() {
     if (!canEdit) return
 
     try {
+      // Mettre à jour tous les luminaires de ce designer
       const updatePromises = designerLuminaires.map(async (luminaire) => {
         const response = await fetch(`/api/luminaires/${luminaire.id}`, {
           method: "PUT",
@@ -129,7 +139,7 @@ export default function DesignerDetailPage() {
           },
           body: JSON.stringify({
             "Artiste / Dates": newName,
-            designer: newName,
+            designer: newName, // CORRECTION: Mettre à jour les deux champs
           }),
         })
         return response.json()
@@ -137,6 +147,7 @@ export default function DesignerDetailPage() {
 
       await Promise.all(updatePromises)
 
+      // Mettre à jour l'état local
       setDesigner((prev) => ({ ...prev, nom: newName }))
       setDesignerLuminaires((prev) => prev.map((lum) => ({ ...lum, artist: newName })))
 
@@ -150,6 +161,7 @@ export default function DesignerDetailPage() {
     if (!canEdit) return
 
     try {
+      // Mettre à jour tous les luminaires de ce designer
       const updatePromises = designerLuminaires.map(async (luminaire) => {
         const response = await fetch(`/api/luminaires/${luminaire.id}`, {
           method: "PUT",
@@ -166,6 +178,7 @@ export default function DesignerDetailPage() {
 
       await Promise.all(updatePromises)
 
+      // Mettre à jour localStorage
       updateDescription(newSpecialty)
 
       console.log("✅ Spécialité du designer mise à jour avec succès")
@@ -178,6 +191,7 @@ export default function DesignerDetailPage() {
     if (!canEdit) return
 
     try {
+      // Mettre à jour tous les luminaires de ce designer
       const updatePromises = designerLuminaires.map(async (luminaire) => {
         const response = await fetch(`/api/luminaires/${luminaire.id}`, {
           method: "PUT",
@@ -194,6 +208,7 @@ export default function DesignerDetailPage() {
 
       await Promise.all(updatePromises)
 
+      // Mettre à jour localStorage
       updateCollaboration(newCollaboration)
 
       console.log("✅ Collaboration du designer mise à jour avec succès")
@@ -244,7 +259,6 @@ export default function DesignerDetailPage() {
                     alt={designer.nom}
                     fill
                     className="object-cover"
-                    unoptimized
                     onError={(e) => {
                       console.log("❌ Erreur chargement image designer:", designer.imagedesigner)
                       e.currentTarget.style.display = "none"

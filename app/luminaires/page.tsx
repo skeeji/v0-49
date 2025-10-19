@@ -113,29 +113,19 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (data.success) {
-          // Adapter les luminaires avec l'URL correcte de l'image
-          const adaptedLuminaires = data.luminaires.map((lum: any) => ({
-            ...lum,
-            image: lum.filename
-              ? `/api/images/filename/${lum.filename}`
-              : lum["Nom du fichier"]
-                ? `/api/images/filename/${lum["Nom du fichier"]}`
-                : null,
-          }))
-
           if (append && page > 1) {
             const existingIds = new Set(luminaires.map((l) => l._id))
-            const newLuminaires = adaptedLuminaires.filter((l) => !existingIds.has(l._id))
+            const newLuminaires = data.luminaires.filter((l) => !existingIds.has(l._id))
 
             console.log(
-              `📊 Page ${page}: ${adaptedLuminaires.length} luminaires reçus, ${newLuminaires.length} nouveaux ajoutés`,
+              `📊 Page ${page}: ${data.luminaires.length} luminaires reçus, ${newLuminaires.length} nouveaux ajoutés`,
             )
 
             if (newLuminaires.length > 0) {
               setLuminaires((prev) => [...prev, ...newLuminaires])
             }
           } else {
-            setLuminaires(adaptedLuminaires)
+            setLuminaires(data.luminaires)
           }
 
           setHasMore(data.pagination.hasMore)

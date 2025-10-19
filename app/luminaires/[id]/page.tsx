@@ -24,14 +24,6 @@ export default function LuminaireDetailPage() {
   const canEdit = !authLoading && userData?.role === "admin"
   const canSeeEstimation = user && (userData?.role === "admin" || userData?.role === "premium")
 
-  console.log("🔍 Debug estimation:", {
-    user: !!user,
-    userData: userData,
-    userRole: userData?.role,
-    authLoading,
-    canSeeEstimation,
-  })
-
   useEffect(() => {
     if (!params.id) return
 
@@ -47,27 +39,14 @@ export default function LuminaireDetailPage() {
         console.log("📊 Réponse API luminaire:", result)
 
         if (result.success) {
-          console.log("🔍 Clés disponibles dans le luminaire:", Object.keys(result.data))
-          console.log("🔍 Valeurs image:", {
-            filename: result.data.filename,
-            "Nom du fichier": result.data["Nom du fichier"],
-            image: result.data.image,
-          })
-
           const formattedLuminaire = {
             ...result.data,
             id: String(result.data._id || ""),
             _id: String(result.data._id || ""),
-            image: result.data.filename
-              ? `/api/images/filename/${result.data.filename}`
-              : result.data["Nom du fichier"]
-                ? `/api/images/filename/${result.data["Nom du fichier"]}`
-                : null,
 
             artist: result.data.designer || result.data["Artiste / Dates"] || "",
             year: result.data.annee || result.data["Année"] || "",
             name: result.data.nom || result.data["Nom luminaire"] || "",
-
             description: result.data.description || result.data["Description"] || "",
             dimensions: result.data.dimensions || result.data["Dimensions"] || "",
             estimation: result.data.estimation || result.data["Estimation"] || "",
@@ -119,17 +98,7 @@ export default function LuminaireDetailPage() {
             bibliographie: result.data.bibliographie || result.data["Bibliographie"] || "",
           }
 
-          console.log("✅ Luminaire formaté:", {
-            image: formattedLuminaire.image,
-            materials: formattedLuminaire.materials,
-            signed: formattedLuminaire.signed,
-            specialty: formattedLuminaire.specialty,
-            collaboration: formattedLuminaire.collaboration,
-            categorie: formattedLuminaire.categorie,
-            lienSiteMarchand: formattedLuminaire.lienSiteMarchand,
-            etiquette: formattedLuminaire.etiquette,
-            bibliographie: formattedLuminaire.bibliographie,
-          })
+          console.log("✅ Luminaire formaté:", formattedLuminaire)
 
           setLuminaire(formattedLuminaire)
 
@@ -139,7 +108,6 @@ export default function LuminaireDetailPage() {
           if (allLuminairesData.success) {
             const similar = findSimilarLuminaires(formattedLuminaire, allLuminairesData.luminaires)
             setSimilarLuminaires(similar)
-            console.log("✅ Luminaires similaires:", similar.length)
           }
         }
       } catch (error) {
@@ -230,11 +198,6 @@ export default function LuminaireDetailPage() {
         return {
           ...item,
           id: String(item._id || ""),
-          image: item.filename
-            ? `/api/images/filename/${item.filename}`
-            : item["Nom du fichier"]
-              ? `/api/images/filename/${item["Nom du fichier"]}`
-              : null,
           artist: itemArtist,
           year: String(item.annee || item["Année"] || ""),
           name: String(item["Nom luminaire"] || item.nom || "Sans nom"),
@@ -290,7 +253,6 @@ export default function LuminaireDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [keyToUpdate]: value }),
       })
-      console.log(`✅ Luminaire mis à jour - ${field} (${keyToUpdate}):`, value)
 
       if (field === "artist") {
         await fetch(`/api/luminaires/${luminaire._id}`, {
@@ -438,8 +400,6 @@ export default function LuminaireDetailPage() {
 
   const handleDeleteLuminaire = async (luminaireId: string) => {
     try {
-      console.log("🗑️ Tentative de suppression du luminaire:", luminaireId)
-
       const response = await fetch(`/api/luminaires/${luminaireId}`, {
         method: "DELETE",
         headers: {
@@ -452,17 +412,13 @@ export default function LuminaireDetailPage() {
       }
 
       const data = await response.json()
-      console.log("📊 Réponse de suppression:", data)
 
       if (data.success) {
-        console.log("✅ Suppression réussie, redirection vers /luminaires...")
         window.location.href = "/luminaires"
       } else {
-        console.error("❌ Erreur suppression:", data.error)
         alert(`Erreur lors de la suppression: ${data.error}`)
       }
-    } catch (error) {
-      console.error("❌ Erreur suppression:", error)
+    } catch (error: any) {
       alert(`Erreur lors de la suppression: ${error.message}`)
     }
   }
