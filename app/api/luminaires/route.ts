@@ -9,59 +9,23 @@ export async function GET(request: Request) {
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "50")
     const search = searchParams.get("search") || ""
-    const categorie = searchParams.get("categorie") || ""
-    const materiau = searchParams.get("materiau") || ""
-    const yearMin = searchParams.get("yearMin")
-    const yearMax = searchParams.get("yearMax")
     const sortField = searchParams.get("sortField") || "nom"
-    const sortDirection = searchParams.get("sortDirection") || "asc"
+    const sortDirection = searchParams.get("sortDirection") === "desc" ? -1 : 1
+
+    console.log(`🔍 API /api/luminaires - page=${page}, limit=${limit}, search="${search}"`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Construire le filtre
+    // Construction du filtre de recherche
     const filter: any = {}
-
     if (search) {
       filter.$or = [
         { nom: { $regex: search, $options: "i" } },
-        { Nom: { $regex: search, $options: "i" } },
         { designer: { $regex: search, $options: "i" } },
-        { Designer: { $regex: search, $options: "i" } },
-        { "Designer (name)": { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
       ]
-    }
-
-    if (categorie && categorie !== "all") {
-      filter.$or = [{ categorie: categorie }, { Catégorie: categorie }]
-    }
-
-    if (materiau && materiau !== "all") {
-      filter.$or = [
-        { materiaux: { $regex: materiau, $options: "i" } },
-        { Matériaux: { $regex: materiau, $options: "i" } },
-      ]
-    }
-
-    if (yearMin && yearMax) {
-      const min = Number.parseInt(yearMin)
-      const max = Number.parseInt(yearMax)
-      filter.$or = [
-        { annee: { $gte: min, $lte: max } },
-        { year: { $gte: min, $lte: max } },
-        { Année: { $gte: min, $lte: max } },
-      ]
-    }
-
-    // Construire le tri
-    const sortObject: any = {}
-    if (sortField === "nom") {
-      sortObject.nom = sortDirection === "asc" ? 1 : -1
-    } else if (sortField === "designer") {
-      sortObject.designer = sortDirection === "asc" ? 1 : -1
-    } else if (sortField === "annee") {
-      sortObject.annee = sortDirection === "asc" ? 1 : -1
     }
 
     // Compter le total
@@ -69,26 +33,35 @@ export async function GET(request: Request) {
 
     // Récupérer les luminaires avec pagination
     const skip = (page - 1) * limit
-    const luminaires = await collection.find(filter).sort(sortObject).skip(skip).limit(limit).toArray()
+    const luminaires = await collection
+      .find(filter)
+      .sort({ [sortField]: sortDirection })
+      .skip(skip)
+      .limit(limit)
+      .toArray()
 
-    console.log(`📊 API /api/luminaires: ${luminaires.length} luminaires retournés (page ${page}, total ${total})`)
+    // Calculer hasMore
+    const hasMore = skip + luminaires.length < total
+
+    console.log(`✅ Retourné ${luminaires.length} luminaires sur ${total} (page ${page})`)
 
     return NextResponse.json({
-      success: true,
-      luminaires: luminaires,
+      luminaires: luminaires.map((lum) => ({
+        ...lum,
+        _id: lum._id.toString(),
+      })),
       pagination: {
-        page: page,
-        limit: limit,
-        total: total,
-        hasMore: skip + luminaires.length < total,
+        page,
+        limit,
+        total,
+        hasMore,
       },
     })
   } catch (error: any) {
     console.error("❌ Erreur API /api/luminaires:", error)
     return NextResponse.json(
       {
-        success: false,
-        error: "Erreur lors du chargement des luminaires",
+        error: "Erreur lors de la récupération des luminaires",
         details: error.message,
       },
       { status: 500 },
@@ -99,22 +72,27 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    console.log("📝 Création d'un nouveau luminaire:", body.nom)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const result = await collection.insertOne(body)
+    const result = await collection.insertOne({
+      ...body,
+      createdAt: new Date(),
+    })
+
+    console.log(`✅ Luminaire créé avec _id: ${result.insertedId}`)
 
     return NextResponse.json({
       success: true,
-      id: result.insertedId,
+      _id: result.insertedId.toString(),
     })
   } catch (error: any) {
     console.error("❌ Erreur création luminaire:", error)
     return NextResponse.json(
       {
-        success: false,
         error: "Erreur lors de la création du luminaire",
         details: error.message,
       },

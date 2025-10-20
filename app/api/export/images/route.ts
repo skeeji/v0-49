@@ -13,25 +13,27 @@ export async function GET() {
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Récupérer tous les luminaires pour identifier les images de designers
+    // PHASE 1: Identifier les images de designers depuis la base de données
+    console.log("📊 Phase 1: Identification des images de designers")
     const luminairesCollection = db.collection("luminaires")
     const allLuminaires = await luminairesCollection.find({}).toArray()
 
     const designerImageNames = new Set<string>()
 
-    // Identifier toutes les images de designers
-    allLuminaires.forEach((lum) => {
-      // Liste exhaustive des champs possibles pour les images de designers
-      const designerFields = [
-        "designerImageFilename",
-        "Image designer (imagedesigner)",
-        "imagedesigner",
-        "Image designer",
-        "designer_image",
-        "designerImage",
-      ]
+    // Liste exhaustive des champs possibles pour les images de designers
+    const designerImageFields = [
+      "designerImageFilename",
+      "Image designer (imagedesigner)",
+      "imagedesigner",
+      "Image designer",
+      "designer_image",
+      "designerImage",
+      "imageDesigner",
+      "designer-image",
+    ]
 
-      for (const field of designerFields) {
+    allLuminaires.forEach((lum) => {
+      for (const field of designerImageFields) {
         const value = lum[field]
         if (value && typeof value === "string") {
           const cleanValue = value.trim()
@@ -44,7 +46,8 @@ export async function GET() {
 
     console.log(`👤 ${designerImageNames.size} images de designers identifiées`)
 
-    // Récupérer tous les fichiers depuis GridFS
+    // PHASE 2: Récupérer tous les fichiers depuis GridFS
+    console.log("📁 Phase 2: Récupération des fichiers depuis GridFS")
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
     const files = await bucket.find({}).toArray()
 
@@ -54,10 +57,12 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Aucune image trouvée" }, { status: 404 })
     }
 
-    // Créer le ZIP manuellement
+    // PHASE 3: Créer le ZIP avec séparation designers/luminaires
+    console.log("🗜️ Phase 3: Création du ZIP")
     const fileData: Array<{ name: string; data: Buffer; crc32: number }> = []
     let designersCount = 0
     let luminairesCount = 0
+    let errorsCount = 0
 
     for (const file of files) {
       try {
@@ -72,18 +77,20 @@ export async function GET() {
         const buffer = Buffer.concat(chunks)
 
         if (buffer.length === 0) {
-          console.log(`⚠️ Fichier vide: ${file.filename}`)
+          console.log(`⚠️ Fichier vide ignoré: ${file.filename}`)
           continue
         }
 
-        // Déterminer le dossier
+        // Déterminer le dossier (designers ou luminaires)
         const isDesignerImage = designerImageNames.has(file.filename)
         const folder = isDesignerImage ? "designers" : "luminaires"
 
         if (isDesignerImage) {
           designersCount++
+          console.log(`👤 ${file.filename} → designers/ (${Math.round(buffer.length / 1024)}KB)`)
         } else {
           luminairesCount++
+          console.log(`💡 ${file.filename} → luminaires/ (${Math.round(buffer.length / 1024)}KB)`)
         }
 
         const crc32 = calculateCRC32(buffer)
@@ -93,25 +100,30 @@ export async function GET() {
           data: buffer,
           crc32: crc32,
         })
-
-        console.log(`✅ ${folder}/${file.filename} (${Math.round(buffer.length / 1024)}KB)`)
       } catch (fileError: any) {
-        console.error(`❌ Erreur fichier ${file.filename}:`, fileError.message)
+        errorsCount++
+        console.error(`❌ Erreur lecture fichier ${file.filename}:`, fileError.message)
       }
     }
 
-    console.log(`📊 Résumé: ${designersCount} designers, ${luminairesCount} luminaires`)
+    console.log(`📊 Résumé:`)
+    console.log(`  👤 ${designersCount} images dans designers/`)
+    console.log(`  💡 ${luminairesCount} images dans luminaires/`)
+    console.log(`  ❌ ${errorsCount} erreurs`)
+    console.log(`  ✅ ${fileData.length} fichiers au total`)
 
     if (fileData.length === 0) {
       return NextResponse.json({ success: false, error: "Aucun fichier valide trouvé" }, { status: 404 })
     }
 
-    // Créer le ZIP
+    // PHASE 4: Créer le buffer ZIP
+    console.log("📦 Phase 4: Création du buffer ZIP")
     const zipBuffer = createZipBuffer(fileData)
 
-    const filename = `images_export_${new Date().toISOString().split("T")[0]}.zip`
+    const today = new Date().toISOString().split("T")[0]
+    const filename = `images_export_${today}.zip`
 
-    console.log(`✅ ZIP créé: ${zipBuffer.length} bytes avec ${fileData.length} fichiers`)
+    console.log(`✅ ZIP créé: ${Math.round(zipBuffer.length / 1024 / 1024)}MB avec ${fileData.length} fichiers`)
 
     return new NextResponse(zipBuffer, {
       status: 200,
@@ -119,6 +131,7 @@ export async function GET() {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Content-Length": zipBuffer.length.toString(),
+        "Cache-Control": "no-cache",
       },
     })
   } catch (error: any) {
@@ -143,11 +156,16 @@ function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: nu
     const nameBuffer = Buffer.from(name, "utf8")
     const localHeader = Buffer.alloc(30 + nameBuffer.length)
 
-    localHeader.writeUInt32LE(0x04034b50, 0) // Signature
-    localHeader.writeUInt16LE(20, 4) // Version
-    localHeader.writeUInt16LE(0, 6) // Flags
-    localHeader.writeUInt16LE(0, 8) // Compression (stored)
+    // Local file header signature
+    localHeader.writeUInt32LE(0x04034b50, 0)
+    // Version needed to extract
+    localHeader.writeUInt16LE(20, 4)
+    // General purpose bit flag
+    localHeader.writeUInt16LE(0, 6)
+    // Compression method (0 = stored, no compression)
+    localHeader.writeUInt16LE(0, 8)
 
+    // Date et heure actuelles en format DOS
     const now = new Date()
     const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
     const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
@@ -155,54 +173,57 @@ function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: nu
     localHeader.writeUInt16LE(dosTime, 10)
     localHeader.writeUInt16LE(dosDate, 12)
     localHeader.writeUInt32LE(crc32, 14)
-    localHeader.writeUInt32LE(data.length, 18)
-    localHeader.writeUInt32LE(data.length, 22)
+    localHeader.writeUInt32LE(data.length, 18) // Compressed size
+    localHeader.writeUInt32LE(data.length, 22) // Uncompressed size
     localHeader.writeUInt16LE(nameBuffer.length, 26)
-    localHeader.writeUInt16LE(0, 28)
+    localHeader.writeUInt16LE(0, 28) // Extra field length
     nameBuffer.copy(localHeader, 30)
 
     zipEntries.push(localHeader)
     zipEntries.push(data)
 
+    // Central directory file header
     const centralEntry = Buffer.alloc(46 + nameBuffer.length)
-    centralEntry.writeUInt32LE(0x02014b50, 0)
-    centralEntry.writeUInt16LE(20, 4)
-    centralEntry.writeUInt16LE(20, 6)
-    centralEntry.writeUInt16LE(0, 8)
-    centralEntry.writeUInt16LE(0, 10)
+    centralEntry.writeUInt32LE(0x02014b50, 0) // Signature
+    centralEntry.writeUInt16LE(20, 4) // Version made by
+    centralEntry.writeUInt16LE(20, 6) // Version needed to extract
+    centralEntry.writeUInt16LE(0, 8) // General purpose bit flag
+    centralEntry.writeUInt16LE(0, 10) // Compression method
     centralEntry.writeUInt16LE(dosTime, 12)
     centralEntry.writeUInt16LE(dosDate, 14)
     centralEntry.writeUInt32LE(crc32, 16)
-    centralEntry.writeUInt32LE(data.length, 20)
-    centralEntry.writeUInt32LE(data.length, 24)
+    centralEntry.writeUInt32LE(data.length, 20) // Compressed size
+    centralEntry.writeUInt32LE(data.length, 24) // Uncompressed size
     centralEntry.writeUInt16LE(nameBuffer.length, 28)
-    centralEntry.writeUInt16LE(0, 30)
-    centralEntry.writeUInt16LE(0, 32)
-    centralEntry.writeUInt16LE(0, 34)
-    centralEntry.writeUInt16LE(0, 36)
-    centralEntry.writeUInt32LE(0, 38)
-    centralEntry.writeUInt32LE(offset, 42)
+    centralEntry.writeUInt16LE(0, 30) // Extra field length
+    centralEntry.writeUInt16LE(0, 32) // File comment length
+    centralEntry.writeUInt16LE(0, 34) // Disk number start
+    centralEntry.writeUInt16LE(0, 36) // Internal file attributes
+    centralEntry.writeUInt32LE(0, 38) // External file attributes
+    centralEntry.writeUInt32LE(offset, 42) // Relative offset of local header
     nameBuffer.copy(centralEntry, 46)
 
     centralDirectory.push(centralEntry)
     offset += localHeader.length + data.length
   })
 
+  // End of central directory record
   const centralDirSize = centralDirectory.reduce((sum, entry) => sum + entry.length, 0)
   const endOfCentralDir = Buffer.alloc(22)
-  endOfCentralDir.writeUInt32LE(0x06054b50, 0)
-  endOfCentralDir.writeUInt16LE(0, 4)
-  endOfCentralDir.writeUInt16LE(0, 6)
-  endOfCentralDir.writeUInt16LE(fileData.length, 8)
-  endOfCentralDir.writeUInt16LE(fileData.length, 10)
-  endOfCentralDir.writeUInt32LE(centralDirSize, 12)
-  endOfCentralDir.writeUInt32LE(offset, 16)
-  endOfCentralDir.writeUInt16LE(0, 20)
+  endOfCentralDir.writeUInt32LE(0x06054b50, 0) // Signature
+  endOfCentralDir.writeUInt16LE(0, 4) // Number of this disk
+  endOfCentralDir.writeUInt16LE(0, 6) // Disk where central directory starts
+  endOfCentralDir.writeUInt16LE(fileData.length, 8) // Number of central directory records on this disk
+  endOfCentralDir.writeUInt16LE(fileData.length, 10) // Total number of central directory records
+  endOfCentralDir.writeUInt32LE(centralDirSize, 12) // Size of central directory
+  endOfCentralDir.writeUInt32LE(offset, 16) // Offset of start of central directory
+  endOfCentralDir.writeUInt16LE(0, 20) // ZIP file comment length
 
   return Buffer.concat([...zipEntries, ...centralDirectory, endOfCentralDir])
 }
 
 function calculateCRC32(buffer: Buffer): number {
+  // Créer la table CRC32
   const crcTable: number[] = []
   for (let i = 0; i < 256; i++) {
     let crc = i
@@ -212,6 +233,7 @@ function calculateCRC32(buffer: Buffer): number {
     crcTable[i] = crc
   }
 
+  // Calculer le CRC32
   let crc = 0xffffffff
   for (let i = 0; i < buffer.length; i++) {
     crc = crcTable[(crc ^ buffer[i]) & 0xff] ^ (crc >>> 8)
