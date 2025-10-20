@@ -11,34 +11,31 @@ export async function GET(request: NextRequest) {
     const client = await clientPromise
     const db = client.db(DBNAME)
     const luminairesCollection = db.collection("luminaires")
-    const imagesCollection = db.collection("fs.files")
+    const uploadsFiles = db.collection("uploads.files")
 
-    // Récupérer tous les luminaires
     const luminaires = await luminairesCollection.find({}).toArray()
-
     console.log(`✅ ${luminaires.length} luminaires récupérés pour l'export`)
 
-    // Formater les données pour l'export CSV
     const formattedData = await Promise.all(
       luminaires.map(async (luminaire) => {
-        let imageFilename = luminaire.filename || luminaire["Nom du fichier"] || ""
+        let imageFilename = ""
 
-        // Si pas de filename mais un imageId, récupérer le filename depuis GridFS
-        if (!imageFilename && luminaire.imageId) {
+        if (luminaire.filename) {
+          imageFilename = luminaire.filename
+        } else if (luminaire["Nom du fichier"]) {
+          imageFilename = luminaire["Nom du fichier"]
+        } else if (luminaire.imageId) {
           try {
-            const imageDoc = await imagesCollection.findOne({ _id: new ObjectId(luminaire.imageId) })
-            if (imageDoc && imageDoc.filename) {
+            const imageDoc = await uploadsFiles.findOne({ _id: new ObjectId(luminaire.imageId) })
+            if (imageDoc?.filename) {
               imageFilename = imageDoc.filename
-              console.log(`📸 Filename récupéré depuis GridFS pour ${luminaire.nom}: ${imageFilename}`)
             }
           } catch (error) {
-            console.error(`❌ Erreur récupération filename pour imageId ${luminaire.imageId}:`, error)
+            console.error(`Erreur récupération image pour ${luminaire.imageId}:`, error)
           }
         }
 
-        console.log(
-          `📝 Luminaire: ${luminaire.nom || luminaire["Nom luminaire"]}, Image: ${imageFilename}, ImageId: ${luminaire.imageId}`,
-        )
+        console.log(`Luminaire: ${luminaire.nom || luminaire["Nom luminaire"]} -> Image: ${imageFilename}`)
 
         return {
           _id: luminaire._id.toString(),
@@ -79,14 +76,7 @@ export async function GET(request: NextRequest) {
     )
 
     const withImages = formattedData.filter((l) => l["Image luminaire (Nom du fichier)"]).length
-    console.log(`✅ Export terminé: ${formattedData.length} luminaires, ${withImages} avec images`)
-    console.log(`📄 Exemples:`, {
-      premier: {
-        nom: formattedData[0]?.["Nom luminaire"],
-        image: formattedData[0]?.["Image luminaire (Nom du fichier)"],
-      },
-      avecImage: formattedData.find((l) => l["Image luminaire (Nom du fichier)"]),
-    })
+    console.log(`✅ Export: ${formattedData.length} luminaires, ${withImages} avec images`)
 
     return NextResponse.json({
       success: true,

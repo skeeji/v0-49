@@ -121,11 +121,9 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true)
       try {
-        // Charger les luminaires
         const response = await fetch("/api/luminaires?limit=10000")
         const data = await response.json()
 
-        // Charger les images de périodes
         const imagesResponse = await fetch("/api/period-images")
         const imagesData = await imagesResponse.json()
 
@@ -136,19 +134,28 @@ export default function ChronologiePage() {
         if (data.success && data.luminaires) {
           console.log(`📊 Chronologie: ${data.luminaires.length} luminaires chargés`)
 
-          // Adapter les données SANS MODIFIER les années
           const adaptedLuminaires = data.luminaires.map((lum: any) => {
-            // Utiliser seulement l'année si elle existe et est valide
             let year = null
             if (lum.annee && typeof lum.annee === "number" && lum.annee > 1000 && lum.annee < 2100) {
               year = lum.annee
             }
 
+            let imageUrl = null
+            if (lum.imageId) {
+              imageUrl = `/api/images/${lum.imageId}`
+            } else if (lum.filename) {
+              imageUrl = `/api/images/filename/${lum.filename}`
+            } else if (lum["Nom du fichier"]) {
+              imageUrl = `/api/images/filename/${lum["Nom du fichier"]}`
+            }
+
+            console.log(`Luminaire ${lum.nom}: imageUrl = ${imageUrl}`)
+
             return {
               ...lum,
               id: lum._id,
-              image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
-              year: year, // Garder null si pas d'année valide
+              image: imageUrl,
+              year: year,
               artist: lum["Artiste / Dates"] || "",
               name: lum["Nom luminaire"] || "Sans nom",
             }
@@ -158,7 +165,6 @@ export default function ChronologiePage() {
 
           const grouped = periods.map((period) => {
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
-              // Filtrer seulement les luminaires avec une année valide dans la période
               return luminaire.year !== null && luminaire.year >= period.start && luminaire.year <= period.end
             })
 
