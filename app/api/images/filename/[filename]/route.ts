@@ -1,65 +1,49 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getBucket } from "@/lib/gridfs"
+import clientPromise from "@/lib/mongodb"
+import { GridFSBucket } from "mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { filename: string } }) {
   try {
     const filename = decodeURIComponent(params.filename)
-    console.log(`🖼️ Recherche image: ${filename}`)
+    console.log(`🖼️  API /api/images/filename/${filename} - Recherche de l'image`)
 
-    const bucket = await getBucket()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    // Chercher le fichier par nom exact
-    const files = await bucket.find({ filename }).toArray()
+    // Chercher le fichier dans uploads.files
+    const file = await db.collection("uploads.files").findOne({ filename })
 
-    if (files.length === 0) {
+    if (!file) {
       console.log(`❌ Image non trouvée: ${filename}`)
-      // Retourner une image placeholder au lieu d'une erreur 404
-      return NextResponse.redirect("/placeholder.svg?height=300&width=300")
+      return new NextResponse("Image non trouvée", { status: 404 })
     }
 
-    const file = files[0]
-    console.log(`✅ Image trouvée: ${filename}, taille: ${file.length} bytes`)
+    console.log(`✅ Image trouvée: ${filename}, contentType: ${file.contentType || file.metadata?.contentType}`)
 
-    // Créer un stream de téléchargement
-    const downloadStream = bucket.openDownloadStream(file._id)
+    // Streamer l'image depuis GridFS
+    const downloadStream = bucket.openDownloadStreamByName(filename)
 
-    // Convertir le stream en buffer avec timeout
+    // Convertir le stream en buffer
     const chunks: Buffer[] = []
+    for await (const chunk of downloadStream) {
+      chunks.push(chunk)
+    }
+    const buffer = Buffer.concat(chunks)
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new NextResponse("Timeout lecture image", { status: 408 }))
-      }, 10000)
+    // Déterminer le content type
+    const contentType = file.contentType || file.metadata?.contentType || "image/jpeg"
 
-      downloadStream.on("data", (chunk) => {
-        chunks.push(chunk)
-      })
-
-      downloadStream.on("end", () => {
-        clearTimeout(timeout)
-        const buffer = Buffer.concat(chunks)
-
-        const response = new NextResponse(buffer, {
-          status: 200,
-          headers: {
-            "Content-Type": file.contentType || "image/jpeg",
-            "Content-Length": buffer.length.toString(),
-            "Cache-Control": "public, max-age=31536000, immutable",
-            "Access-Control-Allow-Origin": "*",
-          },
-        })
-
-        resolve(response)
-      })
-
-      downloadStream.on("error", (error) => {
-        clearTimeout(timeout)
-        console.error(`❌ Erreur lecture image ${filename}:`, error)
-        reject(new NextResponse("Erreur lecture image", { status: 500 }))
-      })
+    return new NextResponse(buffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
     })
   } catch (error: any) {
-    console.error(`❌ Erreur API image ${params.filename}:`, error)
-    return new NextResponse("Erreur serveur", { status: 500 })
+    console.error(`❌ Erreur lors de la récupération de l'image ${params.filename}:`, error)
+    return new NextResponse("Erreur lors de la récupération de l'image", { status: 500 })
   }
 }

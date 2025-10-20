@@ -136,7 +136,7 @@ export default function ChronologiePage() {
         if (data.success && data.luminaires) {
           console.log(`📊 Chronologie: ${data.luminaires.length} luminaires chargés`)
 
-          // Adapter les données SANS MODIFIER les années
+          // Adapter les données avec le bon chemin d'image
           const adaptedLuminaires = data.luminaires.map((lum: any) => {
             // Utiliser seulement l'année si elle existe et est valide
             let year = null
@@ -144,17 +144,29 @@ export default function ChronologiePage() {
               year = lum.annee
             }
 
+            // Construire l'URL de l'image depuis le nom du fichier
+            let imageUrl = null
+            const filename = lum.filename || lum["Nom du fichier"]
+
+            if (filename) {
+              imageUrl = `/api/images/filename/${encodeURIComponent(filename)}`
+              console.log(`✅ Image pour ${lum.nom || lum["Nom luminaire"]}: ${imageUrl}`)
+            } else {
+              console.log(`❌ Pas de filename pour ${lum.nom || lum["Nom luminaire"]}`)
+            }
+
             return {
               ...lum,
               id: lum._id,
-              image: lum["Nom du fichier"] ? `/api/images/filename/${lum["Nom du fichier"]}` : null,
-              year: year, // Garder null si pas d'année valide
-              artist: lum["Artiste / Dates"] || "",
-              name: lum["Nom luminaire"] || "Sans nom",
+              image: imageUrl,
+              year: year,
+              artist: lum["Artiste / Dates"] || lum.designer || "",
+              name: lum["Nom luminaire"] || lum.nom || "Sans nom",
             }
           })
 
           console.log(`📅 Luminaires avec année valide: ${adaptedLuminaires.filter((l) => l.year !== null).length}`)
+          console.log(`🖼️  Luminaires avec image: ${adaptedLuminaires.filter((l) => l.image !== null).length}`)
 
           const grouped = periods.map((period) => {
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
