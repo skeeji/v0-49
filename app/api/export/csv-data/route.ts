@@ -36,7 +36,9 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        console.log(`📝 Luminaire: ${luminaire.nom || luminaire["Nom luminaire"]}, Image: ${imageFilename}`)
+        console.log(
+          `📝 Luminaire: ${luminaire.nom || luminaire["Nom luminaire"]}, Image: ${imageFilename}, ImageId: ${luminaire.imageId}`,
+        )
 
         return {
           _id: luminaire._id.toString(),
@@ -76,10 +78,14 @@ export async function GET(request: NextRequest) {
       }),
     )
 
-    console.log(`✅ Export terminé avec ${formattedData.length} luminaires`)
-    console.log(`📄 Exemple de données exportées:`, {
-      nom: formattedData[0]?.["Nom luminaire"],
-      image: formattedData[0]?.["Image luminaire (Nom du fichier)"],
+    const withImages = formattedData.filter((l) => l["Image luminaire (Nom du fichier)"]).length
+    console.log(`✅ Export terminé: ${formattedData.length} luminaires, ${withImages} avec images`)
+    console.log(`📄 Exemples:`, {
+      premier: {
+        nom: formattedData[0]?.["Nom luminaire"],
+        image: formattedData[0]?.["Image luminaire (Nom du fichier)"],
+      },
+      avecImage: formattedData.find((l) => l["Image luminaire (Nom du fichier)"]),
     })
 
     return NextResponse.json({
