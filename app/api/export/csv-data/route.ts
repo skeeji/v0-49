@@ -11,12 +11,11 @@ export async function GET(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Récupérer tous les luminaires
     const luminaires = await collection.find({}).toArray()
 
     console.log(`✅ ${luminaires.length} luminaires récupérés pour l'export`)
 
-    // Formater les données pour l'export CSV
+    // Formater les données pour l'export CSV avec le nom de fichier de l'image
     const formattedData = luminaires.map((luminaire) => ({
       _id: luminaire._id.toString(),
       nom: luminaire.nom || "",
@@ -48,9 +47,12 @@ export async function GET(request: NextRequest) {
       Editeur: luminaire["Editeur"] || luminaire.editeur || "",
       filename: luminaire.filename || "",
       "Nom du fichier": luminaire["Nom du fichier"] || luminaire.filename || "",
+      "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
       createdAt: luminaire.createdAt,
       updatedAt: luminaire.updatedAt,
     }))
+
+    console.log(`📝 Exemple de données exportées:`, formattedData[0])
 
     return NextResponse.json({
       success: true,
