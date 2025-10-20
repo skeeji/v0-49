@@ -132,6 +132,12 @@ export default function ImportPage() {
       const headers = parseCSVLine(lines[0])
       console.log("📋 En-têtes détectés:", headers)
 
+      // Vérifier que la colonne "Image luminaire (Nom du fichier)" existe
+      const imageColumnIndex = headers.findIndex(
+        (h) => h === "Image luminaire (Nom du fichier)" || h === "Nom du fichier",
+      )
+      console.log(`📸 Colonne image trouvée à l'index ${imageColumnIndex}`)
+
       const CHUNK_SIZE = 50
       const dataLines = lines.slice(1)
       const chunks = []
@@ -332,7 +338,9 @@ export default function ImportPage() {
               totalUploaded += result.uploaded || 0
             }
             totalAssociated += result.associated || 0
-            console.log(`✅ ${file.name}: ${result.skipped ? "déjà existant" : "uploadé"}`)
+            console.log(
+              `✅ ${file.name}: ${result.skipped ? "déjà existant" : "uploadé"}, ${result.associated || 0} associés`,
+            )
           } else {
             throw new Error(result.error)
           }
@@ -708,28 +716,26 @@ export default function ImportPage() {
           const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
           const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
           const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
-
-          // CORRECTION: Récupération de l'éditeur avec toutes les variantes possibles
           const editeur = luminaire.editeur || luminaire.Editeur || luminaire["Editeur"] || ""
 
-          // CORRECTION: Gestion unifiée des matériaux - vérifier d'abord le tableau materiaux
           let materiaux = ""
           if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
             materiaux = luminaire.materiaux.join("; ")
-            console.log(`✅ Luminaire ${index + 1} - Matériaux (array):`, materiaux)
           } else if (luminaire.Matériaux) {
             if (typeof luminaire.Matériaux === "string" && luminaire.Matériaux.trim() !== "") {
               materiaux = luminaire.Matériaux.trim()
-              console.log(`✅ Luminaire ${index + 1} - Matériaux (string):`, materiaux)
             } else if (Array.isArray(luminaire.Matériaux)) {
               materiaux = luminaire.Matériaux.join("; ")
-              console.log(`✅ Luminaire ${index + 1} - Matériaux (array Matériaux):`, materiaux)
             }
           }
 
           const lienSiteMarchand = luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || ""
           const etiquette = luminaire.etiquette || luminaire["Etiquette"] || ""
           const bibliographie = luminaire.bibliographie || luminaire["Bibliographie"] || ""
+
+          // CORRECTION: récupérer le nom du fichier depuis tous les champs possibles
+          const filename =
+            luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
 
           return {
             Signé: luminaire.signe || luminaire["Signé"] || "",
@@ -744,7 +750,7 @@ export default function ImportPage() {
             Matériaux: materiaux,
             Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
             Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
-            "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
+            "Image luminaire (Nom du fichier)": filename,
             "Image designer (imagedesigner)": designerImageFilename,
             "Lien site marchand": lienSiteMarchand,
             Etiquette: etiquette,
@@ -785,19 +791,8 @@ export default function ImportPage() {
           ),
         ].join("\n")
 
-        const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"] !== "").length
-        const editeurCount = csvData.filter((row) => row["Editeur"] && row["Editeur"] !== "").length
-        const lienSiteMarchandCount = csvData.filter(
-          (row) => row["Lien site marchand"] && row["Lien site marchand"] !== "",
-        ).length
-        const etiquetteCount = csvData.filter((row) => row["Etiquette"] && row["Etiquette"] !== "").length
-        const bibliographieCount = csvData.filter((row) => row["Bibliographie"] && row["Bibliographie"] !== "").length
-
-        console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
-        console.log(`📊 Editeur rempli: ${editeurCount}/${csvData.length} luminaires`)
-        console.log(`📊 Lien site marchand: ${lienSiteMarchandCount}/${csvData.length} luminaires`)
-        console.log(`📊 Etiquette: ${etiquetteCount}/${csvData.length} luminaires`)
-        console.log(`📊 Bibliographie: ${bibliographieCount}/${csvData.length} luminaires`)
+        const withFilenames = csvData.filter((row) => row["Image luminaire (Nom du fichier)"] !== "").length
+        console.log(`📊 Export: ${csvData.length} luminaires, ${withFilenames} avec nom de fichier`)
 
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
         const link = document.createElement("a")
@@ -813,7 +808,7 @@ export default function ImportPage() {
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires - ${materiauxCount} matériaux, ${editeurCount} éditeurs`,
+          description: `${csvData.length} luminaires - ${withFilenames} avec images`,
         })
       }
     } catch (error) {
