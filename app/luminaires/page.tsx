@@ -22,7 +22,6 @@ export default function LuminairesPage() {
   const [columns, setColumns] = useState(4)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // États pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategorie, setSelectedCategorie] = useState("")
   const [selectedMateriau, setSelectedMateriau] = useState("")
@@ -35,11 +34,9 @@ export default function LuminairesPage() {
   const [hasMore, setHasMore] = useState(true)
   const [showFavorites, setShowFavorites] = useState(false)
 
-  // Refs pour accéder aux valeurs dans loadLuminaires sans créer de dépendances
   const yearRangeRef = useRef(yearRange)
   const sliderModifiedRef = useRef(sliderModified)
 
-  // Mettre à jour les refs à chaque rendu
   useEffect(() => {
     yearRangeRef.current = yearRange
     sliderModifiedRef.current = sliderModified
@@ -49,7 +46,6 @@ export default function LuminairesPage() {
   const isAdmin = userData?.role === "admin"
   const [favorites, setFavorites] = useState<string[]>([])
 
-  // Charger les favoris depuis la base de données pour les utilisateurs connectés
   useEffect(() => {
     const loadFavorites = async () => {
       if (user?.email) {
@@ -68,7 +64,6 @@ export default function LuminairesPage() {
     loadFavorites()
   }, [user?.email])
 
-  // Charger toutes les données pour les statistiques globales
   const loadAllLuminaires = useCallback(async () => {
     try {
       const response = await fetch(`/api/luminaires?limit=10000&page=1`)
@@ -81,7 +76,6 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour charger TOUS les luminaires (pas de limitation)
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -100,18 +94,15 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        // Utiliser les refs pour accéder aux valeurs actuelles sans dépendances
         if (sliderModifiedRef.current) {
           params.append("yearMin", yearRangeRef.current[0].toString())
           params.append("yearMax", yearRangeRef.current[1].toString())
         }
 
-        // CORRECTION: Gérer correctement le filtre "all" pour les catégories
         if (selectedCategorie && selectedCategorie !== "all") {
           params.append("categorie", selectedCategorie)
         }
 
-        // Ajouter le filtre matériaux
         if (selectedMateriau && selectedMateriau !== "all") {
           params.append("materiau", selectedMateriau)
         }
@@ -123,7 +114,6 @@ export default function LuminairesPage() {
 
         if (data.success) {
           if (append && page > 1) {
-            // CORRECTION: Éviter les doublons en filtrant les luminaires déjà présents
             const existingIds = new Set(luminaires.map((l) => l._id))
             const newLuminaires = data.luminaires.filter((l) => !existingIds.has(l._id))
 
@@ -155,18 +145,15 @@ export default function LuminairesPage() {
     [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, luminaires],
   )
 
-  // Charger les données globales au montage
   useEffect(() => {
     loadAllLuminaires()
   }, [loadAllLuminaires])
 
-  // Charger les luminaires
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
   }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified])
 
-  // Fonction pour charger plus de luminaires (scroll infini normal)
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && !showFavorites) {
       const nextPage = currentPage + 1
@@ -176,9 +163,8 @@ export default function LuminairesPage() {
     }
   }, [loadingMore, hasMore, loading, currentPage, loadLuminaires, showFavorites])
 
-  // Scroll infini optimisé - CORRECTION: désactiver quand on affiche les favoris
   useEffect(() => {
-    if (showFavorites) return // Pas de scroll infini pour les favoris
+    if (showFavorites) return
 
     const handleScroll = () => {
       const scrollTop = document.documentElement.scrollTop
@@ -205,7 +191,6 @@ export default function LuminairesPage() {
     }
   }, [loadMore, showFavorites])
 
-  // Fonction pour mettre à jour un luminaire
   const handleItemUpdate = useCallback(async (id: string, updates: any) => {
     try {
       const response = await fetch(`/api/luminaires/${id}`, {
@@ -228,7 +213,6 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  // Fonction pour créer un nouveau luminaire
   const handleCreateLuminaire = useCallback(
     async (luminaireData: any) => {
       try {
@@ -259,18 +243,14 @@ export default function LuminairesPage() {
     [loadLuminaires, loadAllLuminaires],
   )
 
-  // Options pour les filtres
   const filterOptions = useMemo(() => {
     const categories = [...new Set(allLuminaires.map((l) => l.categorie || l["Catégorie"]).filter(Boolean))].sort()
 
-    // CORRECTION: Utiliser la même logique que l'export CSV pour les matériaux
     const materiaux = new Set<string>()
     allLuminaires.forEach((l) => {
-      // Utiliser la même logique que dans l'export CSV
       const matValue = l["Matériaux"] || (Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux) || ""
 
       if (typeof matValue === "string" && matValue.trim()) {
-        // Diviser par virgules et nettoyer
         matValue.split(",").forEach((mat) => {
           const cleanMat = mat.trim()
           if (cleanMat && cleanMat.length > 0) {
@@ -286,7 +266,6 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // Calculer la plage d'années disponibles
   const yearBounds = useMemo(() => {
     const years = allLuminaires
       .map((l) => {
@@ -305,14 +284,12 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  // Initialiser la plage d'années
   useEffect(() => {
     if (allLuminaires.length > 0 && yearRange.length === 0) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
-  // Fonction qui gère le changement du slider
   const handleYearRangeChange = (newRange: number[]) => {
     console.log(`✅ Filtre chronologique activé par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
@@ -321,7 +298,6 @@ export default function LuminairesPage() {
     loadLuminaires(1, false)
   }
 
-  // Calculer la limite pour les comptes gratuits
   const freeUserLimit = useMemo(() => {
     if (!user || userData?.role === "free") {
       return Math.ceil(totalItems * 0.1)
@@ -329,12 +305,9 @@ export default function LuminairesPage() {
     return totalItems
   }, [user, userData, totalItems])
 
-  // Calculer les luminaires à afficher - CORRECTION: charger tous les favoris
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
-      // CORRECTION: Filtrer depuis allLuminaires pour avoir tous les favoris
       const favoriteItems = allLuminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
-      // Supprimer les doublons basés sur l'ID
       const uniqueFavorites = favoriteItems.filter(
         (item, index, self) => index === self.findIndex((t) => String(t.id || t._id) === String(item.id || item._id)),
       )
@@ -369,7 +342,6 @@ export default function LuminairesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* En-tête */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
         <div>
           <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
@@ -426,7 +398,6 @@ export default function LuminairesPage() {
         </div>
       </div>
 
-      {/* Message pour les utilisateurs non connectés ou gratuits */}
       {(!user || userData?.role === "free") && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm" style={{ color: "#d4a574" }}>
           <p className="flex items-center font-serif">
@@ -443,7 +414,6 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Filtres - Première ligne */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
@@ -479,7 +449,6 @@ export default function LuminairesPage() {
         </select>
       </div>
 
-      {/* Filtres - Deuxième ligne : Slider chronologique */}
       <div className="mb-8">
         <RangeSlider
           min={yearBounds.min}
@@ -503,7 +472,6 @@ export default function LuminairesPage() {
         )}
       </div>
 
-      {/* Grille des luminaires avec limitation visuelle */}
       <GalleryGrid
         items={displayedLuminaires}
         viewMode={viewMode}
@@ -513,7 +481,6 @@ export default function LuminairesPage() {
         isUserFree={!user || userData?.role === "free"}
       />
 
-      {/* Indicateur de chargement pour le scroll infini - CORRECTION: masquer pour les favoris */}
       {loadingMore && !showFavorites && (
         <div className="text-center mt-8">
           <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
@@ -523,7 +490,6 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Message fin de liste - CORRECTION: masquer pour les favoris */}
       {!hasMore && luminaires.length > 0 && !showFavorites && (
         <div className="text-center mt-8 py-4">
           <p className="text-gray-500">
@@ -532,7 +498,6 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Message aucun résultat */}
       {displayedLuminaires.length === 0 && !loading && (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">{showFavorites ? "Aucun favori trouvé" : "Aucun luminaire trouvé"}</p>
@@ -542,7 +507,6 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Modal de création */}
       {isAdmin && (
         <LuminaireFormModal
           isOpen={isModalOpen}

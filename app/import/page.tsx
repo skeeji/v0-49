@@ -111,7 +111,6 @@ export default function ImportPage() {
 
   const { toast } = useToast()
 
-  // NOUVEAU: Import CSV par streaming
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -123,7 +122,6 @@ export default function ImportPage() {
     setUploadProgress(5)
 
     try {
-      // Lire le fichier côté client
       const text = await file.text()
       const lines = text.split("\n").filter((line) => line.trim())
 
@@ -134,9 +132,8 @@ export default function ImportPage() {
       const headers = parseCSVLine(lines[0])
       console.log("📋 En-têtes détectés:", headers)
 
-      // Diviser en petits chunks de 50 lignes
       const CHUNK_SIZE = 50
-      const dataLines = lines.slice(1) // Exclure l'en-tête
+      const dataLines = lines.slice(1)
       const chunks = []
 
       for (let i = 0; i < dataLines.length; i += CHUNK_SIZE) {
@@ -151,7 +148,6 @@ export default function ImportPage() {
       let totalProcessed = 0
       const allErrors: string[] = []
 
-      // Traiter chaque chunk
       for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
         setCurrentStep(`Import chunk ${chunkIndex + 1}/${chunks.length}...`)
         setUploadProgress(10 + (chunkIndex / chunks.length) * 80)
@@ -188,7 +184,6 @@ export default function ImportPage() {
             throw new Error(result.error)
           }
 
-          // Pause entre les chunks
           if (chunkIndex < chunks.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 500))
           }
@@ -290,7 +285,6 @@ export default function ImportPage() {
     }
   }
 
-  // NOUVEAU: Upload d'images une par une
   const handleImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     if (files.length === 0) return
@@ -307,7 +301,6 @@ export default function ImportPage() {
     const errors: string[] = []
 
     try {
-      // Traiter chaque image individuellement
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         setCurrentStep(`Upload ${i + 1}/${files.length}: ${file.name}`)
@@ -344,7 +337,6 @@ export default function ImportPage() {
             throw new Error(result.error)
           }
 
-          // Pause entre les uploads
           if (i < files.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 300))
           }
@@ -385,7 +377,6 @@ export default function ImportPage() {
     }
   }
 
-  // NOUVEAU: Upload d'images designers une par une
   const handleDesignerImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     if (files.length === 0) return
@@ -401,7 +392,6 @@ export default function ImportPage() {
     const errors: string[] = []
 
     try {
-      // Traiter chaque image individuellement
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         setCurrentStep(`Upload designer ${i + 1}/${files.length}: ${file.name}`)
@@ -437,7 +427,6 @@ export default function ImportPage() {
             throw new Error(result.error)
           }
 
-          // Pause entre les uploads
           if (i < files.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 300))
           }
@@ -483,7 +472,6 @@ export default function ImportPage() {
 
     console.log(`🎥 Fichier vidéo sélectionné: ${file.name}, taille: ${file.size} bytes`)
 
-    // Vérifier le type de fichier
     if (!file.type.startsWith("video/")) {
       toast({
         title: "❌ Erreur vidéo",
@@ -500,8 +488,7 @@ export default function ImportPage() {
     try {
       console.log("🎥 Début de l'upload vidéo par chunks:", file.name)
 
-      // Diviser en chunks de 100KB pour éviter nginx 413
-      const CHUNK_SIZE = 100 * 1024 // 100KB
+      const CHUNK_SIZE = 100 * 1024
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
 
       console.log(`📦 Upload par chunks: ${totalChunks} chunks de 100KB`)
@@ -539,7 +526,6 @@ export default function ImportPage() {
 
         console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks} uploadé`)
 
-        // Petite pause entre les chunks
         if (chunkIndex < totalChunks - 1) {
           await new Promise((resolve) => setTimeout(resolve, 100))
         }
@@ -700,61 +686,50 @@ export default function ImportPage() {
     try {
       console.log("📊 Export de tous les luminaires...")
 
-      // Récupérer tous les luminaires avec les informations des designers
-      const luminairesResponse = await fetch("/api/luminaires?limit=10000")
+      const luminairesResponse = await fetch("/api/luminaires?limit=100000")
       const luminairesData = await luminairesResponse.json()
 
       const designersResponse = await fetch("/api/designers-data")
       const designersData = await designersResponse.json()
 
       if (luminairesData.success && designersData.success) {
-        // Créer un map des designers pour récupérer rapidement l'image
         const designersMap = new Map()
         designersData.designers.forEach((designer: any) => {
           designersMap.set(designer.Nom || designer.nom, designer)
         })
 
-        console.log("🔍 Analyse des luminaires pour l'export...")
+        console.log(`🔍 Export de ${luminairesData.luminaires.length} luminaires...`)
 
-        // Préparer les données pour l'export avec la logique de secours
         const csvData = luminairesData.luminaires.map((luminaire: any, index: number) => {
-          console.log(`🔍 Luminaire ${index + 1}:`, {
-            nom: luminaire.nom,
-            toutesLesCles: Object.keys(luminaire),
-          })
-
-          // Récupérer l'image du designer
           const designerName = luminaire.designer || luminaire["Artiste / Dates"] || ""
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
-          // LOGIQUE SIMPLE COMME LES AUTRES COLONNES QUI FONCTIONNENT
-          // Priorité : periode (modifié) → specialite → Spécialité (original)
           const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
-
-          // Priorité : collaboration (modifié) → Collaboration / Œuvre (original)
           const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
-
-          // Priorité : categorie (modifié) → Catégorie (original)
           const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
 
-          // LOGIQUE DE SECOURS POUR MATÉRIAUX
+          // CORRECTION: Récupération de l'éditeur avec toutes les variantes possibles
+          const editeur = luminaire.editeur || luminaire.Editeur || luminaire["Editeur"] || ""
+
+          // CORRECTION: Gestion unifiée des matériaux - vérifier d'abord le tableau materiaux
           let materiaux = ""
-          const materiauxValue = luminaire.Matériaux || luminaire.materiaux || luminaire.materials || ""
-          if (Array.isArray(materiauxValue) && materiauxValue.length > 0) {
-            materiaux = materiauxValue.join("; ")
-          } else if (typeof materiauxValue === "string" && materiauxValue.trim() !== "") {
-            materiaux = materiauxValue.trim()
+          if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+            materiaux = luminaire.materiaux.join("; ")
+            console.log(`✅ Luminaire ${index + 1} - Matériaux (array):`, materiaux)
+          } else if (luminaire.Matériaux) {
+            if (typeof luminaire.Matériaux === "string" && luminaire.Matériaux.trim() !== "") {
+              materiaux = luminaire.Matériaux.trim()
+              console.log(`✅ Luminaire ${index + 1} - Matériaux (string):`, materiaux)
+            } else if (Array.isArray(luminaire.Matériaux)) {
+              materiaux = luminaire.Matériaux.join("; ")
+              console.log(`✅ Luminaire ${index + 1} - Matériaux (array Matériaux):`, materiaux)
+            }
           }
 
-          console.log(`📋 Luminaire ${index + 1} - Valeurs finales:`, {
-            nom: luminaire.nom,
-            specialite: specialite,
-            collaboration: collaboration,
-            categorie: categorie,
-            materiaux: materiaux,
-            designerImageFilename: designerImageFilename,
-          })
+          const lienSiteMarchand = luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || ""
+          const etiquette = luminaire.etiquette || luminaire["Etiquette"] || ""
+          const bibliographie = luminaire.bibliographie || luminaire["Bibliographie"] || ""
 
           return {
             Signé: luminaire.signe || luminaire["Signé"] || "",
@@ -762,7 +737,7 @@ export default function ImportPage() {
             "Artiste / Dates": designerName,
             Année: luminaire.annee || luminaire["Année"] || "",
             Catégorie: categorie,
-            Editeur: luminaire.editeur || luminaire["Editeur"] || "",
+            Editeur: editeur,
             Spécialité: specialite,
             "Collaboration / Œuvre": collaboration,
             Description: luminaire.description || luminaire["Description"] || "",
@@ -771,10 +746,12 @@ export default function ImportPage() {
             Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
             "Image luminaire (Nom du fichier)": luminaire.filename || luminaire["Nom du fichier"] || "",
             "Image designer (imagedesigner)": designerImageFilename,
+            "Lien site marchand": lienSiteMarchand,
+            Etiquette: etiquette,
+            Bibliographie: bibliographie,
           }
         })
 
-        // Créer le contenu CSV avec l'ordre exact des colonnes
         const headers = [
           "Signé",
           "Nom luminaire",
@@ -790,6 +767,9 @@ export default function ImportPage() {
           "Estimation",
           "Image luminaire (Nom du fichier)",
           "Image designer (imagedesigner)",
+          "Lien site marchand",
+          "Etiquette",
+          "Bibliographie",
         ]
 
         const csvContent = [
@@ -798,7 +778,6 @@ export default function ImportPage() {
             headers
               .map((header) => {
                 const value = row[header] || ""
-                // Échapper les guillemets et entourer de guillemets si nécessaire
                 const escapedValue = String(value).replace(/"/g, '""')
                 return `"${escapedValue}"`
               })
@@ -806,33 +785,20 @@ export default function ImportPage() {
           ),
         ].join("\n")
 
-        // Vérification finale des données critiques
-        console.log("🔍 Vérification finale des colonnes critiques:")
-        const specialiteCount = csvData.filter((row) => row["Spécialité"] && row["Spécialité"] !== "").length
-        const collaborationCount = csvData.filter(
-          (row) => row["Collaboration / Œuvre"] && row["Collaboration / Œuvre"] !== "",
-        ).length
         const materiauxCount = csvData.filter((row) => row["Matériaux"] && row["Matériaux"] !== "").length
-        const categorieCount = csvData.filter((row) => row["Catégorie"] && row["Catégorie"] !== "").length
+        const editeurCount = csvData.filter((row) => row["Editeur"] && row["Editeur"] !== "").length
+        const lienSiteMarchandCount = csvData.filter(
+          (row) => row["Lien site marchand"] && row["Lien site marchand"] !== "",
+        ).length
+        const etiquetteCount = csvData.filter((row) => row["Etiquette"] && row["Etiquette"] !== "").length
+        const bibliographieCount = csvData.filter((row) => row["Bibliographie"] && row["Bibliographie"] !== "").length
 
-        console.log(`📊 Spécialité remplie: ${specialiteCount}/${csvData.length} luminaires`)
-        console.log(`📊 Collaboration / Œuvre remplie: ${collaborationCount}/${csvData.length} luminaires`)
         console.log(`📊 Matériaux remplis: ${materiauxCount}/${csvData.length} luminaires`)
-        console.log(`📊 Catégorie remplie: ${categorieCount}/${csvData.length} luminaires`)
+        console.log(`📊 Editeur rempli: ${editeurCount}/${csvData.length} luminaires`)
+        console.log(`📊 Lien site marchand: ${lienSiteMarchandCount}/${csvData.length} luminaires`)
+        console.log(`📊 Etiquette: ${etiquetteCount}/${csvData.length} luminaires`)
+        console.log(`📊 Bibliographie: ${bibliographieCount}/${csvData.length} luminaires`)
 
-        // Afficher quelques exemples pour debug
-        console.log("📋 Exemples de données exportées:")
-        csvData.slice(0, 3).forEach((row, i) => {
-          console.log(`Exemple ${i + 1}:`, {
-            nom: row["Nom luminaire"],
-            specialite: row["Spécialité"],
-            collaboration: row["Collaboration / Œuvre"],
-            categorie: row["Catégorie"],
-            materiaux: row["Matériaux"],
-          })
-        })
-
-        // Créer et télécharger le fichier
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
         const link = document.createElement("a")
         const url = URL.createObjectURL(blob)
@@ -847,7 +813,7 @@ export default function ImportPage() {
         console.log(`✅ Export terminé: ${csvData.length} luminaires exportés`)
         toast({
           title: "✅ Export terminé",
-          description: `${csvData.length} luminaires exportés - ${specialiteCount} spécialités, ${collaborationCount} collaborations, ${materiauxCount} matériaux, ${categorieCount} catégories`,
+          description: `${csvData.length} luminaires - ${materiauxCount} matériaux, ${editeurCount} éditeurs`,
         })
       }
     } catch (error) {
@@ -894,7 +860,6 @@ export default function ImportPage() {
       console.log("📥 Déclenchement du téléchargement...")
       link.click()
 
-      // Nettoyage
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
 
@@ -977,7 +942,6 @@ export default function ImportPage() {
             </div>
           </div>
 
-          {/* Barre de progression globale */}
           {isUploading && (
             <Card>
               <CardContent className="pt-6">
@@ -992,7 +956,6 @@ export default function ImportPage() {
             </Card>
           )}
 
-          {/* Boutons d'export */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="border-blue-200">
               <CardHeader>
@@ -1040,7 +1003,6 @@ export default function ImportPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Upload CSV Luminaires */}
             <Card className="border-green-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-green-600">
@@ -1079,7 +1041,6 @@ export default function ImportPage() {
               </CardContent>
             </Card>
 
-            {/* Upload CSV Designers */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1123,7 +1084,6 @@ export default function ImportPage() {
               </CardContent>
             </Card>
 
-            {/* Upload Images */}
             <Card className="border-green-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-green-600">
@@ -1171,7 +1131,6 @@ export default function ImportPage() {
               </CardContent>
             </Card>
 
-            {/* Upload Images Designers */}
             <Card className="border-orange-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-orange-600">
@@ -1217,7 +1176,6 @@ export default function ImportPage() {
               </CardContent>
             </Card>
 
-            {/* Upload Images de Périodes */}
             <Card className="border-purple-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-purple-600">
@@ -1279,7 +1237,6 @@ export default function ImportPage() {
               </CardContent>
             </Card>
 
-            {/* Upload Vidéo */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1323,7 +1280,6 @@ export default function ImportPage() {
               </CardContent>
             </Card>
 
-            {/* Upload Logo */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1361,7 +1317,6 @@ export default function ImportPage() {
               </CardContent>
             </Card>
 
-            {/* Reset Database */}
             <Card className="border-red-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-red-600">
@@ -1394,7 +1349,6 @@ export default function ImportPage() {
             </Card>
           </div>
 
-          {/* Résultats détaillés */}
           {(results.csv || results.designers || results.images || results.designerImages) && (
             <Card>
               <CardHeader>

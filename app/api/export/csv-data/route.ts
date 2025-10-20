@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       Editeur: luminaire["Editeur"] || luminaire.editeur || "",
       filename: luminaire.filename || "",
       "Nom du fichier": luminaire["Nom du fichier"] || luminaire.filename || "",
+      "Image luminaire (Nom du fichier)": luminaire["Nom du fichier"] || luminaire.filename || "",
       createdAt: luminaire.createdAt,
       updatedAt: luminaire.updatedAt,
     }))

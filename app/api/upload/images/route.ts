@@ -19,13 +19,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`📁 ${files.length} fichiers reçus pour upload`)
 
-    // Vérifier la taille totale des fichiers
     const totalSize = files.reduce((sum, file) => sum + file.size, 0)
     const totalSizeMB = Math.round(totalSize / 1024 / 1024)
     console.log(`📊 Taille totale: ${totalSizeMB}MB`)
 
     if (totalSize > 100 * 1024 * 1024) {
-      // 100MB max par batch
       return NextResponse.json(
         {
           error: `Batch trop volumineux (${totalSizeMB}MB). Réduisez le nombre de fichiers.`,
@@ -39,7 +37,6 @@ export async function POST(request: NextRequest) {
       console.log(`👤 Designer spécifié: ${designer}`)
     }
 
-    // Vérifier si c'est un upload depuis la page import
     const referer = request.headers.get("referer") || ""
     const isFromImportPage = referer.includes("/import")
     console.log(`🔍 Upload depuis page import: ${isFromImportPage}`)
@@ -47,13 +44,13 @@ export async function POST(request: NextRequest) {
     const client = await clientPromise
     const db = client.db(DBNAME)
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    const luminairesCollection = db.collection("luminaires")
 
     let uploaded = 0
     let associated = 0
     const errors: string[] = []
     const filenames: string[] = []
 
-    // Traitement séquentiel pour éviter les surcharges
     console.log(`📦 Traitement séquentiel de ${files.length} fichiers`)
 
     for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
@@ -62,7 +59,6 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`📁 Traitement ${fileIndex + 1}/${files.length}: ${file.name} (${Math.round(file.size / 1024)}KB)`)
 
-        // Vérifier si le fichier existe déjà
         const existingFile = await bucket.find({ filename: file.name }).toArray()
         if (existingFile.length > 0) {
           console.log(`⚠️ Fichier déjà existant: ${file.name}`)
@@ -71,7 +67,6 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Déterminer si c'est une image de designer
         let isDesignerImage = false
 
         if (forceDesignerImages === "true") {
@@ -97,7 +92,6 @@ export async function POST(request: NextRequest) {
           console.log(`🔍 Analyse fichier "${file.name}": ${isDesignerImage ? "IMAGE DESIGNER" : "image luminaire"}`)
         }
 
-        // Créer les métadonnées
         const metadata: any = {
           type: isDesignerImage ? "designer-image" : "luminaire-image",
           originalName: file.name,
@@ -114,7 +108,6 @@ export async function POST(request: NextRequest) {
           console.log(`👤 MARQUAGE: Image "${file.name}" marquée comme image de designer`)
         }
 
-        // Upload du fichier
         const uploadStream = bucket.openUploadStream(file.name, { metadata })
         const buffer = await file.arrayBuffer()
         const uint8Array = new Uint8Array(buffer)
@@ -129,14 +122,14 @@ export async function POST(request: NextRequest) {
           })
         })
 
+        const uploadedFileId = uploadStream.id.toString()
         uploaded++
         filenames.push(file.name)
-        console.log(`✅ Upload réussi: ${file.name}`)
+        console.log(`✅ Upload réussi: ${file.name} avec ID: ${uploadedFileId}`)
 
-        // Associer l'image au luminaire correspondant (seulement pour les images de luminaires)
         if (!isDesignerImage) {
           try {
-            // Essayer plusieurs champs pour l'association
+            // CORRECTION: Associer l'image avec l'imageId pour faciliter la récupération
             const queries = [
               { "Nom du fichier": file.name },
               { filename: file.name },
@@ -145,19 +138,23 @@ export async function POST(request: NextRequest) {
 
             let luminaireResult = null
             for (const query of queries) {
-              luminaireResult = await db.collection("luminaires").updateOne(query, {
+              luminaireResult = await luminairesCollection.updateOne(query, {
                 $set: {
                   imageUploaded: true,
-                  imageId: uploadStream.id,
+                  imageId: uploadedFileId, // Stocker l'ID de l'image
+                  filename: file.name, // Garder aussi le filename
                   updatedAt: new Date(),
                 },
               })
-              if (luminaireResult.matchedCount > 0) break
+              if (luminaireResult.matchedCount > 0) {
+                console.log(`✅ Luminaire trouvé et mis à jour avec imageId: ${uploadedFileId} pour ${file.name}`)
+                break
+              }
             }
 
             if (luminaireResult && luminaireResult.matchedCount > 0) {
               associated++
-              console.log(`✅ Image "${file.name}" associée à un luminaire`)
+              console.log(`✅ Image "${file.name}" associée à un luminaire avec ID: ${uploadedFileId}`)
             } else {
               console.log(`⚠️ Aucun luminaire trouvé pour l'image "${file.name}"`)
             }
@@ -166,7 +163,6 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Pause entre les fichiers pour éviter la surcharge
         if (fileIndex < files.length - 1) {
           await new Promise((resolve) => setTimeout(resolve, 200))
         }

@@ -1,14 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Image from "next/image"
-import { Eye } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
-import { Lightbox } from "@/components/Lightbox"
-import { DeleteLuminaireButton } from "@/components/DeleteLuminaireButton"
-import { useAuth } from "@/contexts/AuthContext"
 import Link from "next/link"
+import { FavoriteToggleButton } from "./FavoriteToggleButton"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface GalleryGridProps {
   items: any[]
@@ -24,334 +20,191 @@ export function GalleryGrid({
   viewMode,
   onItemUpdate,
   columns = 4,
-  freeUserLimit = items.length,
+  freeUserLimit = Number.POSITIVE_INFINITY,
   isUserFree = false,
 }: GalleryGridProps) {
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
-  const [favorites, setFavorites] = useState<string[]>([])
-  const { user, userData } = useAuth()
-
-  // Charger les favoris depuis la base de données pour les utilisateurs connectés
-  useEffect(() => {
-    const loadFavorites = async () => {
-      if (user?.email) {
-        try {
-          const response = await fetch(`/api/users/favorites?email=${encodeURIComponent(user.email)}`)
-          const data = await response.json()
-          if (data.success) {
-            setFavorites(data.favorites || [])
-          }
-        } catch (error) {
-          console.error("❌ Erreur chargement favoris:", error)
-        }
-      }
+  const { user } = useAuth()
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      return JSON.parse(localStorage.getItem("favorites") || "[]")
     }
+    return []
+  })
 
-    loadFavorites()
-  }, [user?.email])
+  const toggleFavorite = (id: string) => {
+    const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
 
-  const toggleFavorite = async (id: string) => {
-    if (!user?.email) return
-
-    const isCurrentlyFavorite = favorites.includes(id)
-    const action = isCurrentlyFavorite ? "remove" : "add"
-
-    try {
-      const response = await fetch("/api/users/favorites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: user.email,
-          luminaireId: id,
-          action,
-        }),
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        const newFavorites = isCurrentlyFavorite ? favorites.filter((fav) => fav !== id) : [...favorites, id]
-        setFavorites(newFavorites)
-      }
-    } catch (error) {
-      console.error("❌ Erreur mise à jour favoris:", error)
-    }
+    setFavorites(newFavorites)
+    localStorage.setItem("favorites", JSON.stringify(newFavorites))
   }
 
-  // Fonction pour obtenir l'URL de l'image
-  const getImageUrl = (item: any) => {
-    if (item["Nom du fichier"]) {
-      if (item["Nom du fichier"].startsWith("http")) {
-        return item["Nom du fichier"]
-      }
-      return `/api/images/filename/${item["Nom du fichier"]}`
-    }
-
-    if (item.filename) {
-      if (item.filename.startsWith("http")) {
-        return item.filename
-      }
-      return `/api/images/filename/${item.filename}`
-    }
-
-    if (item.image) {
-      if (item.image.startsWith("/api/images/")) {
-        return item.image
-      }
-      if (typeof item.image === "string" && /^[0-9a-fA-F]{24}$/.test(item.image)) {
-        return `/api/images/${item.image}`
-      }
-      if (item.image.startsWith("http")) {
-        return item.image
-      }
-      if (item.image.includes(".")) {
-        return `/api/images/filename/${item.image}`
-      }
-      return `/api/images/${item.image}`
-    }
-
-    return "/placeholder.svg?height=300&width=300"
-  }
-
-  const handleDeleteLuminaire = async (luminaireId: string) => {
-    try {
-      console.log("🗑️ Tentative de suppression du luminaire:", luminaireId)
-
-      const response = await fetch(`/api/luminaires/${luminaireId}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      console.log("📊 Réponse de suppression:", data)
-
-      if (data.success) {
-        console.log("✅ Suppression réussie, rechargement de la page...")
-        window.location.reload()
-      } else {
-        console.error("❌ Erreur suppression:", data.error)
-        alert(`Erreur lors de la suppression: ${data.error}`)
-      }
-    } catch (error) {
-      console.error("❌ Erreur suppression:", error)
-      alert(`Erreur lors de la suppression: ${error.message}`)
-    }
-  }
-
-  // Vérifier si l'utilisateur peut voir les favoris (connecté et pas gratuit)
-  const canUseFavorites = user && userData?.role !== "free"
+  const gridColsClass = {
+    3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+    4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+    5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+    6: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
+    8: "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8",
+  }[columns]
 
   if (viewMode === "list") {
     return (
       <div className="space-y-4">
         {items.map((item, index) => {
           const itemId = String(item.id || item._id || "")
-          const itemName = String(item.name || item.nom || "Nom du luminaire")
-          const itemDesigner = String(item.artist || item.designer || "Non renseigné")
-          const itemYear = String(item.year || item.annee || "Non renseigné")
-          const isAccessible = isUserFree ? index < freeUserLimit : true
-          const CardWrapper = isAccessible ? Link : "div"
+          const isFavorite = favorites.includes(itemId)
+          const isLocked = isUserFree && index >= freeUserLimit
+
+          const itemName = String(item.nom || item["Nom luminaire"] || "Sans nom")
+          const itemArtist = String(item.designer || item["Artiste / Dates"] || "")
+          const itemYear = String(item.annee || item["Année"] || "")
+          const itemDescription = String(item.description || item["Description"] || "")
+
+          // CORRECTION: Construire l'URL de l'image correctement
+          let imageUrl = item.image
+
+          if (!imageUrl) {
+            if (item.imageId) {
+              imageUrl = `/api/images/${item.imageId}`
+            } else if (item.filename || item["Nom du fichier"]) {
+              const filename = item.filename || item["Nom du fichier"]
+              imageUrl = `/api/images/filename/${filename}`
+            }
+          }
 
           return (
-            <CardWrapper key={itemId} {...(isAccessible ? { href: `/luminaires/${itemId}` } : {})}>
-              <div
-                className={`bg-white rounded-xl p-6 shadow-lg transition-shadow ${
-                  isAccessible ? "hover:shadow-xl cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
-                }`}
-              >
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="w-full md:w-48 h-48 relative bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                    <Image
-                      src={getImageUrl(item) || "/placeholder.svg"}
-                      alt={itemName}
-                      fill
-                      className="object-cover"
-                      onError={(e) => {
-                        console.log("❌ Erreur chargement image:", getImageUrl(item))
-                        const target = e.target as HTMLImageElement
-                        target.src = "/placeholder.svg?height=300&width=300"
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex-1 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-xl font-serif text-gray-900">{itemName}</h3>
-
-                      {isAccessible && (
-                        <div className="flex items-center gap-2">
-                          {canUseFavorites && (
-                            <FavoriteToggleButton
-                              isActive={favorites.includes(itemId)}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                toggleFavorite(itemId)
-                              }}
-                            />
-                          )}
-                          <Button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setLightboxImage(getImageUrl(item))
-                            }}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          {userData?.role === "admin" && (
-                            <DeleteLuminaireButton
-                              luminaireId={itemId}
-                              luminaireName={itemName}
-                              onDelete={() => handleDeleteLuminaire(itemId)}
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Affichage simplifié : seulement nom, artiste et année */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Artiste</label>
-                        <p className="text-gray-900">{itemDesigner}</p>
+            <div
+              key={itemId}
+              className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+            >
+              <Link href={isLocked ? "#" : `/luminaires/${itemId}`} className={isLocked ? "pointer-events-none" : ""}>
+                <div className="flex gap-4 p-4">
+                  <div className="relative w-32 h-32 bg-gray-100 rounded-lg flex-shrink-0">
+                    {imageUrl ? (
+                      <Image
+                        src={imageUrl || "/placeholder.svg"}
+                        alt={itemName}
+                        fill
+                        className={`object-cover rounded-lg ${isLocked ? "blur-sm" : ""}`}
+                        unoptimized
+                        onError={(e) => {
+                          console.log("❌ Erreur chargement image:", imageUrl)
+                          e.currentTarget.src = "/placeholder.svg"
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="text-4xl text-gray-400">🏮</div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Année</label>
-                        <p className="text-gray-900">{itemYear}</p>
-                      </div>
-                    </div>
-
-                    {!isAccessible && (
-                      <div className="mt-2">
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">🔒 Premium requis</span>
+                    )}
+                    {isLocked && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 rounded-lg">
+                        <span className="text-white text-2xl">🔒</span>
                       </div>
                     )}
                   </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-serif text-lg text-gray-900 truncate">{itemName}</h3>
+                      {user && (
+                        <FavoriteToggleButton
+                          isActive={isFavorite}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            toggleFavorite(itemId)
+                          }}
+                        />
+                      )}
+                    </div>
+                    {itemArtist && <p className="text-sm text-gray-600 mb-1">{itemArtist}</p>}
+                    {itemYear && <p className="text-sm text-gray-500 mb-2">{itemYear}</p>}
+                    {itemDescription && <p className="text-sm text-gray-700 line-clamp-2">{itemDescription}</p>}
+                  </div>
                 </div>
-              </div>
-            </CardWrapper>
+              </Link>
+            </div>
           )
         })}
-
-        {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
       </div>
     )
   }
 
-  // Correction du mapping des colonnes pour afficher le bon nombre
-  const getGridClass = (cols: number) => {
-    switch (cols) {
-      case 3:
-        return "grid-cols-2 sm:grid-cols-3"
-      case 4:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-      case 5:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-      case 6:
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
-      case 8:
-        return "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
-      default:
-        return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
-    }
-  }
-
   return (
-    <div className={`grid ${getGridClass(columns)} gap-2 md:gap-3`}>
+    <div className={`grid ${gridColsClass} gap-4`}>
       {items.map((item, index) => {
         const itemId = String(item.id || item._id || "")
-        const itemName = String(item.name || item.nom || "Nom du luminaire")
-        const itemDesigner = String(item.artist || item.designer || "Artiste non renseigné")
-        const itemYear = String(item.year || item.annee || "Année inconnue")
-        const isAccessible = isUserFree ? index < freeUserLimit : true
-        const CardWrapper = isAccessible ? Link : "div"
+        const isFavorite = favorites.includes(itemId)
+        const isLocked = isUserFree && index >= freeUserLimit
+
+        const itemName = String(item.nom || item["Nom luminaire"] || "Sans nom")
+        const itemArtist = String(item.designer || item["Artiste / Dates"] || "")
+        const itemYear = String(item.annee || item["Année"] || "")
+
+        // CORRECTION: Construire l'URL de l'image correctement
+        let imageUrl = item.image
+
+        if (!imageUrl) {
+          if (item.imageId) {
+            imageUrl = `/api/images/${item.imageId}`
+          } else if (item.filename || item["Nom du fichier"]) {
+            const filename = item.filename || item["Nom du fichier"]
+            imageUrl = `/api/images/filename/${filename}`
+          }
+        }
 
         return (
-          <CardWrapper key={itemId} {...(isAccessible ? { href: `/luminaires/${itemId}` } : {})}>
-            <div
-              className={`bg-white rounded-lg overflow-hidden shadow-md transition-shadow ${
-                isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
-              }`}
-            >
-              <div className="aspect-square relative bg-gray-100">
-                <Image
-                  src={getImageUrl(item) || "/placeholder.svg"}
-                  alt={itemName}
-                  fill
-                  className="object-cover"
-                  onError={(e) => {
-                    console.log("❌ Erreur chargement image:", getImageUrl(item))
-                    const target = e.target as HTMLImageElement
-                    target.src = "/placeholder.svg?height=300&width=300"
-                  }}
-                />
-
-                {isAccessible && canUseFavorites && (
-                  <div className="absolute top-2 right-2">
-                    <FavoriteToggleButton
-                      isActive={favorites.includes(itemId)}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        toggleFavorite(itemId)
+          <div key={itemId} className="group relative">
+            <Link href={isLocked ? "#" : `/luminaires/${itemId}`} className={isLocked ? "pointer-events-none" : ""}>
+              <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow">
+                <div className="aspect-square relative bg-gray-100">
+                  {imageUrl ? (
+                    <Image
+                      src={imageUrl || "/placeholder.svg"}
+                      alt={itemName}
+                      fill
+                      className={`object-cover ${isLocked ? "blur-sm" : ""}`}
+                      unoptimized
+                      onError={(e) => {
+                        console.log("❌ Erreur chargement image:", imageUrl)
+                        e.currentTarget.src = "/placeholder.svg"
                       }}
                     />
-                  </div>
-                )}
-
-                {!isAccessible && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-                    <span className="text-white text-xs bg-black bg-opacity-50 px-2 py-1 rounded">🔒 Premium</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-2 space-y-0.5">
-                <h3 className="font-serif text-xs md:text-sm text-gray-900 truncate">{itemName}</h3>
-
-                <p className="text-gray-600 text-xs truncate">{itemDesigner}</p>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">{itemYear}</span>
-                  {isAccessible && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setLightboxImage(getImageUrl(item))
-                        }}
-                        variant="ghost"
-                        size="sm"
-                        className="p-1 h-auto"
-                      >
-                        <Eye className="w-3 h-3" />
-                      </Button>
-                      {userData?.role === "admin" && (
-                        <DeleteLuminaireButton
-                          luminaireId={itemId}
-                          luminaireName={itemName}
-                          onDelete={() => handleDeleteLuminaire(itemId)}
-                        />
-                      )}
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-6xl text-gray-400 mb-2">🏮</div>
+                        <span className="text-sm text-gray-500">Image non disponible</span>
+                      </div>
+                    </div>
+                  )}
+                  {isLocked && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40">
+                      <span className="text-white text-4xl">🔒</span>
                     </div>
                   )}
                 </div>
+
+                <div className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-serif text-sm line-clamp-2 flex-1">{itemName}</h3>
+                    {user && (
+                      <FavoriteToggleButton
+                        isActive={isFavorite}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          toggleFavorite(itemId)
+                        }}
+                      />
+                    )}
+                  </div>
+                  {itemArtist && <p className="text-xs text-gray-600 line-clamp-1">{itemArtist}</p>}
+                  {itemYear && <p className="text-xs text-gray-500">{itemYear}</p>}
+                </div>
               </div>
-            </div>
-          </CardWrapper>
+            </Link>
+          </div>
         )
       })}
-
-      {lightboxImage && <Lightbox src={lightboxImage} onClose={() => setLightboxImage(null)} />}
     </div>
   )
 }
