@@ -64,11 +64,22 @@ export default function DesignersPage() {
               console.log(`🖼️ Image designer trouvée pour ${designerName}: ${luminaire.designerImageFilename}`)
             }
 
-            const imageFilename = luminaire.filename || luminaire["Nom du fichier"]
+            // Construction de l'URL de l'image du luminaire
+            let luminaireImageUrl = "/placeholder.svg"
+            if (luminaire.imageId) {
+              luminaireImageUrl = `/api/images/${luminaire.imageId}`
+              console.log(`🖼️ Image luminaire via imageId pour ${designerName}: ${luminaire.imageId}`)
+            } else if (luminaire.filename) {
+              luminaireImageUrl = `/api/images/filename/${luminaire.filename}`
+              console.log(`🖼️ Image luminaire via filename pour ${designerName}: ${luminaire.filename}`)
+            } else if (luminaire["Nom du fichier"]) {
+              luminaireImageUrl = `/api/images/filename/${luminaire["Nom du fichier"]}`
+              console.log(`🖼️ Image luminaire via Nom du fichier pour ${designerName}: ${luminaire["Nom du fichier"]}`)
+            }
 
             acc[designerName].luminaires.push({
               ...luminaire,
-              image: imageFilename ? `/api/images/filename/${imageFilename}` : "/placeholder.svg",
+              image: luminaireImageUrl,
               name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
             })
 
@@ -291,6 +302,7 @@ export default function DesignersPage() {
                               src={designer.image || "/placeholder.svg"}
                               alt={designer.name}
                               fill
+                              unoptimized
                               className="object-cover rounded-full"
                               onError={(e) => {
                                 e.currentTarget.src = "/placeholder.svg"
@@ -320,9 +332,11 @@ export default function DesignersPage() {
                                 src={luminaire.image || "/placeholder.svg"}
                                 alt={luminaire.name}
                                 fill
+                                unoptimized
                                 className="object-cover"
                                 onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                                  console.error(`❌ Erreur chargement image luminaire: ${luminaire.image}`)
+                                  e.currentTarget.src = "/placeholder.svg"
                                 }}
                               />
                             </div>
