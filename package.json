@@ -52,6 +52,7 @@
     "gcp-metadata": "^7.0.1",
     "input-otp": "latest",
     "jspdf": "latest",
+    "jszip": "latest",
     "kerberos": "^2.2.2",
     "lucide-react": "^0.454.0",
     "mongodb": "latest",

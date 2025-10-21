@@ -132,7 +132,6 @@ export default function ImportPage() {
       const headers = parseCSVLine(lines[0])
       console.log("📋 En-têtes détectés:", headers)
 
-      // Vérifier que la colonne "Image luminaire (Nom du fichier)" existe
       const imageColumnIndex = headers.findIndex(
         (h) => h === "Image luminaire (Nom du fichier)" || h === "Nom du fichier",
       )
@@ -733,7 +732,6 @@ export default function ImportPage() {
           const etiquette = luminaire.etiquette || luminaire["Etiquette"] || ""
           const bibliographie = luminaire.bibliographie || luminaire["Bibliographie"] || ""
 
-          // CORRECTION: récupérer le nom du fichier depuis tous les champs possibles
           const filename =
             luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
 
@@ -825,52 +823,99 @@ export default function ImportPage() {
 
   const exportAllImages = async () => {
     setExportingImages(true)
+    setCurrentStep("Récupération de la liste des images...")
+    setUploadProgress(5)
+
     try {
-      console.log("📦 Export de toutes les images...")
+      console.log("📦 Début export images...")
 
-      const response = await fetch("/api/export/images", {
-        method: "GET",
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("❌ Erreur réponse serveur:", errorText)
-        throw new Error(`Erreur serveur: ${response.status} - ${errorText}`)
+      // Étape 1: Récupérer la liste des images
+      const listResponse = await fetch("/api/export/images-list")
+      if (!listResponse.ok) {
+        throw new Error("Impossible de récupérer la liste des images")
       }
 
-      const blob = await response.blob()
-      console.log(`📦 Blob reçu: ${blob.size} bytes, type: ${blob.type}`)
+      const listData = await listResponse.json()
+      console.log(`📋 ${listData.total} images à télécharger`)
 
-      if (blob.size === 0) {
-        throw new Error("Le fichier ZIP reçu est vide")
+      if (listData.total === 0) {
+        throw new Error("Aucune image trouvée")
       }
 
-      const url = window.URL.createObjectURL(blob)
+      // Charger JSZip dynamiquement
+      const JSZip = (await import("jszip")).default
+      const zip = new JSZip()
+
+      // Créer les dossiers
+      const designersFolder = zip.folder("designers")
+      const luminairesFolder = zip.folder("luminaires")
+
+      // Étape 2: Télécharger chaque image
+      let downloaded = 0
+      for (const image of listData.images) {
+        try {
+          setCurrentStep(`Téléchargement ${downloaded + 1}/${listData.total}: ${image.filename}`)
+          setUploadProgress(10 + (downloaded / listData.total) * 80)
+
+          const imageResponse = await fetch(`/api/export/image/${image.id}`)
+          if (!imageResponse.ok) {
+            console.error(`❌ Erreur téléchargement ${image.filename}`)
+            continue
+          }
+
+          const blob = await imageResponse.blob()
+
+          // Ajouter au dossier approprié
+          if (image.folder === "designers" && designersFolder) {
+            designersFolder.file(image.filename, blob)
+          } else if (luminairesFolder) {
+            luminairesFolder.file(image.filename, blob)
+          }
+
+          downloaded++
+          console.log(`✅ [${downloaded}/${listData.total}] ${image.folder}/${image.filename}`)
+        } catch (error) {
+          console.error(`❌ Erreur ${image.filename}:`, error)
+        }
+      }
+
+      setCurrentStep("Création du fichier ZIP...")
+      setUploadProgress(90)
+
+      // Étape 3: Générer le ZIP
+      const zipBlob = await zip.generateAsync({ type: "blob" })
+
+      setCurrentStep("Téléchargement du ZIP...")
+      setUploadProgress(95)
+
+      // Étape 4: Télécharger
       const link = document.createElement("a")
+      const url = URL.createObjectURL(zipBlob)
       link.href = url
       link.download = `images_export_${new Date().toISOString().split("T")[0]}.zip`
-      link.style.display = "none"
       document.body.appendChild(link)
-
-      console.log("📥 Déclenchement du téléchargement...")
       link.click()
-
       document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      URL.revokeObjectURL(url)
 
+      setUploadProgress(100)
+
+      console.log(`✅ Export terminé: ${downloaded}/${listData.total} images`)
       toast({
         title: "✅ Export terminé",
-        description: "Toutes les images ont été exportées",
+        description: `${downloaded} images téléchargées (${listData.designers} designers, ${listData.luminaires} luminaires)`,
       })
     } catch (error: any) {
       console.error("❌ Erreur lors de l'export des images:", error)
       toast({
         title: "❌ Erreur export",
-        description: `Erreur lors de l'export des images: ${error.message}`,
+        description: `Erreur: ${error.message}`,
         variant: "destructive",
       })
     } finally {
       setExportingImages(false)
+      setUploadProgress(0)
+      setCurrentStep("")
     }
   }
 
@@ -937,7 +982,7 @@ export default function ImportPage() {
             </div>
           </div>
 
-          {isUploading && (
+          {(isUploading || exportingImages) && (
             <Card>
               <CardContent className="pt-6">
                 <div className="space-y-4">
@@ -977,14 +1022,18 @@ export default function ImportPage() {
             <Card className="border-green-200">
               <CardHeader>
                 <CardTitle className="text-green-600">Export des images</CardTitle>
-                <CardDescription>Téléchargez toutes les images de la base de données</CardDescription>
+                <CardDescription>Téléchargez toutes les images (designers + luminaires)</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button onClick={exportAllImages} disabled={exportingImages || isUploading} className="w-full">
+                <Button
+                  onClick={exportAllImages}
+                  disabled={exportingImages || isUploading || exportingCSV}
+                  className="w-full"
+                >
                   {exportingImages ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Export en cours...
+                      Téléchargement...
                     </>
                   ) : (
                     <>
