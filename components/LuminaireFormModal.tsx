@@ -446,6 +446,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit }: LuminaireFormM
                   <SelectItem value="Oui">Oui</SelectItem>
                   <SelectItem value="Non">Non</SelectItem>
                   <SelectItem value="Étiquette">Étiquette</SelectItem>
+                  <SelectItem value="Attribué">Attribué</SelectItem>
                   <SelectItem value="Inconnu">Inconnu</SelectItem>
                 </SelectContent>
               </Select>

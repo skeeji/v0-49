@@ -45,7 +45,8 @@ export async function GET() {
             cleanValue &&
             (cleanValue.toLowerCase().endsWith(".jpg") ||
               cleanValue.toLowerCase().endsWith(".jpeg") ||
-              cleanValue.toLowerCase().endsWith(".png"))
+              cleanValue.toLowerCase().endsWith(".png") ||
+              cleanValue.toLowerCase().endsWith(".webp"))
           ) {
             designerImageNames.add(cleanValue)
           }
@@ -54,7 +55,9 @@ export async function GET() {
     })
 
     console.log(`👤 ${designerImageNames.size} images de designers identifiées`)
-    console.log("Exemples d'images de designers:", Array.from(designerImageNames).slice(0, 5))
+    if (designerImageNames.size > 0) {
+      console.log("Exemples d'images de designers:", Array.from(designerImageNames).slice(0, 5))
+    }
 
     // Récupérer tous les fichiers depuis GridFS
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
@@ -88,7 +91,7 @@ export async function GET() {
           continue
         }
 
-        // Déterminer le dossier
+        // Déterminer le dossier - vérifier si c'est une image de designer
         const isDesignerImage = designerImageNames.has(file.filename)
         const folder = isDesignerImage ? "designers" : "luminaires"
 
@@ -107,17 +110,15 @@ export async function GET() {
           data: buffer,
           crc32: crc32,
         })
-
-        console.log(`✅ ${folder}/${file.filename} (${Math.round(buffer.length / 1024)}KB)`)
       } catch (fileError: any) {
         console.error(`❌ Erreur fichier ${file.filename}:`, fileError.message)
       }
     }
 
-    console.log(`📊 Résumé: ${designersCount} designers, ${luminairesCount} luminaires`)
-    console.log(`📁 Structure du ZIP:`)
-    console.log(`  - designers/ (${designersCount} fichiers)`)
-    console.log(`  - luminaires/ (${luminairesCount} fichiers)`)
+    console.log(`📊 Résumé final:`)
+    console.log(`  - ${designersCount} images de designers`)
+    console.log(`  - ${luminairesCount} images de luminaires`)
+    console.log(`  - ${fileData.length} fichiers au total`)
 
     if (fileData.length === 0) {
       return NextResponse.json({ success: false, error: "Aucun fichier valide trouvé" }, { status: 404 })
@@ -128,7 +129,7 @@ export async function GET() {
 
     const filename = `images_export_${new Date().toISOString().split("T")[0]}.zip`
 
-    console.log(`✅ ZIP créé: ${zipBuffer.length} bytes avec ${fileData.length} fichiers`)
+    console.log(`✅ ZIP créé: ${Math.round(zipBuffer.length / 1024)}KB avec ${fileData.length} fichiers`)
 
     return new NextResponse(zipBuffer, {
       status: 200,
@@ -136,6 +137,7 @@ export async function GET() {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Content-Length": zipBuffer.length.toString(),
+        "Cache-Control": "no-cache",
       },
     })
   } catch (error: any) {
@@ -160,10 +162,14 @@ function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: nu
     const nameBuffer = Buffer.from(name, "utf8")
     const localHeader = Buffer.alloc(30 + nameBuffer.length)
 
-    localHeader.writeUInt32LE(0x04034b50, 0) // Signature
-    localHeader.writeUInt16LE(20, 4) // Version
-    localHeader.writeUInt16LE(0, 6) // Flags
-    localHeader.writeUInt16LE(0, 8) // Compression (stored)
+    // Local file header signature
+    localHeader.writeUInt32LE(0x04034b50, 0)
+    // Version needed to extract
+    localHeader.writeUInt16LE(20, 4)
+    // General purpose bit flag
+    localHeader.writeUInt16LE(0, 6)
+    // Compression method (0 = stored)
+    localHeader.writeUInt16LE(0, 8)
 
     const now = new Date()
     const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
@@ -181,6 +187,7 @@ function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: nu
     zipEntries.push(localHeader)
     zipEntries.push(data)
 
+    // Central directory header
     const centralEntry = Buffer.alloc(46 + nameBuffer.length)
     centralEntry.writeUInt32LE(0x02014b50, 0)
     centralEntry.writeUInt16LE(20, 4)
@@ -206,6 +213,8 @@ function createZipBuffer(fileData: Array<{ name: string; data: Buffer; crc32: nu
   })
 
   const centralDirSize = centralDirectory.reduce((sum, entry) => sum + entry.length, 0)
+
+  // End of central directory record
   const endOfCentralDir = Buffer.alloc(22)
   endOfCentralDir.writeUInt32LE(0x06054b50, 0)
   endOfCentralDir.writeUInt16LE(0, 4)
