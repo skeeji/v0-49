@@ -1,117 +1,143 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { GridFSBucket } from "mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    console.log("🗑️ API /api/reset - Début de la réinitialisation complète")
-
+    console.log("🔄 Début du reset de la base de données...")
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    const results = {
-      luminaires: 0,
-      designers: 0,
-      gridfsFiles: 0,
-      gridfsChunks: 0,
+    // 1. Sauvegarder les favoris de tous les utilisateurs avec les détails des luminaires
+    console.log("💾 Sauvegarde des favoris utilisateurs...")
+    const usersCollection = db.collection("users")
+    const luminairesCollection = db.collection("luminaires")
+
+    const users = await usersCollection.find({}).toArray()
+    const favoritesBackup: Map<string, Array<{ nom: string; designer: string; periode: string }>> = new Map()
+
+    for (const user of users) {
+      if (user.favorites && user.favorites.length > 0) {
+        const favoriteDetails = []
+
+        for (const favoriteId of user.favorites) {
+          try {
+            const luminaire = await luminairesCollection.findOne({ _id: favoriteId })
+            if (luminaire) {
+              favoriteDetails.push({
+                nom: luminaire.nom || "",
+                designer: luminaire.designer || "",
+                periode: luminaire.periode || "",
+              })
+            }
+          } catch (err) {
+            console.warn(`⚠️ Impossible de récupérer le luminaire ${favoriteId}`)
+          }
+        }
+
+        if (favoriteDetails.length > 0) {
+          favoritesBackup.set(user.email, favoriteDetails)
+          console.log(`📋 ${favoriteDetails.length} favoris sauvegardés pour ${user.email}`)
+        }
+      }
     }
 
-    // 1. Supprimer toutes les collections de données
-    try {
-      const luminairesResult = await db.collection("luminaires").deleteMany({})
-      results.luminaires = luminairesResult.deletedCount
-      console.log(`🗑️ ${results.luminaires} luminaires supprimés`)
-    } catch (error) {
-      console.log("⚠️ Collection luminaires vide ou inexistante")
+    // 2. Supprimer les collections (sauf users pour préserver les comptes)
+    console.log("🗑️ Suppression des collections...")
+    const collections = await db.listCollections().toArray()
+
+    for (const collection of collections) {
+      const collectionName = collection.name
+
+      // Ne pas supprimer la collection users
+      if (collectionName === "users") {
+        console.log(`⏭️ Collection "${collectionName}" préservée`)
+        continue
+      }
+
+      // Ne pas supprimer les collections système
+      if (collectionName.startsWith("system.")) {
+        continue
+      }
+
+      try {
+        await db.collection(collectionName).drop()
+        console.log(`✅ Collection "${collectionName}" supprimée`)
+      } catch (error: any) {
+        if (error.codeName === "NamespaceNotFound") {
+          console.log(`⏭️ Collection "${collectionName}" n'existe pas`)
+        } else {
+          console.error(`❌ Erreur lors de la suppression de "${collectionName}":`, error)
+        }
+      }
     }
 
-    try {
-      const designersResult = await db.collection("designers").deleteMany({})
-      results.designers = designersResult.deletedCount
-      console.log(`🗑️ ${results.designers} designers supprimés`)
-    } catch (error) {
-      console.log("⚠️ Collection designers vide ou inexistante")
-    }
+    // 3. Recréer les collections nécessaires
+    console.log("📝 Recréation des collections...")
+    await db.createCollection("luminaires")
+    await db.createCollection("designers")
+    await db.createCollection("timeline_descriptions")
+    await db.createCollection("period_images")
 
-    // 2. Supprimer TOUS les fichiers GridFS (images, vidéos, logos)
-    try {
-      const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    // 4. Créer les index
+    console.log("🔍 Création des index...")
+    await db.collection("luminaires").createIndex({ nom: 1 })
+    await db.collection("luminaires").createIndex({ designer: 1 })
+    await db.collection("luminaires").createIndex({ periode: 1 })
+    await db.collection("designers").createIndex({ nom: 1 })
 
-      // Lister tous les fichiers
-      const files = await bucket.find({}).toArray()
-      console.log(`🗑️ ${files.length} fichiers GridFS trouvés`)
+    // 5. Restaurer les favoris avec les nouveaux IDs
+    console.log("🔄 Restauration des favoris...")
 
-      // Supprimer chaque fichier individuellement
-      for (const file of files) {
+    for (const [userEmail, favoriteDetails] of favoritesBackup.entries()) {
+      const newFavoriteIds = []
+
+      for (const detail of favoriteDetails) {
         try {
-          await bucket.delete(file._id)
-          results.gridfsFiles++
-        } catch (deleteError) {
-          console.log(`⚠️ Erreur suppression fichier ${file.filename}:`, deleteError)
+          // Rechercher le luminaire par ses propriétés
+          const luminaire = await luminairesCollection.findOne({
+            nom: detail.nom,
+            designer: detail.designer,
+            periode: detail.periode,
+          })
+
+          if (luminaire && luminaire._id) {
+            newFavoriteIds.push(luminaire._id)
+          } else {
+            console.warn(`⚠️ Luminaire non trouvé après reset: ${detail.nom}`)
+          }
+        } catch (err) {
+          console.warn(`⚠️ Erreur lors de la recherche du luminaire ${detail.nom}`)
         }
       }
 
-      console.log(`🗑️ ${results.gridfsFiles} fichiers GridFS supprimés`)
-    } catch (error) {
-      console.log("⚠️ Erreur GridFS:", error)
+      if (newFavoriteIds.length > 0) {
+        await usersCollection.updateOne({ email: userEmail }, { $set: { favorites: newFavoriteIds } })
+        console.log(`✅ ${newFavoriteIds.length} favoris restaurés pour ${userEmail}`)
+      } else {
+        // Vider les favoris si aucun luminaire n'a été retrouvé
+        await usersCollection.updateOne({ email: userEmail }, { $set: { favorites: [] } })
+        console.log(`⚠️ Aucun favori restauré pour ${userEmail}`)
+      }
     }
 
-    // 3. Nettoyer manuellement les collections GridFS
-    try {
-      const filesResult = await db.collection("uploads.files").deleteMany({})
-      const chunksResult = await db.collection("uploads.chunks").deleteMany({})
-      results.gridfsChunks = chunksResult.deletedCount
-      console.log(
-        `🗑️ Collections GridFS nettoyées: ${filesResult.deletedCount} files, ${chunksResult.deletedCount} chunks`,
-      )
-    } catch (error) {
-      console.log("⚠️ Collections GridFS déjà vides")
-    }
-
-    // 4. Vérification finale
-    const remainingLuminaires = await db.collection("luminaires").countDocuments()
-    const remainingDesigners = await db.collection("designers").countDocuments()
-    const remainingFiles = await db.collection("uploads.files").countDocuments()
-    const remainingChunks = await db.collection("uploads.chunks").countDocuments()
-
-    console.log("✅ Vérification finale:")
-    console.log(`   - Luminaires restants: ${remainingLuminaires}`)
-    console.log(`   - Designers restants: ${remainingDesigners}`)
-    console.log(`   - Fichiers GridFS restants: ${remainingFiles}`)
-    console.log(`   - Chunks GridFS restants: ${remainingChunks}`)
-
-    const isCompletelyClean =
-      remainingLuminaires === 0 && remainingDesigners === 0 && remainingFiles === 0 && remainingChunks === 0
+    console.log("✅ Reset terminé avec succès et favoris préservés!")
 
     return NextResponse.json({
       success: true,
-      message: isCompletelyClean
-        ? "✅ Réinitialisation complète terminée - TOUTES les données et fichiers ont été supprimés"
-        : "⚠️ Réinitialisation terminée avec quelques résidus",
-      deleted: results,
-      verification: {
-        remainingLuminaires,
-        remainingDesigners,
-        remainingFiles,
-        remainingChunks,
-        isCompletelyClean,
-      },
+      message: "Base de données réinitialisée avec succès. Les favoris ont été préservés.",
+      favoritesRestored: favoritesBackup.size,
     })
   } catch (error: any) {
-    console.error("❌ Erreur lors de la réinitialisation:", error)
+    console.error("❌ Erreur lors du reset:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la réinitialisation",
+        error: "Erreur lors du reset de la base de données",
         details: error.message,
       },
       { status: 500 },
     )
   }
-}
-
-export async function DELETE(request: NextRequest) {
-  return POST(request)
 }
