@@ -94,7 +94,7 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        if (sliderModifiedRef.current) {
+        if (sliderModifiedRef.current && yearRangeRef.current.length === 2) {
           params.append("yearMin", yearRangeRef.current[0].toString())
           params.append("yearMax", yearRangeRef.current[1].toString())
         }
@@ -115,7 +115,7 @@ export default function LuminairesPage() {
         if (data.success) {
           if (append && page > 1) {
             const existingIds = new Set(luminaires.map((l) => l._id))
-            const newLuminaires = data.luminaires.filter((l) => !existingIds.has(l._id))
+            const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
 
             console.log(
               `📊 Page ${page}: ${data.luminaires.length} luminaires reçus, ${newLuminaires.length} nouveaux ajoutés`,
@@ -128,8 +128,8 @@ export default function LuminairesPage() {
             setLuminaires(data.luminaires)
           }
 
-          setHasMore(data.pagination.hasMore)
-          setTotalItems(data.pagination.total)
+          setHasMore(data.pagination?.hasMore || false)
+          setTotalItems(data.pagination?.total || 0)
         } else {
           throw new Error(data.error || "Erreur lors du chargement")
         }
@@ -273,7 +273,7 @@ export default function LuminairesPage() {
         const numYear = Number.parseInt(year)
         return !isNaN(numYear) ? numYear : null
       })
-      .filter(Boolean)
+      .filter((year): year is number => year !== null)
       .sort((a, b) => a - b)
 
     if (years.length === 0) return { min: 1900, max: 2024 }
@@ -401,7 +401,7 @@ export default function LuminairesPage() {
       {(!user || userData?.role === "free") && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm" style={{ color: "#d4a574" }}>
           <p className="flex items-center font-serif">
-            <span className="mr-2"></span>
+            <span className="mr-2">ℹ️</span>
             <span>
               {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont accessibles
               ({freeUserLimit} luminaires).
