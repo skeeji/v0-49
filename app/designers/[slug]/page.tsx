@@ -10,7 +10,6 @@ import { GalleryGrid } from "@/components/GalleryGrid"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
-import { toast } from "sonner"
 
 export default function DesignerDetailPage() {
   const params = useParams()
@@ -20,6 +19,7 @@ export default function DesignerDetailPage() {
   const [collaboration, setCollaboration] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [defaultFormValues, setDefaultFormValues] = useState<any>(null)
   const { userData } = useAuth()
   const canEdit = userData?.role === "admin"
 
@@ -86,8 +86,19 @@ export default function DesignerDetailPage() {
             const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
             const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
 
-            setDescription(storedDescriptions[fullDesignerField] || defaultSpecialty)
-            setCollaboration(storedCollaborations[fullDesignerField] || allCollaborations || "")
+            const finalDescription = storedDescriptions[fullDesignerField] || defaultSpecialty
+            const finalCollaboration = storedCollaborations[fullDesignerField] || allCollaborations || ""
+
+            setDescription(finalDescription)
+            setCollaboration(finalCollaboration)
+
+            // Préparer les valeurs par défaut pour le formulaire
+            setDefaultFormValues({
+              "Artiste / Dates": fullDesignerField,
+              Spécialité: finalDescription,
+              "Collaboration / Œuvre": finalCollaboration,
+              designerImageFilename: designerImageFilename || "",
+            })
           }
         } else {
           console.error("❌ Erreur API:", result.error)
@@ -214,49 +225,36 @@ export default function DesignerDetailPage() {
     setDesignerLuminaires((prev) => prev.map((lum) => (lum.id === id ? { ...lum, ...updates } : lum)))
   }
 
-  const handleCreateLuminaire = async (luminaireData: any) => {
+  const handleOpenModal = () => {
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+  }
+
+  const refreshLuminaires = async () => {
     try {
-      console.log("📝 Création du luminaire:", luminaireData)
-
-      const response = await fetch("/api/luminaires", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(luminaireData),
-      })
-
+      const designerSlug = decodeURIComponent(params.slug as string)
+      const response = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
       const result = await response.json()
 
       if (result.success) {
-        toast.success("Luminaire créé avec succès!")
-        // Recharger les luminaires du designer
-        const designerSlug = decodeURIComponent(params.slug as string)
-        const refreshResponse = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
-        const refreshResult = await refreshResponse.json()
-
-        if (refreshResult.success) {
-          const adaptedLuminaires = refreshResult.data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
-            artist: lum["Artiste / Dates"] || lum.designer || "",
-            year: lum.annee || lum["Année"] || "",
-            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
-            specialty: lum["Spécialité"] || lum.periode || "",
-            collaboration: lum["Collaboration / Œuvre"] || lum.collaboration || "",
-          }))
-          setDesignerLuminaires(adaptedLuminaires)
-        }
-
-        return result
-      } else {
-        throw new Error(result.error || "Erreur lors de la création")
+        const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
+          ...lum,
+          id: lum._id,
+          image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
+          artist: lum["Artiste / Dates"] || lum.designer || "",
+          year: lum.annee || lum["Année"] || "",
+          name: lum["Nom luminaire"] || lum.nom || "Sans nom",
+          specialty: lum["Spécialité"] || lum.periode || "",
+          collaboration: lum["Collaboration / Œuvre"] || lum.collaboration || "",
+        }))
+        setDesignerLuminaires(adaptedLuminaires)
+        setDesigner((prev) => ({ ...prev, count: adaptedLuminaires.length }))
       }
-    } catch (error: any) {
-      console.error("❌ Erreur création luminaire:", error)
-      toast.error(`Erreur: ${error.message}`)
-      return { success: false, error: error.message }
+    } catch (error) {
+      console.error("❌ Erreur rafraîchissement luminaires:", error)
     }
   }
 
@@ -352,7 +350,7 @@ export default function DesignerDetailPage() {
             <h2 className="text-2xl font-serif text-gray-900">Luminaires de {designer.nom}</h2>
             {canEdit && (
               <Button
-                onClick={() => setIsModalOpen(true)}
+                onClick={handleOpenModal}
                 style={{ backgroundColor: "#f2d895", color: "#000" }}
                 className="hover:opacity-90 flex items-center gap-2"
               >
@@ -372,16 +370,14 @@ export default function DesignerDetailPage() {
         </div>
       </div>
 
-      <LuminaireFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateLuminaire}
-        defaultValues={{
-          designer: designer.nom,
-          periode: description,
-          collaboration: collaboration,
-        }}
-      />
+      {canEdit && defaultFormValues && (
+        <LuminaireFormModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          defaultValues={defaultFormValues}
+          onSuccess={refreshLuminaires}
+        />
+      )}
     </div>
   )
 }
