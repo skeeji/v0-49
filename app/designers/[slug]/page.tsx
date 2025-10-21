@@ -10,6 +10,7 @@ import { GalleryGrid } from "@/components/GalleryGrid"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
+import { toast } from "sonner"
 
 export default function DesignerDetailPage() {
   const params = useParams()
@@ -19,7 +20,6 @@ export default function DesignerDetailPage() {
   const [collaboration, setCollaboration] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [defaultFormValues, setDefaultFormValues] = useState<any>(null)
   const { userData } = useAuth()
   const canEdit = userData?.role === "admin"
 
@@ -32,7 +32,6 @@ export default function DesignerDetailPage() {
     async function fetchDesignerData() {
       setIsLoading(true)
       try {
-        // Utiliser l'API designer spécifique
         const response = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
         const result = await response.json()
         console.log("📊 Réponse API designer:", result)
@@ -40,12 +39,10 @@ export default function DesignerDetailPage() {
         if (result.success) {
           setDesigner(result.data.designer)
 
-          // Récupérer l'image du designer depuis les luminaires
           const designerImageFilename = result.data.luminaires.find(
             (lum: any) => lum.designerImageFilename,
           )?.designerImageFilename
 
-          // Adapter les données des luminaires pour GalleryGrid
           const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
             ...lum,
             id: lum._id,
@@ -55,12 +52,12 @@ export default function DesignerDetailPage() {
             name: lum["Nom luminaire"] || lum.nom || "Sans nom",
             specialty: lum["Spécialité"] || lum.periode || "",
             collaboration: lum["Collaboration / Œuvre"] || lum.collaboration || "",
+            editeur: lum.editeur || lum.Editeur || "",
           }))
 
           setDesignerLuminaires(adaptedLuminaires)
           console.log("✅ Luminaires adaptés:", adaptedLuminaires.length)
 
-          // Mettre à jour les données du designer avec l'image trouvée
           if (designerImageFilename) {
             setDesigner((prev) => ({
               ...prev,
@@ -69,17 +66,23 @@ export default function DesignerDetailPage() {
             console.log("✅ Image designer trouvée:", designerImageFilename)
           }
 
-          // Charger les descriptions stockées localement
           if (adaptedLuminaires.length > 0) {
             const fullDesignerField = adaptedLuminaires[0].artist
             const defaultSpecialty = adaptedLuminaires[0].specialty
 
-            // Récupérer SEULEMENT les collaborations/œuvres
+            // Récupérer les collaborations ET les éditeurs
             const allCollaborations = adaptedLuminaires
-              .map((lum) => {
-                return lum["Collaboration / Œuvre"] || lum.collaboration || ""
-              })
+              .map((lum) => lum["Collaboration / Œuvre"] || lum.collaboration || "")
               .filter((collab) => collab && collab.trim() !== "")
+              .filter((value, index, self) => self.indexOf(value) === index)
+
+            const allEditeurs = adaptedLuminaires
+              .map((lum) => lum.editeur || lum.Editeur || "")
+              .filter((editeur) => editeur && editeur.trim() !== "")
+              .filter((value, index, self) => self.indexOf(value) === index)
+
+            // Combiner collaborations et éditeurs sans doublons
+            const combinedInfo = [...allCollaborations, ...allEditeurs]
               .filter((value, index, self) => self.indexOf(value) === index)
               .join(" • ")
 
@@ -87,18 +90,10 @@ export default function DesignerDetailPage() {
             const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
 
             const finalDescription = storedDescriptions[fullDesignerField] || defaultSpecialty
-            const finalCollaboration = storedCollaborations[fullDesignerField] || allCollaborations || ""
+            const finalCollaboration = storedCollaborations[fullDesignerField] || combinedInfo || ""
 
             setDescription(finalDescription)
             setCollaboration(finalCollaboration)
-
-            // Préparer les valeurs par défaut pour le formulaire
-            setDefaultFormValues({
-              "Artiste / Dates": fullDesignerField,
-              Spécialité: finalDescription,
-              "Collaboration / Œuvre": finalCollaboration,
-              designerImageFilename: designerImageFilename || "",
-            })
           }
         } else {
           console.error("❌ Erreur API:", result.error)
@@ -225,36 +220,50 @@ export default function DesignerDetailPage() {
     setDesignerLuminaires((prev) => prev.map((lum) => (lum.id === id ? { ...lum, ...updates } : lum)))
   }
 
-  const handleOpenModal = () => {
-    setIsModalOpen(true)
-  }
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false)
-  }
-
-  const refreshLuminaires = async () => {
+  const handleCreateLuminaire = async (luminaireData: any) => {
     try {
-      const designerSlug = decodeURIComponent(params.slug as string)
-      const response = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
+      console.log("📝 Création du luminaire:", luminaireData)
+
+      const response = await fetch("/api/luminaires", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(luminaireData),
+      })
+
       const result = await response.json()
 
       if (result.success) {
-        const adaptedLuminaires = result.data.luminaires.map((lum: any) => ({
-          ...lum,
-          id: lum._id,
-          image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
-          artist: lum["Artiste / Dates"] || lum.designer || "",
-          year: lum.annee || lum["Année"] || "",
-          name: lum["Nom luminaire"] || lum.nom || "Sans nom",
-          specialty: lum["Spécialité"] || lum.periode || "",
-          collaboration: lum["Collaboration / Œuvre"] || lum.collaboration || "",
-        }))
-        setDesignerLuminaires(adaptedLuminaires)
-        setDesigner((prev) => ({ ...prev, count: adaptedLuminaires.length }))
+        toast.success("Luminaire créé avec succès!")
+        // Recharger les luminaires du designer
+        const designerSlug = decodeURIComponent(params.slug as string)
+        const refreshResponse = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
+        const refreshResult = await refreshResponse.json()
+
+        if (refreshResult.success) {
+          const adaptedLuminaires = refreshResult.data.luminaires.map((lum: any) => ({
+            ...lum,
+            id: lum._id,
+            image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
+            artist: lum["Artiste / Dates"] || lum.designer || "",
+            year: lum.annee || lum["Année"] || "",
+            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
+            specialty: lum["Spécialité"] || lum.periode || "",
+            collaboration: lum["Collaboration / Œuvre"] || lum.collaboration || "",
+          }))
+          setDesignerLuminaires(adaptedLuminaires)
+          setDesigner((prev) => ({ ...prev, count: adaptedLuminaires.length }))
+        }
+
+        return result
+      } else {
+        throw new Error(result.error || "Erreur lors de la création")
       }
-    } catch (error) {
-      console.error("❌ Erreur rafraîchissement luminaires:", error)
+    } catch (error: any) {
+      console.error("❌ Erreur création luminaire:", error)
+      toast.error(`Erreur: ${error.message}`)
+      return { success: false, error: error.message }
     }
   }
 
@@ -271,6 +280,13 @@ export default function DesignerDetailPage() {
         </Link>
       </div>
     )
+  }
+
+  const defaultFormValues = {
+    designer: designer.nom || "",
+    periode: description || "",
+    collaboration: collaboration || "",
+    designerImageFilename: designer.imagedesigner || "",
   }
 
   return (
@@ -333,7 +349,7 @@ export default function DesignerDetailPage() {
               </div>
 
               <div className="bg-white rounded-lg p-4 border border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Collaboration / Œuvre</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Collaboration / Œuvre / Éditeur</h3>
                 <EditableField
                   value={collaboration}
                   onSave={updateDesignerCollaboration}
@@ -350,7 +366,7 @@ export default function DesignerDetailPage() {
             <h2 className="text-2xl font-serif text-gray-900">Luminaires de {designer.nom}</h2>
             {canEdit && (
               <Button
-                onClick={handleOpenModal}
+                onClick={() => setIsModalOpen(true)}
                 style={{ backgroundColor: "#f2d895", color: "#000" }}
                 className="hover:opacity-90 flex items-center gap-2"
               >
@@ -370,14 +386,12 @@ export default function DesignerDetailPage() {
         </div>
       </div>
 
-      {canEdit && defaultFormValues && (
-        <LuminaireFormModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          defaultValues={defaultFormValues}
-          onSuccess={refreshLuminaires}
-        />
-      )}
+      <LuminaireFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateLuminaire}
+        defaultValues={defaultFormValues}
+      />
     </div>
   )
 }
