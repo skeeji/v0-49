@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { GalleryGrid } from "@/components/GalleryGrid"
+import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
+import { toast } from "sonner"
 
 export default function DesignerDetailPage() {
   const params = useParams()
@@ -17,6 +19,7 @@ export default function DesignerDetailPage() {
   const [description, setDescription] = useState("")
   const [collaboration, setCollaboration] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const { userData } = useAuth()
   const canEdit = userData?.role === "admin"
 
@@ -37,7 +40,7 @@ export default function DesignerDetailPage() {
         if (result.success) {
           setDesigner(result.data.designer)
 
-          // CORRECTION 2: Récupérer l'image du designer depuis les luminaires
+          // Récupérer l'image du designer depuis les luminaires
           const designerImageFilename = result.data.luminaires.find(
             (lum: any) => lum.designerImageFilename,
           )?.designerImageFilename
@@ -57,7 +60,7 @@ export default function DesignerDetailPage() {
           setDesignerLuminaires(adaptedLuminaires)
           console.log("✅ Luminaires adaptés:", adaptedLuminaires.length)
 
-          // CORRECTION 2: Mettre à jour les données du designer avec l'image trouvée
+          // Mettre à jour les données du designer avec l'image trouvée
           if (designerImageFilename) {
             setDesigner((prev) => ({
               ...prev,
@@ -71,21 +74,19 @@ export default function DesignerDetailPage() {
             const fullDesignerField = adaptedLuminaires[0].artist
             const defaultSpecialty = adaptedLuminaires[0].specialty
 
-            // CORRECTION: Récupérer SEULEMENT les collaborations/œuvres, PAS les descriptions
+            // Récupérer SEULEMENT les collaborations/œuvres
             const allCollaborations = adaptedLuminaires
               .map((lum) => {
-                // CORRECTION: Chercher SEULEMENT dans les champs collaboration
                 return lum["Collaboration / Œuvre"] || lum.collaboration || ""
               })
               .filter((collab) => collab && collab.trim() !== "")
-              .filter((value, index, self) => self.indexOf(value) === index) // Supprimer les doublons
+              .filter((value, index, self) => self.indexOf(value) === index)
               .join(" • ")
 
             const storedDescriptions = JSON.parse(localStorage.getItem("designer-descriptions") || "{}")
             const storedCollaborations = JSON.parse(localStorage.getItem("designer-collaborations") || "{}")
 
             setDescription(storedDescriptions[fullDesignerField] || defaultSpecialty)
-            // CORRECTION: Si pas de collaboration stockée ET pas de collaboration par défaut, laisser vide
             setCollaboration(storedCollaborations[fullDesignerField] || allCollaborations || "")
           }
         } else {
@@ -103,7 +104,6 @@ export default function DesignerDetailPage() {
     fetchDesignerData()
   }, [params.slug])
 
-  // Fonctions pour mettre à jour les descriptions (seulement pour admin)
   const updateDescription = (newDescription: string) => {
     if (!canEdit) return
     setDescription(newDescription)
@@ -130,7 +130,6 @@ export default function DesignerDetailPage() {
     if (!canEdit) return
 
     try {
-      // Mettre à jour tous les luminaires de ce designer
       const updatePromises = designerLuminaires.map(async (luminaire) => {
         const response = await fetch(`/api/luminaires/${luminaire.id}`, {
           method: "PUT",
@@ -139,7 +138,7 @@ export default function DesignerDetailPage() {
           },
           body: JSON.stringify({
             "Artiste / Dates": newName,
-            designer: newName, // CORRECTION: Mettre à jour les deux champs
+            designer: newName,
           }),
         })
         return response.json()
@@ -147,7 +146,6 @@ export default function DesignerDetailPage() {
 
       await Promise.all(updatePromises)
 
-      // Mettre à jour l'état local
       setDesigner((prev) => ({ ...prev, nom: newName }))
       setDesignerLuminaires((prev) => prev.map((lum) => ({ ...lum, artist: newName })))
 
@@ -161,7 +159,6 @@ export default function DesignerDetailPage() {
     if (!canEdit) return
 
     try {
-      // Mettre à jour tous les luminaires de ce designer
       const updatePromises = designerLuminaires.map(async (luminaire) => {
         const response = await fetch(`/api/luminaires/${luminaire.id}`, {
           method: "PUT",
@@ -177,8 +174,6 @@ export default function DesignerDetailPage() {
       })
 
       await Promise.all(updatePromises)
-
-      // Mettre à jour localStorage
       updateDescription(newSpecialty)
 
       console.log("✅ Spécialité du designer mise à jour avec succès")
@@ -191,7 +186,6 @@ export default function DesignerDetailPage() {
     if (!canEdit) return
 
     try {
-      // Mettre à jour tous les luminaires de ce designer
       const updatePromises = designerLuminaires.map(async (luminaire) => {
         const response = await fetch(`/api/luminaires/${luminaire.id}`, {
           method: "PUT",
@@ -207,8 +201,6 @@ export default function DesignerDetailPage() {
       })
 
       await Promise.all(updatePromises)
-
-      // Mettre à jour localStorage
       updateCollaboration(newCollaboration)
 
       console.log("✅ Collaboration du designer mise à jour avec succès")
@@ -220,6 +212,52 @@ export default function DesignerDetailPage() {
   const updateLuminaire = (id: string, updates: any) => {
     if (!canEdit) return
     setDesignerLuminaires((prev) => prev.map((lum) => (lum.id === id ? { ...lum, ...updates } : lum)))
+  }
+
+  const handleCreateLuminaire = async (luminaireData: any) => {
+    try {
+      console.log("📝 Création du luminaire:", luminaireData)
+
+      const response = await fetch("/api/luminaires", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(luminaireData),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success("Luminaire créé avec succès!")
+        // Recharger les luminaires du designer
+        const designerSlug = decodeURIComponent(params.slug as string)
+        const refreshResponse = await fetch(`/api/designers/${encodeURIComponent(designerSlug)}`)
+        const refreshResult = await refreshResponse.json()
+
+        if (refreshResult.success) {
+          const adaptedLuminaires = refreshResult.data.luminaires.map((lum: any) => ({
+            ...lum,
+            id: lum._id,
+            image: lum.filename ? `/api/images/filename/${lum.filename}` : null,
+            artist: lum["Artiste / Dates"] || lum.designer || "",
+            year: lum.annee || lum["Année"] || "",
+            name: lum["Nom luminaire"] || lum.nom || "Sans nom",
+            specialty: lum["Spécialité"] || lum.periode || "",
+            collaboration: lum["Collaboration / Œuvre"] || lum.collaboration || "",
+          }))
+          setDesignerLuminaires(adaptedLuminaires)
+        }
+
+        return result
+      } else {
+        throw new Error(result.error || "Erreur lors de la création")
+      }
+    } catch (error: any) {
+      console.error("❌ Erreur création luminaire:", error)
+      toast.error(`Erreur: ${error.message}`)
+      return { success: false, error: error.message }
+    }
   }
 
   if (isLoading) {
@@ -310,7 +348,20 @@ export default function DesignerDetailPage() {
         </div>
 
         <div className="bg-white rounded-xl p-8 shadow-lg">
-          <h2 className="text-2xl font-serif text-gray-900 mb-6">Luminaires de {designer.nom}</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-serif text-gray-900">Luminaires de {designer.nom}</h2>
+            {canEdit && (
+              <Button
+                onClick={() => setIsModalOpen(true)}
+                style={{ backgroundColor: "#f2d895", color: "#000" }}
+                className="hover:opacity-90 flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Nouveau luminaire
+              </Button>
+            )}
+          </div>
+
           {designerLuminaires.length > 0 ? (
             <GalleryGrid items={designerLuminaires} viewMode="grid" onItemUpdate={updateLuminaire} />
           ) : (
@@ -320,6 +371,17 @@ export default function DesignerDetailPage() {
           )}
         </div>
       </div>
+
+      <LuminaireFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateLuminaire}
+        defaultValues={{
+          designer: designer.nom,
+          periode: description,
+          collaboration: collaboration,
+        }}
+      />
     </div>
   )
 }

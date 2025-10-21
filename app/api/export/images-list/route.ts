@@ -27,13 +27,15 @@ export async function GET() {
         "designer_image",
         "designerImage",
         "image",
+        "photo",
+        "portrait",
       ]
 
       for (const field of fields) {
         const value = designer[field]
         if (value && typeof value === "string" && value.trim()) {
           designerImageNames.add(value.trim())
-          console.log(`👤 Designer trouvé: ${designer.Nom || designer.nom} -> ${value.trim()}`)
+          console.log(`👤 Designer depuis collection: ${designer.Nom || designer.nom} -> ${value.trim()}`)
         }
       }
     })
@@ -43,6 +45,7 @@ export async function GET() {
     const allLuminaires = await luminairesCollection.find({}).toArray()
 
     allLuminaires.forEach((lum) => {
+      // Tous les champs possibles pour une image de designer
       const fields = [
         "designerImageFilename",
         "Image designer (imagedesigner)",
@@ -50,17 +53,24 @@ export async function GET() {
         "Image designer",
         "designer_image",
         "designerImage",
+        "designer-image",
+        "designer_photo",
+        "designerPhoto",
+        "photo_designer",
+        "photoDesigner",
       ]
 
       for (const field of fields) {
         const value = lum[field]
         if (value && typeof value === "string" && value.trim()) {
           designerImageNames.add(value.trim())
+          console.log(`👤 Designer depuis luminaire: ${value.trim()}`)
         }
       }
     })
 
     console.log(`👥 Total images designers identifiées: ${designerImageNames.size}`)
+    console.log("📋 Liste complète des images designers:", Array.from(designerImageNames))
 
     // Récupérer la liste des fichiers depuis GridFS
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
@@ -70,6 +80,9 @@ export async function GET() {
 
     const imagesList = files.map((file) => {
       const isDesigner = designerImageNames.has(file.filename)
+      if (isDesigner) {
+        console.log(`✅ Image designer confirmée: ${file.filename}`)
+      }
       return {
         id: file._id.toString(),
         filename: file.filename,
@@ -81,7 +94,7 @@ export async function GET() {
     const designersCount = imagesList.filter((img) => img.folder === "designers").length
     const luminairesCount = imagesList.filter((img) => img.folder === "luminaires").length
 
-    console.log(`📊 Répartition: ${designersCount} designers, ${luminairesCount} luminaires`)
+    console.log(`📊 Répartition finale: ${designersCount} designers, ${luminairesCount} luminaires`)
 
     return NextResponse.json({
       success: true,
