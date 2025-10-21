@@ -19,6 +19,8 @@ export async function GET() {
 
     const designerImageNames = new Set<string>()
 
+    console.log("📊 Analyse de tous les luminaires pour identifier les images de designers...")
+
     // Identifier toutes les images de designers
     allLuminaires.forEach((lum) => {
       // Liste exhaustive des champs possibles pour les images de designers
@@ -29,13 +31,22 @@ export async function GET() {
         "Image designer",
         "designer_image",
         "designerImage",
+        "imageDesigner",
+        "designer-image",
+        "DesignerImage",
+        "IMAGEDESIGNER",
       ]
 
       for (const field of designerFields) {
         const value = lum[field]
         if (value && typeof value === "string") {
           const cleanValue = value.trim()
-          if (cleanValue && cleanValue.toLowerCase().endsWith(".jpg")) {
+          if (
+            cleanValue &&
+            (cleanValue.toLowerCase().endsWith(".jpg") ||
+              cleanValue.toLowerCase().endsWith(".jpeg") ||
+              cleanValue.toLowerCase().endsWith(".png"))
+          ) {
             designerImageNames.add(cleanValue)
           }
         }
@@ -43,6 +54,7 @@ export async function GET() {
     })
 
     console.log(`👤 ${designerImageNames.size} images de designers identifiées`)
+    console.log("Exemples d'images de designers:", Array.from(designerImageNames).slice(0, 5))
 
     // Récupérer tous les fichiers depuis GridFS
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
@@ -80,6 +92,8 @@ export async function GET() {
         const isDesignerImage = designerImageNames.has(file.filename)
         const folder = isDesignerImage ? "designers" : "luminaires"
 
+        console.log(`${isDesignerImage ? "👤" : "💡"} ${file.filename} → ${folder}/`)
+
         if (isDesignerImage) {
           designersCount++
         } else {
@@ -101,6 +115,9 @@ export async function GET() {
     }
 
     console.log(`📊 Résumé: ${designersCount} designers, ${luminairesCount} luminaires`)
+    console.log(`📁 Structure du ZIP:`)
+    console.log(`  - designers/ (${designersCount} fichiers)`)
+    console.log(`  - luminaires/ (${luminairesCount} fichiers)`)
 
     if (fileData.length === 0) {
       return NextResponse.json({ success: false, error: "Aucun fichier valide trouvé" }, { status: 404 })
