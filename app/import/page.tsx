@@ -722,10 +722,23 @@ export default function ImportPage() {
 
         console.log(`🔍 Export de ${luminairesData.luminaires.length} luminaires...`)
 
-        // Log du premier luminaire pour debug
+        // Log du premier luminaire pour debug - AVEC LES VALEURS
         if (luminairesData.luminaires.length > 0) {
-          console.log("📋 Premier luminaire (toutes les clés):", Object.keys(luminairesData.luminaires[0]))
-          console.log("📋 Premier luminaire (données complètes):", luminairesData.luminaires[0])
+          const firstLuminaire = luminairesData.luminaires[0]
+          console.log("📋 Premier luminaire - TOUTES LES CLÉS:", Object.keys(firstLuminaire))
+          console.log("📋 Premier luminaire - DONNÉES COMPLÈTES:", JSON.stringify(firstLuminaire, null, 2))
+
+          // Log spécifique de chaque champ qu'on cherche
+          console.log("🔍 Valeurs recherchées sur le premier luminaire:")
+          console.log("  - editeur:", firstLuminaire.editeur)
+          console.log("  - Editeur:", firstLuminaire.Editeur)
+          console.log("  - periode:", firstLuminaire.periode)
+          console.log("  - Spécialité:", firstLuminaire.Spécialité)
+          console.log("  - collaboration:", firstLuminaire.collaboration)
+          console.log("  - description:", firstLuminaire.description)
+          console.log("  - dimensions:", firstLuminaire.dimensions)
+          console.log("  - estimation:", firstLuminaire.estimation)
+          console.log("  - prix:", firstLuminaire.prix)
         }
 
         const csvData = luminairesData.luminaires.map((luminaire: any) => {
@@ -831,6 +844,7 @@ export default function ImportPage() {
               `⚠️ Luminaire ${luminaire._id} - Champs vides détectés. Clés disponibles:`,
               Object.keys(luminaire),
             )
+            console.log(`   Données:`, JSON.stringify(luminaire, null, 2))
           }
 
           return {
