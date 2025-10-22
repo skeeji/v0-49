@@ -722,31 +722,11 @@ export default function ImportPage() {
 
         console.log(`🔍 Export de ${luminairesData.luminaires.length} luminaires...`)
 
-        // Log du premier luminaire pour debug - AVEC LES VALEURS
-        if (luminairesData.luminaires.length > 0) {
-          const firstLuminaire = luminairesData.luminaires[0]
-          console.log("📋 Premier luminaire - TOUTES LES CLÉS:", Object.keys(firstLuminaire))
-          console.log("📋 Premier luminaire - DONNÉES COMPLÈTES:", JSON.stringify(firstLuminaire, null, 2))
-
-          // Log spécifique de chaque champ qu'on cherche
-          console.log("🔍 Valeurs recherchées sur le premier luminaire:")
-          console.log("  - editeur:", firstLuminaire.editeur)
-          console.log("  - Editeur:", firstLuminaire.Editeur)
-          console.log("  - periode:", firstLuminaire.periode)
-          console.log("  - Spécialité:", firstLuminaire.Spécialité)
-          console.log("  - collaboration:", firstLuminaire.collaboration)
-          console.log("  - description:", firstLuminaire.description)
-          console.log("  - dimensions:", firstLuminaire.dimensions)
-          console.log("  - estimation:", firstLuminaire.estimation)
-          console.log("  - prix:", firstLuminaire.prix)
-        }
-
         const csvData = luminairesData.luminaires.map((luminaire: any) => {
           const designerName = luminaire.designer || luminaire["Artiste / Dates"] || ""
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
-          // Récupération de tous les champs avec toutes les variantes possibles
           const editeur =
             luminaire.editeur ||
             luminaire.Editeur ||
@@ -838,15 +818,6 @@ export default function ImportPage() {
 
           const annee = luminaire.annee || luminaire.Année || luminaire["Année"] || luminaire.year || ""
 
-          // Log pour debug des champs problématiques
-          if (!editeur && !specialite && !collaboration) {
-            console.log(
-              `⚠️ Luminaire ${luminaire._id} - Champs vides détectés. Clés disponibles:`,
-              Object.keys(luminaire),
-            )
-            console.log(`   Données:`, JSON.stringify(luminaire, null, 2))
-          }
-
           return {
             Signé: signe,
             "Nom luminaire": nom,
@@ -904,28 +875,6 @@ export default function ImportPage() {
         const withFilenames = csvData.filter((row) => row["Image luminaire (Nom du fichier)"] !== "").length
         console.log(`📊 Export: ${csvData.length} luminaires, ${withFilenames} avec nom de fichier`)
 
-        // Log de statistiques sur les champs vides
-        const emptyEditeur = csvData.filter((row) => !row.Editeur).length
-        const emptySpecialite = csvData.filter((row) => !row.Spécialité).length
-        const emptyCollaboration = csvData.filter((row) => !row["Collaboration / Œuvre"]).length
-        const emptyDescription = csvData.filter((row) => !row.Description).length
-        const emptyDimensions = csvData.filter((row) => !row.Dimensions).length
-        const emptyEstimation = csvData.filter((row) => !row.Estimation).length
-        const emptyLien = csvData.filter((row) => !row["Lien site marchand"]).length
-        const emptyEtiquette = csvData.filter((row) => !row.Etiquette).length
-        const emptyBiblio = csvData.filter((row) => !row.Bibliographie).length
-
-        console.log(`📊 Champs vides:
-  Editeur: ${emptyEditeur}/${csvData.length}
-  Spécialité: ${emptySpecialite}/${csvData.length}
-  Collaboration: ${emptyCollaboration}/${csvData.length}
-  Description: ${emptyDescription}/${csvData.length}
-  Dimensions: ${emptyDimensions}/${csvData.length}
-  Estimation: ${emptyEstimation}/${csvData.length}
-  Lien site marchand: ${emptyLien}/${csvData.length}
-  Etiquette: ${emptyEtiquette}/${csvData.length}
-  Bibliographie: ${emptyBiblio}/${csvData.length}`)
-
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
         const link = document.createElement("a")
         const url = URL.createObjectURL(blob)
@@ -969,7 +918,9 @@ export default function ImportPage() {
       }
 
       const listData = await listResponse.json()
-      console.log(`📋 ${listData.total} images à télécharger`)
+      console.log(
+        `📋 ${listData.total} images à télécharger (${listData.luminaires} luminaires, ${listData.designers} designers, ${listData.autres} autres)`,
+      )
 
       if (listData.total === 0) {
         throw new Error("Aucune image trouvée")
@@ -980,6 +931,7 @@ export default function ImportPage() {
 
       const designersFolder = zip.folder("designers")
       const luminairesFolder = zip.folder("luminaires")
+      const autresFolder = zip.folder("autres")
 
       let downloaded = 0
       for (const image of listData.images) {
@@ -997,6 +949,8 @@ export default function ImportPage() {
 
           if (image.folder === "designers" && designersFolder) {
             designersFolder.file(image.filename, blob)
+          } else if (image.folder === "autres" && autresFolder) {
+            autresFolder.file(image.filename, blob)
           } else if (luminairesFolder) {
             luminairesFolder.file(image.filename, blob)
           }
@@ -1030,7 +984,7 @@ export default function ImportPage() {
       console.log(`✅ Export terminé: ${downloaded}/${listData.total} images`)
       toast({
         title: "✅ Export terminé",
-        description: `${downloaded} images téléchargées (${listData.designers} designers, ${listData.luminaires} luminaires)`,
+        description: `${downloaded} images téléchargées (${listData.designers} designers, ${listData.luminaires} luminaires, ${listData.autres} autres)`,
       })
     } catch (error: any) {
       console.error("❌ Erreur lors de l'export des images:", error)
@@ -1149,7 +1103,7 @@ export default function ImportPage() {
             <Card className="border-green-200">
               <CardHeader>
                 <CardTitle className="text-green-600">Export des images</CardTitle>
-                <CardDescription>Téléchargez toutes les images (designers + luminaires)</CardDescription>
+                <CardDescription>Téléchargez toutes les images (designers + luminaires + autres)</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button

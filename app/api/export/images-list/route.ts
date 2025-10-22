@@ -2,109 +2,102 @@ import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { GridFSBucket } from "mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
-
 export async function GET() {
   try {
-    console.log("📋 Récupération de la liste des images...")
-
     const client = await clientPromise
-    const db = client.db(DBNAME)
+    const db = client.db("luminaires-gallery")
 
-    // Récupérer tous les designers
-    const designersCollection = db.collection("designers")
-    const allDesigners = await designersCollection.find({}).toArray()
-
-    // Créer un Set avec tous les noms de fichiers des designers
-    const designerImageNames = new Set<string>()
-
-    // Ajouter les images depuis la collection designers
-    allDesigners.forEach((designer) => {
-      const fields = [
-        "imagedesigner",
-        "Image designer (imagedesigner)",
-        "Image designer",
-        "designer_image",
-        "designerImage",
-        "image",
-        "photo",
-        "portrait",
-      ]
-
-      for (const field of fields) {
-        const value = designer[field]
-        if (value && typeof value === "string" && value.trim()) {
-          designerImageNames.add(value.trim())
-          console.log(`👤 Designer depuis collection: ${designer.Nom || designer.nom} -> ${value.trim()}`)
-        }
-      }
-    })
-
-    // Récupérer les luminaires pour identifier les images designers référencées
-    const luminairesCollection = db.collection("luminaires")
-    const allLuminaires = await luminairesCollection.find({}).toArray()
-
-    allLuminaires.forEach((lum) => {
-      // Tous les champs possibles pour une image de designer
-      const fields = [
-        "designerImageFilename",
-        "Image designer (imagedesigner)",
-        "imagedesigner",
-        "Image designer",
-        "designer_image",
-        "designerImage",
-        "designer-image",
-        "designer_photo",
-        "designerPhoto",
-        "photo_designer",
-        "photoDesigner",
-      ]
-
-      for (const field of fields) {
-        const value = lum[field]
-        if (value && typeof value === "string" && value.trim()) {
-          designerImageNames.add(value.trim())
-          console.log(`👤 Designer depuis luminaire: ${value.trim()}`)
-        }
-      }
-    })
-
-    console.log(`👥 Total images designers identifiées: ${designerImageNames.size}`)
-    console.log("📋 Liste complète des images designers:", Array.from(designerImageNames))
-
-    // Récupérer la liste des fichiers depuis GridFS
-    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
+    // Récupérer tous les fichiers de GridFS
+    const bucket = new GridFSBucket(db, { bucketName: "images" })
     const files = await bucket.find({}).toArray()
 
-    console.log(`📁 ${files.length} fichiers trouvés dans GridFS`)
+    console.log(`📋 Total fichiers trouvés: ${files.length}`)
 
-    const imagesList = files.map((file) => {
-      const isDesigner = designerImageNames.has(file.filename)
-      if (isDesigner) {
-        console.log(`✅ Image designer confirmée: ${file.filename}`)
-      }
-      return {
-        id: file._id.toString(),
-        filename: file.filename,
-        folder: isDesigner ? "designers" : "luminaires",
-        size: file.length,
+    // Récupérer la liste de tous les designers pour identifier les images designers
+    const designersCollection = db.collection("designers")
+    const designers = await designersCollection.find({}).toArray()
+
+    // Créer un Set avec tous les noms de fichiers des designers (en minuscules pour la comparaison)
+    const designerImageFilenames = new Set<string>()
+    designers.forEach((designer: any) => {
+      if (designer.imagedesigner) {
+        designerImageFilenames.add(designer.imagedesigner.toLowerCase())
       }
     })
 
-    const designersCount = imagesList.filter((img) => img.folder === "designers").length
-    const luminairesCount = imagesList.filter((img) => img.folder === "luminaires").length
+    console.log(`👥 Images designers identifiées: ${designerImageFilenames.size}`)
 
-    console.log(`📊 Répartition finale: ${designersCount} designers, ${luminairesCount} luminaires`)
+    // Fichiers spéciaux à mettre dans le dossier "autres"
+    const specialFiles = new Set<string>()
+
+    // Ajouter le logo
+    const logoDoc = await db.collection("settings").findOne({ key: "logo" })
+    if (logoDoc?.filename) {
+      specialFiles.add(logoDoc.filename.toLowerCase())
+    }
+
+    // Ajouter la vidéo de bienvenue
+    const videoDoc = await db.collection("settings").findOne({ key: "welcome_video" })
+    if (videoDoc?.filename) {
+      specialFiles.add(videoDoc.filename.toLowerCase())
+    }
+
+    // Ajouter les images de périodes
+    const periodImages = await db.collection("period_images").find({}).toArray()
+    periodImages.forEach((period: any) => {
+      if (period.filename) {
+        specialFiles.add(period.filename.toLowerCase())
+      }
+    })
+
+    console.log(`📦 Fichiers spéciaux identifiés: ${specialFiles.size}`)
+
+    // Catégoriser les images
+    const imagesList = files.map((file: any) => {
+      const filename = String(file.filename || "")
+      const filenameLower = filename.toLowerCase()
+
+      let folder = "luminaires"
+
+      // Vérifier si c'est un fichier spécial
+      if (specialFiles.has(filenameLower)) {
+        folder = "autres"
+      }
+      // Vérifier si c'est une image de designer
+      else if (designerImageFilenames.has(filenameLower)) {
+        folder = "designers"
+      }
+      // Vérifier si le nom contient des patterns de designers (nom-prenom.jpg)
+      else if (filenameLower.match(/^[a-z]+[-_][a-z]+\.(jpg|jpeg|png|gif|webp)$/i)) {
+        folder = "designers"
+      }
+
+      return {
+        id: String(file._id),
+        filename: filename,
+        folder: folder,
+      }
+    })
+
+    const luminairesCount = imagesList.filter((img) => img.folder === "luminaires").length
+    const designersCount = imagesList.filter((img) => img.folder === "designers").length
+    const autresCount = imagesList.filter((img) => img.folder === "autres").length
+
+    console.log(`📊 Répartition:`)
+    console.log(`  - Luminaires: ${luminairesCount}`)
+    console.log(`  - Designers: ${designersCount}`)
+    console.log(`  - Autres: ${autresCount}`)
 
     return NextResponse.json({
       success: true,
-      images: imagesList,
       total: imagesList.length,
-      designers: designersCount,
       luminaires: luminairesCount,
+      designers: designersCount,
+      autres: autresCount,
+      images: imagesList,
     })
   } catch (error: any) {
-    console.error("❌ Erreur:", error)
+    console.error("❌ Erreur liste images:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

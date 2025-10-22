@@ -202,7 +202,6 @@ export default function LuminaireDetailPage() {
           year: String(item.annee || item["Année"] || ""),
           name: String(item["Nom luminaire"] || item.nom || "Sans nom"),
           similarityScore: score,
-          // CORRECTION: Ajouter l'URL de l'image
           image: (() => {
             if (item.imageId) {
               return `/api/images/${item.imageId}`
@@ -358,7 +357,11 @@ export default function LuminaireDetailPage() {
       addField("Dimensions", luminaire.dimensions)
       addField("Matériaux", luminaire.materials)
       addField("Lien site marchand", luminaire.lienSiteMarchand)
-      addField("Étiquette", luminaire.etiquette)
+
+      if (canEdit) {
+        addField("Étiquette", luminaire.etiquette)
+      }
+
       addField("Bibliographie", luminaire.bibliographie)
 
       if (canSeeEstimation) {
@@ -377,14 +380,13 @@ export default function LuminaireDetailPage() {
                 const ctx = canvas.getContext("2d")
 
                 if (ctx) {
-                  // CORRECTION: Augmenter la résolution pour une meilleure qualité
-                  const targetWidth = 400 // Augmenté de 100 à 400
-                  const targetHeight = 400 // Augmenté de 100 à 400
+                  const targetWidth = 400
+                  const targetHeight = 400
                   canvas.width = targetWidth
                   canvas.height = targetHeight
                   ctx.drawImage(tempImg, 0, 0, targetWidth, targetHeight)
-                  const dataURL = canvas.toDataURL("image/jpeg", 0.95) // Qualité augmentée de 0.7 à 0.95
-                  pdf.addImage(dataURL, "JPEG", 20, yPos + 10, 150, 150) // Taille augmentée dans le PDF
+                  const dataURL = canvas.toDataURL("image/jpeg", 0.95)
+                  pdf.addImage(dataURL, "JPEG", 20, yPos + 10, 150, 150)
                 }
               } catch (error) {
                 console.error("❌ Erreur traitement image PDF:", error)
@@ -686,7 +688,7 @@ export default function LuminaireDetailPage() {
                     </div>
                   )}
 
-                  {(canEdit || (luminaire.etiquette && String(luminaire.etiquette).trim())) && (
+                  {canEdit && (
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Étiquette</label>
                       <EditableField
