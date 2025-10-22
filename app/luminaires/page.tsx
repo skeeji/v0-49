@@ -58,11 +58,54 @@ export default function LuminairesPage() {
         } catch (error) {
           console.error("❌ Erreur chargement favoris:", error)
         }
+      } else {
+        setFavorites([])
       }
     }
 
     loadFavorites()
   }, [user?.email])
+
+  const toggleFavorite = useCallback(
+    async (luminaireId: string) => {
+      if (!user?.email) {
+        toast.error("Vous devez être connecté pour gérer vos favoris")
+        return
+      }
+
+      const isFavorite = favorites.includes(luminaireId)
+      const action = isFavorite ? "remove" : "add"
+
+      // Mise à jour optimiste de l'UI
+      setFavorites((prev) => (isFavorite ? prev.filter((id) => id !== luminaireId) : [...prev, luminaireId]))
+
+      try {
+        const response = await fetch("/api/users/favorites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: user.email,
+            luminaireId,
+            action,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!data.success) {
+          // Rollback en cas d'erreur
+          setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
+          toast.error("Erreur lors de la mise à jour des favoris")
+        }
+      } catch (error) {
+        console.error("❌ Erreur toggle favori:", error)
+        // Rollback en cas d'erreur
+        setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
+        toast.error("Erreur lors de la mise à jour des favoris")
+      }
+    },
+    [user?.email, favorites],
+  )
 
   const loadAllLuminaires = useCallback(async () => {
     try {
@@ -299,11 +342,11 @@ export default function LuminairesPage() {
 
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
-      const favoriteItems = allLuminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
-      const uniqueFavorites = favoriteItems.filter(
-        (item, index, self) => index === self.findIndex((t) => String(t.id || t._id) === String(item.id || item._id)),
-      )
-      return uniqueFavorites
+      const favoriteItems = allLuminaires.filter((item) => {
+        const itemId = String(item._id || item.id || "")
+        return favorites.includes(itemId)
+      })
+      return favoriteItems
     }
     return luminaires
   }, [luminaires, allLuminaires, showFavorites, favorites])
@@ -471,6 +514,8 @@ export default function LuminairesPage() {
         columns={columns}
         freeUserLimit={freeUserLimit}
         isUserFree={!user || userData?.role === "free"}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
       />
 
       {loadingMore && !showFavorites && (

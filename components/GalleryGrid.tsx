@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { FavoriteToggleButton } from "./FavoriteToggleButton"
@@ -13,6 +12,8 @@ interface GalleryGridProps {
   columns?: number
   freeUserLimit?: number
   isUserFree?: boolean
+  favorites?: string[]
+  onToggleFavorite?: (id: string) => void
 }
 
 export function GalleryGrid({
@@ -22,21 +23,10 @@ export function GalleryGrid({
   columns = 4,
   freeUserLimit = Number.POSITIVE_INFINITY,
   isUserFree = false,
+  favorites = [],
+  onToggleFavorite,
 }: GalleryGridProps) {
   const { user } = useAuth()
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      return JSON.parse(localStorage.getItem("favorites") || "[]")
-    }
-    return []
-  })
-
-  const toggleFavorite = (id: string) => {
-    const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
-
-    setFavorites(newFavorites)
-    localStorage.setItem("favorites", JSON.stringify(newFavorites))
-  }
 
   const gridColsClass = {
     3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
@@ -50,7 +40,7 @@ export function GalleryGrid({
     return (
       <div className="space-y-4">
         {items.map((item, index) => {
-          const itemId = String(item.id || item._id || "")
+          const itemId = String(item._id || item.id || "")
           const isFavorite = favorites.includes(itemId)
           const isLocked = isUserFree && index >= freeUserLimit
 
@@ -59,7 +49,6 @@ export function GalleryGrid({
           const itemYear = String(item.annee || item["Année"] || "")
           const itemDescription = String(item.description || item["Description"] || "")
 
-          // CORRECTION: Construire l'URL de l'image correctement
           let imageUrl = item.image
 
           if (!imageUrl) {
@@ -87,7 +76,6 @@ export function GalleryGrid({
                         className={`object-cover rounded-lg ${isLocked ? "blur-sm" : ""}`}
                         unoptimized
                         onError={(e) => {
-                          console.log("❌ Erreur chargement image:", imageUrl)
                           e.currentTarget.src = "/placeholder.svg"
                         }}
                       />
@@ -106,12 +94,12 @@ export function GalleryGrid({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <h3 className="font-serif text-lg text-gray-900 truncate">{itemName}</h3>
-                      {user && (
+                      {user && onToggleFavorite && (
                         <FavoriteToggleButton
                           isActive={isFavorite}
                           onClick={(e) => {
                             e.preventDefault()
-                            toggleFavorite(itemId)
+                            onToggleFavorite(itemId)
                           }}
                         />
                       )}
@@ -132,7 +120,7 @@ export function GalleryGrid({
   return (
     <div className={`grid ${gridColsClass} gap-4`}>
       {items.map((item, index) => {
-        const itemId = String(item.id || item._id || "")
+        const itemId = String(item._id || item.id || "")
         const isFavorite = favorites.includes(itemId)
         const isLocked = isUserFree && index >= freeUserLimit
 
@@ -140,7 +128,6 @@ export function GalleryGrid({
         const itemArtist = String(item.designer || item["Artiste / Dates"] || "")
         const itemYear = String(item.annee || item["Année"] || "")
 
-        // CORRECTION: Construire l'URL de l'image correctement
         let imageUrl = item.image
 
         if (!imageUrl) {
@@ -165,7 +152,6 @@ export function GalleryGrid({
                       className={`object-cover ${isLocked ? "blur-sm" : ""}`}
                       unoptimized
                       onError={(e) => {
-                        console.log("❌ Erreur chargement image:", imageUrl)
                         e.currentTarget.src = "/placeholder.svg"
                       }}
                     />
@@ -187,12 +173,12 @@ export function GalleryGrid({
                 <div className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-serif text-sm line-clamp-2 flex-1">{itemName}</h3>
-                    {user && (
+                    {user && onToggleFavorite && (
                       <FavoriteToggleButton
                         isActive={isFavorite}
                         onClick={(e) => {
                           e.preventDefault()
-                          toggleFavorite(itemId)
+                          onToggleFavorite(itemId)
                         }}
                       />
                     )}

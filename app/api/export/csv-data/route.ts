@@ -16,19 +16,11 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ ${luminaires.length} luminaires récupérés pour l'export`)
 
-    // Debug: afficher les 3 premiers luminaires pour voir la structure
-    if (luminaires.length > 0) {
-      console.log("📝 Structure du premier luminaire:")
-      console.log(JSON.stringify(luminaires[0], null, 2))
-    }
-
     // Formater les données pour l'export CSV
     const formattedData = luminaires.map((luminaire) => {
       // Récupérer le nom du fichier depuis tous les champs possibles
       const filename =
         luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
-
-      console.log(`Luminaire: ${luminaire.nom || luminaire["Nom luminaire"]} -> filename: ${filename}`)
 
       return {
         _id: luminaire._id.toString(),
@@ -59,6 +51,12 @@ export async function GET(request: NextRequest) {
         Estimation: luminaire["Estimation"] || luminaire.estimation || "",
         editeur: luminaire.editeur || "",
         Editeur: luminaire["Editeur"] || luminaire.editeur || "",
+        "Lien site marchand": luminaire["Lien site marchand"] || luminaire.lienSiteMarchand || "",
+        lienSiteMarchand: luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || "",
+        Etiquette: luminaire["Etiquette"] || luminaire.etiquette || "",
+        etiquette: luminaire.etiquette || luminaire["Etiquette"] || "",
+        Bibliographie: luminaire["Bibliographie"] || luminaire.bibliographie || "",
+        bibliographie: luminaire.bibliographie || luminaire["Bibliographie"] || "",
         filename: filename,
         "Nom du fichier": filename,
         "Image luminaire (Nom du fichier)": filename,
