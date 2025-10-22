@@ -1,9 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
@@ -11,95 +11,110 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || ""
     const categorie = searchParams.get("categorie") || ""
     const materiau = searchParams.get("materiau") || ""
-    const sortField = searchParams.get("sortField") || "nom"
-    const sortDirection = searchParams.get("sortDirection") === "desc" ? -1 : 1
     const yearMin = searchParams.get("yearMin")
     const yearMax = searchParams.get("yearMax")
-    const fields = searchParams.get("fields")
+    const sortField = searchParams.get("sortField") || "nom"
+    const sortDirection = searchParams.get("sortDirection") || "asc"
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const query: any = {}
+    const filter: any = {}
+    const andConditions: any[] = []
 
     if (search) {
-      query.$or = [
-        { nom: { $regex: search, $options: "i" } },
-        { "Nom luminaire": { $regex: search, $options: "i" } },
-        { designer: { $regex: search, $options: "i" } },
-        { "Artiste / Dates": { $regex: search, $options: "i" } },
-      ]
-    }
-
-    if (categorie && categorie !== "all") {
-      query.$or = [{ categorie: categorie }, { Catégorie: categorie }]
-    }
-
-    if (materiau && materiau !== "all") {
-      query.$or = [
-        ...(query.$or || []),
-        { materiaux: { $regex: materiau, $options: "i" } },
-        { Matériaux: { $regex: materiau, $options: "i" } },
-      ]
-    }
-
-    if (yearMin && yearMax) {
-      const minYear = Number.parseInt(yearMin)
-      const maxYear = Number.parseInt(yearMax)
-      query.$and = [
-        ...(query.$and || []),
-        {
-          $or: [{ annee: { $gte: minYear, $lte: maxYear } }, { year: { $gte: minYear, $lte: maxYear } }],
-        },
-      ]
-    }
-
-    const skip = (page - 1) * limit
-
-    let sortOptions: any = {}
-    if (sortField === "designer") {
-      sortOptions = { designer: sortDirection, "Artiste / Dates": sortDirection }
-    } else if (sortField === "annee") {
-      sortOptions = { annee: sortDirection, year: sortDirection }
-    } else {
-      sortOptions = { [sortField]: sortDirection, "Nom luminaire": sortDirection }
-    }
-
-    // Projection des champs si spécifié
-    const projection: any = {}
-    if (fields) {
-      const fieldList = fields.split(",")
-      fieldList.forEach((field) => {
-        projection[field] = 1
+      andConditions.push({
+        $or: [
+          { nom: { $regex: search, $options: "i" } },
+          { "Nom luminaire": { $regex: search, $options: "i" } },
+          { designer: { $regex: search, $options: "i" } },
+          { "Artiste / Dates": { $regex: search, $options: "i" } },
+        ],
       })
     }
 
-    const total = await collection.countDocuments(query)
+    if (categorie && categorie !== "all") {
+      andConditions.push({
+        $or: [{ categorie: categorie }, { Catégorie: categorie }],
+      })
+    }
 
-    const luminairesQuery = fields
-      ? collection.find(query, { projection }).sort(sortOptions).skip(skip).limit(limit)
-      : collection.find(query).sort(sortOptions).skip(skip).limit(limit)
+    if (materiau && materiau !== "all") {
+      andConditions.push({
+        $or: [{ materiaux: { $regex: materiau, $options: "i" } }, { Matériaux: { $regex: materiau, $options: "i" } }],
+      })
+    }
 
-    const luminaires = await luminairesQuery.toArray()
+    if (yearMin && yearMax) {
+      const min = Number.parseInt(yearMin)
+      const max = Number.parseInt(yearMax)
+      andConditions.push({
+        $or: [
+          { annee: { $gte: min, $lte: max } },
+          { year: { $gte: min, $lte: max } },
+          { Année: { $gte: min, $lte: max } },
+        ],
+      })
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions
+    }
+
+    const sortObject: any = {}
+    if (sortField === "nom") {
+      sortObject.nom = sortDirection === "asc" ? 1 : -1
+    } else if (sortField === "designer") {
+      sortObject.designer = sortDirection === "asc" ? 1 : -1
+    } else if (sortField === "annee") {
+      sortObject.annee = sortDirection === "asc" ? 1 : -1
+    }
+
+    const total = await collection.countDocuments(filter)
+
+    const skip = (page - 1) * limit
+    const luminaires = await collection
+      .find(filter, {
+        projection: {
+          _id: 1,
+          nom: 1,
+          "Nom luminaire": 1,
+          designer: 1,
+          "Artiste / Dates": 1,
+          annee: 1,
+          Année: 1,
+          year: 1,
+          categorie: 1,
+          Catégorie: 1,
+          materiaux: 1,
+          Matériaux: 1,
+          filename: 1,
+          "Nom du fichier": 1,
+          fileId: 1,
+        },
+      })
+      .sort(sortObject)
+      .skip(skip)
+      .limit(limit)
+      .toArray()
 
     return NextResponse.json({
       success: true,
-      luminaires,
+      luminaires: luminaires,
       pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
+        page: page,
+        limit: limit,
+        total: total,
         hasMore: skip + luminaires.length < total,
       },
     })
   } catch (error: any) {
-    console.error("❌ Erreur récupération luminaires:", error)
+    console.error("❌ Erreur API /api/luminaires:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la récupération des luminaires",
+        error: "Erreur lors du chargement des luminaires",
         details: error.message,
       },
       { status: 500 },
@@ -107,24 +122,19 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const luminaireData = await request.json()
+    const body = await request.json()
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    const result = await collection.insertOne({
-      ...luminaireData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
+    const result = await collection.insertOne(body)
 
     return NextResponse.json({
       success: true,
       id: result.insertedId,
-      message: "Luminaire créé avec succès",
     })
   } catch (error: any) {
     console.error("❌ Erreur création luminaire:", error)

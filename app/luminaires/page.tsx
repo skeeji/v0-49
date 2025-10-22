@@ -54,7 +54,6 @@ export default function LuminairesPage() {
           const data = await response.json()
           if (data.success) {
             setFavorites(data.favorites || [])
-            console.log("✅ Favoris chargés:", data.favorites)
           }
         } catch (error) {
           console.error("❌ Erreur chargement favoris:", error)
@@ -108,8 +107,6 @@ export default function LuminairesPage() {
           params.append("materiau", selectedMateriau)
         }
 
-        console.log("🔍 Paramètres de requête:", params.toString())
-
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
 
@@ -117,10 +114,6 @@ export default function LuminairesPage() {
           if (append && page > 1) {
             const existingIds = new Set(luminaires.map((l) => l._id))
             const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
-
-            console.log(
-              `📊 Page ${page}: ${data.luminaires.length} luminaires reçus, ${newLuminaires.length} nouveaux ajoutés`,
-            )
 
             if (newLuminaires.length > 0) {
               setLuminaires((prev) => [...prev, ...newLuminaires])
@@ -158,7 +151,6 @@ export default function LuminairesPage() {
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && !showFavorites) {
       const nextPage = currentPage + 1
-      console.log(`🔄 Chargement page ${nextPage}`)
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
@@ -292,7 +284,6 @@ export default function LuminairesPage() {
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
   const handleYearRangeChange = (newRange: number[]) => {
-    console.log(`✅ Filtre chronologique activé par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
@@ -308,23 +299,9 @@ export default function LuminairesPage() {
 
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
-      console.log("🔍 Mode favoris actif")
-      console.log("❤️  Favoris IDs:", favorites)
-      console.log("📦 Total luminaires:", allLuminaires.length)
-
-      const favoriteItems = allLuminaires.filter((item) => {
-        const itemId = String(item._id || "")
-        const isFavorite = favorites.includes(itemId)
-        if (isFavorite) {
-          console.log("✅ Favori trouvé:", item.nom || item["Nom luminaire"], "ID:", itemId)
-        }
-        return isFavorite
-      })
-
-      console.log("❤️  Favoris trouvés:", favoriteItems.length)
-
+      const favoriteItems = allLuminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
       const uniqueFavorites = favoriteItems.filter(
-        (item, index, self) => index === self.findIndex((t) => String(t._id) === String(item._id)),
+        (item, index, self) => index === self.findIndex((t) => String(t.id || t._id) === String(item.id || item._id)),
       )
       return uniqueFavorites
     }
