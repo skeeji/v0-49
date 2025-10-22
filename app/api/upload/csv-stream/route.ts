@@ -31,7 +31,38 @@ export async function POST(request: NextRequest) {
           luminaireData[header] = row[index] || ""
         })
 
-        // Extraire les champs principaux avec toutes les variantes possibles
+        // Extraire le nom du fichier image
+        const filename =
+          luminaireData["Image luminaire (Nom du fichier)"] ||
+          luminaireData["Nom du fichier"] ||
+          luminaireData.filename ||
+          ""
+
+        const cleanFilename = filename.trim()
+
+        // Si pas de nom de fichier, on skip
+        if (!cleanFilename || cleanFilename === "") {
+          skipped++
+          console.log(`⏭️ Ligne ${i + 1}: Pas de nom de fichier, skipped`)
+          continue
+        }
+
+        // VÉRIFICATION DES DOUBLONS PAR NOM DE FICHIER IMAGE
+        const existing = await collection.findOne({
+          $or: [
+            { filename: cleanFilename },
+            { "Nom du fichier": cleanFilename },
+            { "Image luminaire (Nom du fichier)": cleanFilename },
+          ],
+        })
+
+        if (existing) {
+          console.log(`⏭️ Luminaire avec image "${cleanFilename}" déjà existant, skipped`)
+          skipped++
+          continue
+        }
+
+        // Extraire les champs principaux
         const nom = luminaireData["Nom luminaire"] || luminaireData.nom || luminaireData["Nom"] || ""
         const designer =
           luminaireData["Artiste / Dates"] ||
@@ -39,26 +70,6 @@ export async function POST(request: NextRequest) {
           luminaireData["Designer (Artiste / Dates)"] ||
           luminaireData.Designer ||
           ""
-
-        // Si pas de nom, on skip
-        if (!nom || nom.trim() === "") {
-          skipped++
-          continue
-        }
-
-        // Vérifier si le luminaire existe déjà (par nom ET designer pour éviter les doublons)
-        const existing = await collection.findOne({
-          $or: [
-            { nom: nom, designer: designer },
-            { "Nom luminaire": nom, "Artiste / Dates": designer },
-          ],
-        })
-
-        if (existing) {
-          console.log(`⏭️ Luminaire déjà existant: ${nom}`)
-          skipped++
-          continue
-        }
 
         // Préparer le document
         const document: any = {
@@ -80,6 +91,12 @@ export async function POST(request: NextRequest) {
           lienSiteMarchand: luminaireData["Lien site marchand"] || luminaireData.lienSiteMarchand || "",
           etiquette: luminaireData["Etiquette"] || luminaireData.etiquette || "",
           bibliographie: luminaireData["Bibliographie"] || luminaireData.bibliographie || "",
+
+          // IMPORTANT: Sauvegarder le nom du fichier
+          filename: cleanFilename,
+          "Nom du fichier": cleanFilename,
+          "Image luminaire (Nom du fichier)": cleanFilename,
+
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -88,18 +105,6 @@ export async function POST(request: NextRequest) {
         const materiauxRaw = luminaireData["Matériaux"] || luminaireData.materiaux || ""
         if (materiauxRaw && materiauxRaw.trim() !== "") {
           document.materiaux = materiauxRaw.split(";").map((m: string) => m.trim())
-        }
-
-        // Gérer le nom de fichier image
-        const filename =
-          luminaireData["Image luminaire (Nom du fichier)"] ||
-          luminaireData["Nom du fichier"] ||
-          luminaireData.filename ||
-          ""
-        if (filename && filename.trim() !== "") {
-          document.filename = filename.trim()
-          document["Nom du fichier"] = filename.trim()
-          document["Image luminaire (Nom du fichier)"] = filename.trim()
         }
 
         // Gérer l'image designer
@@ -118,6 +123,7 @@ export async function POST(request: NextRequest) {
 
         await collection.insertOne(document)
         imported++
+        console.log(`✅ Luminaire importé avec image "${cleanFilename}"`)
       } catch (error: any) {
         const errorMsg = `Ligne ${i + 1}: ${error.message}`
         errors.push(errorMsg)
@@ -125,7 +131,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks}: ${imported} importés, ${skipped} skipped`)
+    console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks}: ${imported} importés, ${skipped} doublons skippés`)
 
     return NextResponse.json({
       success: true,
