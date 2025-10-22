@@ -740,6 +740,20 @@ export default function ImportPage() {
           const filename =
             luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
 
+          // Récupération de "Lien site marchand" avec toutes les variantes possibles
+          const lienSiteMarchand =
+            luminaire["Lien site marchand"] ||
+            luminaire.lienSiteMarchand ||
+            luminaire["lien site marchand"] ||
+            luminaire["Lien Site Marchand"] ||
+            ""
+
+          // Récupération de "Etiquette" avec toutes les variantes possibles
+          const etiquette = luminaire.Etiquette || luminaire.etiquette || luminaire["étiquette"] || ""
+
+          // Récupération de "Bibliographie" avec toutes les variantes possibles
+          const bibliographie = luminaire.Bibliographie || luminaire.bibliographie || ""
+
           return {
             Signé: luminaire.signe || luminaire["Signé"] || "",
             "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
@@ -755,9 +769,9 @@ export default function ImportPage() {
             Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
             "Image luminaire (Nom du fichier)": filename,
             "Image designer (imagedesigner)": designerImageFilename,
-            "Lien site marchand": luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || "",
-            Etiquette: luminaire.etiquette || luminaire.Etiquette || "",
-            Bibliographie: luminaire.bibliographie || luminaire.Bibliographie || "",
+            "Lien site marchand": lienSiteMarchand,
+            Etiquette: etiquette,
+            Bibliographie: bibliographie,
           }
         })
 
