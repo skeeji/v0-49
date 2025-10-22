@@ -54,7 +54,6 @@ export default function LuminairesPage() {
           const data = await response.json()
           if (data.success) {
             setFavorites(data.favorites || [])
-            console.log("✅ Favoris chargés:", data.favorites)
           }
         } catch (error) {
           console.error("❌ Erreur chargement favoris:", error)
@@ -308,22 +307,9 @@ export default function LuminairesPage() {
 
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
-      console.log("🔍 Mode favoris actif, favoris:", favorites)
-      console.log("📦 Tous les luminaires:", allLuminaires.length)
-
-      const favoriteItems = allLuminaires.filter((item) => {
-        const itemId = String(item._id || item.id || "")
-        const isFavorite = favorites.includes(itemId)
-        if (isFavorite) {
-          console.log("✅ Favori trouvé:", item.nom || item["Nom luminaire"])
-        }
-        return isFavorite
-      })
-
-      console.log("❤️ Favoris trouvés:", favoriteItems.length)
-
+      const favoriteItems = allLuminaires.filter((item) => favorites.includes(String(item.id || item._id || "")))
       const uniqueFavorites = favoriteItems.filter(
-        (item, index, self) => index === self.findIndex((t) => String(t._id || t.id) === String(item._id || item.id)),
+        (item, index, self) => index === self.findIndex((t) => String(t.id || t._id) === String(item.id || item._id)),
       )
       return uniqueFavorites
     }

@@ -147,9 +147,10 @@ export default function ImportPage() {
         chunks.push(chunkData)
       }
 
-      console.log(`📦 ${chunks.length} chunks de ${CHUNK_SIZE} lignes créés`)
+      console.log(`📦 ${chunks.length} chunks de ${CHUNK_SIZE} lignes créés pour ${dataLines.length} lignes de données`)
 
       let totalImported = 0
+      let totalSkipped = 0
       let totalProcessed = 0
       const allErrors: string[] = []
 
@@ -180,11 +181,12 @@ export default function ImportPage() {
 
           if (result.success) {
             totalImported += result.imported || 0
+            totalSkipped += result.skipped || 0
             totalProcessed += result.processed || 0
             if (result.errors) {
               allErrors.push(...result.errors)
             }
-            console.log(`✅ Chunk ${chunkIndex + 1}: ${result.imported} importés`)
+            console.log(`✅ Chunk ${chunkIndex + 1}: ${result.imported} importés, ${result.skipped} doublons skippés`)
           } else {
             throw new Error(result.error)
           }
@@ -200,7 +202,7 @@ export default function ImportPage() {
 
       const finalResult = {
         success: totalImported > 0,
-        message: `Import terminé: ${totalImported} luminaires importés sur ${totalProcessed} lignes traitées`,
+        message: `Import terminé: ${totalImported} luminaires importés, ${totalSkipped} doublons ignorés sur ${totalProcessed} lignes traitées`,
         imported: totalImported,
         processed: totalProcessed,
         errors: allErrors.slice(0, 20),
@@ -311,46 +313,59 @@ export default function ImportPage() {
         setCurrentStep(`Upload ${i + 1}/${files.length}: ${file.name}`)
         setUploadProgress(5 + (i / files.length) * 90)
 
-        try {
-          console.log(`📁 Upload ${i + 1}/${files.length}: ${file.name} (${Math.round(file.size / 1024)}KB)`)
+        let retries = 3
+        let success = false
 
-          const formData = new FormData()
-          formData.append("image", file)
-          formData.append("isDesignerImage", "false")
+        while (retries > 0 && !success) {
+          try {
+            console.log(`📁 Upload ${i + 1}/${files.length}: ${file.name} (${Math.round(file.size / 1024)}KB)`)
 
-          const response = await fetch("/api/upload/single-image", {
-            method: "POST",
-            body: formData,
-          })
+            const formData = new FormData()
+            formData.append("image", file)
+            formData.append("isDesignerImage", "false")
 
-          if (!response.ok) {
-            const errorText = await response.text()
-            throw new Error(`Erreur ${response.status}: ${errorText}`)
-          }
+            const response = await fetch("/api/upload/single-image", {
+              method: "POST",
+              body: formData,
+            })
 
-          const result = await response.json()
-
-          if (result.success) {
-            if (result.skipped) {
-              totalSkipped++
-            } else {
-              totalUploaded += result.uploaded || 0
+            if (!response.ok) {
+              const errorText = await response.text()
+              throw new Error(`Erreur ${response.status}: ${errorText}`)
             }
-            totalAssociated += result.associated || 0
-            console.log(
-              `✅ ${file.name}: ${result.skipped ? "déjà existant" : "uploadé"}, ${result.associated || 0} associés`,
-            )
-          } else {
-            throw new Error(result.error)
-          }
 
-          if (i < files.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 300))
+            const result = await response.json()
+
+            if (result.success) {
+              if (result.skipped) {
+                totalSkipped++
+              } else {
+                totalUploaded += result.uploaded || 0
+              }
+              totalAssociated += result.associated || 0
+              console.log(
+                `✅ ${file.name}: ${result.skipped ? "déjà existant" : "uploadé"}, ${result.associated || 0} associés`,
+              )
+              success = true
+            } else {
+              throw new Error(result.error)
+            }
+          } catch (fileError: any) {
+            retries--
+            if (retries > 0) {
+              console.log(`⚠️ Retry ${3 - retries}/3 pour ${file.name}`)
+              await new Promise((resolve) => setTimeout(resolve, 2000))
+            } else {
+              const errorMsg = `Erreur ${file.name}: ${fileError.message}`
+              errors.push(errorMsg)
+              console.error(`❌ ${errorMsg}`)
+            }
           }
-        } catch (fileError: any) {
-          const errorMsg = `Erreur ${file.name}: ${fileError.message}`
-          errors.push(errorMsg)
-          console.error(`❌ ${errorMsg}`)
+        }
+
+        // Délai plus long entre chaque image pour éviter ERR_ADDRESS_UNREACHABLE
+        if (i < files.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 800))
         }
       }
 

@@ -3,18 +3,22 @@ import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
+interface CSVRow {
+  [key: string]: string
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { csvData, chunkIndex, totalChunks, headers } = body
+    const { csvData, chunkIndex, totalChunks, headers } = await request.json()
 
-    console.log(`📦 Chunk ${chunkIndex + 1}/${totalChunks} - ${csvData.length} lignes`)
+    console.log(`📦 Traitement chunk ${chunkIndex + 1}/${totalChunks}, ${csvData.length} lignes`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
     let imported = 0
+    let skipped = 0
     const errors: string[] = []
 
     for (let i = 0; i < csvData.length; i++) {
@@ -22,94 +26,96 @@ export async function POST(request: NextRequest) {
 
       try {
         // Créer un objet avec les en-têtes comme clés
-        const luminaire: any = {}
+        const luminaireData: CSVRow = {}
         headers.forEach((header: string, index: number) => {
-          luminaire[header] = row[index] || ""
+          luminaireData[header] = row[index] || ""
         })
 
-        // IMPORTANT: Extraire et normaliser les champs clés
-        const nomLuminaire = luminaire["Nom luminaire"] || luminaire.nom || ""
-        const artisteDates = luminaire["Artiste / Dates"] || luminaire.designer || ""
-        const annee = luminaire["Année"] || luminaire.annee || ""
-        const categorie = luminaire["Catégorie"] || luminaire.categorie || ""
-        const specialite = luminaire["Spécialité"] || luminaire.periode || ""
-        const collaboration = luminaire["Collaboration / Œuvre"] || luminaire.collaboration || ""
-        const description = luminaire["Description"] || luminaire.description || ""
-        const signe = luminaire["Signé"] || luminaire.signe || ""
-        const dimensions = luminaire["Dimensions"] || luminaire.dimensions || ""
-        const materiaux = luminaire["Matériaux"] || luminaire.materiaux || ""
-        const estimation = luminaire["Estimation"] || luminaire.estimation || ""
-        const editeur = luminaire["Editeur"] || luminaire.editeur || ""
-        const lienSiteMarchand = luminaire["Lien site marchand"] || luminaire.lienSiteMarchand || ""
-        const etiquette = luminaire["Etiquette"] || luminaire.etiquette || ""
-        const bibliographie = luminaire["Bibliographie"] || luminaire.bibliographie || ""
+        // Extraire les champs principaux avec toutes les variantes possibles
+        const nom = luminaireData["Nom luminaire"] || luminaireData.nom || luminaireData["Nom"] || ""
+        const designer =
+          luminaireData["Artiste / Dates"] ||
+          luminaireData.designer ||
+          luminaireData["Designer (Artiste / Dates)"] ||
+          luminaireData.Designer ||
+          ""
 
-        // CORRECTION CRITIQUE: Extraire le nom du fichier image
-        const imageFilename =
-          luminaire["Image luminaire (Nom du fichier)"] || luminaire["Nom du fichier"] || luminaire.filename || ""
-
-        // Nettoyer le nom du fichier (enlever espaces, guillemets, etc.)
-        const cleanFilename = imageFilename.trim().replace(/^["']|["']$/g, "")
-
-        // Parser l'année en nombre si possible
-        let anneeNum = null
-        if (annee) {
-          const parsed = Number.parseInt(annee.toString().trim())
-          if (!isNaN(parsed) && parsed > 1000 && parsed < 2100) {
-            anneeNum = parsed
-          }
+        // Si pas de nom, on skip
+        if (!nom || nom.trim() === "") {
+          skipped++
+          continue
         }
 
-        // Créer le document à insérer avec TOUS les champs
-        const document = {
-          // Champs normalisés
-          nom: nomLuminaire,
-          "Nom luminaire": nomLuminaire,
-          designer: artisteDates,
-          "Artiste / Dates": artisteDates,
-          annee: anneeNum,
-          Année: annee,
-          categorie: categorie,
-          Catégorie: categorie,
-          periode: specialite,
-          Spécialité: specialite,
-          collaboration: collaboration,
-          "Collaboration / Œuvre": collaboration,
-          description: description,
-          Description: description,
-          signe: signe,
-          Signé: signe,
-          dimensions: dimensions,
-          Dimensions: dimensions,
-          materiaux: materiaux,
-          Matériaux: materiaux,
-          estimation: estimation,
-          Estimation: estimation,
-          editeur: editeur,
-          Editeur: editeur,
-          lienSiteMarchand: lienSiteMarchand,
-          "Lien site marchand": lienSiteMarchand,
-          etiquette: etiquette,
-          Etiquette: etiquette,
-          bibliographie: bibliographie,
-          Bibliographie: bibliographie,
+        // Vérifier si le luminaire existe déjà (par nom ET designer pour éviter les doublons)
+        const existing = await collection.findOne({
+          $or: [
+            { nom: nom, designer: designer },
+            { "Nom luminaire": nom, "Artiste / Dates": designer },
+          ],
+        })
 
-          // CORRECTION CRITIQUE: Sauvegarder le nom du fichier
-          filename: cleanFilename,
-          "Nom du fichier": cleanFilename,
-          "Image luminaire (Nom du fichier)": cleanFilename,
+        if (existing) {
+          console.log(`⏭️ Luminaire déjà existant: ${nom}`)
+          skipped++
+          continue
+        }
 
-          // Métadonnées
+        // Préparer le document
+        const document: any = {
+          nom: nom,
+          designer: designer,
+          signe: luminaireData["Signé"] || luminaireData.signe || "",
+          annee: luminaireData["Année"] || luminaireData.annee || "",
+          categorie: luminaireData["Catégorie"] || luminaireData.categorie || "",
+          editeur: luminaireData["Editeur"] || luminaireData.editeur || "",
+          periode: luminaireData["Spécialité"] || luminaireData.periode || luminaireData.Spécialité || "",
+          collaboration:
+            luminaireData["Collaboration / Œuvre"] ||
+            luminaireData.collaboration ||
+            luminaireData["Collaboration"] ||
+            "",
+          description: luminaireData["Description"] || luminaireData.description || "",
+          dimensions: luminaireData["Dimensions"] || luminaireData.dimensions || "",
+          estimation: luminaireData["Estimation"] || luminaireData.estimation || luminaireData.prix || "",
+          lienSiteMarchand: luminaireData["Lien site marchand"] || luminaireData.lienSiteMarchand || "",
+          etiquette: luminaireData["Etiquette"] || luminaireData.etiquette || "",
+          bibliographie: luminaireData["Bibliographie"] || luminaireData.bibliographie || "",
           createdAt: new Date(),
           updatedAt: new Date(),
         }
 
-        // Log pour vérifier
-        if (cleanFilename) {
-          console.log(`✅ Luminaire "${nomLuminaire}" -> filename: "${cleanFilename}"`)
+        // Gérer les matériaux
+        const materiauxRaw = luminaireData["Matériaux"] || luminaireData.materiaux || ""
+        if (materiauxRaw && materiauxRaw.trim() !== "") {
+          document.materiaux = materiauxRaw.split(";").map((m: string) => m.trim())
         }
 
-        // Insérer dans MongoDB
+        // Gérer le nom de fichier image
+        const filename =
+          luminaireData["Image luminaire (Nom du fichier)"] ||
+          luminaireData["Nom du fichier"] ||
+          luminaireData.filename ||
+          ""
+        if (filename && filename.trim() !== "") {
+          document.filename = filename.trim()
+          document["Nom du fichier"] = filename.trim()
+          document["Image luminaire (Nom du fichier)"] = filename.trim()
+        }
+
+        // Gérer l'image designer
+        const designerImage =
+          luminaireData["Image designer (imagedesigner)"] || luminaireData.designerImageFilename || ""
+        if (designerImage && designerImage.trim() !== "") {
+          document.designerImageFilename = designerImage.trim()
+        }
+
+        // Conserver les colonnes originales pour compatibilité
+        Object.keys(luminaireData).forEach((key) => {
+          if (!document[key] && luminaireData[key] && luminaireData[key].trim() !== "") {
+            document[key] = luminaireData[key].trim()
+          }
+        })
+
         await collection.insertOne(document)
         imported++
       } catch (error: any) {
@@ -119,20 +125,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks}: ${imported}/${csvData.length} importés`)
+    console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks}: ${imported} importés, ${skipped} skipped`)
 
     return NextResponse.json({
       success: true,
+      message: `Chunk ${chunkIndex + 1}/${totalChunks} traité`,
       imported,
+      skipped,
       processed: csvData.length,
       errors: errors.slice(0, 5),
     })
   } catch (error: any) {
-    console.error("❌ Erreur API /api/upload/csv-stream:", error)
+    console.error("❌ Erreur lors du traitement du chunk:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'import du chunk",
+        error: "Erreur lors du traitement du chunk",
         details: error.message,
       },
       { status: 500 },
