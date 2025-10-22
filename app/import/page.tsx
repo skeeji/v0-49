@@ -726,6 +726,11 @@ export default function ImportPage() {
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
+          const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
+          const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
+          const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
+          const editeur = luminaire.editeur || luminaire.Editeur || luminaire["Editeur"] || ""
+
           let materiaux = ""
           if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
             materiaux = luminaire.materiaux.join("; ")
@@ -737,32 +742,22 @@ export default function ImportPage() {
             }
           }
 
+          const lienSiteMarchand = luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || ""
+          const etiquette = luminaire.etiquette || luminaire["Etiquette"] || ""
+          const bibliographie = luminaire.bibliographie || luminaire["Bibliographie"] || ""
+
           const filename =
             luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
-
-          // Récupération de "Lien site marchand" avec toutes les variantes possibles
-          const lienSiteMarchand =
-            luminaire["Lien site marchand"] ||
-            luminaire.lienSiteMarchand ||
-            luminaire["lien site marchand"] ||
-            luminaire["Lien Site Marchand"] ||
-            ""
-
-          // Récupération de "Etiquette" avec toutes les variantes possibles
-          const etiquette = luminaire.Etiquette || luminaire.etiquette || luminaire["étiquette"] || ""
-
-          // Récupération de "Bibliographie" avec toutes les variantes possibles
-          const bibliographie = luminaire.Bibliographie || luminaire.bibliographie || ""
 
           return {
             Signé: luminaire.signe || luminaire["Signé"] || "",
             "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
             "Artiste / Dates": designerName,
             Année: luminaire.annee || luminaire["Année"] || "",
-            Catégorie: luminaire.categorie || luminaire["Catégorie"] || "",
-            Editeur: luminaire.editeur || luminaire.Editeur || "",
-            Spécialité: luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || "",
-            "Collaboration / Œuvre": luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
+            Catégorie: categorie,
+            Editeur: editeur,
+            Spécialité: specialite,
+            "Collaboration / Œuvre": collaboration,
             Description: luminaire.description || luminaire["Description"] || "",
             Matériaux: materiaux,
             Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
