@@ -363,7 +363,6 @@ export default function ImportPage() {
           }
         }
 
-        // Délai plus long entre chaque image pour éviter ERR_ADDRESS_UNREACHABLE
         if (i < files.length - 1) {
           await new Promise((resolve) => setTimeout(resolve, 800))
         }
@@ -708,30 +707,13 @@ export default function ImportPage() {
     try {
       console.log("📊 Export de tous les luminaires...")
 
-      const luminairesResponse = await fetch("/api/luminaires?limit=100000")
-      const luminairesData = await luminairesResponse.json()
+      const response = await fetch("/api/luminaires?limit=100000")
+      const data = await response.json()
 
-      const designersResponse = await fetch("/api/designers-data")
-      const designersData = await designersResponse.json()
+      if (data.success) {
+        console.log(`🔍 Export de ${data.luminaires.length} luminaires...`)
 
-      if (luminairesData.success && designersData.success) {
-        const designersMap = new Map()
-        designersData.designers.forEach((designer: any) => {
-          designersMap.set(designer.Nom || designer.nom, designer)
-        })
-
-        console.log(`🔍 Export de ${luminairesData.luminaires.length} luminaires...`)
-
-        const csvData = luminairesData.luminaires.map((luminaire: any, index: number) => {
-          const designerName = luminaire.designer || luminaire["Artiste / Dates"] || ""
-          const designer = designersMap.get(designerName)
-          const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
-
-          const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
-          const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
-          const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
-          const editeur = luminaire.editeur || luminaire.Editeur || luminaire["Editeur"] || ""
-
+        const csvData = data.luminaires.map((luminaire: any) => {
           let materiaux = ""
           if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
             materiaux = luminaire.materiaux.join("; ")
@@ -743,28 +725,31 @@ export default function ImportPage() {
             }
           }
 
-          const lienSiteMarchand = luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || ""
-          const etiquette = luminaire.etiquette || luminaire["Etiquette"] || ""
-          const bibliographie = luminaire.bibliographie || luminaire["Bibliographie"] || ""
-
           const filename =
             luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
+
+          const lienSiteMarchand =
+            luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || luminaire["lien site marchand"] || ""
+
+          const etiquette = luminaire.etiquette || luminaire.Etiquette || luminaire["étiquette"] || ""
+
+          const bibliographie = luminaire.bibliographie || luminaire.Bibliographie || ""
 
           return {
             Signé: luminaire.signe || luminaire["Signé"] || "",
             "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
-            "Artiste / Dates": designerName,
+            "Artiste / Dates": luminaire.designer || luminaire["Artiste / Dates"] || "",
             Année: luminaire.annee || luminaire["Année"] || "",
-            Catégorie: categorie,
-            Editeur: editeur,
-            Spécialité: specialite,
-            "Collaboration / Œuvre": collaboration,
+            Catégorie: luminaire.categorie || luminaire["Catégorie"] || "",
+            Editeur: luminaire.editeur || luminaire.Editeur || "",
+            Spécialité: luminaire.periode || luminaire["Spécialité"] || "",
+            "Collaboration / Œuvre": luminaire.collaboration || luminaire["Collaboration / Œuvre"] || "",
             Description: luminaire.description || luminaire["Description"] || "",
             Matériaux: materiaux,
             Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
             Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
             "Image luminaire (Nom du fichier)": filename,
-            "Image designer (imagedesigner)": designerImageFilename,
+            "Image designer (imagedesigner)": luminaire.designerImageFilename || "",
             "Lien site marchand": lienSiteMarchand,
             Etiquette: etiquette,
             Bibliographie: bibliographie,
@@ -844,7 +829,6 @@ export default function ImportPage() {
     try {
       console.log("📦 Début export images...")
 
-      // Étape 1: Récupérer la liste des images
       const listResponse = await fetch("/api/export/images-list")
       if (!listResponse.ok) {
         throw new Error("Impossible de récupérer la liste des images")
@@ -857,15 +841,12 @@ export default function ImportPage() {
         throw new Error("Aucune image trouvée")
       }
 
-      // Charger JSZip dynamiquement
       const JSZip = (await import("jszip")).default
       const zip = new JSZip()
 
-      // Créer les dossiers
       const designersFolder = zip.folder("designers")
       const luminairesFolder = zip.folder("luminaires")
 
-      // Étape 2: Télécharger chaque image
       let downloaded = 0
       for (const image of listData.images) {
         try {
@@ -880,15 +861,16 @@ export default function ImportPage() {
 
           const blob = await imageResponse.blob()
 
-          // Ajouter au dossier approprié
-          if (image.folder === "designers" && designersFolder) {
+          // Vérifier le type d'image par isDesignerImage
+          if (image.isDesignerImage && designersFolder) {
             designersFolder.file(image.filename, blob)
+            console.log(`✅ Designer: ${image.filename}`)
           } else if (luminairesFolder) {
             luminairesFolder.file(image.filename, blob)
+            console.log(`✅ Luminaire: ${image.filename}`)
           }
 
           downloaded++
-          console.log(`✅ [${downloaded}/${listData.total}] ${image.folder}/${image.filename}`)
         } catch (error) {
           console.error(`❌ Erreur ${image.filename}:`, error)
         }
@@ -897,13 +879,11 @@ export default function ImportPage() {
       setCurrentStep("Création du fichier ZIP...")
       setUploadProgress(90)
 
-      // Étape 3: Générer le ZIP
       const zipBlob = await zip.generateAsync({ type: "blob" })
 
       setCurrentStep("Téléchargement du ZIP...")
       setUploadProgress(95)
 
-      // Étape 4: Télécharger
       const link = document.createElement("a")
       const url = URL.createObjectURL(zipBlob)
       link.href = url
@@ -918,7 +898,7 @@ export default function ImportPage() {
       console.log(`✅ Export terminé: ${downloaded}/${listData.total} images`)
       toast({
         title: "✅ Export terminé",
-        description: `${downloaded} images téléchargées (${listData.designers} designers, ${listData.luminaires} luminaires)`,
+        description: `${downloaded} images téléchargées`,
       })
     } catch (error: any) {
       console.error("❌ Erreur lors de l'export des images:", error)
