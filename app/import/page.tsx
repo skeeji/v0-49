@@ -722,15 +722,82 @@ export default function ImportPage() {
 
         console.log(`🔍 Export de ${luminairesData.luminaires.length} luminaires...`)
 
+        // Log du premier luminaire pour debug
+        if (luminairesData.luminaires.length > 0) {
+          console.log("📋 Premier luminaire (toutes les clés):", Object.keys(luminairesData.luminaires[0]))
+          console.log("📋 Premier luminaire (données complètes):", luminairesData.luminaires[0])
+        }
+
         const csvData = luminairesData.luminaires.map((luminaire: any) => {
           const designerName = luminaire.designer || luminaire["Artiste / Dates"] || ""
           const designer = designersMap.get(designerName)
           const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
 
-          const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
-          const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
-          const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
-          const editeur = luminaire.editeur || luminaire.Editeur || luminaire["Editeur"] || ""
+          // Récupération de tous les champs avec toutes les variantes possibles
+          const editeur =
+            luminaire.editeur ||
+            luminaire.Editeur ||
+            luminaire["Editeur"] ||
+            luminaire.éditeur ||
+            luminaire["éditeur"] ||
+            ""
+
+          const specialite =
+            luminaire.periode ||
+            luminaire.Spécialité ||
+            luminaire["Spécialité"] ||
+            luminaire.specialite ||
+            luminaire.Periode ||
+            luminaire["Periode"] ||
+            ""
+
+          const collaboration =
+            luminaire.collaboration ||
+            luminaire["Collaboration / Œuvre"] ||
+            luminaire["Collaboration / Oeuvre"] ||
+            luminaire.Collaboration ||
+            luminaire.oeuvre ||
+            luminaire.Oeuvre ||
+            ""
+
+          const description =
+            luminaire.description || luminaire.Description || luminaire["Description"] || luminaire.desc || ""
+
+          const dimensions =
+            luminaire.dimensions || luminaire.Dimensions || luminaire["Dimensions"] || luminaire.dimension || ""
+
+          const estimation =
+            luminaire.estimation ||
+            luminaire.Estimation ||
+            luminaire["Estimation"] ||
+            luminaire.prix ||
+            luminaire.Prix ||
+            luminaire.price ||
+            ""
+
+          const lienSiteMarchand =
+            luminaire.lienSiteMarchand ||
+            luminaire["Lien site marchand"] ||
+            luminaire["lien site marchand"] ||
+            luminaire.lienSite ||
+            luminaire.lien ||
+            ""
+
+          const etiquette =
+            luminaire.etiquette ||
+            luminaire.Etiquette ||
+            luminaire["Etiquette"] ||
+            luminaire.étiquette ||
+            luminaire.label ||
+            ""
+
+          const bibliographie =
+            luminaire.bibliographie ||
+            luminaire.Bibliographie ||
+            luminaire["Bibliographie"] ||
+            luminaire.biblio ||
+            luminaire.reference ||
+            ""
 
           let materiaux = ""
           if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
@@ -741,28 +808,44 @@ export default function ImportPage() {
             } else if (Array.isArray(luminaire.Matériaux)) {
               materiaux = luminaire.Matériaux.join("; ")
             }
+          } else if (luminaire["Matériaux"]) {
+            materiaux = luminaire["Matériaux"]
+          } else if (luminaire.materiaux) {
+            materiaux = luminaire.materiaux
           }
-
-          const lienSiteMarchand = luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || ""
-          const etiquette = luminaire.etiquette || luminaire["Etiquette"] || ""
-          const bibliographie = luminaire.bibliographie || luminaire["Bibliographie"] || ""
 
           const filename =
             luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
 
+          const categorie = luminaire.categorie || luminaire.Catégorie || luminaire["Catégorie"] || ""
+
+          const signe = luminaire.signe || luminaire.Signé || luminaire["Signé"] || luminaire.signed || ""
+
+          const nom = luminaire.nom || luminaire["Nom luminaire"] || luminaire["nom luminaire"] || luminaire.name || ""
+
+          const annee = luminaire.annee || luminaire.Année || luminaire["Année"] || luminaire.year || ""
+
+          // Log pour debug des champs problématiques
+          if (!editeur && !specialite && !collaboration) {
+            console.log(
+              `⚠️ Luminaire ${luminaire._id} - Champs vides détectés. Clés disponibles:`,
+              Object.keys(luminaire),
+            )
+          }
+
           return {
-            Signé: luminaire.signe || luminaire["Signé"] || "",
-            "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
+            Signé: signe,
+            "Nom luminaire": nom,
             "Artiste / Dates": designerName,
-            Année: luminaire.annee || luminaire["Année"] || "",
+            Année: annee,
             Catégorie: categorie,
             Editeur: editeur,
             Spécialité: specialite,
             "Collaboration / Œuvre": collaboration,
-            Description: luminaire.description || luminaire["Description"] || "",
+            Description: description,
             Matériaux: materiaux,
-            Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-            Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
+            Dimensions: dimensions,
+            Estimation: estimation,
             "Image luminaire (Nom du fichier)": filename,
             "Image designer (imagedesigner)": designerImageFilename,
             "Lien site marchand": lienSiteMarchand,
@@ -806,6 +889,28 @@ export default function ImportPage() {
 
         const withFilenames = csvData.filter((row) => row["Image luminaire (Nom du fichier)"] !== "").length
         console.log(`📊 Export: ${csvData.length} luminaires, ${withFilenames} avec nom de fichier`)
+
+        // Log de statistiques sur les champs vides
+        const emptyEditeur = csvData.filter((row) => !row.Editeur).length
+        const emptySpecialite = csvData.filter((row) => !row.Spécialité).length
+        const emptyCollaboration = csvData.filter((row) => !row["Collaboration / Œuvre"]).length
+        const emptyDescription = csvData.filter((row) => !row.Description).length
+        const emptyDimensions = csvData.filter((row) => !row.Dimensions).length
+        const emptyEstimation = csvData.filter((row) => !row.Estimation).length
+        const emptyLien = csvData.filter((row) => !row["Lien site marchand"]).length
+        const emptyEtiquette = csvData.filter((row) => !row.Etiquette).length
+        const emptyBiblio = csvData.filter((row) => !row.Bibliographie).length
+
+        console.log(`📊 Champs vides:
+  Editeur: ${emptyEditeur}/${csvData.length}
+  Spécialité: ${emptySpecialite}/${csvData.length}
+  Collaboration: ${emptyCollaboration}/${csvData.length}
+  Description: ${emptyDescription}/${csvData.length}
+  Dimensions: ${emptyDimensions}/${csvData.length}
+  Estimation: ${emptyEstimation}/${csvData.length}
+  Lien site marchand: ${emptyLien}/${csvData.length}
+  Etiquette: ${emptyEtiquette}/${csvData.length}
+  Bibliographie: ${emptyBiblio}/${csvData.length}`)
 
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
         const link = document.createElement("a")
