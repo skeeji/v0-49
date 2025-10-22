@@ -20,48 +20,41 @@ export async function GET(request: Request) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
+    // Construire le filtre
     const filter: any = {}
-    const andConditions: any[] = []
 
     if (search) {
-      andConditions.push({
-        $or: [
-          { nom: { $regex: search, $options: "i" } },
-          { "Nom luminaire": { $regex: search, $options: "i" } },
-          { designer: { $regex: search, $options: "i" } },
-          { "Artiste / Dates": { $regex: search, $options: "i" } },
-        ],
-      })
+      filter.$or = [
+        { nom: { $regex: search, $options: "i" } },
+        { Nom: { $regex: search, $options: "i" } },
+        { designer: { $regex: search, $options: "i" } },
+        { Designer: { $regex: search, $options: "i" } },
+        { "Designer (name)": { $regex: search, $options: "i" } },
+      ]
     }
 
     if (categorie && categorie !== "all") {
-      andConditions.push({
-        $or: [{ categorie: categorie }, { Catégorie: categorie }],
-      })
+      filter.$or = [{ categorie: categorie }, { Catégorie: categorie }]
     }
 
     if (materiau && materiau !== "all") {
-      andConditions.push({
-        $or: [{ materiaux: { $regex: materiau, $options: "i" } }, { Matériaux: { $regex: materiau, $options: "i" } }],
-      })
+      filter.$or = [
+        { materiaux: { $regex: materiau, $options: "i" } },
+        { Matériaux: { $regex: materiau, $options: "i" } },
+      ]
     }
 
     if (yearMin && yearMax) {
       const min = Number.parseInt(yearMin)
       const max = Number.parseInt(yearMax)
-      andConditions.push({
-        $or: [
-          { annee: { $gte: min, $lte: max } },
-          { year: { $gte: min, $lte: max } },
-          { Année: { $gte: min, $lte: max } },
-        ],
-      })
+      filter.$or = [
+        { annee: { $gte: min, $lte: max } },
+        { year: { $gte: min, $lte: max } },
+        { Année: { $gte: min, $lte: max } },
+      ]
     }
 
-    if (andConditions.length > 0) {
-      filter.$and = andConditions
-    }
-
+    // Construire le tri
     const sortObject: any = {}
     if (sortField === "nom") {
       sortObject.nom = sortDirection === "asc" ? 1 : -1
@@ -71,33 +64,14 @@ export async function GET(request: Request) {
       sortObject.annee = sortDirection === "asc" ? 1 : -1
     }
 
+    // Compter le total
     const total = await collection.countDocuments(filter)
 
+    // Récupérer les luminaires avec pagination
     const skip = (page - 1) * limit
-    const luminaires = await collection
-      .find(filter, {
-        projection: {
-          _id: 1,
-          nom: 1,
-          "Nom luminaire": 1,
-          designer: 1,
-          "Artiste / Dates": 1,
-          annee: 1,
-          Année: 1,
-          year: 1,
-          categorie: 1,
-          Catégorie: 1,
-          materiaux: 1,
-          Matériaux: 1,
-          filename: 1,
-          "Nom du fichier": 1,
-          fileId: 1,
-        },
-      })
-      .sort(sortObject)
-      .skip(skip)
-      .limit(limit)
-      .toArray()
+    const luminaires = await collection.find(filter).sort(sortObject).skip(skip).limit(limit).toArray()
+
+    console.log(`📊 API /api/luminaires: ${luminaires.length} luminaires retournés (page ${page}, total ${total})`)
 
     return NextResponse.json({
       success: true,

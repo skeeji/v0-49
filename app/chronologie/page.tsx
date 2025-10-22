@@ -121,9 +121,11 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true)
       try {
+        // Charger les luminaires
         const response = await fetch("/api/luminaires?limit=10000")
         const data = await response.json()
 
+        // Charger les images de périodes
         const imagesResponse = await fetch("/api/period-images")
         const imagesData = await imagesResponse.json()
 
@@ -134,23 +136,23 @@ export default function ChronologiePage() {
         if (data.success && data.luminaires) {
           console.log(`📊 Chronologie: ${data.luminaires.length} luminaires chargés`)
 
+          // Adapter les données avec le bon chemin d'image
           const adaptedLuminaires = data.luminaires.map((lum: any) => {
+            // Utiliser seulement l'année si elle existe et est valide
             let year = null
-            const anneeValue = lum.annee || lum.Année || lum.year
-
-            if (anneeValue) {
-              const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(anneeValue)
-              if (!isNaN(numYear) && numYear > 1000 && numYear < 2100) {
-                year = numYear
-              }
+            if (lum.annee && typeof lum.annee === "number" && lum.annee > 1000 && lum.annee < 2100) {
+              year = lum.annee
             }
 
+            // Construire l'URL de l'image depuis le nom du fichier
             let imageUrl = null
-            if (lum.fileId) {
-              imageUrl = `/api/images/${lum.fileId}`
-            } else if (lum.filename || lum["Nom du fichier"]) {
-              const filename = lum.filename || lum["Nom du fichier"]
+            const filename = lum.filename || lum["Nom du fichier"]
+
+            if (filename) {
               imageUrl = `/api/images/filename/${encodeURIComponent(filename)}`
+              console.log(`✅ Image pour ${lum.nom || lum["Nom luminaire"]}: ${imageUrl}`)
+            } else {
+              console.log(`❌ Pas de filename pour ${lum.nom || lum["Nom luminaire"]}`)
             }
 
             return {
@@ -168,6 +170,7 @@ export default function ChronologiePage() {
 
           const grouped = periods.map((period) => {
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
+              // Filtrer seulement les luminaires avec une année valide dans la période
               return luminaire.year !== null && luminaire.year >= period.start && luminaire.year <= period.end
             })
 

@@ -107,6 +107,8 @@ export default function LuminairesPage() {
           params.append("materiau", selectedMateriau)
         }
 
+        console.log("🔍 Paramètres de requête:", params.toString())
+
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
 
@@ -114,6 +116,10 @@ export default function LuminairesPage() {
           if (append && page > 1) {
             const existingIds = new Set(luminaires.map((l) => l._id))
             const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
+
+            console.log(
+              `📊 Page ${page}: ${data.luminaires.length} luminaires reçus, ${newLuminaires.length} nouveaux ajoutés`,
+            )
 
             if (newLuminaires.length > 0) {
               setLuminaires((prev) => [...prev, ...newLuminaires])
@@ -151,6 +157,7 @@ export default function LuminairesPage() {
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && !showFavorites) {
       const nextPage = currentPage + 1
+      console.log(`🔄 Chargement page ${nextPage}`)
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
@@ -284,6 +291,7 @@ export default function LuminairesPage() {
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
   const handleYearRangeChange = (newRange: number[]) => {
+    console.log(`✅ Filtre chronologique activé par l'utilisateur: ${newRange[0]} - ${newRange[1]}`)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
@@ -410,14 +418,14 @@ export default function LuminairesPage() {
         <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
         <DropdownFilter
-          label="Toutes les catégories"
+          label="Catégorie"
           value={selectedCategorie}
           onChange={setSelectedCategorie}
           options={filterOptions.categories}
         />
 
         <DropdownFilter
-          label="Tous les matériaux"
+          label="Matériaux"
           value={selectedMateriau}
           onChange={setSelectedMateriau}
           options={filterOptions.materiaux}
