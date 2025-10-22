@@ -5,22 +5,26 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📊 API /api/export/csv-data - Export des données CSV")
-
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
-    // Récupérer tous les luminaires
     const luminaires = await collection.find({}).toArray()
 
-    console.log(`✅ ${luminaires.length} luminaires récupérés pour l'export`)
-
-    // Formater les données pour l'export CSV
     const formattedData = luminaires.map((luminaire) => {
-      // Récupérer le nom du fichier depuis tous les champs possibles
       const filename =
         luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
+
+      const lienSiteMarchand =
+        luminaire["Lien site marchand"] ||
+        luminaire.lienSiteMarchand ||
+        luminaire["lien site marchand"] ||
+        luminaire["Lien Site Marchand"] ||
+        ""
+
+      const etiquette = luminaire["Etiquette"] || luminaire.etiquette || luminaire["étiquette"] || ""
+
+      const bibliographie = luminaire["Bibliographie"] || luminaire.bibliographie || ""
 
       return {
         _id: luminaire._id.toString(),
@@ -51,22 +55,16 @@ export async function GET(request: NextRequest) {
         Estimation: luminaire["Estimation"] || luminaire.estimation || "",
         editeur: luminaire.editeur || "",
         Editeur: luminaire["Editeur"] || luminaire.editeur || "",
-        "Lien site marchand": luminaire["Lien site marchand"] || luminaire.lienSiteMarchand || "",
-        lienSiteMarchand: luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || "",
-        Etiquette: luminaire["Etiquette"] || luminaire.etiquette || "",
-        etiquette: luminaire.etiquette || luminaire["Etiquette"] || "",
-        Bibliographie: luminaire["Bibliographie"] || luminaire.bibliographie || "",
-        bibliographie: luminaire.bibliographie || luminaire["Bibliographie"] || "",
         filename: filename,
         "Nom du fichier": filename,
         "Image luminaire (Nom du fichier)": filename,
+        "Lien site marchand": lienSiteMarchand,
+        Etiquette: etiquette,
+        Bibliographie: bibliographie,
         createdAt: luminaire.createdAt,
         updatedAt: luminaire.updatedAt,
       }
     })
-
-    const withFilenames = formattedData.filter((l) => l.filename).length
-    console.log(`✅ Export: ${formattedData.length} luminaires, ${withFilenames} avec nom de fichier`)
 
     return NextResponse.json({
       success: true,
