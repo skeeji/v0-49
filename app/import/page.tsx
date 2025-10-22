@@ -33,6 +33,7 @@ interface ImportResult {
   associated?: number
   remaining?: number
   errors?: string[]
+  totalErrors?: number
 }
 
 const periods = [
@@ -707,7 +708,7 @@ export default function ImportPage() {
     try {
       console.log("📊 Export de tous les luminaires...")
 
-      const luminairesResponse = await fetch("/api/export/csv-data")
+      const luminairesResponse = await fetch("/api/luminaires?limit=100000")
       const luminairesData = await luminairesResponse.json()
 
       const designersResponse = await fetch("/api/designers-data")
@@ -719,33 +720,54 @@ export default function ImportPage() {
           designersMap.set(designer.Nom || designer.nom, designer)
         })
 
-        console.log(`🔍 Export de ${luminairesData.data.length} luminaires...`)
+        console.log(`🔍 Export de ${luminairesData.luminaires.length} luminaires...`)
 
-        const csvData = luminairesData.data.map((luminaire: any) => {
+        const csvData = luminairesData.luminaires.map((luminaire: any) => {
           const designerName = luminaire.designer || luminaire["Artiste / Dates"] || ""
           const designer = designersMap.get(designerName)
-          const designerImageFilename =
-            luminaire["Image designer (imagedesigner)"] || (designer && designer.imagedesigner) || ""
+          const designerImageFilename = luminaire.designerImageFilename || (designer && designer.imagedesigner) || ""
+
+          const specialite = luminaire.periode || luminaire.specialite || luminaire["Spécialité"] || ""
+          const collaboration = luminaire.collaboration || luminaire["Collaboration / Œuvre"] || ""
+          const categorie = luminaire.categorie || luminaire["Catégorie"] || ""
+          const editeur = luminaire.editeur || luminaire.Editeur || luminaire["Editeur"] || ""
+
+          let materiaux = ""
+          if (Array.isArray(luminaire.materiaux) && luminaire.materiaux.length > 0) {
+            materiaux = luminaire.materiaux.join("; ")
+          } else if (luminaire.Matériaux) {
+            if (typeof luminaire.Matériaux === "string" && luminaire.Matériaux.trim() !== "") {
+              materiaux = luminaire.Matériaux.trim()
+            } else if (Array.isArray(luminaire.Matériaux)) {
+              materiaux = luminaire.Matériaux.join("; ")
+            }
+          }
+
+          const lienSiteMarchand = luminaire.lienSiteMarchand || luminaire["Lien site marchand"] || ""
+          const etiquette = luminaire.etiquette || luminaire["Etiquette"] || ""
+          const bibliographie = luminaire.bibliographie || luminaire["Bibliographie"] || ""
+
+          const filename =
+            luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"] || ""
 
           return {
-            Signé: luminaire["Signé"] || luminaire.signe || "",
-            "Nom luminaire": luminaire["Nom luminaire"] || luminaire.nom || "",
-            "Artiste / Dates": luminaire["Artiste / Dates"] || designerName,
-            Année: luminaire["Année"] || luminaire.annee || "",
-            Catégorie: luminaire["Catégorie"] || luminaire.categorie || "",
-            Editeur: luminaire["Editeur"] || luminaire.editeur || "",
-            Spécialité: luminaire["Spécialité"] || luminaire.periode || "",
-            "Collaboration / Œuvre": luminaire["Collaboration / Œuvre"] || luminaire.collaboration || "",
-            Description: luminaire["Description"] || luminaire.description || "",
-            Matériaux: luminaire["Matériaux"] || "",
-            Dimensions: luminaire["Dimensions"] || luminaire.dimensions || "",
-            Estimation: luminaire["Estimation"] || luminaire.estimation || "",
-            "Image luminaire (Nom du fichier)":
-              luminaire["Image luminaire (Nom du fichier)"] || luminaire.filename || "",
+            Signé: luminaire.signe || luminaire["Signé"] || "",
+            "Nom luminaire": luminaire.nom || luminaire["Nom luminaire"] || "",
+            "Artiste / Dates": designerName,
+            Année: luminaire.annee || luminaire["Année"] || "",
+            Catégorie: categorie,
+            Editeur: editeur,
+            Spécialité: specialite,
+            "Collaboration / Œuvre": collaboration,
+            Description: luminaire.description || luminaire["Description"] || "",
+            Matériaux: materiaux,
+            Dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
+            Estimation: luminaire.estimation || luminaire.prix || luminaire["Estimation"] || "",
+            "Image luminaire (Nom du fichier)": filename,
             "Image designer (imagedesigner)": designerImageFilename,
-            "Lien site marchand": luminaire["Lien site marchand"] || "",
-            Etiquette: luminaire["Etiquette"] || "",
-            Bibliographie: luminaire["Bibliographie"] || "",
+            "Lien site marchand": lienSiteMarchand,
+            Etiquette: etiquette,
+            Bibliographie: bibliographie,
           }
         })
 
