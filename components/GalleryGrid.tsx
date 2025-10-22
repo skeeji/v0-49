@@ -3,13 +3,17 @@
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { FavoriteToggleButton } from "./FavoriteToggleButton"
+import { Card } from "@/components/ui/card"
+import { EditableField } from "@/components/EditableField"
+import { DeleteLuminaireButton } from "@/components/DeleteLuminaireButton"
 import { useAuth } from "@/contexts/AuthContext"
+import { Lightbox } from "@/components/Lightbox"
+import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
 
 interface GalleryGridProps {
   items: any[]
   viewMode: "grid" | "list"
-  onItemUpdate: (id: string, updates: any) => void
+  onItemUpdate?: (id: string, updates: any) => void
   columns?: number
   freeUserLimit?: number
   isUserFree?: boolean
@@ -23,188 +27,162 @@ export function GalleryGrid({
   freeUserLimit = Number.POSITIVE_INFINITY,
   isUserFree = false,
 }: GalleryGridProps) {
-  const { user } = useAuth()
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      return JSON.parse(localStorage.getItem("favorites") || "[]")
-    }
-    return []
-  })
+  const { userData } = useAuth()
+  const isAdmin = userData?.role === "admin"
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
-  const toggleFavorite = (id: string) => {
-    const newFavorites = favorites.includes(id) ? favorites.filter((fav) => fav !== id) : [...favorites, id]
+  const validItems = items.filter((item) => item && (item._id || item.id))
 
-    setFavorites(newFavorites)
-    localStorage.setItem("favorites", JSON.stringify(newFavorites))
+  const visibleItems = isUserFree ? validItems.slice(0, freeUserLimit) : validItems
+
+  const openLightbox = (index: number) => {
+    setCurrentImageIndex(index)
+    setLightboxOpen(true)
   }
 
-  const gridColsClass = {
-    3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-    4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-    5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
-    6: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
-    8: "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8",
-  }[columns]
+  const images = visibleItems.map((item) => {
+    const fileId = item.fileId
+    const filename = item.filename || item["Nom du fichier"]
+
+    if (fileId) {
+      return `/api/images/${fileId}`
+    } else if (filename) {
+      return `/api/images/filename/${encodeURIComponent(filename)}`
+    }
+    return "/placeholder.svg"
+  })
 
   if (viewMode === "list") {
     return (
-      <div className="space-y-4">
-        {items.map((item, index) => {
-          const itemId = String(item.id || item._id || "")
-          const isFavorite = favorites.includes(itemId)
-          const isLocked = isUserFree && index >= freeUserLimit
+      <>
+        <div className="space-y-4">
+          {visibleItems.map((item) => {
+            const itemId = String(item._id || item.id)
+            const name = item.nom || item["Nom luminaire"] || "Sans nom"
+            const designer = item.designer || item["Artiste / Dates"] || "Inconnu"
+            const year = item.annee || item.year || ""
+            const fileId = item.fileId
+            const filename = item.filename || item["Nom du fichier"]
 
-          const itemName = String(item.nom || item["Nom luminaire"] || "Sans nom")
-          const itemArtist = String(item.designer || item["Artiste / Dates"] || "")
-          const itemYear = String(item.annee || item["Année"] || "")
-          const itemDescription = String(item.description || item["Description"] || "")
-
-          // CORRECTION: Construire l'URL de l'image correctement
-          let imageUrl = item.image
-
-          if (!imageUrl) {
-            if (item.imageId) {
-              imageUrl = `/api/images/${item.imageId}`
-            } else if (item.filename || item["Nom du fichier"]) {
-              const filename = item.filename || item["Nom du fichier"]
-              imageUrl = `/api/images/filename/${filename}`
+            let imageUrl = "/placeholder.svg"
+            if (fileId) {
+              imageUrl = `/api/images/${fileId}`
+            } else if (filename) {
+              imageUrl = `/api/images/filename/${encodeURIComponent(filename)}`
             }
-          }
 
-          return (
-            <div
-              key={itemId}
-              className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-            >
-              <Link href={isLocked ? "#" : `/luminaires/${itemId}`} className={isLocked ? "pointer-events-none" : ""}>
-                <div className="flex gap-4 p-4">
-                  <div className="relative w-32 h-32 bg-gray-100 rounded-lg flex-shrink-0">
-                    {imageUrl ? (
-                      <Image
-                        src={imageUrl || "/placeholder.svg"}
-                        alt={itemName}
-                        fill
-                        className={`object-cover rounded-lg ${isLocked ? "blur-sm" : ""}`}
-                        unoptimized
-                        onError={(e) => {
-                          console.log("❌ Erreur chargement image:", imageUrl)
-                          e.currentTarget.src = "/placeholder.svg"
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="text-4xl text-gray-400">🏮</div>
-                      </div>
-                    )}
-                    {isLocked && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 rounded-lg">
-                        <span className="text-white text-2xl">🔒</span>
-                      </div>
-                    )}
+            return (
+              <Card key={itemId} className="p-4">
+                <div className="flex gap-4">
+                  <div className="relative w-32 h-32 flex-shrink-0">
+                    <Image
+                      src={imageUrl || "/placeholder.svg"}
+                      alt={name}
+                      fill
+                      className="object-cover rounded"
+                      sizes="128px"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.src = "/placeholder.svg"
+                      }}
+                    />
                   </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-serif text-lg text-gray-900 truncate">{itemName}</h3>
-                      {user && (
-                        <FavoriteToggleButton
-                          isActive={isFavorite}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            toggleFavorite(itemId)
-                          }}
-                        />
-                      )}
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-2">
+                      <Link href={`/luminaires/${itemId}`} className="hover:underline">
+                        <h3 className="text-lg font-serif font-semibold">{name}</h3>
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        <FavoriteToggleButton luminaireId={itemId} />
+                        {isAdmin && <DeleteLuminaireButton id={itemId} />}
+                      </div>
                     </div>
-                    {itemArtist && <p className="text-sm text-gray-600 mb-1">{itemArtist}</p>}
-                    {itemYear && <p className="text-sm text-gray-500 mb-2">{itemYear}</p>}
-                    {itemDescription && <p className="text-sm text-gray-700 line-clamp-2">{itemDescription}</p>}
+                    <p className="text-gray-600">{designer}</p>
+                    {year && <p className="text-sm text-gray-500">{year}</p>}
                   </div>
                 </div>
-              </Link>
-            </div>
-          )
-        })}
-      </div>
+              </Card>
+            )
+          })}
+        </div>
+        <Lightbox
+          images={images}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          initialIndex={currentImageIndex}
+        />
+      </>
     )
   }
 
   return (
-    <div className={`grid ${gridColsClass} gap-4`}>
-      {items.map((item, index) => {
-        const itemId = String(item.id || item._id || "")
-        const isFavorite = favorites.includes(itemId)
-        const isLocked = isUserFree && index >= freeUserLimit
+    <>
+      <div
+        className="grid gap-4"
+        style={{
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+        }}
+      >
+        {visibleItems.map((item, index) => {
+          const itemId = String(item._id || item.id)
+          const name = item.nom || item["Nom luminaire"] || "Sans nom"
+          const designer = item.designer || item["Artiste / Dates"] || "Inconnu"
+          const year = item.annee || item.year || ""
+          const fileId = item.fileId
+          const filename = item.filename || item["Nom du fichier"]
 
-        const itemName = String(item.nom || item["Nom luminaire"] || "Sans nom")
-        const itemArtist = String(item.designer || item["Artiste / Dates"] || "")
-        const itemYear = String(item.annee || item["Année"] || "")
-
-        // CORRECTION: Construire l'URL de l'image correctement
-        let imageUrl = item.image
-
-        if (!imageUrl) {
-          if (item.imageId) {
-            imageUrl = `/api/images/${item.imageId}`
-          } else if (item.filename || item["Nom du fichier"]) {
-            const filename = item.filename || item["Nom du fichier"]
-            imageUrl = `/api/images/filename/${filename}`
+          let imageUrl = "/placeholder.svg"
+          if (fileId) {
+            imageUrl = `/api/images/${fileId}`
+          } else if (filename) {
+            imageUrl = `/api/images/filename/${encodeURIComponent(filename)}`
           }
-        }
 
-        return (
-          <div key={itemId} className="group relative">
-            <Link href={isLocked ? "#" : `/luminaires/${itemId}`} className={isLocked ? "pointer-events-none" : ""}>
-              <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow">
-                <div className="aspect-square relative bg-gray-100">
-                  {imageUrl ? (
-                    <Image
-                      src={imageUrl || "/placeholder.svg"}
-                      alt={itemName}
-                      fill
-                      className={`object-cover ${isLocked ? "blur-sm" : ""}`}
-                      unoptimized
-                      onError={(e) => {
-                        console.log("❌ Erreur chargement image:", imageUrl)
-                        e.currentTarget.src = "/placeholder.svg"
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-6xl text-gray-400 mb-2">🏮</div>
-                        <span className="text-sm text-gray-500">Image non disponible</span>
-                      </div>
-                    </div>
-                  )}
-                  {isLocked && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40">
-                      <span className="text-white text-4xl">🔒</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-serif text-sm line-clamp-2 flex-1">{itemName}</h3>
-                    {user && (
-                      <FavoriteToggleButton
-                        isActive={isFavorite}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          toggleFavorite(itemId)
-                        }}
-                      />
-                    )}
-                  </div>
-                  {itemArtist && <p className="text-xs text-gray-600 line-clamp-1">{itemArtist}</p>}
-                  {itemYear && <p className="text-xs text-gray-500">{itemYear}</p>}
+          return (
+            <Card key={itemId} className="overflow-hidden group">
+              <div className="relative aspect-square cursor-pointer" onClick={() => openLightbox(index)}>
+                <Image
+                  src={imageUrl || "/placeholder.svg"}
+                  alt={name}
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                  sizes={`(min-width: 1280px) ${100 / columns}vw, (min-width: 768px) 33vw, 50vw`}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.src = "/placeholder.svg"
+                  }}
+                />
+                <div className="absolute top-2 right-2 flex items-center gap-2">
+                  <FavoriteToggleButton luminaireId={itemId} />
+                  {isAdmin && <DeleteLuminaireButton id={itemId} />}
                 </div>
               </div>
-            </Link>
-          </div>
-        )
-      })}
-    </div>
+              <div className="p-3">
+                <Link href={`/luminaires/${itemId}`} className="hover:underline">
+                  {isAdmin && onItemUpdate ? (
+                    <EditableField
+                      value={name}
+                      onSave={(newValue) => onItemUpdate(itemId, { nom: newValue })}
+                      className="font-serif font-semibold text-sm mb-1"
+                    />
+                  ) : (
+                    <h3 className="font-serif font-semibold text-sm mb-1 line-clamp-2">{name}</h3>
+                  )}
+                </Link>
+                <p className="text-xs text-gray-600 line-clamp-1">{designer}</p>
+                {year && <p className="text-xs text-gray-500">{year}</p>}
+              </div>
+            </Card>
+          )
+        })}
+      </div>
+      <Lightbox
+        images={images}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        initialIndex={currentImageIndex}
+      />
+    </>
   )
 }
