@@ -74,30 +74,9 @@ export async function GET(request: Request) {
     const total = await collection.countDocuments(filter)
 
     const skip = (page - 1) * limit
-    const luminaires = await collection
-      .find(filter, {
-        projection: {
-          _id: 1,
-          nom: 1,
-          "Nom luminaire": 1,
-          designer: 1,
-          "Artiste / Dates": 1,
-          annee: 1,
-          Année: 1,
-          year: 1,
-          categorie: 1,
-          Catégorie: 1,
-          materiaux: 1,
-          Matériaux: 1,
-          filename: 1,
-          "Nom du fichier": 1,
-          fileId: 1,
-        },
-      })
-      .sort(sortObject)
-      .skip(skip)
-      .limit(limit)
-      .toArray()
+
+    // IMPORTANT: Retourner TOUS les champs, pas seulement une projection limitée
+    const luminaires = await collection.find(filter).sort(sortObject).skip(skip).limit(limit).toArray()
 
     return NextResponse.json({
       success: true,
