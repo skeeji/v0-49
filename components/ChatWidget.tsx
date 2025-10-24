@@ -23,7 +23,7 @@ interface SearchResult {
 interface Message {
   type: "user" | "bot" | "results"
   content: string
-  results?: (SearchResult & { luminaireId?: string })[]
+  results?: SearchResult[]
   timestamp: Date
 }
 
@@ -31,6 +31,7 @@ type ApiStatus = "ready" | "loading" | "offline"
 
 // Fonction pour parser le JSON avec des valeurs NaN
 function parseJSONWithNaN(text: string) {
+  // Remplace NaN par null avant de parser
   const cleanedText = text.replace(/:\s*NaN/g, ": null")
   return JSON.parse(cleanedText)
 }
@@ -43,7 +44,7 @@ export default function ChatWidget() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("loading")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasInitialized, setHasInitialized] = useState(false)
-  const idCacheRef = useRef<Record<string, string>>({})
+  const [imageToIdMap, setImageToIdMap] = useState<Record<string, string>>({})
 
   // Health check au chargement
   useEffect(() => {
@@ -68,6 +69,64 @@ export default function ChatWidget() {
     checkHealth()
   }, [])
 
+  // Charger TOUS les luminaires en faisant plusieurs appels paginés
+  useEffect(() => {
+    const fetchAllLuminaires = async () => {
+      try {
+        const allLuminaires: any[] = []
+        let page = 1
+        let hasMore = true
+        const limit = 50
+
+        // Faire des appels paginés jusqu'à récupérer tous les luminaires
+        while (hasMore) {
+          const response = await fetch(`/api/luminaires?page=${page}&limit=${limit}`)
+          if (response.ok) {
+            const data = await response.json()
+            allLuminaires.push(...data.luminaires)
+            hasMore = data.pagination.hasMore
+            page++
+          } else {
+            break
+          }
+        }
+
+        console.log("Total luminaires fetched:", allLuminaires.length)
+
+        const mapping: Record<string, string> = {}
+
+        allLuminaires.forEach((lum: any) => {
+          if (lum._id) {
+            // Parcourir TOUTES les propriétés de l'objet luminaire
+            Object.keys(lum).forEach((key) => {
+              const value = lum[key]
+
+              // Si la clé contient "image" ou "fichier" et que la valeur est une string
+              if (
+                typeof value === "string" &&
+                (key.toLowerCase().includes("image") || key.toLowerCase().includes("fichier")) &&
+                (value.endsWith(".jpg") || value.endsWith(".jpeg") || value.endsWith(".png") || value.endsWith(".webp"))
+              ) {
+                // Extraire le nom de fichier (sans chemin)
+                const fileName = value.split("/").pop()?.toLowerCase().trim()
+                if (fileName) {
+                  mapping[fileName] = lum._id
+                }
+              }
+            })
+          }
+        })
+
+        console.log("Image to ID mapping created:", Object.keys(mapping).length, "entries")
+        console.log("Sample mappings:", Object.keys(mapping).slice(0, 10))
+        setImageToIdMap(mapping)
+      } catch (error) {
+        console.error("Failed to fetch luminaires:", error)
+      }
+    }
+    fetchAllLuminaires()
+  }, [])
+
   // Message de bienvenue au premier lancement
   useEffect(() => {
     if (isOpen && !hasInitialized) {
@@ -86,84 +145,6 @@ export default function ChatWidget() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
-
-  // Fonction pour normaliser et extraire le nom de fichier
-  const extractFileName = (imageUrl: string): string | null => {
-    if (!imageUrl) return null
-    const parts = imageUrl.split("/")
-    const fileName = parts[parts.length - 1]
-    if (!fileName) return null
-    return fileName.trim()
-  }
-
-  // Fonction pour trouver l'ID d'un luminaire par son image en utilisant l'API dédiée
-  const findLuminaireIdByImage = async (imageUrl: string): Promise<string | null> => {
-    const fileName = extractFileName(imageUrl)
-    if (!fileName) return null
-
-    // Vérifier le cache d'abord
-    if (idCacheRef.current[fileName]) {
-      console.log(`✓ Cache hit pour ${fileName}`)
-      return idCacheRef.current[fileName]
-    }
-
-    try {
-      // Utiliser l'API existante /api/images/filename/[filename]
-      const response = await fetch(`/api/images/filename/${encodeURIComponent(fileName)}`)
-
-      if (response.ok) {
-        const data = await response.json()
-
-        // L'API retourne les informations de l'image avec le luminaireId
-        if (data && data.luminaireId) {
-          const id = data.luminaireId.toString()
-          idCacheRef.current[fileName] = id
-          console.log(`✓ Trouvé ID pour ${fileName}: ${id}`)
-          return id
-        }
-      } else if (response.status === 404) {
-        // Si l'image n'est pas trouvée via l'API filename, essayer une recherche directe
-        console.log(`⚠️ Image non trouvée via API filename: ${fileName}, recherche alternative...`)
-        return await findLuminaireIdByImageFallback(fileName)
-      }
-    } catch (error) {
-      console.error("Erreur lors de la recherche par image:", error)
-      return await findLuminaireIdByImageFallback(fileName)
-    }
-
-    console.log(`✗ Pas d'ID trouvé pour: ${fileName}`)
-    return null
-  }
-
-  // Fonction de secours pour rechercher l'ID si l'API filename échoue
-  const findLuminaireIdByImageFallback = async (fileName: string): Promise<string | null> => {
-    try {
-      // Recherche dans toutes les images exportées
-      const response = await fetch(`/api/export/images-list`)
-
-      if (response.ok) {
-        const data = await response.json()
-
-        if (data.images && Array.isArray(data.images)) {
-          const match = data.images.find((img: any) => {
-            const imgFileName = extractFileName(img.filename || img.path || "")
-            return imgFileName?.toLowerCase() === fileName.toLowerCase()
-          })
-
-          if (match && match.luminaireId) {
-            const id = match.luminaireId.toString()
-            idCacheRef.current[fileName] = id
-            console.log(`✓ Trouvé ID via fallback pour ${fileName}: ${id}`)
-            return id
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Erreur lors de la recherche fallback:", error)
-    }
-
-    return null
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -203,13 +184,16 @@ export default function ChatWidget() {
 
       let data
       try {
+        // Première tentative de parsing normal
         data = JSON.parse(text)
       } catch (parseError) {
+        // Si échec, nettoyer les NaN et réessayer
         console.log("JSON parsing error, cleaning NaN values...")
         data = parseJSONWithNaN(text)
       }
 
       if (data.results && data.results.length > 0) {
+        // Nettoyer et normaliser les résultats
         const cleanedResults = data.results.map((result: any) => ({
           nom: result.nom || "Sans nom",
           artiste: result.artiste || "Inconnu",
@@ -219,7 +203,6 @@ export default function ChatWidget() {
           lien_site: result.lien_site || "",
         }))
 
-        // Afficher les résultats immédiatement sans les IDs
         const resultsMessage: Message = {
           type: "results",
           content: `J'ai trouvé ${cleanedResults.length} résultat(s) pour votre recherche :`,
@@ -227,30 +210,6 @@ export default function ChatWidget() {
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, resultsMessage])
-
-        // Résoudre les IDs en parallèle pour tous les résultats (plus rapide)
-        const idsPromises = cleanedResults.map((result) => findLuminaireIdByImage(result.image_url))
-        const luminaireIds = await Promise.all(idsPromises)
-
-        // Mettre à jour tous les résultats en une seule fois
-        setMessages((prevMessages) => {
-          const updatedMessages = [...prevMessages]
-          const messageIndex = updatedMessages.length - 1
-
-          if (updatedMessages[messageIndex].type === "results" && updatedMessages[messageIndex].results) {
-            const updatedResults = updatedMessages[messageIndex].results!.map((result, idx) => ({
-              ...result,
-              luminaireId: luminaireIds[idx] || undefined,
-            }))
-
-            updatedMessages[messageIndex] = {
-              ...updatedMessages[messageIndex],
-              results: updatedResults,
-            }
-          }
-
-          return updatedMessages
-        })
       } else {
         const noResultsMessage: Message = {
           type: "bot",
@@ -292,6 +251,43 @@ export default function ChatWidget() {
       case "offline":
         return "Hors Ligne"
     }
+  }
+
+  // Fonction pour obtenir l'ID du luminaire à partir du nom de l'image
+  const getLuminaireIdFromImage = (imageUrl: string): string | null => {
+    if (!imageUrl) {
+      console.log("No image URL provided")
+      return null
+    }
+
+    // Extraire le nom du fichier de l'URL
+    const fileName = imageUrl.split("/").pop()
+    if (!fileName) {
+      console.log("Could not extract filename from URL:", imageUrl)
+      return null
+    }
+
+    // Normaliser le nom de fichier
+    const normalizedFileName = fileName.toLowerCase().trim()
+
+    console.log(`Looking for luminaire with image: ${normalizedFileName}`)
+    console.log(`Available mappings count: ${Object.keys(imageToIdMap).length}`)
+
+    // Chercher dans le mapping
+    const luminaireId = imageToIdMap[normalizedFileName]
+
+    if (luminaireId) {
+      console.log(`✓ Found luminaire ID for image ${fileName}: ${luminaireId}`)
+    } else {
+      console.log(`✗ No luminaire found for image: ${fileName}`)
+      // Afficher quelques clés similaires pour debug
+      const similarKeys = Object.keys(imageToIdMap).filter((key) => key.includes(normalizedFileName.split("_")[0]))
+      if (similarKeys.length > 0) {
+        console.log("Similar keys found:", similarKeys.slice(0, 5))
+      }
+    }
+
+    return luminaireId || null
   }
 
   return (
@@ -353,7 +349,7 @@ export default function ChatWidget() {
                   <div className="w-full space-y-3">
                     <div className="bg-white rounded-lg px-4 py-2 text-gray-800 text-sm">{message.content}</div>
                     {message.results.map((result, idx) => {
-                      const luminaireId = result.luminaireId
+                      const luminaireId = getLuminaireIdFromImage(result.image_url)
 
                       return (
                         <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
