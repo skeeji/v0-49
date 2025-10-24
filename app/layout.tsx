@@ -1,19 +1,17 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Playfair_Display } from "next/font/google"
+import { Inter } from "next/font/google"
 import "./globals.css"
-import { Header } from "@/components/Header"
 import { AuthProvider } from "@/contexts/AuthContext"
-import { Toaster } from "sonner"
+import Header from "@/components/Header"
+import ChatWidget from "@/components/ChatWidget"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
-const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" })
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Galerie de Luminaires - Collection Historique",
-  description: "Découvrez une collection unique de luminaires historiques du Moyen Âge à nos jours avec recherche IA",
-  keywords: "luminaires, collection, historique, antiquités, design, éclairage",
-    generator: 'v0.dev'
+  title: "Galerie de Luminaires",
+  description: "Découvrez notre collection de luminaires design",
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -22,21 +20,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${inter.variable} ${playfair.variable}`}>
-      <body className="font-sans antialiased bg-white">
+    <html lang="fr">
+      <body className={inter.className}>
         <AuthProvider>
           <Header />
-          <main>{children}</main>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: {
-                background: "white",
-                border: "1px solid #e2e8f0",
-                color: "#1e293b",
-              },
-            }}
-          />
+          <main className="min-h-screen">{children}</main>
+          <ChatWidget />
         </AuthProvider>
       </body>
     </html>
