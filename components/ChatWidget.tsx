@@ -78,32 +78,36 @@ export default function ChatWidget() {
           const data = await response.json()
           const mapping: Record<string, string> = {}
 
+          console.log("Total luminaires fetched:", data.luminaires.length)
+
           data.luminaires.forEach((lum: any) => {
             if (lum._id) {
-              // Récupérer tous les noms possibles du champ image
-              const imageFields = [
-                "Image luminaire (Nom du fichier)",
-                "image_luminaire",
-                "imageLuminaire",
-                "Image_luminaire",
-                "image",
-                "filename",
-              ]
+              // Parcourir TOUTES les propriétés de l'objet luminaire
+              Object.keys(lum).forEach((key) => {
+                const value = lum[key]
 
-              for (const field of imageFields) {
-                const imageValue = lum[field]
-                if (imageValue && typeof imageValue === "string") {
-                  // Normaliser le nom de fichier (sans chemin, en minuscules)
-                  const normalizedImage = imageValue.split("/").pop()?.toLowerCase().trim()
-                  if (normalizedImage) {
-                    mapping[normalizedImage] = lum._id
+                // Si la clé contient "image" ou "fichier" et que la valeur est une string
+                if (
+                  typeof value === "string" &&
+                  (key.toLowerCase().includes("image") || key.toLowerCase().includes("fichier")) &&
+                  (value.endsWith(".jpg") ||
+                    value.endsWith(".jpeg") ||
+                    value.endsWith(".png") ||
+                    value.endsWith(".webp"))
+                ) {
+                  // Extraire le nom de fichier (sans chemin)
+                  const fileName = value.split("/").pop()?.toLowerCase().trim()
+                  if (fileName) {
+                    mapping[fileName] = lum._id
+                    console.log(`Mapped: ${fileName} -> ${lum._id}`)
                   }
                 }
-              }
+              })
             }
           })
 
           console.log("Image to ID mapping created:", Object.keys(mapping).length, "entries")
+          console.log("Sample mappings:", Object.keys(mapping).slice(0, 10))
           setImageToIdMap(mapping)
         }
       } catch (error) {
@@ -241,22 +245,36 @@ export default function ChatWidget() {
 
   // Fonction pour obtenir l'ID du luminaire à partir du nom de l'image
   const getLuminaireIdFromImage = (imageUrl: string): string | null => {
-    if (!imageUrl) return null
+    if (!imageUrl) {
+      console.log("No image URL provided")
+      return null
+    }
 
     // Extraire le nom du fichier de l'URL
     const fileName = imageUrl.split("/").pop()
-    if (!fileName) return null
+    if (!fileName) {
+      console.log("Could not extract filename from URL:", imageUrl)
+      return null
+    }
 
     // Normaliser le nom de fichier
     const normalizedFileName = fileName.toLowerCase().trim()
+
+    console.log(`Looking for luminaire with image: ${normalizedFileName}`)
+    console.log(`Available mappings count: ${Object.keys(imageToIdMap).length}`)
 
     // Chercher dans le mapping
     const luminaireId = imageToIdMap[normalizedFileName]
 
     if (luminaireId) {
-      console.log(`Found luminaire ID for image ${fileName}: ${luminaireId}`)
+      console.log(`✓ Found luminaire ID for image ${fileName}: ${luminaireId}`)
     } else {
-      console.log(`No luminaire found for image: ${fileName}`)
+      console.log(`✗ No luminaire found for image: ${fileName}`)
+      // Afficher quelques clés similaires pour debug
+      const similarKeys = Object.keys(imageToIdMap).filter((key) => key.includes(normalizedFileName.split("_")[0]))
+      if (similarKeys.length > 0) {
+        console.log("Similar keys found:", similarKeys.slice(0, 5))
+      }
     }
 
     return luminaireId || null
