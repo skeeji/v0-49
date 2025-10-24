@@ -1,81 +1,129 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+
 export async function GET(request: NextRequest) {
   try {
-    const client = await clientPromise
-    const db = client.db("luminaires_db")
-
-    const searchParams = request.nextUrl.searchParams
+    const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "50")
     const search = searchParams.get("search") || ""
-    const designer = searchParams.get("designer") || ""
-    const material = searchParams.get("material") || ""
-    const year = searchParams.get("year") || ""
-    const sortBy = searchParams.get("sortBy") || "nom"
-    const sortOrder = searchParams.get("sortOrder") === "desc" ? -1 : 1
-    const getAllForMapping = searchParams.get("getAllForMapping") === "true"
+    const categorie = searchParams.get("categorie") || ""
+    const materiau = searchParams.get("materiau") || ""
+    const yearMin = searchParams.get("yearMin")
+    const yearMax = searchParams.get("yearMax")
+    const sortField = searchParams.get("sortField") || "nom"
+    const sortDirection = searchParams.get("sortDirection") || "asc"
 
-    const query: any = {}
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
+    const filter: any = {}
+    const andConditions: any[] = []
 
     if (search) {
-      query.$or = [
-        { nom: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { designer: { $regex: search, $options: "i" } },
-      ]
-    }
-
-    if (designer) {
-      query.designer = { $regex: designer, $options: "i" }
-    }
-
-    if (material) {
-      query.material = { $regex: material, $options: "i" }
-    }
-
-    if (year) {
-      query.year = Number.parseInt(year)
-    }
-
-    const skip = (page - 1) * limit
-
-    // Si on demande tous les luminaires pour le mapping, on ignore la pagination
-    if (getAllForMapping) {
-      const luminaires = await db
-        .collection("luminaires")
-        .find(query)
-        .sort({ [sortBy]: sortOrder })
-        .toArray()
-
-      return NextResponse.json({
-        luminaires,
-        total: luminaires.length,
-        page: 1,
-        totalPages: 1,
+      andConditions.push({
+        $or: [
+          { nom: { $regex: search, $options: "i" } },
+          { "Nom luminaire": { $regex: search, $options: "i" } },
+          { designer: { $regex: search, $options: "i" } },
+          { "Artiste / Dates": { $regex: search, $options: "i" } },
+        ],
       })
     }
 
-    const [luminaires, total] = await Promise.all([
-      db
-        .collection("luminaires")
-        .find(query)
-        .sort({ [sortBy]: sortOrder })
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
-      db.collection("luminaires").countDocuments(query),
-    ])
+    if (categorie && categorie !== "all") {
+      andConditions.push({
+        $or: [{ categorie: categorie }, { Catégorie: categorie }],
+      })
+    }
+
+    if (materiau && materiau !== "all") {
+      andConditions.push({
+        $or: [{ materiaux: { $regex: materiau, $options: "i" } }, { Matériaux: { $regex: materiau, $options: "i" } }],
+      })
+    }
+
+    if (yearMin && yearMax) {
+      const min = Number.parseInt(yearMin)
+      const max = Number.parseInt(yearMax)
+      andConditions.push({
+        $or: [
+          { annee: { $gte: min, $lte: max } },
+          { year: { $gte: min, $lte: max } },
+          { Année: { $gte: min, $lte: max } },
+        ],
+      })
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions
+    }
+
+    const sortObject: any = {}
+    if (sortField === "nom") {
+      sortObject.nom = sortDirection === "asc" ? 1 : -1
+    } else if (sortField === "designer") {
+      sortObject.designer = sortDirection === "asc" ? 1 : -1
+    } else if (sortField === "annee") {
+      sortObject.annee = sortDirection === "asc" ? 1 : -1
+    }
+
+    const total = await collection.countDocuments(filter)
+
+    const skip = (page - 1) * limit
+
+    // IMPORTANT: Retourner TOUS les champs, pas seulement une projection limitée
+    const luminaires = await collection.find(filter).sort(sortObject).skip(skip).limit(limit).toArray()
 
     return NextResponse.json({
-      luminaires,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
+      success: true,
+      luminaires: luminaires,
+      pagination: {
+        page: page,
+        limit: limit,
+        total: total,
+        hasMore: skip + luminaires.length < total,
+      },
     })
-  } catch (error) {
-    console.error("Error fetching luminaires:", error)
-    return NextResponse.json({ error: "Failed to fetch luminaires" }, { status: 500 })
+  } catch (error: any) {
+    console.error("❌ Erreur API /api/luminaires:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors du chargement des luminaires",
+        details: error.message,
+      },
+      { status: 500 },
+    )
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
+
+    const result = await collection.insertOne(body)
+
+    return NextResponse.json({
+      success: true,
+      id: result.insertedId,
+    })
+  } catch (error: any) {
+    console.error("❌ Erreur création luminaire:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la création du luminaire",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

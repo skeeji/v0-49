@@ -69,52 +69,62 @@ export default function ChatWidget() {
     checkHealth()
   }, [])
 
-  // Charger TOUS les luminaires pour créer un mapping complet nom d'image -> ID
+  // Charger TOUS les luminaires en faisant plusieurs appels paginés
   useEffect(() => {
-    const fetchLuminaires = async () => {
+    const fetchAllLuminaires = async () => {
       try {
-        // Utiliser le paramètre getAllForMapping pour récupérer tous les luminaires
-        const response = await fetch("/api/luminaires?getAllForMapping=true")
-        if (response.ok) {
-          const data = await response.json()
-          const mapping: Record<string, string> = {}
+        const allLuminaires: any[] = []
+        let page = 1
+        let hasMore = true
+        const limit = 50
 
-          console.log("Total luminaires fetched:", data.luminaires.length)
-
-          data.luminaires.forEach((lum: any) => {
-            if (lum._id) {
-              // Parcourir TOUTES les propriétés de l'objet luminaire
-              Object.keys(lum).forEach((key) => {
-                const value = lum[key]
-
-                // Si la clé contient "image" ou "fichier" et que la valeur est une string
-                if (
-                  typeof value === "string" &&
-                  (key.toLowerCase().includes("image") || key.toLowerCase().includes("fichier")) &&
-                  (value.endsWith(".jpg") ||
-                    value.endsWith(".jpeg") ||
-                    value.endsWith(".png") ||
-                    value.endsWith(".webp"))
-                ) {
-                  // Extraire le nom de fichier (sans chemin)
-                  const fileName = value.split("/").pop()?.toLowerCase().trim()
-                  if (fileName) {
-                    mapping[fileName] = lum._id
-                  }
-                }
-              })
-            }
-          })
-
-          console.log("Image to ID mapping created:", Object.keys(mapping).length, "entries")
-          console.log("Sample mappings:", Object.keys(mapping).slice(0, 10))
-          setImageToIdMap(mapping)
+        // Faire des appels paginés jusqu'à récupérer tous les luminaires
+        while (hasMore) {
+          const response = await fetch(`/api/luminaires?page=${page}&limit=${limit}`)
+          if (response.ok) {
+            const data = await response.json()
+            allLuminaires.push(...data.luminaires)
+            hasMore = data.pagination.hasMore
+            page++
+          } else {
+            break
+          }
         }
+
+        console.log("Total luminaires fetched:", allLuminaires.length)
+
+        const mapping: Record<string, string> = {}
+
+        allLuminaires.forEach((lum: any) => {
+          if (lum._id) {
+            // Parcourir TOUTES les propriétés de l'objet luminaire
+            Object.keys(lum).forEach((key) => {
+              const value = lum[key]
+
+              // Si la clé contient "image" ou "fichier" et que la valeur est une string
+              if (
+                typeof value === "string" &&
+                (key.toLowerCase().includes("image") || key.toLowerCase().includes("fichier")) &&
+                (value.endsWith(".jpg") || value.endsWith(".jpeg") || value.endsWith(".png") || value.endsWith(".webp"))
+              ) {
+                // Extraire le nom de fichier (sans chemin)
+                const fileName = value.split("/").pop()?.toLowerCase().trim()
+                if (fileName) {
+                  mapping[fileName] = lum._id
+                }
+              }
+            })
+          }
+        })
+
+        console.log("Image to ID mapping created:", Object.keys(mapping).length, "entries")
+        console.log("Sample mappings:", Object.keys(mapping).slice(0, 10))
+        setImageToIdMap(mapping)
       } catch (error) {
         console.error("Failed to fetch luminaires:", error)
       }
     }
-    fetchLuminaires()
+    fetchAllLuminaires()
   }, [])
 
   // Message de bienvenue au premier lancement
