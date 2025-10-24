@@ -7,6 +7,7 @@ import { MessageCircle, X, Send, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
+import Link from "next/link"
 
 const API_BASE_URL = "https://chatbot-984654216979.europe-west1.run.app"
 
@@ -43,6 +44,7 @@ export default function ChatWidget() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("loading")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasInitialized, setHasInitialized] = useState(false)
+  const [luminaireIds, setLuminaireIds] = useState<Record<string, string>>({})
 
   // Health check au chargement
   useEffect(() => {
@@ -65,6 +67,30 @@ export default function ChatWidget() {
       }
     }
     checkHealth()
+  }, [])
+
+  // Charger tous les luminaires pour faire le mapping nom -> ID
+  useEffect(() => {
+    const fetchLuminaires = async () => {
+      try {
+        const response = await fetch("/api/luminaires")
+        if (response.ok) {
+          const data = await response.json()
+          const mapping: Record<string, string> = {}
+          data.luminaires.forEach((lum: any) => {
+            if (lum.nom && lum._id) {
+              // Normaliser le nom pour le matching
+              const normalizedName = lum.nom.toLowerCase().trim()
+              mapping[normalizedName] = lum._id
+            }
+          })
+          setLuminaireIds(mapping)
+        }
+      } catch (error) {
+        console.error("Failed to fetch luminaires:", error)
+      }
+    }
+    fetchLuminaires()
   }, [])
 
   // Message de bienvenue au premier lancement
@@ -193,21 +219,11 @@ export default function ChatWidget() {
     }
   }
 
-  // Fonction pour extraire le nom de fichier de l'image et générer le lien vers le luminaire
-  const getLuminaireLink = (imageUrl: string) => {
-    if (!imageUrl) return null
-
-    // Extraire le nom du fichier de l'URL (ex: /images/lampe-123.jpg -> lampe-123)
-    const fileName = imageUrl
-      .split("/")
-      .pop()
-      ?.replace(/\.[^/.]+$/, "")
-
-    if (!fileName) return null
-
-    // Chercher dans la base de données locale si on a l'ID du luminaire
-    // Pour l'instant, on retourne null car on n'a pas accès à la base depuis ce composant
-    return null
+  // Fonction pour obtenir l'ID du luminaire à partir du nom
+  const getLuminaireId = (nom: string): string | null => {
+    if (!nom) return null
+    const normalizedName = nom.toLowerCase().trim()
+    return luminaireIds[normalizedName] || null
   }
 
   return (
@@ -269,29 +285,56 @@ export default function ChatWidget() {
                   <div className="w-full space-y-3">
                     <div className="bg-white rounded-lg px-4 py-2 text-gray-800 text-sm">{message.content}</div>
                     {message.results.map((result, idx) => {
-                      const luminaireLink = getLuminaireLink(result.image_url)
+                      const luminaireId = getLuminaireId(result.nom)
 
                       return (
                         <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
                           <CardContent className="p-0">
                             <div className="flex gap-3 p-3">
-                              <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                                <img
-                                  src={
-                                    result.image_url.startsWith("http")
-                                      ? result.image_url
-                                      : `${API_BASE_URL}${result.image_url}`
-                                  }
-                                  alt={result.nom}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement
-                                    target.src = "/placeholder.svg?height=80&width=80"
-                                  }}
-                                />
-                              </div>
+                              {luminaireId ? (
+                                <Link
+                                  href={`/luminaires/${luminaireId}`}
+                                  className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                                >
+                                  <img
+                                    src={
+                                      result.image_url.startsWith("http")
+                                        ? result.image_url
+                                        : `${API_BASE_URL}${result.image_url}`
+                                    }
+                                    alt={result.nom}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement
+                                      target.src = "/placeholder.svg?height=80&width=80"
+                                    }}
+                                  />
+                                </Link>
+                              ) : (
+                                <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                                  <img
+                                    src={
+                                      result.image_url.startsWith("http")
+                                        ? result.image_url
+                                        : `${API_BASE_URL}${result.image_url}`
+                                    }
+                                    alt={result.nom}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement
+                                      target.src = "/placeholder.svg?height=80&width=80"
+                                    }}
+                                  />
+                                </div>
+                              )}
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-sm text-gray-900 truncate">{result.nom}</h4>
+                                {luminaireId ? (
+                                  <Link href={`/luminaires/${luminaireId}`} className="hover:underline">
+                                    <h4 className="font-semibold text-sm text-gray-900 truncate">{result.nom}</h4>
+                                  </Link>
+                                ) : (
+                                  <h4 className="font-semibold text-sm text-gray-900 truncate">{result.nom}</h4>
+                                )}
                                 <p className="text-xs text-gray-600">
                                   {result.artiste} • {result.annee}
                                 </p>
