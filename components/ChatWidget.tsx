@@ -69,11 +69,12 @@ export default function ChatWidget() {
     checkHealth()
   }, [])
 
-  // Charger tous les luminaires et créer un mapping nom d'image -> ID
+  // Charger TOUS les luminaires pour créer un mapping complet nom d'image -> ID
   useEffect(() => {
     const fetchLuminaires = async () => {
       try {
-        const response = await fetch("/api/luminaires")
+        // Utiliser le paramètre getAllForMapping pour récupérer tous les luminaires
+        const response = await fetch("/api/luminaires?getAllForMapping=true")
         if (response.ok) {
           const data = await response.json()
           const mapping: Record<string, string> = {}
@@ -99,7 +100,6 @@ export default function ChatWidget() {
                   const fileName = value.split("/").pop()?.toLowerCase().trim()
                   if (fileName) {
                     mapping[fileName] = lum._id
-                    console.log(`Mapped: ${fileName} -> ${lum._id}`)
                   }
                 }
               })
