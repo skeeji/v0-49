@@ -43,6 +43,7 @@ export default function ChatWidget() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("loading")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasInitialized, setHasInitialized] = useState(false)
+  const idCacheRef = useRef<Record<string, string>>({})
 
   // Health check au chargement
   useEffect(() => {
@@ -86,43 +87,116 @@ export default function ChatWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Fonction pour trouver l'ID d'un luminaire par recherche directe sur le nom
-  const findLuminaireIdByName = async (nom: string, artiste: string): Promise<string | null> => {
+  // Fonction pour normaliser et extraire le nom de fichier
+  const extractFileName = (imageUrl: string): string | null => {
+    if (!imageUrl) return null
+    const parts = imageUrl.split("/")
+    const fileName = parts[parts.length - 1]
+    if (!fileName) return null
+    return fileName.toLowerCase().trim()
+  }
+
+  // Fonction pour trouver l'ID d'un luminaire par son image
+  const findLuminaireIdByImage = async (imageUrl: string): Promise<string | null> => {
+    const fileName = extractFileName(imageUrl)
+    if (!fileName) return null
+
+    // Vérifier le cache d'abord
+    if (idCacheRef.current[fileName]) {
+      console.log(`✓ Cache hit pour ${fileName}`)
+      return idCacheRef.current[fileName]
+    }
+
     try {
-      // Rechercher par nom exact
-      const searchQuery = encodeURIComponent(nom.trim())
-      const response = await fetch(`/api/luminaires?search=${searchQuery}&limit=10`)
+      // Chercher par nom de fichier exact
+      const response = await fetch(`/api/luminaires?limit=100`)
 
       if (response.ok) {
         const data = await response.json()
 
-        if (data.luminaires && data.luminaires.length > 0) {
-          // Chercher une correspondance exacte ou très proche
-          const exactMatch = data.luminaires.find((lum: any) => {
-            const lumNom = (lum.nom || lum.Nom || lum.name || "").toLowerCase().trim()
-            const lumArtiste = (lum.artiste || lum.Artiste || lum.designer || "").toLowerCase().trim()
-            const searchNom = nom.toLowerCase().trim()
-            const searchArtiste = artiste.toLowerCase().trim()
+        // Parcourir tous les luminaires et chercher l'image
+        for (const lum of data.luminaires) {
+          if (lum._id) {
+            // Vérifier toutes les propriétés qui pourraient contenir une image
+            const imageFields = Object.entries(lum).filter(
+              ([key, value]) =>
+                typeof value === "string" &&
+                (key.toLowerCase().includes("image") ||
+                  key.toLowerCase().includes("fichier") ||
+                  key.toLowerCase().includes("photo") ||
+                  key.toLowerCase().includes("picture")) &&
+                (value.endsWith(".jpg") ||
+                  value.endsWith(".jpeg") ||
+                  value.endsWith(".png") ||
+                  value.endsWith(".webp") ||
+                  value.endsWith(".gif")),
+            )
 
-            return lumNom === searchNom || (lumNom.includes(searchNom) && lumArtiste.includes(searchArtiste))
-          })
-
-          if (exactMatch && exactMatch._id) {
-            console.log(`✓ Trouvé ID pour "${nom}": ${exactMatch._id}`)
-            return exactMatch._id.toString()
+            for (const [, imagePath] of imageFields) {
+              const lumFileName = extractFileName(imagePath as string)
+              if (lumFileName === fileName) {
+                const id = lum._id.toString()
+                idCacheRef.current[fileName] = id
+                console.log(`✓ Trouvé ID pour ${fileName}: ${id}`)
+                return id
+              }
+            }
           }
+        }
 
-          // Si pas de correspondance exacte, prendre le premier résultat
-          if (data.luminaires[0]._id) {
-            console.log(`⚠️ Correspondance partielle pour "${nom}": ${data.luminaires[0]._id}`)
-            return data.luminaires[0]._id.toString()
+        // Si pas trouvé dans la première page, essayer d'autres pages
+        if (data.pagination?.hasMore) {
+          let page = 2
+          let hasMore = true
+
+          while (hasMore && page <= 5) {
+            // Limiter à 5 pages max pour ne pas être trop long
+            const pageResponse = await fetch(`/api/luminaires?page=${page}&limit=100`)
+
+            if (pageResponse.ok) {
+              const pageData = await pageResponse.json()
+
+              for (const lum of pageData.luminaires) {
+                if (lum._id) {
+                  const imageFields = Object.entries(lum).filter(
+                    ([key, value]) =>
+                      typeof value === "string" &&
+                      (key.toLowerCase().includes("image") ||
+                        key.toLowerCase().includes("fichier") ||
+                        key.toLowerCase().includes("photo") ||
+                        key.toLowerCase().includes("picture")) &&
+                      (value.endsWith(".jpg") ||
+                        value.endsWith(".jpeg") ||
+                        value.endsWith(".png") ||
+                        value.endsWith(".webp") ||
+                        value.endsWith(".gif")),
+                  )
+
+                  for (const [, imagePath] of imageFields) {
+                    const lumFileName = extractFileName(imagePath as string)
+                    if (lumFileName === fileName) {
+                      const id = lum._id.toString()
+                      idCacheRef.current[fileName] = id
+                      console.log(`✓ Trouvé ID pour ${fileName}: ${id} (page ${page})`)
+                      return id
+                    }
+                  }
+                }
+              }
+
+              hasMore = pageData.pagination?.hasMore || false
+              page++
+            } else {
+              break
+            }
           }
         }
       }
     } catch (error) {
-      console.error("Erreur lors de la recherche par nom:", error)
+      console.error("Erreur lors de la recherche par image:", error)
     }
 
+    console.log(`✗ Pas d'ID trouvé pour: ${fileName}`)
     return null
   }
 
@@ -191,7 +265,7 @@ export default function ChatWidget() {
 
         // Résoudre les IDs en arrière-plan et mettre à jour progressivement
         cleanedResults.forEach(async (result, idx) => {
-          const luminaireId = await findLuminaireIdByName(result.nom, result.artiste)
+          const luminaireId = await findLuminaireIdByImage(result.image_url)
 
           if (luminaireId) {
             setMessages((prevMessages) => {
