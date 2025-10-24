@@ -44,7 +44,7 @@ export default function ChatWidget() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("loading")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasInitialized, setHasInitialized] = useState(false)
-  const [luminaireIds, setLuminaireIds] = useState<Record<string, string>>({})
+  const [imageToIdMap, setImageToIdMap] = useState<Record<string, string>>({})
 
   // Health check au chargement
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function ChatWidget() {
     checkHealth()
   }, [])
 
-  // Charger tous les luminaires pour faire le mapping nom -> ID
+  // Charger tous les luminaires et créer un mapping nom d'image -> ID
   useEffect(() => {
     const fetchLuminaires = async () => {
       try {
@@ -77,14 +77,34 @@ export default function ChatWidget() {
         if (response.ok) {
           const data = await response.json()
           const mapping: Record<string, string> = {}
+
           data.luminaires.forEach((lum: any) => {
-            if (lum.nom && lum._id) {
-              // Normaliser le nom pour le matching
-              const normalizedName = lum.nom.toLowerCase().trim()
-              mapping[normalizedName] = lum._id
+            if (lum._id) {
+              // Récupérer tous les noms possibles du champ image
+              const imageFields = [
+                "Image luminaire (Nom du fichier)",
+                "image_luminaire",
+                "imageLuminaire",
+                "Image_luminaire",
+                "image",
+                "filename",
+              ]
+
+              for (const field of imageFields) {
+                const imageValue = lum[field]
+                if (imageValue && typeof imageValue === "string") {
+                  // Normaliser le nom de fichier (sans chemin, en minuscules)
+                  const normalizedImage = imageValue.split("/").pop()?.toLowerCase().trim()
+                  if (normalizedImage) {
+                    mapping[normalizedImage] = lum._id
+                  }
+                }
+              }
             }
           })
-          setLuminaireIds(mapping)
+
+          console.log("Image to ID mapping created:", Object.keys(mapping).length, "entries")
+          setImageToIdMap(mapping)
         }
       } catch (error) {
         console.error("Failed to fetch luminaires:", error)
@@ -219,11 +239,27 @@ export default function ChatWidget() {
     }
   }
 
-  // Fonction pour obtenir l'ID du luminaire à partir du nom
-  const getLuminaireId = (nom: string): string | null => {
-    if (!nom) return null
-    const normalizedName = nom.toLowerCase().trim()
-    return luminaireIds[normalizedName] || null
+  // Fonction pour obtenir l'ID du luminaire à partir du nom de l'image
+  const getLuminaireIdFromImage = (imageUrl: string): string | null => {
+    if (!imageUrl) return null
+
+    // Extraire le nom du fichier de l'URL
+    const fileName = imageUrl.split("/").pop()
+    if (!fileName) return null
+
+    // Normaliser le nom de fichier
+    const normalizedFileName = fileName.toLowerCase().trim()
+
+    // Chercher dans le mapping
+    const luminaireId = imageToIdMap[normalizedFileName]
+
+    if (luminaireId) {
+      console.log(`Found luminaire ID for image ${fileName}: ${luminaireId}`)
+    } else {
+      console.log(`No luminaire found for image: ${fileName}`)
+    }
+
+    return luminaireId || null
   }
 
   return (
@@ -285,7 +321,7 @@ export default function ChatWidget() {
                   <div className="w-full space-y-3">
                     <div className="bg-white rounded-lg px-4 py-2 text-gray-800 text-sm">{message.content}</div>
                     {message.results.map((result, idx) => {
-                      const luminaireId = getLuminaireId(result.nom)
+                      const luminaireId = getLuminaireIdFromImage(result.image_url)
 
                       return (
                         <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
