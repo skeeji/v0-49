@@ -28,6 +28,13 @@ interface Message {
 
 type ApiStatus = "ready" | "loading" | "offline"
 
+// Fonction pour parser le JSON avec des valeurs NaN
+function parseJSONWithNaN(text: string) {
+  // Remplace NaN par null avant de parser
+  const cleanedText = text.replace(/:\s*NaN/g, ": null")
+  return JSON.parse(cleanedText)
+}
+
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -113,13 +120,33 @@ export default function ChatWidget() {
         throw new Error("Erreur lors de la recherche")
       }
 
-      const data = await response.json()
+      const text = await response.text()
+
+      let data
+      try {
+        // Première tentative de parsing normal
+        data = JSON.parse(text)
+      } catch (parseError) {
+        // Si échec, nettoyer les NaN et réessayer
+        console.log("JSON parsing error, cleaning NaN values...")
+        data = parseJSONWithNaN(text)
+      }
 
       if (data.results && data.results.length > 0) {
+        // Nettoyer et normaliser les résultats
+        const cleanedResults = data.results.map((result: any) => ({
+          nom: result.nom || "Sans nom",
+          artiste: result.artiste || "Inconnu",
+          annee: result.annee === null || isNaN(result.annee) ? "Non spécifié" : String(result.annee),
+          image_url: result.image_url || "",
+          similarity: result.similarity || 0,
+          lien_site: result.lien_site || "",
+        }))
+
         const resultsMessage: Message = {
           type: "results",
-          content: `J'ai trouvé ${data.results.length} résultat(s) pour votre recherche :`,
-          results: data.results,
+          content: `J'ai trouvé ${cleanedResults.length} résultat(s) pour votre recherche :`,
+          results: cleanedResults,
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, resultsMessage])
@@ -132,6 +159,7 @@ export default function ChatWidget() {
         setMessages((prev) => [...prev, noResultsMessage])
       }
     } catch (error) {
+      console.error("Search error:", error)
       const errorMessage: Message = {
         type: "bot",
         content: error instanceof Error ? error.message : "Une erreur est survenue. Veuillez réessayer.",
@@ -165,13 +193,31 @@ export default function ChatWidget() {
     }
   }
 
+  // Fonction pour extraire le nom de fichier de l'image et générer le lien vers le luminaire
+  const getLuminaireLink = (imageUrl: string) => {
+    if (!imageUrl) return null
+
+    // Extraire le nom du fichier de l'URL (ex: /images/lampe-123.jpg -> lampe-123)
+    const fileName = imageUrl
+      .split("/")
+      .pop()
+      ?.replace(/\.[^/.]+$/, "")
+
+    if (!fileName) return null
+
+    // Chercher dans la base de données locale si on a l'ID du luminaire
+    // Pour l'instant, on retourne null car on n'a pas accès à la base depuis ce composant
+    return null
+  }
+
   return (
     <>
       {/* Bouton flottant */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-110"
+          style={{ backgroundColor: "#f2d895" }}
+          className="fixed bottom-6 right-6 z-50 hover:opacity-90 text-gray-800 rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-110"
           aria-label="Ouvrir le chat"
         >
           <MessageCircle className="w-6 h-6" />
@@ -185,7 +231,10 @@ export default function ChatWidget() {
       {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] bg-white rounded-lg shadow-2xl flex flex-col">
           {/* Header */}
-          <div className="bg-indigo-600 text-white p-4 rounded-t-lg flex items-center justify-between">
+          <div
+            style={{ backgroundColor: "#f2d895" }}
+            className="text-gray-800 p-4 rounded-t-lg flex items-center justify-between"
+          >
             <div className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
               <div>
@@ -198,7 +247,7 @@ export default function ChatWidget() {
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="hover:bg-indigo-700 rounded-full p-1 transition-colors"
+              className="hover:bg-black/10 rounded-full p-1 transition-colors"
               aria-label="Fermer le chat"
             >
               <X className="w-5 h-5" />
@@ -210,54 +259,64 @@ export default function ChatWidget() {
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}>
                 {message.type === "user" ? (
-                  <div className="bg-indigo-600 text-white rounded-lg px-4 py-2 max-w-[80%]">{message.content}</div>
+                  <div
+                    style={{ backgroundColor: "#f2d895" }}
+                    className="text-gray-800 rounded-lg px-4 py-2 max-w-[80%]"
+                  >
+                    {message.content}
+                  </div>
                 ) : message.type === "results" && message.results ? (
                   <div className="w-full space-y-3">
                     <div className="bg-white rounded-lg px-4 py-2 text-gray-800 text-sm">{message.content}</div>
-                    {message.results.map((result, idx) => (
-                      <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
-                        <CardContent className="p-0">
-                          <div className="flex gap-3 p-3">
-                            <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                              <img
-                                src={
-                                  result.image_url.startsWith("http")
-                                    ? result.image_url
-                                    : `${API_BASE_URL}${result.image_url}`
-                                }
-                                alt={result.nom}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement
-                                  target.src = "/placeholder.svg?height=80&width=80"
-                                }}
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm text-gray-900 truncate">{result.nom}</h4>
-                              <p className="text-xs text-gray-600">
-                                {result.artiste} • {result.annee}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs text-indigo-600 font-medium">
-                                  {(result.similarity * 100).toFixed(0)}% similaire
-                                </span>
-                                {result.lien_site && (
-                                  <a
-                                    href={result.lien_site}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-indigo-600 hover:underline"
-                                  >
-                                    Voir plus →
-                                  </a>
-                                )}
+                    {message.results.map((result, idx) => {
+                      const luminaireLink = getLuminaireLink(result.image_url)
+
+                      return (
+                        <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
+                          <CardContent className="p-0">
+                            <div className="flex gap-3 p-3">
+                              <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                                <img
+                                  src={
+                                    result.image_url.startsWith("http")
+                                      ? result.image_url
+                                      : `${API_BASE_URL}${result.image_url}`
+                                  }
+                                  alt={result.nom}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.src = "/placeholder.svg?height=80&width=80"
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm text-gray-900 truncate">{result.nom}</h4>
+                                <p className="text-xs text-gray-600">
+                                  {result.artiste} • {result.annee}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  <span className="text-xs font-medium" style={{ color: "#c4a363" }}>
+                                    {(result.similarity * 100).toFixed(0)}% similaire
+                                  </span>
+                                  {result.lien_site && (
+                                    <a
+                                      href={result.lien_site}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs hover:underline"
+                                      style={{ color: "#c4a363" }}
+                                    >
+                                      Voir plus →
+                                    </a>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
                   </div>
                 ) : (
                   <div className="bg-white rounded-lg px-4 py-2 max-w-[80%] text-gray-800">{message.content}</div>
@@ -267,7 +326,7 @@ export default function ChatWidget() {
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-white rounded-lg px-4 py-2 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#c4a363" }} />
                   <span className="text-sm text-gray-600">Recherche en cours...</span>
                 </div>
               </div>
@@ -289,7 +348,8 @@ export default function ChatWidget() {
               <Button
                 type="submit"
                 disabled={isLoading || !inputValue.trim() || apiStatus === "offline"}
-                className="bg-indigo-600 hover:bg-indigo-700"
+                style={{ backgroundColor: "#f2d895" }}
+                className="hover:opacity-90 text-gray-800"
               >
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
