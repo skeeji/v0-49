@@ -43,7 +43,9 @@ export default function ChatWidget() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("loading")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasInitialized, setHasInitialized] = useState(false)
-  const [luminaireIdCache, setLuminaireIdCache] = useState<Record<string, string>>({})
+  const [imageToIdMap, setImageToIdMap] = useState<Record<string, string>>({})
+  const [isMappingLoaded, setIsMappingLoaded] = useState(false)
+  const mappingLoadedRef = useRef(false)
 
   // Health check au chargement
   useEffect(() => {
@@ -68,6 +70,84 @@ export default function ChatWidget() {
     checkHealth()
   }, [])
 
+  // Charger le mapping en arrière-plan dès l'ouverture du widget
+  useEffect(() => {
+    if (isOpen && !mappingLoadedRef.current) {
+      mappingLoadedRef.current = true
+      loadImageMapping()
+    }
+  }, [isOpen])
+
+  const loadImageMapping = async () => {
+    console.log("🔄 Début du chargement du mapping image -> ID...")
+    const mapping: Record<string, string> = {}
+    let page = 1
+    let hasMore = true
+    const limit = 100 // Augmenter la limite pour réduire le nombre de requêtes
+
+    try {
+      while (hasMore) {
+        const response = await fetch(`/api/luminaires?page=${page}&limit=${limit}`)
+        if (!response.ok) break
+
+        const data = await response.json()
+        console.log(`📦 Page ${page}: ${data.luminaires.length} luminaires`)
+
+        data.luminaires.forEach((lum: any) => {
+          if (lum._id) {
+            const id = lum._id.toString()
+
+            // Parcourir toutes les propriétés pour trouver les images
+            Object.keys(lum).forEach((key) => {
+              const value = lum[key]
+
+              if (
+                typeof value === "string" &&
+                (key.toLowerCase().includes("image") ||
+                  key.toLowerCase().includes("fichier") ||
+                  key.toLowerCase().includes("photo")) &&
+                (value.endsWith(".jpg") ||
+                  value.endsWith(".jpeg") ||
+                  value.endsWith(".png") ||
+                  value.endsWith(".webp") ||
+                  value.endsWith(".gif"))
+              ) {
+                // Extraire et normaliser le nom de fichier
+                const parts = value.split("/")
+                const fileName = parts[parts.length - 1]?.toLowerCase().trim()
+
+                if (fileName) {
+                  mapping[fileName] = id
+
+                  // Aussi créer des variations du nom sans extension et avec différents séparateurs
+                  const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "")
+                  mapping[nameWithoutExt] = id
+
+                  // Variations avec underscores vs tirets
+                  const withDashes = fileName.replace(/_/g, "-")
+                  const withUnderscores = fileName.replace(/-/g, "_")
+                  mapping[withDashes] = id
+                  mapping[withUnderscores] = id
+                }
+              }
+            })
+          }
+        })
+
+        hasMore = data.pagination?.hasMore || false
+        page++
+
+        // Mettre à jour le mapping progressivement
+        setImageToIdMap({ ...mapping })
+      }
+
+      console.log(`✅ Mapping chargé: ${Object.keys(mapping).length} entrées`)
+      setIsMappingLoaded(true)
+    } catch (error) {
+      console.error("❌ Erreur lors du chargement du mapping:", error)
+    }
+  }
+
   // Message de bienvenue au premier lancement
   useEffect(() => {
     if (isOpen && !hasInitialized) {
@@ -87,59 +167,46 @@ export default function ChatWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Fonction pour extraire l'ID du lien_site s'il existe
-  const extractIdFromLienSite = (lienSite: string): string | null => {
-    if (!lienSite) return null
-
-    // Essayer d'extraire l'ID depuis l'URL (format: /luminaires/{id} ou luminaires/{id})
-    const match = lienSite.match(/luminaires\/([a-f0-9]{24})/i)
-    if (match && match[1]) {
-      return match[1]
+  // Fonction pour obtenir l'ID du luminaire à partir du nom de l'image
+  const getLuminaireIdFromImage = (imageUrl: string): string | null => {
+    if (!imageUrl || !isMappingLoaded) {
+      return null
     }
 
-    return null
-  }
+    // Extraire le nom du fichier de l'URL
+    const parts = imageUrl.split("/")
+    const fileName = parts[parts.length - 1]
 
-  // Fonction pour rechercher l'ID par nom d'image (avec cache)
-  const findLuminaireIdByImage = async (imageUrl: string): Promise<string | null> => {
-    if (!imageUrl) return null
-
-    const fileName = imageUrl.split("/").pop()?.toLowerCase().trim()
-    if (!fileName) return null
-
-    // Vérifier le cache d'abord
-    if (luminaireIdCache[fileName]) {
-      console.log(`✓ Cache hit for ${fileName}:`, luminaireIdCache[fileName])
-      return luminaireIdCache[fileName]
+    if (!fileName) {
+      return null
     }
 
-    // Rechercher dans la base via l'API avec un filtre sur le nom d'image
-    try {
-      const response = await fetch(`/api/luminaires?search=${encodeURIComponent(fileName)}&limit=1`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.luminaires && data.luminaires.length > 0) {
-          const luminaire = data.luminaires[0]
+    // Normaliser le nom de fichier
+    const normalizedFileName = fileName.toLowerCase().trim()
 
-          // Vérifier si ce luminaire contient l'image recherchée
-          const hasImage = Object.values(luminaire).some(
-            (value) => typeof value === "string" && value.toLowerCase().includes(fileName),
-          )
+    // Chercher dans le mapping avec plusieurs variations
+    let luminaireId =
+      imageToIdMap[normalizedFileName] ||
+      imageToIdMap[normalizedFileName.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "")] ||
+      imageToIdMap[normalizedFileName.replace(/_/g, "-")] ||
+      imageToIdMap[normalizedFileName.replace(/-/g, "_")]
 
-          if (hasImage && luminaire._id) {
-            const id = luminaire._id.toString()
-            // Mettre en cache
-            setLuminaireIdCache((prev) => ({ ...prev, [fileName]: id }))
-            console.log(`✓ Found and cached ${fileName}:`, id)
-            return id
-          }
-        }
+    if (luminaireId) {
+      console.log(`✓ Trouvé ID pour ${fileName}: ${luminaireId}`)
+    } else {
+      console.log(`✗ Pas d'ID trouvé pour: ${fileName}`)
+      // Chercher des correspondances partielles
+      const partialMatch = Object.keys(imageToIdMap).find((key) => {
+        const baseName = normalizedFileName.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "").split("_")[0]
+        return key.includes(baseName) || baseName.includes(key.split("_")[0])
+      })
+      if (partialMatch) {
+        console.log(`⚠️ Correspondance partielle trouvée: ${partialMatch}`)
+        luminaireId = imageToIdMap[partialMatch]
       }
-    } catch (error) {
-      console.error("Error finding luminaire by image:", error)
     }
 
-    return null
+    return luminaireId || null
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -196,28 +263,10 @@ export default function ChatWidget() {
           lien_site: result.lien_site || "",
         }))
 
-        // Résoudre les IDs en parallèle pour tous les résultats
-        const resultsWithIds = await Promise.all(
-          cleanedResults.map(async (result) => {
-            // Essayer d'abord d'extraire l'ID du lien_site
-            let luminaireId = extractIdFromLienSite(result.lien_site)
-
-            // Si pas trouvé, chercher par nom d'image
-            if (!luminaireId) {
-              luminaireId = await findLuminaireIdByImage(result.image_url)
-            }
-
-            return {
-              ...result,
-              luminaireId,
-            }
-          }),
-        )
-
         const resultsMessage: Message = {
           type: "results",
-          content: `J'ai trouvé ${resultsWithIds.length} résultat(s) pour votre recherche :`,
-          results: resultsWithIds,
+          content: `J'ai trouvé ${cleanedResults.length} résultat(s) pour votre recherche :`,
+          results: cleanedResults,
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, resultsMessage])
@@ -296,6 +345,9 @@ export default function ChatWidget() {
                 <div className="flex items-center gap-2 text-xs">
                   <span className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
                   <span>{getStatusText()}</span>
+                  {!isMappingLoaded && isOpen && (
+                    <span className="text-xs text-gray-500">(Chargement des liens...)</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -322,8 +374,8 @@ export default function ChatWidget() {
                 ) : message.type === "results" && message.results ? (
                   <div className="w-full space-y-3">
                     <div className="bg-white rounded-lg px-4 py-2 text-gray-800 text-sm">{message.content}</div>
-                    {message.results.map((result: any, idx) => {
-                      const luminaireId = result.luminaireId
+                    {message.results.map((result, idx) => {
+                      const luminaireId = getLuminaireIdFromImage(result.image_url)
 
                       return (
                         <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
