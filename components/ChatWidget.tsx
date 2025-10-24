@@ -3,50 +3,66 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, Loader2, ExternalLink } from "lucide-react"
+import { MessageCircle, X, Send, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 
-interface ChatResult {
+const API_BASE_URL = "https://chatbot-984654216979.europe-west1.run.app"
+
+interface SearchResult {
   nom: string
   artiste: string
-  annee: number
+  annee: string
   image_url: string
-  lien_site: string
   similarity: number
+  lien_site: string
 }
 
 interface Message {
   type: "user" | "bot" | "results"
   content: string
-  results?: ChatResult[]
+  results?: SearchResult[]
   timestamp: Date
 }
 
-const API_BASE_URL = "https://chatbot-984654216979.europe-west1.run.app"
+type ApiStatus = "ready" | "loading" | "offline"
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
+  const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [healthStatus, setHealthStatus] = useState<"loading" | "ready" | "offline">("loading")
+  const [apiStatus, setApiStatus] = useState<ApiStatus>("loading")
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [hasInitialized, setHasInitialized] = useState(false)
 
-  // Health check on mount
+  // Health check au chargement
   useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/health`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        })
+        if (response.ok) {
+          setApiStatus("ready")
+        } else {
+          setApiStatus("offline")
+        }
+      } catch (error) {
+        console.error("Health check failed:", error)
+        setApiStatus("offline")
+      }
+    }
     checkHealth()
   }, [])
 
-  // Auto-scroll to bottom
+  // Message de bienvenue au premier lancement
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
-
-  // Initial bot message
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
+    if (isOpen && !hasInitialized) {
       setMessages([
         {
           type: "bot",
@@ -54,49 +70,47 @@ export default function ChatWidget() {
           timestamp: new Date(),
         },
       ])
+      setHasInitialized(true)
     }
-  }, [isOpen])
+  }, [isOpen, hasInitialized])
 
-  const checkHealth = async () => {
-    try {
-      const response = await fetch("/api/chatbot/health")
-      if (response.ok) {
-        setHealthStatus("ready")
-      } else {
-        setHealthStatus("offline")
-      }
-    } catch (error) {
-      setHealthStatus("offline")
-    }
-  }
+  // Auto-scroll vers le bas
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inputValue.trim() || isLoading) return
 
     const userMessage: Message = {
       type: "user",
-      content: input,
+      content: inputValue,
       timestamp: new Date(),
     }
 
     setMessages((prev) => [...prev, userMessage])
-    setInput("")
+    setInputValue("")
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/chatbot/search", {
+      const response = await fetch(`${API_BASE_URL}/api/search_text`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({
-          query: input,
+          query: inputValue,
           top_k: 5,
         }),
       })
 
       if (!response.ok) {
-        throw new Error("API request failed")
+        if (response.status === 503) {
+          throw new Error("Service temporairement indisponible. Veuillez réessayer dans quelques instants.")
+        }
+        throw new Error("Erreur lors de la recherche")
       }
 
       const data = await response.json()
@@ -104,7 +118,7 @@ export default function ChatWidget() {
       if (data.results && data.results.length > 0) {
         const resultsMessage: Message = {
           type: "results",
-          content: `J'ai trouvé ${data.results.length} résultat(s) correspondant à votre recherche :`,
+          content: `J'ai trouvé ${data.results.length} résultat(s) pour votre recherche :`,
           results: data.results,
           timestamp: new Date(),
         }
@@ -112,17 +126,15 @@ export default function ChatWidget() {
       } else {
         const noResultsMessage: Message = {
           type: "bot",
-          content:
-            "Désolé, je n'ai trouvé aucun résultat correspondant à votre recherche. Essayez une autre description.",
+          content: "Aucun résultat trouvé pour votre recherche. Essayez avec d'autres mots-clés.",
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, noResultsMessage])
       }
     } catch (error) {
-      console.error("Search error:", error)
       const errorMessage: Message = {
         type: "bot",
-        content: "Une erreur s'est produite lors de la recherche. Veuillez réessayer.",
+        content: error instanceof Error ? error.message : "Une erreur est survenue. Veuillez réessayer.",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])
@@ -131,15 +143,8 @@ export default function ChatWidget() {
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
-  const getHealthStatusColor = () => {
-    switch (healthStatus) {
+  const getStatusColor = () => {
+    switch (apiStatus) {
       case "ready":
         return "bg-green-500"
       case "loading":
@@ -149,8 +154,8 @@ export default function ChatWidget() {
     }
   }
 
-  const getHealthStatusText = () => {
-    switch (healthStatus) {
+  const getStatusText = () => {
+    switch (apiStatus) {
       case "ready":
         return "Prête"
       case "loading":
@@ -162,30 +167,32 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* Chat Icon Button */}
+      {/* Bouton flottant */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 transition-all duration-200 flex items-center justify-center group"
+          className="fixed bottom-6 right-6 z-50 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-110"
           aria-label="Ouvrir le chat"
         >
-          <MessageCircle className="h-6 w-6" />
-          <span className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full animate-pulse" />
+          <MessageCircle className="w-6 h-6" />
+          {apiStatus === "ready" && (
+            <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+          )}
         </button>
       )}
 
-      {/* Chat Window */}
+      {/* Widget de chat */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] bg-white rounded-lg shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] bg-white rounded-lg shadow-2xl flex flex-col">
           {/* Header */}
-          <div className="bg-indigo-600 text-white p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <MessageCircle className="h-5 w-5" />
+          <div className="bg-indigo-600 text-white p-4 rounded-t-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5" />
               <div>
-                <h3 className="font-semibold text-sm">Assistant de Recherche</h3>
+                <h3 className="font-semibold">Assistant de Recherche</h3>
                 <div className="flex items-center gap-2 text-xs">
-                  <div className={`h-2 w-2 rounded-full ${getHealthStatusColor()}`} />
-                  <span>{getHealthStatusText()}</span>
+                  <span className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
+                  <span>{getStatusText()}</span>
                 </div>
               </div>
             </div>
@@ -194,86 +201,74 @@ export default function ChatWidget() {
               className="hover:bg-indigo-700 rounded-full p-1 transition-colors"
               aria-label="Fermer le chat"
             >
-              <X className="h-5 w-5" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
             {messages.map((message, index) => (
-              <div key={index} className="space-y-2">
+              <div key={index} className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}>
                 {message.type === "user" ? (
-                  <div className="flex justify-end">
-                    <div className="bg-indigo-600 text-white rounded-lg px-4 py-2 max-w-[80%]">
-                      <p className="text-sm">{message.content}</p>
-                    </div>
-                  </div>
-                ) : message.type === "bot" ? (
-                  <div className="flex justify-start">
-                    <div className="bg-white rounded-lg px-4 py-2 max-w-[80%] shadow-sm">
-                      <p className="text-sm text-gray-800">{message.content}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex justify-start">
-                      <div className="bg-white rounded-lg px-4 py-2 max-w-[80%] shadow-sm">
-                        <p className="text-sm text-gray-800">{message.content}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      {message.results?.map((result, idx) => (
-                        <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
-                          <CardContent className="p-0">
-                            <div className="flex gap-3 p-3">
-                              <div className="flex-shrink-0 w-20 h-20 bg-gray-100 rounded overflow-hidden">
-                                <img
-                                  src={`${API_BASE_URL}${result.image_url}`}
-                                  alt={result.nom}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement
-                                    target.src = "/placeholder.svg"
-                                  }}
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-sm text-gray-900 truncate">{result.nom}</h4>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  {result.artiste} • {result.annee}
-                                </p>
-                                <div className="flex items-center justify-between mt-2">
-                                  <span className="text-xs text-indigo-600 font-medium">
-                                    {(result.similarity * 100).toFixed(1)}% de similarité
-                                  </span>
-                                  {result.lien_site && (
-                                    <a
-                                      href={result.lien_site}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-                                    >
-                                      Voir <ExternalLink className="h-3 w-3" />
-                                    </a>
-                                  )}
-                                </div>
+                  <div className="bg-indigo-600 text-white rounded-lg px-4 py-2 max-w-[80%]">{message.content}</div>
+                ) : message.type === "results" && message.results ? (
+                  <div className="w-full space-y-3">
+                    <div className="bg-white rounded-lg px-4 py-2 text-gray-800 text-sm">{message.content}</div>
+                    {message.results.map((result, idx) => (
+                      <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
+                        <CardContent className="p-0">
+                          <div className="flex gap-3 p-3">
+                            <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                              <img
+                                src={
+                                  result.image_url.startsWith("http")
+                                    ? result.image_url
+                                    : `${API_BASE_URL}${result.image_url}`
+                                }
+                                alt={result.nom}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.src = "/placeholder.svg?height=80&width=80"
+                                }}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm text-gray-900 truncate">{result.nom}</h4>
+                              <p className="text-xs text-gray-600">
+                                {result.artiste} • {result.annee}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-indigo-600 font-medium">
+                                  {(result.similarity * 100).toFixed(0)}% similaire
+                                </span>
+                                {result.lien_site && (
+                                  <a
+                                    href={result.lien_site}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-indigo-600 hover:underline"
+                                  >
+                                    Voir plus →
+                                  </a>
+                                )}
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
+                ) : (
+                  <div className="bg-white rounded-lg px-4 py-2 max-w-[80%] text-gray-800">{message.content}</div>
                 )}
               </div>
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white rounded-lg px-4 py-3 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                    <span className="text-sm text-gray-600">Recherche en cours...</span>
-                  </div>
+                <div className="bg-white rounded-lg px-4 py-2 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                  <span className="text-sm text-gray-600">Recherche en cours...</span>
                 </div>
               </div>
             )}
@@ -281,26 +276,25 @@ export default function ChatWidget() {
           </div>
 
           {/* Input */}
-          <div className="p-4 bg-white border-t border-gray-200">
+          <form onSubmit={handleSubmit} className="p-4 bg-white border-t rounded-b-lg">
             <div className="flex gap-2">
               <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Décrivez l'objet recherché..."
+                disabled={isLoading || apiStatus === "offline"}
                 className="flex-1"
-                disabled={isLoading || healthStatus === "offline"}
               />
               <Button
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading || healthStatus === "offline"}
+                type="submit"
+                disabled={isLoading || !inputValue.trim() || apiStatus === "offline"}
                 className="bg-indigo-600 hover:bg-indigo-700"
-                size="icon"
               >
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </>
