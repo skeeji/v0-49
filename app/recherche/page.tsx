@@ -40,6 +40,7 @@ interface Conversation {
   id: string
   title: string
   messages: Message[]
+  searchContext: string
   createdAt: Date
   updatedAt: Date
 }
@@ -58,6 +59,17 @@ export default function RecherchePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+
+    if (userData && userData.role !== "premium") {
+      toast.error("Cette page est réservée aux membres Premium")
+      window.location.href = "/pricing"
+    }
+  }, [user, userData])
+
   // Charger les conversations depuis localStorage
   useEffect(() => {
     if (user) {
@@ -66,6 +78,7 @@ export default function RecherchePage() {
         const parsed = JSON.parse(saved)
         const hydrated = parsed.map((conv: any) => ({
           ...conv,
+          searchContext: conv.searchContext || "",
           createdAt: new Date(conv.createdAt),
           updatedAt: new Date(conv.updatedAt),
           messages: conv.messages.map((msg: any) => ({
@@ -115,7 +128,13 @@ export default function RecherchePage() {
   }
 
   // Ajouter un message à la conversation
-  const addMessage = (role: "user" | "assistant", content: string, imageUrl?: string, results?: SearchResult[]) => {
+  const addMessage = (
+    role: "user" | "assistant",
+    content: string,
+    imageUrl?: string,
+    results?: SearchResult[],
+    newSearchContext?: string,
+  ) => {
     const message: Message = {
       id: Date.now().toString(),
       role,
@@ -131,6 +150,7 @@ export default function RecherchePage() {
       updatedConversation = {
         ...currentConversation,
         messages: [...currentConversation.messages, message],
+        searchContext: newSearchContext !== undefined ? newSearchContext : currentConversation.searchContext,
         updatedAt: new Date(),
       }
     } else {
@@ -138,6 +158,7 @@ export default function RecherchePage() {
         id: Date.now().toString(),
         title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
         messages: [message],
+        searchContext: newSearchContext || content,
         createdAt: new Date(),
         updatedAt: new Date(),
       }
@@ -171,13 +192,15 @@ export default function RecherchePage() {
       return
     }
 
-    if (userData?.role === "free") {
-      const canProceed = await incrementSearchCount()
-      if (!canProceed) return
+    if (userData?.role !== "premium") {
+      toast.error("Cette fonctionnalité est réservée aux membres Premium")
+      return
     }
 
+    const previousContext = currentConversation?.searchContext || ""
+    const newSearchContext = previousContext ? `${previousContext}, ${inputValue}` : inputValue
+
     addMessage("user", inputValue)
-    const userQuery = inputValue
     setInputValue("")
     setIsSearching(true)
 
@@ -188,8 +211,8 @@ export default function RecherchePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          query: userQuery,
-          top_k: 10, // 10 résultats au lieu de 5
+          query: newSearchContext,
+          top_k: 3, // Limité à 3 résultats
         }),
       })
 
@@ -211,6 +234,7 @@ export default function RecherchePage() {
           `J'ai trouvé ${enrichedResults.length} luminaire(s) correspondant à votre recherche :`,
           undefined,
           enrichedResults,
+          newSearchContext, // Sauvegarde du nouveau contexte
         )
 
         toast.success(`${enrichedResults.length} luminaire(s) trouvé(s)`)
@@ -218,6 +242,9 @@ export default function RecherchePage() {
         addMessage(
           "assistant",
           "Je n'ai trouvé aucun luminaire correspondant à votre recherche. Essayez une autre description.",
+          undefined,
+          undefined,
+          newSearchContext,
         )
         toast.info("Aucun résultat trouvé")
       }
@@ -237,9 +264,9 @@ export default function RecherchePage() {
       return
     }
 
-    if (userData?.role === "free") {
-      const canProceed = await incrementSearchCount()
-      if (!canProceed) return
+    if (userData?.role !== "premium") {
+      toast.error("Cette fonctionnalité est réservée aux membres Premium")
+      return
     }
 
     const imageUrl = URL.createObjectURL(file)
@@ -254,7 +281,7 @@ export default function RecherchePage() {
     try {
       const formData = new FormData()
       formData.append("image", file)
-      formData.append("top_k", "10") // 10 résultats
+      formData.append("top_k", "3") // Limité à 3 résultats
 
       const response = await fetch(`${API_BASE_URL_IMAGE}/api/search`, {
         method: "POST",
@@ -302,7 +329,7 @@ export default function RecherchePage() {
 
         if (fileName) {
           try {
-            const response = await fetch(`/api/images/filename/${fileName}`)
+            const response = await fetch(`/api/images/filename/${encodeURIComponent(fileName)}`)
             if (response.ok) {
               const data = await response.json()
               luminaireId = data.luminaireId
@@ -348,7 +375,7 @@ export default function RecherchePage() {
 
         if (fileName) {
           try {
-            const response = await fetch(`/api/images/filename/${fileName}`)
+            const response = await fetch(`/api/images/filename/${encodeURIComponent(fileName)}`)
             if (response.ok) {
               const data = await response.json()
               luminaireId = data.luminaireId
@@ -381,9 +408,32 @@ export default function RecherchePage() {
     }
   }
 
+  if (user && userData && userData.role !== "premium") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50 flex items-center justify-center p-6">
+        <Card className="max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+            <ImageIcon className="w-8 h-8" style={{ color: "#f2d895" }} />
+          </div>
+          <h2 className="text-2xl font-serif text-slate-800 mb-3">Accès Premium requis</h2>
+          <p className="text-slate-600 mb-6">
+            Cette page de recherche avancée est réservée aux membres Premium. Passez à Premium pour accéder à des
+            recherches illimitées et des fonctionnalités exclusives.
+          </p>
+          <Link href="/pricing">
+            <Button className="w-full" style={{ backgroundColor: "#f2d895" }}>
+              Découvrir Premium
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50">
       <div className="flex h-[calc(100vh-4rem)]">
+        {/* Sidebar historique */}
         <div
           className={`${
             showHistory ? "w-80" : "w-0"
@@ -459,6 +509,7 @@ export default function RecherchePage() {
             </div>
           </div>
 
+          {/* Zone de messages */}
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto p-6">
               {/* Message d'accueil si pas de conversation */}
@@ -474,6 +525,7 @@ export default function RecherchePage() {
                 </div>
               )}
 
+              {/* Messages de la conversation */}
               {currentConversation && (
                 <div className="space-y-6">
                   {currentConversation.messages.map((message) => (
@@ -514,53 +566,57 @@ export default function RecherchePage() {
                             <p className="text-slate-800 mb-4">{message.content}</p>
 
                             {message.results && message.results.length > 0 && (
-                              <div className="grid grid-cols-2 gap-4 mt-4">
+                              <div className="grid grid-cols-1 gap-4 mt-4">
                                 {message.results.map((result, index) => (
                                   <div key={index}>
                                     {result.luminaireId ? (
                                       <Link href={`/luminaires/${result.luminaireId}`} className="block group">
                                         <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                                          <div className="relative h-40 bg-slate-100">
-                                            <Image
-                                              src={result.imageUrl || "/placeholder.svg"}
-                                              alt={result.nom || result.imageId || "Luminaire"}
-                                              fill
-                                              className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                            />
-                                          </div>
-                                          <div className="p-3">
-                                            <h4 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-1">
-                                              {result.nom || result.imageId || "Luminaire"}
-                                            </h4>
-                                            {result.artiste && (
-                                              <p className="text-xs text-slate-600">
-                                                {result.artiste}
-                                                {result.annee && ` • ${result.annee}`}
-                                              </p>
-                                            )}
-                                            {result.similarity && (
-                                              <p className="text-xs font-medium mt-1" style={{ color: "#c4a363" }}>
-                                                {Math.round(result.similarity * 100)}% similaire
-                                              </p>
-                                            )}
+                                          <div className="flex gap-4 p-4">
+                                            <div className="relative w-32 h-32 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden">
+                                              <Image
+                                                src={result.imageUrl || "/placeholder.svg"}
+                                                alt={result.nom || result.imageId || "Luminaire"}
+                                                fill
+                                                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                              />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <h4 className="font-semibold text-slate-900 text-base mb-1">
+                                                {result.nom || result.imageId || "Luminaire"}
+                                              </h4>
+                                              {result.artiste && (
+                                                <p className="text-sm text-slate-600">
+                                                  {result.artiste}
+                                                  {result.annee && ` • ${result.annee}`}
+                                                </p>
+                                              )}
+                                              {result.similarity && (
+                                                <p className="text-sm font-medium mt-2" style={{ color: "#c4a363" }}>
+                                                  {Math.round(result.similarity * 100)}% similaire
+                                                </p>
+                                              )}
+                                            </div>
                                           </div>
                                         </Card>
                                       </Link>
                                     ) : (
                                       <Card className="overflow-hidden opacity-75">
-                                        <div className="relative h-40 bg-slate-100">
-                                          <Image
-                                            src={result.imageUrl || "/placeholder.svg"}
-                                            alt={result.nom || result.imageId || "Luminaire"}
-                                            fill
-                                            className="object-cover"
-                                          />
-                                        </div>
-                                        <div className="p-3">
-                                          <h4 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-1">
-                                            {result.nom || result.imageId || "Luminaire"}
-                                          </h4>
-                                          <p className="text-xs text-slate-500">Fiche non disponible</p>
+                                        <div className="flex gap-4 p-4">
+                                          <div className="relative w-32 h-32 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden">
+                                            <Image
+                                              src={result.imageUrl || "/placeholder.svg"}
+                                              alt={result.nom || result.imageId || "Luminaire"}
+                                              fill
+                                              className="object-cover"
+                                            />
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <h4 className="font-semibold text-slate-900 text-base mb-1">
+                                              {result.nom || result.imageId || "Luminaire"}
+                                            </h4>
+                                            <p className="text-sm text-slate-500">Fiche non disponible</p>
+                                          </div>
                                         </div>
                                       </Card>
                                     )}
@@ -641,14 +697,6 @@ export default function RecherchePage() {
               {/* Messages d'info */}
               {!user && (
                 <p className="text-xs text-slate-500 mt-2 text-center">Connectez-vous pour utiliser la recherche</p>
-              )}
-              {user && userData?.role === "free" && (
-                <p className="text-xs text-slate-500 mt-2 text-center">
-                  {3 - (userData.searchCount || 0)} recherche(s) restante(s) ce mois-ci •{" "}
-                  <Link href="/pricing" className="underline">
-                    Passer à Premium
-                  </Link>
-                </p>
               )}
             </div>
           </div>
