@@ -28,7 +28,9 @@ export default function RootLayout({
         <AuthProvider>
           <Header />
           <main>{children}</main>
-          <ChatWidget />
+          <div className="hidden">
+            <ChatWidget />
+          </div>
           <Toaster
             position="top-right"
             toastOptions={{
