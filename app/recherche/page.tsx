@@ -402,6 +402,26 @@ export default function RecherchePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50">
+      {user && userData && userData.role !== "premium" && userData.role !== "admin" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <Card className="max-w-md mx-4 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+              <ImageIcon className="w-8 h-8" style={{ color: "#f2d895" }} />
+            </div>
+            <h2 className="text-2xl font-serif text-slate-800 mb-3">Fonctionnalité Premium</h2>
+            <p className="text-slate-600 mb-6">
+              La recherche avancée est réservée aux membres Premium. Passez à Premium pour accéder à toutes les
+              fonctionnalités.
+            </p>
+            <Link href="/pricing">
+              <Button className="w-full text-white" style={{ backgroundColor: "#f2d895" }}>
+                Voir les tarifs
+              </Button>
+            </Link>
+          </Card>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
         <div
           className={`${
