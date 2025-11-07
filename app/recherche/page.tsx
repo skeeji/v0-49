@@ -547,57 +547,55 @@ export default function RecherchePage() {
                             <p className="text-slate-800 mb-4">{message.content}</p>
 
                             {message.results && message.results.length > 0 && (
-                              <div className="grid grid-cols-1 gap-4 mt-4">
+                              <div className="flex gap-4 mt-4 overflow-x-auto">
                                 {message.results.map((result, index) => (
-                                  <div key={index}>
+                                  <div key={index} className="flex-shrink-0 w-80">
                                     {result.luminaireId ? (
                                       <Link href={`/luminaires/${result.luminaireId}`} className="block group">
-                                        <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                                          <div className="flex gap-4 p-4">
-                                            <div className="relative w-32 h-32 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden">
-                                              <Image
-                                                src={result.imageUrl || "/placeholder.svg"}
-                                                alt={result.nom || result.imageId || "Luminaire"}
-                                                fill
-                                                className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                              />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                              <h4 className="font-semibold text-slate-900 text-base mb-1">
-                                                {result.nom || result.imageId || "Luminaire"}
-                                              </h4>
-                                              {result.artiste && (
-                                                <p className="text-sm text-slate-600">
-                                                  {result.artiste}
-                                                  {result.annee && ` • ${result.annee}`}
-                                                </p>
-                                              )}
-                                              {result.similarity && (
-                                                <p className="text-sm font-medium mt-2" style={{ color: "#c4a363" }}>
-                                                  {Math.round(result.similarity * 100)}% similaire
-                                                </p>
-                                              )}
-                                            </div>
-                                          </div>
-                                        </Card>
-                                      </Link>
-                                    ) : (
-                                      <Card className="overflow-hidden opacity-75">
-                                        <div className="flex gap-4 p-4">
-                                          <div className="relative w-32 h-32 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden">
+                                        <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
+                                          <div className="relative w-full h-64 bg-slate-100">
                                             <Image
                                               src={result.imageUrl || "/placeholder.svg"}
                                               alt={result.nom || result.imageId || "Luminaire"}
                                               fill
-                                              className="object-cover"
+                                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                              unoptimized
                                             />
                                           </div>
-                                          <div className="flex-1 min-w-0">
-                                            <h4 className="font-semibold text-slate-900 text-base mb-1">
+                                          <div className="p-4 space-y-2">
+                                            <h4 className="font-semibold text-slate-900 text-lg line-clamp-2">
                                               {result.nom || result.imageId || "Luminaire"}
                                             </h4>
-                                            <p className="text-sm text-slate-500">Fiche non disponible</p>
+                                            {result.artiste && (
+                                              <p className="text-sm text-slate-600">
+                                                {result.artiste}
+                                                {result.annee && ` • ${result.annee}`}
+                                              </p>
+                                            )}
+                                            {result.similarity && (
+                                              <p className="text-sm font-medium" style={{ color: "#c4a363" }}>
+                                                {Math.round(result.similarity * 100)}% similaire
+                                              </p>
+                                            )}
                                           </div>
+                                        </Card>
+                                      </Link>
+                                    ) : (
+                                      <Card className="overflow-hidden opacity-75 h-full">
+                                        <div className="relative w-full h-64 bg-slate-100">
+                                          <Image
+                                            src={result.imageUrl || "/placeholder.svg"}
+                                            alt={result.nom || result.imageId || "Luminaire"}
+                                            fill
+                                            className="object-cover"
+                                            unoptimized
+                                          />
+                                        </div>
+                                        <div className="p-4 space-y-2">
+                                          <h4 className="font-semibold text-slate-900 text-lg line-clamp-2">
+                                            {result.nom || result.imageId || "Luminaire"}
+                                          </h4>
+                                          <p className="text-sm text-slate-500">Fiche non disponible</p>
                                         </div>
                                       </Card>
                                     )}
