@@ -7,43 +7,40 @@ const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 export async function GET(request: NextRequest, { params }: { params: { filename: string } }) {
   try {
     const filename = decodeURIComponent(params.filename)
-    console.log(`🖼️  API /api/images/filename/${filename} - Recherche de l'image`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    // Chercher le fichier dans uploads.files
+    const luminaire = await db.collection("luminaires").findOne({
+      $or: [
+        { image_principale: filename },
+        { images: filename },
+        { image_principale: { $regex: filename, $options: "i" } },
+      ],
+    })
+
+    if (luminaire) {
+      return NextResponse.json({
+        luminaireId: luminaire._id.toString(),
+        found: true,
+      })
+    }
+
+    // Si pas trouvé, chercher quand même l'image dans GridFS
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
     const file = await db.collection("uploads.files").findOne({ filename })
 
     if (!file) {
-      console.log(`❌ Image non trouvée: ${filename}`)
-      return new NextResponse("Image non trouvée", { status: 404 })
+      return NextResponse.json({ found: false }, { status: 404 })
     }
 
-    console.log(`✅ Image trouvée: ${filename}, contentType: ${file.contentType || file.metadata?.contentType}`)
-
-    // Streamer l'image depuis GridFS
-    const downloadStream = bucket.openDownloadStreamByName(filename)
-
-    // Convertir le stream en buffer
-    const chunks: Buffer[] = []
-    for await (const chunk of downloadStream) {
-      chunks.push(chunk)
-    }
-    const buffer = Buffer.concat(chunks)
-
-    // Déterminer le content type
-    const contentType = file.contentType || file.metadata?.contentType || "image/jpeg"
-
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
+    // L'image existe mais pas de luminaire associé
+    return NextResponse.json({
+      found: true,
+      luminaireId: null,
     })
   } catch (error: any) {
-    console.error(`❌ Erreur lors de la récupération de l'image ${params.filename}:`, error)
-    return new NextResponse("Erreur lors de la récupération de l'image", { status: 500 })
+    console.error(`Erreur lors de la recherche de l'image ${params.filename}:`, error)
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }

@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
-import { Upload, Send, ImageIcon, Loader2, Clock, Trash2 } from "lucide-react"
+import { Upload, Send, ImageIcon, Loader2, Trash2, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -19,6 +18,7 @@ interface SearchResult {
   imageId?: string
   imageUrl?: string
   luminaireUrl?: string | null
+  luminaireId?: string | null
   nom?: string
   artiste?: string
   designer?: string
@@ -27,12 +27,21 @@ interface SearchResult {
   lien_site?: string
 }
 
-interface SavedSearch {
+interface Message {
   id: string
-  query: string
+  role: "user" | "assistant"
+  content: string
+  imageUrl?: string
+  results?: SearchResult[]
   timestamp: Date
-  type: "text" | "image"
-  resultsCount: number
+}
+
+interface Conversation {
+  id: string
+  title: string
+  messages: Message[]
+  createdAt: Date
+  updatedAt: Date
 }
 
 export default function RecherchePage() {
@@ -41,51 +50,116 @@ export default function RecherchePage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSearching, setIsSearching] = useState(false)
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
-  const [showHistory, setShowHistory] = useState(true)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Charger l'historique des recherches depuis localStorage
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [showHistory, setShowHistory] = useState(true)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Charger les conversations depuis localStorage
   useEffect(() => {
     if (user) {
-      const saved = localStorage.getItem(`searchHistory_${user.uid}`)
+      const saved = localStorage.getItem(`conversations_${user.uid}`)
       if (saved) {
         const parsed = JSON.parse(saved)
-        setSavedSearches(
-          parsed.map((s: any) => ({
-            ...s,
-            timestamp: new Date(s.timestamp),
+        const hydrated = parsed.map((conv: any) => ({
+          ...conv,
+          createdAt: new Date(conv.createdAt),
+          updatedAt: new Date(conv.updatedAt),
+          messages: conv.messages.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
           })),
-        )
+        }))
+        setConversations(hydrated)
       }
     }
   }, [user])
 
-  // Sauvegarder une recherche
-  const saveSearch = (query: string, type: "text" | "image", resultsCount: number) => {
+  // Scroll automatique vers le bas
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [currentConversation?.messages])
+
+  // Sauvegarder les conversations
+  const saveConversations = (convs: Conversation[]) => {
     if (!user) return
-
-    const newSearch: SavedSearch = {
-      id: Date.now().toString(),
-      query,
-      timestamp: new Date(),
-      type,
-      resultsCount,
-    }
-
-    const updated = [newSearch, ...savedSearches].slice(0, 20) // Garder les 20 dernières
-    setSavedSearches(updated)
-    localStorage.setItem(`searchHistory_${user.uid}`, JSON.stringify(updated))
+    localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(convs))
   }
 
-  // Supprimer une recherche de l'historique
-  const deleteSearch = (id: string) => {
-    const updated = savedSearches.filter((s) => s.id !== id)
-    setSavedSearches(updated)
-    if (user) {
-      localStorage.setItem(`searchHistory_${user.uid}`, JSON.stringify(updated))
+  const createNewConversation = () => {
+    setCurrentConversation(null)
+    setInputValue("")
+    setSelectedImage(null)
+    setImagePreview(null)
+  }
+
+  // Charger une conversation
+  const loadConversation = (conv: Conversation) => {
+    setCurrentConversation(conv)
+    setInputValue("")
+    setSelectedImage(null)
+    setImagePreview(null)
+  }
+
+  // Supprimer une conversation
+  const deleteConversation = (id: string) => {
+    const updated = conversations.filter((c) => c.id !== id)
+    setConversations(updated)
+    saveConversations(updated)
+    if (currentConversation?.id === id) {
+      setCurrentConversation(null)
     }
+  }
+
+  // Ajouter un message à la conversation
+  const addMessage = (role: "user" | "assistant", content: string, imageUrl?: string, results?: SearchResult[]) => {
+    const message: Message = {
+      id: Date.now().toString(),
+      role,
+      content,
+      imageUrl,
+      results,
+      timestamp: new Date(),
+    }
+
+    let updatedConversation: Conversation
+
+    if (currentConversation) {
+      updatedConversation = {
+        ...currentConversation,
+        messages: [...currentConversation.messages, message],
+        updatedAt: new Date(),
+      }
+    } else {
+      updatedConversation = {
+        id: Date.now().toString(),
+        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
+        messages: [message],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    }
+
+    setCurrentConversation(updatedConversation)
+
+    // Mettre à jour la liste des conversations
+    const convIndex = conversations.findIndex((c) => c.id === updatedConversation.id)
+    let updatedConversations: Conversation[]
+
+    if (convIndex >= 0) {
+      updatedConversations = [...conversations]
+      updatedConversations[convIndex] = updatedConversation
+    } else {
+      updatedConversations = [updatedConversation, ...conversations]
+    }
+
+    setConversations(updatedConversations)
+    saveConversations(updatedConversations)
+
+    return updatedConversation
   }
 
   // Recherche par texte
@@ -102,8 +176,10 @@ export default function RecherchePage() {
       if (!canProceed) return
     }
 
+    addMessage("user", inputValue)
+    const userQuery = inputValue
+    setInputValue("")
     setIsSearching(true)
-    setSearchResults([])
 
     try {
       const response = await fetch(`${API_BASE_URL_TEXT}/api/search_text`, {
@@ -112,8 +188,8 @@ export default function RecherchePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          query: inputValue,
-          top_k: 5,
+          query: userQuery,
+          top_k: 10, // 10 résultats au lieu de 5
         }),
       })
 
@@ -124,21 +200,30 @@ export default function RecherchePage() {
       try {
         data = JSON.parse(text)
       } catch {
-        // Nettoyer les NaN
         data = JSON.parse(text.replace(/:\s*NaN/g, ": null"))
       }
 
       if (data.results && data.results.length > 0) {
-        // Enrichir avec les IDs
         const enrichedResults = await enrichResultsWithIds(data.results)
-        setSearchResults(enrichedResults)
-        saveSearch(inputValue, "text", enrichedResults.length)
+
+        addMessage(
+          "assistant",
+          `J'ai trouvé ${enrichedResults.length} luminaire(s) correspondant à votre recherche :`,
+          undefined,
+          enrichedResults,
+        )
+
         toast.success(`${enrichedResults.length} luminaire(s) trouvé(s)`)
       } else {
+        addMessage(
+          "assistant",
+          "Je n'ai trouvé aucun luminaire correspondant à votre recherche. Essayez une autre description.",
+        )
         toast.info("Aucun résultat trouvé")
       }
     } catch (error) {
       console.error("Search error:", error)
+      addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.")
       toast.error("Erreur lors de la recherche")
     } finally {
       setIsSearching(false)
@@ -157,13 +242,19 @@ export default function RecherchePage() {
       if (!canProceed) return
     }
 
+    const imageUrl = URL.createObjectURL(file)
+
+    addMessage("user", "Recherche par image", imageUrl)
+
+    setInputValue("")
+    setSelectedImage(null)
+    setImagePreview(null)
     setIsSearching(true)
-    setSearchResults([])
 
     try {
       const formData = new FormData()
       formData.append("image", file)
-      formData.append("top_k", "5")
+      formData.append("top_k", "10") // 10 résultats
 
       const response = await fetch(`${API_BASE_URL_IMAGE}/api/search`, {
         method: "POST",
@@ -176,14 +267,22 @@ export default function RecherchePage() {
 
       if (data.results && data.results.length > 0) {
         const enrichedResults = await enrichImageResultsWithIds(data.results)
-        setSearchResults(enrichedResults)
-        saveSearch(file.name, "image", enrichedResults.length)
+
+        addMessage(
+          "assistant",
+          `J'ai trouvé ${enrichedResults.length} luminaire(s) similaire(s) :`,
+          undefined,
+          enrichedResults,
+        )
+
         toast.success(`${enrichedResults.length} luminaire(s) similaire(s) trouvé(s)`)
       } else {
+        addMessage("assistant", "Je n'ai trouvé aucun luminaire similaire. Essayez une autre image.")
         toast.info("Aucun résultat trouvé")
       }
     } catch (error) {
       console.error("Image search error:", error)
+      addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche par image.")
       toast.error("Erreur lors de la recherche par image")
     } finally {
       setIsSearching(false)
@@ -216,6 +315,7 @@ export default function RecherchePage() {
         return {
           imageUrl,
           luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
+          luminaireId,
           nom: result.nom || "Sans nom",
           artiste: result.artiste || "Inconnu",
           annee: result.annee === null ? "Non spécifié" : String(result.annee),
@@ -262,6 +362,7 @@ export default function RecherchePage() {
           imageId,
           imageUrl,
           luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
+          luminaireId,
           similarity: result.similarity || 0,
         }
       }),
@@ -280,56 +381,46 @@ export default function RecherchePage() {
     }
   }
 
-  const loadHistorySearch = (search: SavedSearch) => {
-    if (search.type === "text") {
-      setInputValue(search.query)
-      setSelectedImage(null)
-      setImagePreview(null)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50">
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* Sidebar historique */}
         <div
           className={`${
             showHistory ? "w-80" : "w-0"
           } transition-all duration-300 bg-white border-r border-slate-200 overflow-hidden flex flex-col`}
         >
           <div className="p-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              Historique
-            </h2>
+            <Button onClick={createNewConversation} className="w-full" style={{ backgroundColor: "#f2d895" }}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nouvelle conversation
+            </Button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
             {!user ? (
               <div className="text-center text-slate-500 text-sm mt-8 px-4">
-                Connectez-vous pour sauvegarder votre historique
+                Connectez-vous pour sauvegarder vos conversations
               </div>
-            ) : savedSearches.length === 0 ? (
-              <div className="text-center text-slate-500 text-sm mt-8 px-4">Aucune recherche enregistrée</div>
+            ) : conversations.length === 0 ? (
+              <div className="text-center text-slate-500 text-sm mt-8 px-4">Aucune conversation</div>
             ) : (
               <div className="space-y-2">
-                {savedSearches.map((search) => (
+                {conversations.map((conv) => (
                   <div
-                    key={search.id}
-                    className="p-3 rounded-lg hover:bg-slate-100 cursor-pointer group transition-colors relative"
-                    onClick={() => loadHistorySearch(search)}
+                    key={conv.id}
+                    className={`p-3 rounded-lg cursor-pointer group transition-colors relative ${
+                      currentConversation?.id === conv.id
+                        ? "bg-amber-50 border-2 border-amber-200"
+                        : "hover:bg-slate-100"
+                    }`}
+                    onClick={() => loadConversation(conv)}
                   >
                     <div className="flex items-start gap-2">
-                      {search.type === "image" ? (
-                        <ImageIcon className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0" />
-                      ) : (
-                        <span className="text-slate-400 text-sm mt-1">🔍</span>
-                      )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-800 truncate">{search.query}</p>
+                        <p className="text-sm text-slate-800 truncate font-medium">{conv.title}</p>
                         <p className="text-xs text-slate-500">
-                          {search.resultsCount} résultat(s) •{" "}
-                          {search.timestamp.toLocaleDateString("fr-FR", {
+                          {conv.messages.length} message(s) •{" "}
+                          {conv.updatedAt.toLocaleDateString("fr-FR", {
                             day: "numeric",
                             month: "short",
                           })}
@@ -338,7 +429,7 @@ export default function RecherchePage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          deleteSearch(search.id)
+                          deleteConversation(conv.id)
                         }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                       >
@@ -354,21 +445,24 @@ export default function RecherchePage() {
 
         {/* Zone principale */}
         <div className="flex-1 flex flex-col">
-          {/* En-tête avec titre */}
+          {/* En-tête */}
           <div className="p-6 bg-white border-b border-slate-200">
             <div className="max-w-4xl mx-auto">
               <h1 className="text-3xl font-serif text-slate-800 mb-2" style={{ color: "#f2d895" }}>
                 Recherche de Luminaires
               </h1>
-              <p className="text-slate-600">Recherchez par texte ou par image dans notre collection</p>
+              <p className="text-slate-600">
+                {currentConversation
+                  ? "Continuez votre recherche ou affinez les résultats"
+                  : "Commencez une nouvelle recherche par texte ou par image"}
+              </p>
             </div>
           </div>
 
-          {/* Zone de résultats scrollable */}
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto p-6">
-              {/* Message d'accueil */}
-              {searchResults.length === 0 && !isSearching && (
+              {/* Message d'accueil si pas de conversation */}
+              {!currentConversation && !isSearching && (
                 <div className="text-center mt-20">
                   <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
                     <ImageIcon className="w-10 h-10" style={{ color: "#f2d895" }} />
@@ -377,100 +471,122 @@ export default function RecherchePage() {
                   <p className="text-slate-600 mb-8">
                     Décrivez le luminaire que vous recherchez ou téléversez une image
                   </p>
-
-                  {/* Suggestions */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
-                    <button
-                      onClick={() => setInputValue("Lustre art déco en bronze")}
-                      className="p-4 text-left rounded-xl border-2 border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition-all"
-                    >
-                      <p className="text-sm font-medium text-slate-800">Lustre art déco en bronze</p>
-                      <p className="text-xs text-slate-500 mt-1">Recherche par style et matériau</p>
-                    </button>
-                    <button
-                      onClick={() => setInputValue("Lampe années 30 en laiton")}
-                      className="p-4 text-left rounded-xl border-2 border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition-all"
-                    >
-                      <p className="text-sm font-medium text-slate-800">Lampe années 30 en laiton</p>
-                      <p className="text-xs text-slate-500 mt-1">Recherche par époque</p>
-                    </button>
-                  </div>
                 </div>
               )}
 
-              {/* Recherche en cours */}
-              {isSearching && (
-                <div className="text-center mt-20">
-                  <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" style={{ color: "#f2d895" }} />
-                  <p className="text-lg text-slate-700">Recherche en cours...</p>
-                  <p className="text-sm text-slate-500 mt-2">Analyse de notre collection</p>
-                </div>
-              )}
-
-              {/* Résultats */}
-              {searchResults.length > 0 && !isSearching && (
+              {currentConversation && (
                 <div className="space-y-6">
-                  <h3 className="text-xl font-semibold text-slate-800">{searchResults.length} résultat(s) trouvé(s)</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {searchResults.map((result, index) => (
-                      <Card
-                        key={index}
-                        className="overflow-hidden hover:shadow-xl transition-shadow cursor-pointer group"
+                  {currentConversation.messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[80%] ${message.role === "user" ? "bg-amber-100" : "bg-white border border-slate-200"} rounded-2xl p-4`}
                       >
-                        {result.luminaireUrl ? (
-                          <Link href={result.luminaireUrl}>
-                            <div className="relative h-64 bg-slate-100">
-                              <Image
-                                src={result.imageUrl || "/placeholder.svg"}
-                                alt={result.nom || result.imageId || "Luminaire"}
-                                fill
-                                className="object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            </div>
-                            <div className="p-4">
-                              <h4 className="font-semibold text-slate-900 mb-1 line-clamp-2">
-                                {result.nom || result.imageId || "Luminaire"}
-                              </h4>
-                              {result.artiste && (
-                                <p className="text-sm text-slate-600">
-                                  {result.artiste}
-                                  {result.annee && ` • ${result.annee}`}
-                                </p>
-                              )}
-                              {result.similarity && (
-                                <p className="text-sm font-medium mt-2" style={{ color: "#c4a363" }}>
-                                  {Math.round(result.similarity * 100)}% de similarité
-                                </p>
-                              )}
-                            </div>
-                          </Link>
-                        ) : (
+                        {/* Message utilisateur */}
+                        {message.role === "user" && (
                           <>
-                            <div className="relative h-64 bg-slate-100">
-                              <Image
-                                src={result.imageUrl || "/placeholder.svg"}
-                                alt={result.nom || result.imageId || "Luminaire"}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="p-4">
-                              <h4 className="font-semibold text-slate-900 mb-1 line-clamp-2">
-                                {result.nom || result.imageId || "Luminaire"}
-                              </h4>
-                              {result.similarity && (
-                                <p className="text-sm font-medium mt-2" style={{ color: "#c4a363" }}>
-                                  {Math.round(result.similarity * 100)}% de similarité
-                                </p>
-                              )}
-                              <p className="text-xs text-slate-500 mt-2">Fiche détaillée non disponible</p>
-                            </div>
+                            {message.imageUrl ? (
+                              <div className="space-y-2">
+                                <p className="text-sm text-slate-600">Image uploadée :</p>
+                                <div className="relative w-48 h-48 rounded-lg overflow-hidden">
+                                  <Image
+                                    src={message.imageUrl || "/placeholder.svg"}
+                                    alt="Uploaded"
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-slate-800">{message.content}</p>
+                            )}
+                            <p className="text-xs text-slate-500 mt-2">
+                              {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
                           </>
                         )}
-                      </Card>
-                    ))}
-                  </div>
+
+                        {/* Message assistant */}
+                        {message.role === "assistant" && (
+                          <>
+                            <p className="text-slate-800 mb-4">{message.content}</p>
+
+                            {message.results && message.results.length > 0 && (
+                              <div className="grid grid-cols-2 gap-4 mt-4">
+                                {message.results.map((result, index) => (
+                                  <div key={index}>
+                                    {result.luminaireId ? (
+                                      <Link href={`/luminaires/${result.luminaireId}`} className="block group">
+                                        <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                                          <div className="relative h-40 bg-slate-100">
+                                            <Image
+                                              src={result.imageUrl || "/placeholder.svg"}
+                                              alt={result.nom || result.imageId || "Luminaire"}
+                                              fill
+                                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                            />
+                                          </div>
+                                          <div className="p-3">
+                                            <h4 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-1">
+                                              {result.nom || result.imageId || "Luminaire"}
+                                            </h4>
+                                            {result.artiste && (
+                                              <p className="text-xs text-slate-600">
+                                                {result.artiste}
+                                                {result.annee && ` • ${result.annee}`}
+                                              </p>
+                                            )}
+                                            {result.similarity && (
+                                              <p className="text-xs font-medium mt-1" style={{ color: "#c4a363" }}>
+                                                {Math.round(result.similarity * 100)}% similaire
+                                              </p>
+                                            )}
+                                          </div>
+                                        </Card>
+                                      </Link>
+                                    ) : (
+                                      <Card className="overflow-hidden opacity-75">
+                                        <div className="relative h-40 bg-slate-100">
+                                          <Image
+                                            src={result.imageUrl || "/placeholder.svg"}
+                                            alt={result.nom || result.imageId || "Luminaire"}
+                                            fill
+                                            className="object-cover"
+                                          />
+                                        </div>
+                                        <div className="p-3">
+                                          <h4 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-1">
+                                            {result.nom || result.imageId || "Luminaire"}
+                                          </h4>
+                                          <p className="text-xs text-slate-500">Fiche non disponible</p>
+                                        </div>
+                                      </Card>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <p className="text-xs text-slate-500 mt-2">
+                              {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {isSearching && (
+                    <div className="flex justify-start">
+                      <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                        <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#f2d895" }} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
                 </div>
               )}
             </div>
@@ -498,7 +614,7 @@ export default function RecherchePage() {
                         handleTextSearch()
                       }
                     }}
-                    placeholder="Décrivez le luminaire recherché..."
+                    placeholder="Décrivez le luminaire ou affinez votre recherche..."
                     className="pr-12 h-12 rounded-xl"
                     disabled={isSearching}
                   />
