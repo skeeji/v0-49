@@ -42,6 +42,7 @@ export function Header() {
   }, [])
 
   const navItems = [
+    { href: "/recherche", label: "Recherche" }, // Ajout du lien Recherche dans la navigation
     { href: "/luminaires", label: "Luminaires" },
     { href: "/designers", label: "Designers" },
     { href: "/chronologie", label: "Chronologie" },

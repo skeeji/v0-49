@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { getGridFSBucket } from "@/lib/gridfs"
+import { getBucket } from "@/lib/gridfs"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
@@ -67,7 +67,7 @@ export async function POST() {
 
     // 3. Supprimer les fichiers GridFS
     try {
-      const bucket = getGridFSBucket()
+      const bucket = await getBucket()
       const files = await bucket.find({}).toArray()
 
       for (const file of files) {
