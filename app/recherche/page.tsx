@@ -404,18 +404,18 @@ export default function RecherchePage() {
   if (user && userData && userData.role !== "premium" && userData.role !== "admin") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50 flex items-center justify-center p-6">
-        <Card className="max-w-md w-full p-8 text-center">
+        <Card className="max-w-md w-full p-8 text-center shadow-2xl">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
             <ImageIcon className="w-8 h-8" style={{ color: "#f2d895" }} />
           </div>
           <h2 className="text-2xl font-serif text-slate-800 mb-3">Accès Premium requis</h2>
           <p className="text-slate-600 mb-6">
-            Cette page de recherche avancée est réservée aux membres Premium. Passez à Premium pour accéder à des
-            recherches illimitées et des fonctionnalités exclusives.
+            Cette fonctionnalité est réservée aux membres Premium. Passez à Premium pour accéder à des recherches
+            illimitées et des fonctionnalités exclusives.
           </p>
           <Link href="/pricing">
             <Button className="w-full" style={{ backgroundColor: "#f2d895" }}>
-              Découvrir Premium
+              Découvrir les tarifs Premium
             </Button>
           </Link>
         </Card>
@@ -425,42 +425,48 @@ export default function RecherchePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50">
-      <div className="flex h-[calc(100vh-4rem)]">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
         <div
           className={`${
-            showHistory ? "w-80" : "w-0"
-          } transition-all duration-300 bg-white border-r border-slate-200 overflow-hidden flex flex-col`}
+            showHistory ? "h-48 md:h-auto md:w-80" : "h-0 md:w-0"
+          } transition-all duration-300 bg-white border-b md:border-b-0 md:border-r border-slate-200 overflow-hidden flex flex-col`}
         >
-          <div className="p-4 border-b border-slate-200">
-            <Button onClick={createNewConversation} className="w-full" style={{ backgroundColor: "#f2d895" }}>
-              <Plus className="w-4 h-4 mr-2" />
+          <div className="p-2 md:p-4 border-b border-slate-200">
+            <Button
+              onClick={createNewConversation}
+              className="w-full text-sm md:text-base"
+              style={{ backgroundColor: "#f2d895" }}
+            >
+              <Plus className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
               Nouvelle conversation
             </Button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto p-1 md:p-2">
             {!user ? (
-              <div className="text-center text-slate-500 text-sm mt-8 px-4">
+              <div className="text-center text-slate-500 text-xs md:text-sm mt-4 md:mt-8 px-2 md:px-4">
                 Connectez-vous pour sauvegarder vos conversations
               </div>
             ) : conversations.length === 0 ? (
-              <div className="text-center text-slate-500 text-sm mt-8 px-4">Aucune conversation</div>
+              <div className="text-center text-slate-500 text-xs md:text-sm mt-4 md:mt-8 px-2 md:px-4">
+                Aucune conversation
+              </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 {conversations.map((conv) => (
                   <div
                     key={conv.id}
-                    className={`p-3 rounded-lg cursor-pointer group transition-colors relative ${
+                    className={`p-2 md:p-3 rounded-lg cursor-pointer group transition-colors relative ${
                       currentConversation?.id === conv.id
                         ? "bg-amber-50 border-2 border-amber-200"
                         : "hover:bg-slate-100"
                     }`}
                     onClick={() => loadConversation(conv)}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-1 md:gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-800 truncate font-medium">{conv.title}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs md:text-sm text-slate-800 truncate font-medium">{conv.title}</p>
+                        <p className="text-[10px] md:text-xs text-slate-500">
                           {conv.messages.length} message(s) •{" "}
                           {conv.updatedAt.toLocaleDateString("fr-FR", {
                             day: "numeric",
@@ -475,7 +481,7 @@ export default function RecherchePage() {
                         }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <Trash2 className="w-4 h-4 text-red-400 hover:text-red-600" />
+                        <Trash2 className="w-3 h-3 md:w-4 md:h-4 text-red-400 hover:text-red-600" />
                       </button>
                     </div>
                   </div>
@@ -485,13 +491,13 @@ export default function RecherchePage() {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col">
-          <div className="p-6 bg-white border-b border-slate-200">
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="p-3 md:p-6 bg-white border-b border-slate-200">
             <div className="max-w-4xl mx-auto">
-              <h1 className="text-3xl font-serif text-slate-800 mb-2" style={{ color: "#f2d895" }}>
+              <h1 className="text-xl md:text-3xl font-serif text-slate-800 mb-1 md:mb-2" style={{ color: "#f2d895" }}>
                 Recherche de Luminaires
               </h1>
-              <p className="text-slate-600">
+              <p className="text-xs md:text-base text-slate-600">
                 {currentConversation
                   ? "Continuez votre recherche ou affinez les résultats"
                   : "Commencez une nouvelle recherche par texte ou par image"}
@@ -500,35 +506,37 @@ export default function RecherchePage() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            <div className="max-w-4xl mx-auto p-6">
+            <div className="max-w-4xl mx-auto p-3 md:p-6">
               {!currentConversation && !isSearching && (
-                <div className="text-center mt-20">
-                  <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                    <ImageIcon className="w-10 h-10" style={{ color: "#f2d895" }} />
+                <div className="text-center mt-10 md:mt-20">
+                  <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                    <ImageIcon className="w-7 h-7 md:w-10 md:h-10" style={{ color: "#f2d895" }} />
                   </div>
-                  <h2 className="text-2xl font-serif text-slate-800 mb-3">Comment puis-je vous aider ?</h2>
-                  <p className="text-slate-600 mb-8">
+                  <h2 className="text-xl md:text-2xl font-serif text-slate-800 mb-2 md:mb-3">
+                    Comment puis-je vous aider ?
+                  </h2>
+                  <p className="text-sm md:text-base text-slate-600 mb-4 md:mb-8 px-4">
                     Décrivez le luminaire que vous recherchez ou téléversez une image
                   </p>
                 </div>
               )}
 
               {currentConversation && (
-                <div className="space-y-6">
+                <div className="space-y-4 md:space-y-6">
                   {currentConversation.messages.map((message) => (
                     <div
                       key={message.id}
                       className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-[80%] ${message.role === "user" ? "bg-amber-100" : "bg-white border border-slate-200"} rounded-2xl p-4`}
+                        className={`max-w-[85%] md:max-w-[80%] ${message.role === "user" ? "bg-amber-100" : "bg-white border border-slate-200"} rounded-2xl p-3 md:p-4`}
                       >
                         {message.role === "user" && (
                           <>
                             {message.imageUrl ? (
                               <div className="space-y-2">
-                                <p className="text-sm text-slate-600">Image uploadée :</p>
-                                <div className="relative w-48 h-48 rounded-lg overflow-hidden">
+                                <p className="text-xs md:text-sm text-slate-600">Image uploadée :</p>
+                                <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden">
                                   <Image
                                     src={message.imageUrl || "/placeholder.svg"}
                                     alt="Uploaded"
@@ -538,9 +546,9 @@ export default function RecherchePage() {
                                 </div>
                               </div>
                             ) : (
-                              <p className="text-slate-800">{message.content}</p>
+                              <p className="text-sm md:text-base text-slate-800">{message.content}</p>
                             )}
-                            <p className="text-xs text-slate-500 mt-2">
+                            <p className="text-[10px] md:text-xs text-slate-500 mt-2">
                               {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                             </p>
                           </>
@@ -548,12 +556,11 @@ export default function RecherchePage() {
 
                         {message.role === "assistant" && (
                           <>
-                            <p className="text-slate-800 mb-4">{message.content}</p>
+                            <p className="text-sm md:text-base text-slate-800 mb-3 md:mb-4">{message.content}</p>
 
                             {message.results && message.results.length > 0 && (
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
                                 {message.results.slice(0, 3).map((result, index) => {
-                                  // Only show results that have a valid luminaire link
                                   if (!result.luminaireId) return null
 
                                   return (
@@ -563,7 +570,7 @@ export default function RecherchePage() {
                                       className="block group"
                                     >
                                       <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
-                                        <div className="relative w-full h-64 bg-slate-100">
+                                        <div className="relative w-full h-48 md:h-64 bg-slate-100">
                                           <Image
                                             src={result.imageUrl || "/placeholder.svg"}
                                             alt={result.nom || result.imageId || "Luminaire"}
@@ -572,18 +579,18 @@ export default function RecherchePage() {
                                             unoptimized
                                           />
                                         </div>
-                                        <div className="p-4 space-y-2">
-                                          <h4 className="font-semibold text-slate-900 text-lg line-clamp-2">
+                                        <div className="p-3 md:p-4 space-y-1 md:space-y-2">
+                                          <h4 className="font-semibold text-slate-900 text-sm md:text-lg line-clamp-2">
                                             {result.nom || result.imageId || "Luminaire"}
                                           </h4>
                                           {result.artiste && (
-                                            <p className="text-sm text-slate-600">
+                                            <p className="text-xs md:text-sm text-slate-600">
                                               {result.artiste}
                                               {result.annee && ` • ${result.annee}`}
                                             </p>
                                           )}
                                           {result.similarity && (
-                                            <p className="text-sm font-medium" style={{ color: "#c4a363" }}>
+                                            <p className="text-xs md:text-sm font-medium" style={{ color: "#c4a363" }}>
                                               {Math.round(result.similarity * 100)}% similaire
                                             </p>
                                           )}
@@ -595,7 +602,7 @@ export default function RecherchePage() {
                               </div>
                             )}
 
-                            <p className="text-xs text-slate-500 mt-2">
+                            <p className="text-[10px] md:text-xs text-slate-500 mt-2">
                               {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                             </p>
                           </>
@@ -606,8 +613,8 @@ export default function RecherchePage() {
 
                   {isSearching && (
                     <div className="flex justify-start">
-                      <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                        <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#f2d895" }} />
+                      <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4">
+                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#f2d895" }} />
                       </div>
                     </div>
                   )}
@@ -618,11 +625,11 @@ export default function RecherchePage() {
             </div>
           </div>
 
-          <div className="border-t border-slate-200 bg-white p-4">
+          <div className="border-t border-slate-200 bg-white p-2 md:p-4">
             <div className="max-w-4xl mx-auto">
-              <div className="flex gap-3 items-end">
+              <div className="flex gap-2 md:gap-3 items-end">
                 {imagePreview && (
-                  <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                  <div className="relative w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden flex-shrink-0">
                     <Image src={imagePreview || "/placeholder.svg"} alt="Preview" fill className="object-cover" />
                   </div>
                 )}
@@ -637,31 +644,37 @@ export default function RecherchePage() {
                         handleTextSearch()
                       }
                     }}
-                    placeholder="Décrivez le luminaire ou affinez votre recherche..."
-                    className="pr-12 h-12 rounded-xl"
+                    placeholder="Décrivez le luminaire..."
+                    className="pr-10 md:pr-12 h-10 md:h-12 rounded-xl text-sm md:text-base"
                     disabled={isSearching}
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                    className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 hover:bg-slate-100 rounded-lg transition-colors"
                     disabled={isSearching}
                   >
-                    <Upload className="w-5 h-5 text-slate-600" />
+                    <Upload className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
                   </button>
                 </div>
 
                 <Button
                   onClick={handleTextSearch}
                   disabled={!inputValue.trim() || isSearching}
-                  className="h-12 px-6 rounded-xl text-white"
+                  className="h-10 md:h-12 px-4 md:px-6 rounded-xl text-white"
                   style={{ backgroundColor: "#f2d895" }}
                 >
-                  {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {isSearching ? (
+                    <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 md:w-5 md:h-5" />
+                  )}
                 </Button>
               </div>
 
               {!user && (
-                <p className="text-xs text-slate-500 mt-2 text-center">Connectez-vous pour utiliser la recherche</p>
+                <p className="text-[10px] md:text-xs text-slate-500 mt-2 text-center">
+                  Connectez-vous pour utiliser la recherche
+                </p>
               )}
             </div>
           </div>
