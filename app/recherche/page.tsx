@@ -65,8 +65,7 @@ export default function RecherchePage() {
     }
 
     if (userData && userData.role !== "premium" && userData.role !== "admin") {
-      toast.error("Cette page est réservée aux membres Premium")
-      window.location.href = "/pricing"
+      // Users will stay on the page with the overlay message and button
     }
   }, [user, userData])
 
@@ -399,28 +398,6 @@ export default function RecherchePage() {
       setImagePreview(preview)
       handleImageSearch(file)
     }
-  }
-
-  if (user && userData && userData.role !== "premium" && userData.role !== "admin") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50 flex items-center justify-center p-6">
-        <Card className="max-w-md w-full p-8 text-center shadow-2xl">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-            <ImageIcon className="w-8 h-8" style={{ color: "#f2d895" }} />
-          </div>
-          <h2 className="text-2xl font-serif text-slate-800 mb-3">Accès Premium requis</h2>
-          <p className="text-slate-600 mb-6">
-            Cette fonctionnalité est réservée aux membres Premium. Passez à Premium pour accéder à des recherches
-            illimitées et des fonctionnalités exclusives.
-          </p>
-          <Link href="/pricing">
-            <Button className="w-full" style={{ backgroundColor: "#f2d895" }}>
-              Découvrir les tarifs Premium
-            </Button>
-          </Link>
-        </Card>
-      </div>
-    )
   }
 
   return (
