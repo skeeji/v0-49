@@ -64,13 +64,12 @@ export default function RecherchePage() {
       return
     }
 
-    if (userData && userData.role !== "premium") {
+    if (userData && userData.role !== "premium" && userData.role !== "admin") {
       toast.error("Cette page est réservée aux membres Premium")
       window.location.href = "/pricing"
     }
   }, [user, userData])
 
-  // Charger les conversations depuis localStorage
   useEffect(() => {
     if (user) {
       const saved = localStorage.getItem(`conversations_${user.uid}`)
@@ -91,12 +90,10 @@ export default function RecherchePage() {
     }
   }, [user])
 
-  // Scroll automatique vers le bas
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [currentConversation?.messages])
 
-  // Sauvegarder les conversations
   const saveConversations = (convs: Conversation[]) => {
     if (!user) return
     localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(convs))
@@ -109,7 +106,6 @@ export default function RecherchePage() {
     setImagePreview(null)
   }
 
-  // Charger une conversation
   const loadConversation = (conv: Conversation) => {
     setCurrentConversation(conv)
     setInputValue("")
@@ -117,7 +113,6 @@ export default function RecherchePage() {
     setImagePreview(null)
   }
 
-  // Supprimer une conversation
   const deleteConversation = (id: string) => {
     const updated = conversations.filter((c) => c.id !== id)
     setConversations(updated)
@@ -127,7 +122,6 @@ export default function RecherchePage() {
     }
   }
 
-  // Ajouter un message à la conversation
   const addMessage = (
     role: "user" | "assistant",
     content: string,
@@ -166,7 +160,6 @@ export default function RecherchePage() {
 
     setCurrentConversation(updatedConversation)
 
-    // Mettre à jour la liste des conversations
     const convIndex = conversations.findIndex((c) => c.id === updatedConversation.id)
     let updatedConversations: Conversation[]
 
@@ -183,7 +176,6 @@ export default function RecherchePage() {
     return updatedConversation
   }
 
-  // Recherche par texte
   const handleTextSearch = async () => {
     if (!inputValue.trim()) return
 
@@ -192,7 +184,7 @@ export default function RecherchePage() {
       return
     }
 
-    if (userData?.role !== "premium") {
+    if (userData?.role !== "premium" && userData?.role !== "admin") {
       toast.error("Cette fonctionnalité est réservée aux membres Premium")
       return
     }
@@ -212,7 +204,7 @@ export default function RecherchePage() {
         },
         body: JSON.stringify({
           query: newSearchContext,
-          top_k: 3, // Limité à 3 résultats
+          top_k: 3,
         }),
       })
 
@@ -234,7 +226,7 @@ export default function RecherchePage() {
           `J'ai trouvé ${enrichedResults.length} luminaire(s) correspondant à votre recherche :`,
           undefined,
           enrichedResults,
-          newSearchContext, // Sauvegarde du nouveau contexte
+          newSearchContext,
         )
 
         toast.success(`${enrichedResults.length} luminaire(s) trouvé(s)`)
@@ -257,14 +249,13 @@ export default function RecherchePage() {
     }
   }
 
-  // Recherche par image
   const handleImageSearch = async (file: File) => {
     if (!user) {
       toast.error("Connexion requise pour utiliser la recherche")
       return
     }
 
-    if (userData?.role !== "premium") {
+    if (userData?.role !== "premium" && userData?.role !== "admin") {
       toast.error("Cette fonctionnalité est réservée aux membres Premium")
       return
     }
@@ -281,7 +272,7 @@ export default function RecherchePage() {
     try {
       const formData = new FormData()
       formData.append("image", file)
-      formData.append("top_k", "3") // Limité à 3 résultats
+      formData.append("top_k", "3")
 
       const response = await fetch(`${API_BASE_URL_IMAGE}/api/search`, {
         method: "POST",
@@ -316,7 +307,6 @@ export default function RecherchePage() {
     }
   }
 
-  // Enrichir les résultats avec les IDs MongoDB
   const enrichResultsWithIds = async (results: any[]): Promise<SearchResult[]> => {
     const enriched = await Promise.all(
       results.map(async (result) => {
@@ -354,7 +344,6 @@ export default function RecherchePage() {
     return enriched
   }
 
-  // Enrichir les résultats d'image avec les IDs
   const enrichImageResultsWithIds = async (results: any[]): Promise<SearchResult[]> => {
     const enriched = await Promise.all(
       results.map(async (result) => {
@@ -408,7 +397,7 @@ export default function RecherchePage() {
     }
   }
 
-  if (user && userData && userData.role !== "premium") {
+  if (user && userData && userData.role !== "premium" && userData.role !== "admin") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50 flex items-center justify-center p-6">
         <Card className="max-w-md w-full p-8 text-center">
@@ -433,7 +422,6 @@ export default function RecherchePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50">
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* Sidebar historique */}
         <div
           className={`${
             showHistory ? "w-80" : "w-0"
@@ -493,9 +481,7 @@ export default function RecherchePage() {
           </div>
         </div>
 
-        {/* Zone principale */}
         <div className="flex-1 flex flex-col">
-          {/* En-tête */}
           <div className="p-6 bg-white border-b border-slate-200">
             <div className="max-w-4xl mx-auto">
               <h1 className="text-3xl font-serif text-slate-800 mb-2" style={{ color: "#f2d895" }}>
@@ -509,10 +495,8 @@ export default function RecherchePage() {
             </div>
           </div>
 
-          {/* Zone de messages */}
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto p-6">
-              {/* Message d'accueil si pas de conversation */}
               {!currentConversation && !isSearching && (
                 <div className="text-center mt-20">
                   <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
@@ -525,7 +509,6 @@ export default function RecherchePage() {
                 </div>
               )}
 
-              {/* Messages de la conversation */}
               {currentConversation && (
                 <div className="space-y-6">
                   {currentConversation.messages.map((message) => (
@@ -536,7 +519,6 @@ export default function RecherchePage() {
                       <div
                         className={`max-w-[80%] ${message.role === "user" ? "bg-amber-100" : "bg-white border border-slate-200"} rounded-2xl p-4`}
                       >
-                        {/* Message utilisateur */}
                         {message.role === "user" && (
                           <>
                             {message.imageUrl ? (
@@ -560,7 +542,6 @@ export default function RecherchePage() {
                           </>
                         )}
 
-                        {/* Message assistant */}
                         {message.role === "assistant" && (
                           <>
                             <p className="text-slate-800 mb-4">{message.content}</p>
@@ -648,18 +629,15 @@ export default function RecherchePage() {
             </div>
           </div>
 
-          {/* Barre de saisie fixe en bas */}
           <div className="border-t border-slate-200 bg-white p-4">
             <div className="max-w-4xl mx-auto">
               <div className="flex gap-3 items-end">
-                {/* Aperçu de l'image */}
                 {imagePreview && (
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                     <Image src={imagePreview || "/placeholder.svg"} alt="Preview" fill className="object-cover" />
                   </div>
                 )}
 
-                {/* Zone de saisie */}
                 <div className="flex-1 relative">
                   <Input
                     value={inputValue}
@@ -683,7 +661,6 @@ export default function RecherchePage() {
                   </button>
                 </div>
 
-                {/* Bouton envoyer */}
                 <Button
                   onClick={handleTextSearch}
                   disabled={!inputValue.trim() || isSearching}
@@ -694,7 +671,6 @@ export default function RecherchePage() {
                 </Button>
               </div>
 
-              {/* Messages d'info */}
               {!user && (
                 <p className="text-xs text-slate-500 mt-2 text-center">Connectez-vous pour utiliser la recherche</p>
               )}
