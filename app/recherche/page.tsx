@@ -319,10 +319,12 @@ export default function RecherchePage() {
 
         if (fileName) {
           try {
-            const response = await fetch(`/api/images/filename/${encodeURIComponent(fileName)}`)
+            const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
             if (response.ok) {
               const data = await response.json()
-              luminaireId = data.luminaireId
+              if (data.success && data.found) {
+                luminaireId = data.luminaireId
+              }
             }
           } catch (error) {
             console.error("Error fetching luminaire ID:", error)
@@ -364,10 +366,12 @@ export default function RecherchePage() {
 
         if (fileName) {
           try {
-            const response = await fetch(`/api/images/filename/${encodeURIComponent(fileName)}`)
+            const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
             if (response.ok) {
               const data = await response.json()
-              luminaireId = data.luminaireId
+              if (data.success && data.found) {
+                luminaireId = data.luminaireId
+              }
             }
           } catch (error) {
             console.error("Error fetching luminaire ID:", error)
@@ -547,47 +551,24 @@ export default function RecherchePage() {
                             <p className="text-slate-800 mb-4">{message.content}</p>
 
                             {message.results && message.results.length > 0 && (
-                              <div className="flex gap-4 mt-4 overflow-x-auto">
-                                {message.results.map((result, index) => (
-                                  <div key={index} className="flex-shrink-0 w-80">
-                                    {result.luminaireId ? (
-                                      <Link href={`/luminaires/${result.luminaireId}`} className="block group">
-                                        <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
-                                          <div className="relative w-full h-64 bg-slate-100">
-                                            <Image
-                                              src={result.imageUrl || "/placeholder.svg"}
-                                              alt={result.nom || result.imageId || "Luminaire"}
-                                              fill
-                                              className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                              unoptimized
-                                            />
-                                          </div>
-                                          <div className="p-4 space-y-2">
-                                            <h4 className="font-semibold text-slate-900 text-lg line-clamp-2">
-                                              {result.nom || result.imageId || "Luminaire"}
-                                            </h4>
-                                            {result.artiste && (
-                                              <p className="text-sm text-slate-600">
-                                                {result.artiste}
-                                                {result.annee && ` • ${result.annee}`}
-                                              </p>
-                                            )}
-                                            {result.similarity && (
-                                              <p className="text-sm font-medium" style={{ color: "#c4a363" }}>
-                                                {Math.round(result.similarity * 100)}% similaire
-                                              </p>
-                                            )}
-                                          </div>
-                                        </Card>
-                                      </Link>
-                                    ) : (
-                                      <Card className="overflow-hidden opacity-75 h-full">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                {message.results.slice(0, 3).map((result, index) => {
+                                  // Only show results that have a valid luminaire link
+                                  if (!result.luminaireId) return null
+
+                                  return (
+                                    <Link
+                                      key={index}
+                                      href={`/luminaires/${result.luminaireId}`}
+                                      className="block group"
+                                    >
+                                      <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
                                         <div className="relative w-full h-64 bg-slate-100">
                                           <Image
                                             src={result.imageUrl || "/placeholder.svg"}
                                             alt={result.nom || result.imageId || "Luminaire"}
                                             fill
-                                            className="object-cover"
+                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
                                             unoptimized
                                           />
                                         </div>
@@ -595,12 +576,22 @@ export default function RecherchePage() {
                                           <h4 className="font-semibold text-slate-900 text-lg line-clamp-2">
                                             {result.nom || result.imageId || "Luminaire"}
                                           </h4>
-                                          <p className="text-sm text-slate-500">Fiche non disponible</p>
+                                          {result.artiste && (
+                                            <p className="text-sm text-slate-600">
+                                              {result.artiste}
+                                              {result.annee && ` • ${result.annee}`}
+                                            </p>
+                                          )}
+                                          {result.similarity && (
+                                            <p className="text-sm font-medium" style={{ color: "#c4a363" }}>
+                                              {Math.round(result.similarity * 100)}% similaire
+                                            </p>
+                                          )}
                                         </div>
                                       </Card>
-                                    )}
-                                  </div>
-                                ))}
+                                    </Link>
+                                  )
+                                })}
                               </div>
                             )}
 
