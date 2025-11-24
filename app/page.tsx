@@ -592,7 +592,7 @@ export default function HomePage() {
     const capabilities = videoTrack.getCapabilities() as any
 
     if (capabilities.zoom) {
-      const newZoom = Math.min(zoomLevel + 0.5, capabilities.zoom.max || 3)
+      const newZoom = Math.min(zoomLevel + 0.5, Math.min(capabilities.zoom.max || 10, 10))
       try {
         await videoTrack.applyConstraints({
           advanced: [{ zoom: newZoom } as any],
@@ -812,8 +812,10 @@ export default function HomePage() {
               {/* Overlay avec instructions */}
               <div className="relative -mt-4">
                 {/* Indicateur de statut */}
-                <div className="absolute bottom-3 left-3 bg-green-500 text-white text-sm px-3 py-2 rounded-lg z-10 shadow-lg">
-                  🟢 Touchez l'écran pour capturer
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-10">
+                  <div className="bg-black/70 text-[#f2d895] px-4 py-2 rounded-lg text-sm font-medium shadow-lg">
+                    Touchez l'écran pour capturer
+                  </div>
                 </div>
                 <div className="absolute top-3 right-3 bg-black/70 text-white text-sm px-3 py-2 rounded-lg z-10 shadow-lg">
                   {zoomLevel.toFixed(1)}x
