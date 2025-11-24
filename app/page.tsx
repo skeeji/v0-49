@@ -31,6 +31,7 @@ export default function HomePage() {
   const [showBackgroundOptions, setShowBackgroundOptions] = useState(false)
   const [selectedImageForSearch, setSelectedImageForSearch] = useState<File | null>(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1)
 
   // États pour les restrictions
   // const [searchCount, setSearchCount] = useState(0)
@@ -308,6 +309,7 @@ export default function HomePage() {
           width: { ideal: 1280, min: 640, max: 1920 },
           height: { ideal: 720, min: 480, max: 1080 },
           frameRate: { ideal: 30, max: 60 },
+          zoom: true,
         },
         audio: false,
       }
@@ -322,6 +324,7 @@ export default function HomePage() {
       setStream(mediaStream)
       setIsCameraLoading(false)
       setIsCameraActive(true)
+      setZoomLevel(1)
 
       // Attacher le flux après que l'état soit mis à jour
       setTimeout(() => {
@@ -497,6 +500,7 @@ export default function HomePage() {
     setBackgroundRemovedImage(null)
     setShowBackgroundOptions(false)
     setSelectedImageForSearch(null)
+    setZoomLevel(1)
 
     // Réinitialiser l'input file
     if (fileInputRef.current) {
@@ -580,6 +584,49 @@ export default function HomePage() {
       }
     }
   }, [])
+
+  const handleZoomIn = async () => {
+    if (!stream) return
+
+    const videoTrack = stream.getVideoTracks()[0]
+    const capabilities = videoTrack.getCapabilities() as any
+
+    if (capabilities.zoom) {
+      const newZoom = Math.min(zoomLevel + 0.5, capabilities.zoom.max || 3)
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{ zoom: newZoom } as any],
+        })
+        setZoomLevel(newZoom)
+        console.log(`🔍 Zoom appliqué: ${newZoom}x`)
+      } catch (error) {
+        console.error("Erreur zoom:", error)
+        toast.error("Zoom non supporté sur cet appareil")
+      }
+    } else {
+      toast.info("Zoom non supporté sur cet appareil")
+    }
+  }
+
+  const handleZoomOut = async () => {
+    if (!stream) return
+
+    const videoTrack = stream.getVideoTracks()[0]
+    const capabilities = videoTrack.getCapabilities() as any
+
+    if (capabilities.zoom) {
+      const newZoom = Math.max(zoomLevel - 0.5, capabilities.zoom.min || 1)
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{ zoom: newZoom } as any],
+        })
+        setZoomLevel(newZoom)
+        console.log(`🔍 Zoom appliqué: ${newZoom}x`)
+      } catch (error) {
+        console.error("Erreur zoom:", error)
+      }
+    }
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -768,6 +815,32 @@ export default function HomePage() {
                 <div className="absolute bottom-3 left-3 bg-green-500 text-white text-sm px-3 py-2 rounded-lg z-10 shadow-lg">
                   🟢 Touchez l'écran pour capturer
                 </div>
+                <div className="absolute top-3 right-3 bg-black/70 text-white text-sm px-3 py-2 rounded-lg z-10 shadow-lg">
+                  {zoomLevel.toFixed(1)}x
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-center">
+                <Button
+                  onClick={handleZoomOut}
+                  className="w-12 h-12 rounded-full text-white text-xl font-bold"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  disabled={isCapturing || zoomLevel <= 1}
+                >
+                  -
+                </Button>
+                <Button
+                  onClick={handleZoomIn}
+                  className="w-12 h-12 rounded-full text-white text-xl font-bold"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  disabled={isCapturing}
+                >
+                  +
+                </Button>
               </div>
 
               {/* Boutons de contrôle */}
