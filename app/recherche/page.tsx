@@ -177,8 +177,12 @@ export default function RecherchePage() {
   const IMAGE_SERVER_PREFIX = "https://image-similarity-api-590690354412.us-central1.run.app"
 
   const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
+    console.log("[v0] enrichOrchestratorResults called with:", results)
+
     const enriched = await Promise.all(
-      results.slice(0, 5).map(async (result) => {
+      results.slice(0, 5).map(async (result, index) => {
+        console.log(`[v0] Processing result ${index}:`, result)
+
         let imageUrl = "/placeholder.svg"
         let fileName = ""
 
@@ -203,56 +207,72 @@ export default function RecherchePage() {
 
             if (response.ok) {
               const data = await response.json()
+              console.log(`[v0] API response for ${fileName}:`, data)
               if (data.success && data.found) {
                 luminaireId = data.luminaireId
                 enrichedMetadata = data.metadata
               }
             }
           } catch (error) {
-            console.error("Error fetching luminaire ID:", error)
+            console.error("[v0] Error fetching luminaire ID:", error)
           }
         }
 
         const apiMeta = enrichedMetadata || {}
         const resultMeta = result.metadata || {}
 
+        console.log(`[v0] Result ${index} metadata sources:`, {
+          apiMeta,
+          resultMeta,
+          resultDirect: { nom: result.nom, artiste: result.artiste, annee: result.annee },
+        })
+
         const nom =
           apiMeta.nom ||
           apiMeta.name ||
           apiMeta.title ||
+          apiMeta.modele ||
           resultMeta.nom ||
           resultMeta.name ||
           resultMeta.title ||
+          resultMeta.modele ||
           result.nom ||
           result.name ||
           result.title ||
+          result.modele ||
           (fileName ? fileName.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "").replace(/[_-]/g, " ") : "Sans nom")
 
         const artiste =
           apiMeta.artiste ||
           apiMeta.artist ||
           apiMeta.designer ||
+          apiMeta.createur ||
           resultMeta.artiste ||
           resultMeta.artist ||
           resultMeta.designer ||
+          resultMeta.createur ||
           result.artiste ||
           result.artist ||
           result.designer ||
+          result.createur ||
           "Inconnu"
 
         const annee =
           apiMeta.annee ||
           apiMeta.year ||
           apiMeta.date ||
+          apiMeta.periode ||
           resultMeta.annee ||
           resultMeta.year ||
           resultMeta.date ||
+          resultMeta.periode ||
           result.annee ||
           result.year ||
           result.date ||
+          result.periode ||
           ""
 
-        return {
+        const enrichedResult = {
           imageUrl,
           luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
           luminaireId,
@@ -260,10 +280,17 @@ export default function RecherchePage() {
           artiste,
           annee,
         }
+
+        console.log(`[v0] Result ${index} enriched:`, enrichedResult)
+
+        return enrichedResult
       }),
     )
 
-    return enriched.filter((r) => r.luminaireId !== null)
+    const filtered = enriched.filter((r) => r.luminaireId !== null)
+    console.log("[v0] Filtered results:", filtered)
+
+    return filtered
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
