@@ -141,14 +141,18 @@ export default function RecherchePage() {
     }
   }
 
-  // Get luminaire metadata by filename
   const getLuminaireMetadata = async (filename: string): Promise<SearchResult | null> => {
     try {
       const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(filename)}`)
       const data = await response.json()
 
       if (data.success && data.luminaireId) {
-        return { luminaireId: data.luminaireId }
+        return {
+          luminaireId: data.luminaireId,
+          nom: data.metadata?.nom,
+          artiste: data.metadata?.artiste,
+          annee: data.metadata?.annee,
+        }
       }
       return null
     } catch (error) {
@@ -258,8 +262,8 @@ export default function RecherchePage() {
           console.log("[v0] Full Image URL:", fullImageUrl)
           console.log("[v0] Extracted filename:", imageName)
 
-          // Try to get luminaireId from local API
           let luminaireId = result.luminaireId || null
+          let apiMetadata: SearchResult | null = null
           console.log("[v0] Initial luminaireId:", luminaireId)
 
           if (imageName && !luminaireId) {
@@ -269,7 +273,13 @@ export default function RecherchePage() {
               console.log("[v0] Metadata API response for", imageName, ":", JSON.stringify(metaData, null, 2))
               if (metaData.success && metaData.luminaireId) {
                 luminaireId = metaData.luminaireId
-                console.log("[v0] Found luminaireId from API:", luminaireId)
+                apiMetadata = {
+                  luminaireId: metaData.luminaireId,
+                  nom: metaData.metadata?.nom,
+                  artiste: metaData.metadata?.artiste,
+                  annee: metaData.metadata?.annee,
+                }
+                console.log("[v0] Found metadata from API:", apiMetadata)
               } else {
                 console.log("[v0] No luminaireId found in API response")
               }
@@ -279,6 +289,7 @@ export default function RecherchePage() {
           }
 
           const extractedNom =
+            apiMetadata?.nom ||
             metadata.nom ||
             metadata.name ||
             metadata.title ||
@@ -290,6 +301,7 @@ export default function RecherchePage() {
             "Sans nom"
 
           const extractedArtiste =
+            apiMetadata?.artiste ||
             metadata.artiste ||
             metadata.artist ||
             metadata.designer ||
@@ -301,6 +313,7 @@ export default function RecherchePage() {
             "Inconnu"
 
           const extractedAnnee =
+            apiMetadata?.annee ||
             metadata.annee ||
             metadata.year ||
             metadata.date ||
@@ -312,6 +325,7 @@ export default function RecherchePage() {
             ""
 
           console.log("[v0] Extraction attempts:")
+          console.log("[v0]   - apiMetadata?.nom:", apiMetadata?.nom)
           console.log("[v0]   - metadata.nom:", metadata.nom)
           console.log("[v0]   - metadata.name:", metadata.name)
           console.log("[v0]   - metadata.title:", metadata.title)
@@ -322,18 +336,25 @@ export default function RecherchePage() {
           console.log("[v0]   - result.modele:", result.modele)
           console.log("[v0]   - FINAL nom:", extractedNom)
 
+          console.log("[v0]   - apiMetadata?.artiste:", apiMetadata?.artiste)
           console.log("[v0]   - metadata.artiste:", metadata.artiste)
           console.log("[v0]   - metadata.artist:", metadata.artist)
           console.log("[v0]   - metadata.designer:", metadata.designer)
           console.log("[v0]   - result.artiste:", result.artiste)
           console.log("[v0]   - result.artist:", result.artist)
           console.log("[v0]   - result.designer:", result.designer)
+          console.log("[v0]   - result.createur:", result.createur)
           console.log("[v0]   - FINAL artiste:", extractedArtiste)
 
+          console.log("[v0]   - apiMetadata?.annee:", apiMetadata?.annee)
           console.log("[v0]   - metadata.annee:", metadata.annee)
           console.log("[v0]   - metadata.year:", metadata.year)
+          console.log("[v0]   - metadata.date:", metadata.date)
+          console.log("[v0]   - metadata.periode:", metadata.periode)
           console.log("[v0]   - result.annee:", result.annee)
           console.log("[v0]   - result.year:", result.year)
+          console.log("[v0]   - result.date:", result.date)
+          console.log("[v0]   - result.periode:", result.periode)
           console.log("[v0]   - FINAL annee:", extractedAnnee)
 
           const finalResult: SearchResult = {

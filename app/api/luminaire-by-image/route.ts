@@ -30,10 +30,31 @@ export async function GET(request: NextRequest) {
     })
 
     if (luminaire) {
+      const nom =
+        luminaire.nom ||
+        luminaire.Nom ||
+        luminaire.title ||
+        luminaire.name ||
+        luminaire["Nom du luminaire"] ||
+        "Sans nom"
+      const artiste =
+        luminaire.artiste ||
+        luminaire.designer ||
+        luminaire.artist ||
+        luminaire["Artiste / Dates"] ||
+        luminaire.Artiste ||
+        "Inconnu"
+      const annee = luminaire.annee || luminaire.year || luminaire.date || luminaire["Année"] || luminaire.Annee || ""
+
       return NextResponse.json({
         success: true,
         luminaireId: luminaire._id.toString(),
         found: true,
+        metadata: {
+          nom,
+          artiste,
+          annee,
+        },
       })
     }
 
