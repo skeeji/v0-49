@@ -236,6 +236,11 @@ export default function RecherchePage() {
         rawResults.map(async (result: any) => {
           console.log("[v0] Processing result:", result)
 
+          // For image searches: result has metadata object
+          // For text searches: result has fields directly
+          const metadata = result.metadata || {}
+          const hasMetadata = Object.keys(metadata).length > 0
+
           // Extract image URL
           const imageUrl = result.imageUrl || result.image_url || result.image || result.lien_site || ""
           const fullImageUrl = imageUrl.startsWith("/") ? `${IMAGE_PREFIX}${imageUrl}` : imageUrl
@@ -260,13 +265,37 @@ export default function RecherchePage() {
             }
           }
 
-          // Extract metadata from orchestrator response
-          const metadata = result.metadata || result
-
           const finalResult: SearchResult = {
-            nom: metadata.nom || metadata.name || metadata.title || metadata.modele || "Sans nom",
-            artiste: metadata.artiste || metadata.artist || metadata.designer || metadata.createur || "Inconnu",
-            annee: metadata.annee || metadata.year || metadata.date || metadata.periode || "",
+            nom:
+              metadata.nom ||
+              metadata.name ||
+              metadata.title ||
+              metadata.modele ||
+              result.nom ||
+              result.name ||
+              result.title ||
+              result.modele ||
+              "Sans nom",
+            artiste:
+              metadata.artiste ||
+              metadata.artist ||
+              metadata.designer ||
+              metadata.createur ||
+              result.artiste ||
+              result.artist ||
+              result.designer ||
+              result.createur ||
+              "Inconnu",
+            annee:
+              metadata.annee ||
+              metadata.year ||
+              metadata.date ||
+              metadata.periode ||
+              result.annee ||
+              result.year ||
+              result.date ||
+              result.periode ||
+              "",
             luminaireId: luminaireId,
             imageUrl: fullImageUrl,
           }
