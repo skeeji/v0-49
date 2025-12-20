@@ -21,7 +21,7 @@ interface SearchResult {
   nom?: string
   artiste?: string
   designer?: string
-  annee?: string | number
+  annee?: string
   similarity?: number
   lien_site?: string
 }
@@ -190,7 +190,6 @@ export default function RecherchePage() {
         }
 
         let luminaireId = null
-
         if (fileName) {
           try {
             const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
@@ -205,15 +204,30 @@ export default function RecherchePage() {
           }
         }
 
-        const metadata = result.metadata || result
+        const metadata = result.metadata || {}
+
+        const nom =
+          metadata.nom || metadata.name || metadata.title || result.nom || result.name || result.title || "Sans nom"
+
+        const artiste =
+          metadata.artiste ||
+          metadata.artist ||
+          metadata.designer ||
+          result.artiste ||
+          result.artist ||
+          result.designer ||
+          "Inconnu"
+
+        const annee =
+          metadata.annee || metadata.year || metadata.date || result.annee || result.year || result.date || ""
 
         return {
           imageUrl,
           luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
           luminaireId,
-          nom: metadata.nom || result.nom || "Sans nom",
-          artiste: metadata.artiste || result.artiste || metadata.designer || result.designer || "Inconnu",
-          annee: metadata.annee || result.annee || "",
+          nom,
+          artiste,
+          annee: String(annee),
         }
       }),
     )
