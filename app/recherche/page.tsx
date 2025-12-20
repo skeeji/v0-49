@@ -220,7 +220,7 @@ export default function RecherchePage() {
       if (searchImage) {
         formData.append("image", searchImage)
       }
-      formData.append("top_k", "5")
+      formData.append("top_k", "4")
 
       console.log("[v0] Calling orchestrator API with:", { query: searchText, hasImage: !!searchImage })
 
@@ -554,7 +554,7 @@ export default function RecherchePage() {
                 )}
 
                 {message.results && message.results.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  <div className="flex gap-4 mt-4 overflow-x-auto pb-2">
                     {message.results.map((result, idx) => {
                       const CardWrapper = result.luminaireId ? Link : "div"
                       const cardProps = result.luminaireId ? { href: `/luminaires/${result.luminaireId}` } : {}
@@ -563,7 +563,7 @@ export default function RecherchePage() {
                         <CardWrapper
                           key={idx}
                           {...cardProps}
-                          className={`block bg-white rounded-xl overflow-hidden shadow-md transition-all duration-200 border border-amber-100 ${
+                          className={`flex-shrink-0 w-56 block bg-white rounded-xl overflow-hidden shadow-md transition-all duration-200 border border-amber-100 ${
                             result.luminaireId ? "hover:shadow-xl cursor-pointer" : "opacity-75"
                           }`}
                         >
