@@ -1,28 +1,28 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
-import { Upload, Send, ImageIcon, Loader2, Trash2, Plus } from "lucide-react"
+
+import { useState, useRef, useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
-import { useAuth } from "@/contexts/AuthContext"
-import { toast } from "sonner"
-import Link from "next/link"
+import { Upload, Send, Plus, ChevronLeft, ChevronRight, X } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 
 const API_ORCHESTRATOR = "https://gersaint-multimodal-844978726064.europe-west1.run.app/api/multimodal_search"
+const IMAGE_PREFIX = "https://image-similarity-api-590690354412.us-central1.run.app"
 
 interface SearchResult {
-  imageId?: string
-  imageUrl?: string
-  luminaireUrl?: string | null
-  luminaireId?: string | null
   nom?: string
   artiste?: string
   designer?: string
   annee?: string
-  similarity?: number
+  year?: string
+  date?: string
+  luminaireId?: string
+  imageUrl?: string
   lien_site?: string
 }
 
@@ -39,64 +39,63 @@ interface Conversation {
   id: string
   title: string
   messages: Message[]
-  searchContext: string
   createdAt: Date
   updatedAt: Date
 }
 
 export default function RecherchePage() {
-  const { user, userData, incrementSearchCount } = useAuth()
+  const { user, userData } = useAuth()
+  const router = useRouter()
+
   const [inputValue, setInputValue] = useState("")
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSearching, setIsSearching] = useState(false)
-
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [showHistory, setShowHistory] = useState(true)
+  const [showSidebar, setShowSidebar] = useState(true)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!user) {
-      return
-    }
-
-    if (userData && userData.role !== "premium" && userData.role !== "admin") {
-      // Users will stay on the page with the overlay message and button
-    }
-  }, [user, userData])
-
+  // Load conversations from localStorage
   useEffect(() => {
     if (user) {
       const saved = localStorage.getItem(`conversations_${user.uid}`)
       if (saved) {
-        const parsed = JSON.parse(saved)
-        const hydrated = parsed.map((conv: any) => ({
-          ...conv,
-          searchContext: conv.searchContext || "",
-          createdAt: new Date(conv.createdAt),
-          updatedAt: new Date(conv.updatedAt),
-          messages: conv.messages.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-          })),
-        }))
-        setConversations(hydrated)
+        try {
+          const parsed = JSON.parse(saved)
+          setConversations(
+            parsed.map((c: any) => ({
+              ...c,
+              createdAt: new Date(c.createdAt),
+              updatedAt: new Date(c.updatedAt),
+              messages: c.messages.map((m: any) => ({
+                ...m,
+                timestamp: new Date(m.timestamp),
+              })),
+            })),
+          )
+        } catch (error) {
+          console.error("Error loading conversations:", error)
+        }
       }
     }
   }, [user])
 
+  // Save conversations to localStorage
+  const saveConversations = (convs: Conversation[]) => {
+    if (user) {
+      localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(convs))
+    }
+  }
+
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [currentConversation?.messages])
 
-  const saveConversations = (convs: Conversation[]) => {
-    if (!user) return
-    localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(convs))
-  }
-
+  // Create new conversation
   const createNewConversation = () => {
     setCurrentConversation(null)
     setInputValue("")
@@ -104,6 +103,7 @@ export default function RecherchePage() {
     setImagePreview(null)
   }
 
+  // Load conversation
   const loadConversation = (conv: Conversation) => {
     setCurrentConversation(conv)
     setInputValue("")
@@ -111,188 +111,18 @@ export default function RecherchePage() {
     setImagePreview(null)
   }
 
-  const deleteConversation = (id: string) => {
-    const updated = conversations.filter((c) => c.id !== id)
+  // Delete conversation
+  const deleteConversation = (convId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const updated = conversations.filter((c) => c.id !== convId)
     setConversations(updated)
     saveConversations(updated)
-    if (currentConversation?.id === id) {
+    if (currentConversation?.id === convId) {
       setCurrentConversation(null)
     }
   }
 
-  const addMessage = (
-    role: "user" | "assistant",
-    content: string,
-    imageUrl?: string,
-    results?: SearchResult[],
-    newSearchContext?: string,
-  ) => {
-    const message: Message = {
-      id: Date.now().toString(),
-      role,
-      content,
-      imageUrl,
-      results,
-      timestamp: new Date(),
-    }
-
-    let updatedConversation: Conversation
-
-    if (currentConversation) {
-      updatedConversation = {
-        ...currentConversation,
-        messages: [...currentConversation.messages, message],
-        searchContext: newSearchContext !== undefined ? newSearchContext : currentConversation.searchContext,
-        updatedAt: new Date(),
-      }
-    } else {
-      updatedConversation = {
-        id: Date.now().toString(),
-        title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
-        messages: [message],
-        searchContext: newSearchContext || content,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-    }
-
-    setCurrentConversation(updatedConversation)
-
-    const convIndex = conversations.findIndex((c) => c.id === updatedConversation.id)
-    let updatedConversations: Conversation[]
-
-    if (convIndex >= 0) {
-      updatedConversations = [...conversations]
-      updatedConversations[convIndex] = updatedConversation
-    } else {
-      updatedConversations = [updatedConversation, ...conversations]
-    }
-
-    setConversations(updatedConversations)
-    saveConversations(updatedConversations)
-
-    return updatedConversation
-  }
-
-  const IMAGE_SERVER_PREFIX = "https://image-similarity-api-590690354412.us-central1.run.app"
-
-  const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
-    console.log("[v0] enrichOrchestratorResults called with:", results)
-
-    const enriched = await Promise.all(
-      results.slice(0, 5).map(async (result, index) => {
-        console.log(`[v0] Processing result ${index}:`, result)
-
-        let imageUrl = "/placeholder.svg"
-        let fileName = ""
-
-        if (result.image_url) {
-          imageUrl = result.image_url.startsWith("/") ? `${IMAGE_SERVER_PREFIX}${result.image_url}` : result.image_url
-          fileName = result.image_url.split("/").pop()?.toLowerCase() || ""
-        } else if (result.image_id) {
-          fileName = String(result.image_id).toLowerCase()
-          imageUrl = `${IMAGE_SERVER_PREFIX}/images/${fileName}`
-        } else if (result.image || result.filename) {
-          fileName = (result.image || result.filename).toLowerCase()
-          imageUrl = `${IMAGE_SERVER_PREFIX}/images/${fileName}`
-        }
-
-        let luminaireId = null
-        let enrichedMetadata = null
-
-        if (fileName) {
-          try {
-            const apiUrl = `/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`
-            const response = await fetch(apiUrl)
-
-            if (response.ok) {
-              const data = await response.json()
-              console.log(`[v0] API response for ${fileName}:`, data)
-              if (data.success && data.found) {
-                luminaireId = data.luminaireId
-                enrichedMetadata = data.metadata
-              }
-            }
-          } catch (error) {
-            console.error("[v0] Error fetching luminaire ID:", error)
-          }
-        }
-
-        const apiMeta = enrichedMetadata || {}
-        const resultMeta = result.metadata || {}
-
-        console.log(`[v0] Result ${index} metadata sources:`, {
-          apiMeta,
-          resultMeta,
-          resultDirect: { nom: result.nom, artiste: result.artiste, annee: result.annee },
-        })
-
-        const nom =
-          apiMeta.nom ||
-          apiMeta.name ||
-          apiMeta.title ||
-          apiMeta.modele ||
-          resultMeta.nom ||
-          resultMeta.name ||
-          resultMeta.title ||
-          resultMeta.modele ||
-          result.nom ||
-          result.name ||
-          result.title ||
-          result.modele ||
-          (fileName ? fileName.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "").replace(/[_-]/g, " ") : "Sans nom")
-
-        const artiste =
-          apiMeta.artiste ||
-          apiMeta.artist ||
-          apiMeta.designer ||
-          apiMeta.createur ||
-          resultMeta.artiste ||
-          resultMeta.artist ||
-          resultMeta.designer ||
-          resultMeta.createur ||
-          result.artiste ||
-          result.artist ||
-          result.designer ||
-          result.createur ||
-          "Inconnu"
-
-        const annee =
-          apiMeta.annee ||
-          apiMeta.year ||
-          apiMeta.date ||
-          apiMeta.periode ||
-          resultMeta.annee ||
-          resultMeta.year ||
-          resultMeta.date ||
-          resultMeta.periode ||
-          result.annee ||
-          result.year ||
-          result.date ||
-          result.periode ||
-          ""
-
-        const enrichedResult = {
-          imageUrl,
-          luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
-          luminaireId,
-          nom,
-          artiste,
-          annee,
-        }
-
-        console.log(`[v0] Result ${index} enriched:`, enrichedResult)
-
-        return enrichedResult
-      }),
-    )
-
-    const filtered = enriched.filter((r) => r.luminaireId !== null)
-    console.log("[v0] Filtered results:", filtered)
-
-    return filtered
-  }
-
+  // Handle file selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -302,57 +132,90 @@ export default function RecherchePage() {
     }
   }
 
-  const handleSearch = async () => {
-    if (!inputValue.trim() && !selectedImage) {
-      toast.error("Veuillez entrer une description ou téléverser une image")
-      return
-    }
-
-    if (!user) {
-      toast.error("Connexion requise pour utiliser la recherche")
-      return
-    }
-
-    if (userData?.role !== "premium" && userData?.role !== "admin") {
-      toast.error("Cette fonctionnalité est réservée aux membres Premium")
-      return
-    }
-
-    const messages = currentConversation?.messages || []
-    const conversationContext = messages
-      .filter((m) => m.role === "user" && m.content.trim() !== "" && !m.content.startsWith("Je n'ai trouvé"))
-      .map((m) => m.content)
-      .join(", ")
-
-    const newSearchContext =
-      conversationContext + (inputValue.trim() ? (conversationContext ? ", " : "") + inputValue.trim() : "")
-
-    const displayText = inputValue.trim() || (selectedImage ? "Recherche par image" : "")
-
-    let userImageUrl: string | undefined = undefined
-    if (selectedImage) {
-      userImageUrl = URL.createObjectURL(selectedImage)
-    }
-
-    addMessage("user", displayText, userImageUrl)
-
-    const currentImage = selectedImage
-    const currentInput = inputValue
-
-    setInputValue("")
+  // Remove selected image
+  const removeSelectedImage = () => {
     setSelectedImage(null)
     setImagePreview(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  // Get luminaire metadata by filename
+  const getLuminaireMetadata = async (filename: string): Promise<SearchResult | null> => {
+    try {
+      const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(filename)}`)
+      const data = await response.json()
+
+      if (data.success && data.luminaireId) {
+        return { luminaireId: data.luminaireId }
+      }
+      return null
+    } catch (error) {
+      console.error("Error fetching luminaire metadata:", error)
+      return null
+    }
+  }
+
+  // Handle search
+  const handleSearch = async () => {
+    if (!inputValue.trim() && !selectedImage) return
+    if (isSearching) return
+
+    // Check if user can search
+    if (!user || (userData?.role === "free" && !userData.searchCount)) {
+      return
+    }
+
     setIsSearching(true)
 
     try {
-      const formData = new FormData()
-
-      formData.append("query", newSearchContext || "")
-
-      if (currentImage) {
-        formData.append("image", currentImage)
+      // Create user message
+      const userContent = inputValue.trim() || "Recherche par image"
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: userContent,
+        imageUrl: imagePreview || undefined,
+        timestamp: new Date(),
       }
 
+      // Update or create conversation
+      let updatedConversation: Conversation
+      if (currentConversation) {
+        updatedConversation = {
+          ...currentConversation,
+          messages: [...currentConversation.messages, userMessage],
+          updatedAt: new Date(),
+        }
+      } else {
+        updatedConversation = {
+          id: Date.now().toString(),
+          title: userContent.slice(0, 50) + (userContent.length > 50 ? "..." : ""),
+          messages: [userMessage],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      }
+
+      setCurrentConversation(updatedConversation)
+
+      // Clear input
+      const searchText = inputValue
+      const searchImage = selectedImage
+      setInputValue("")
+      setSelectedImage(null)
+      setImagePreview(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+
+      // Call API
+      const formData = new FormData()
+      formData.append("query", searchText || "")
+      if (searchImage) {
+        formData.append("image", searchImage)
+      }
       formData.append("top_k", "5")
 
       const response = await fetch(API_ORCHESTRATOR, {
@@ -363,310 +226,281 @@ export default function RecherchePage() {
       if (!response.ok) throw new Error("Erreur lors de la recherche")
 
       const data = await response.json()
+      const rawResults = data.results || []
 
-      if (data.results && data.results.length > 0) {
-        const enrichedResults = await enrichOrchestratorResults(data.results)
+      // Enrich results with metadata
+      const enrichedResults: SearchResult[] = await Promise.all(
+        rawResults.map(async (result: any) => {
+          // Extract image filename from various possible fields
+          const imageUrl = result.imageUrl || result.image_url || result.lien_site || ""
+          const imageName =
+            imageUrl
+              .split("/")
+              .pop()
+              ?.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "") || ""
 
-        addMessage(
-          "assistant",
-          `J'ai trouvé ${enrichedResults.length} luminaire(s) correspondant à votre recherche :`,
-          undefined,
-          enrichedResults,
-          newSearchContext,
-        )
+          // Get metadata from local API
+          const metadata = imageName ? await getLuminaireMetadata(imageName) : null
 
-        if (user) {
-          incrementSearchCount()
-        }
-      } else {
-        addMessage("assistant", "Je n'ai trouvé aucun luminaire correspondant à votre recherche.", undefined, [])
-      }
-    } catch (error) {
-      console.error("[v0] Erreur de recherche:", error)
-      toast.error("Erreur lors de la recherche")
-      addMessage(
-        "assistant",
-        "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.",
-        undefined,
-        [],
+          // Build final result
+          const finalResult: SearchResult = {
+            nom: result.nom || result.name || result.title || result.modele || "Sans nom",
+            artiste:
+              result.artiste || result.artist || result.designer || result.createur || result.auteur || "Inconnu",
+            annee: result.annee || result.year || result.date || result.periode || result.epoque || "",
+            luminaireId: metadata?.luminaireId || result.luminaireId || null,
+            imageUrl: imageUrl.startsWith("/") ? `${IMAGE_PREFIX}${imageUrl}` : imageUrl,
+          }
+
+          return finalResult
+        }),
       )
+
+      // Filter results with luminaireId
+      const validResults = enrichedResults.filter((r) => r.luminaireId)
+
+      // Create assistant message
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `J'ai trouvé ${validResults.length} luminaire(s) correspondant à votre recherche :`,
+        results: validResults,
+        timestamp: new Date(),
+      }
+
+      // Update conversation
+      updatedConversation = {
+        ...updatedConversation,
+        messages: [...updatedConversation.messages, assistantMessage],
+        updatedAt: new Date(),
+      }
+
+      setCurrentConversation(updatedConversation)
+
+      // Save to conversations list
+      const convIndex = conversations.findIndex((c) => c.id === updatedConversation.id)
+      let updatedConversations: Conversation[]
+
+      if (convIndex >= 0) {
+        updatedConversations = [...conversations]
+        updatedConversations[convIndex] = updatedConversation
+      } else {
+        updatedConversations = [updatedConversation, ...conversations]
+      }
+
+      setConversations(updatedConversations)
+      saveConversations(updatedConversations)
+    } catch (error) {
+      console.error("Search error:", error)
+      // Add error message
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "Désolé, une erreur est survenue lors de la recherche. Veuillez réessayer.",
+        timestamp: new Date(),
+      }
+
+      if (currentConversation) {
+        const updatedConversation = {
+          ...currentConversation,
+          messages: [...currentConversation.messages, errorMessage],
+          updatedAt: new Date(),
+        }
+        setCurrentConversation(updatedConversation)
+      }
     } finally {
       setIsSearching(false)
     }
   }
 
+  // Handle Enter key
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSearch()
+    }
+  }
+
+  // Check access
+  if (!user || !userData?.role || (userData.role !== "premium" && userData.role !== "admin")) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10" />
+        <div className="relative z-20 bg-card border border-border rounded-lg p-8 max-w-md text-center shadow-lg">
+          <h2 className="text-2xl font-bold mb-4 text-foreground">Fonctionnalité Premium</h2>
+          <p className="text-muted-foreground mb-6">
+            Cette fonctionnalité de recherche avancée est réservée aux membres Premium.
+          </p>
+          <Button onClick={() => router.push("/pricing")} className="w-full">
+            Voir les tarifs
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50">
-      {user && userData && userData.role !== "premium" && userData.role !== "admin" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-          <Card className="max-w-md mx-4 p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-              <ImageIcon className="w-8 h-8" style={{ color: "#f2d895" }} />
-            </div>
-            <h2 className="text-2xl font-serif text-slate-800 mb-3">Fonctionnalité Premium</h2>
-            <p className="text-slate-600 mb-6">
-              La recherche avancée est réservée aux membres Premium. Passez à Premium pour accéder à toutes les
-              fonctionnalités.
-            </p>
-            <Link href="/pricing">
-              <Button className="w-full text-white" style={{ backgroundColor: "#f2d895" }}>
-                Voir les tarifs
-              </Button>
-            </Link>
-          </Card>
+    <div className="flex h-screen bg-background">
+      {/* Sidebar */}
+      <div
+        className={`${
+          showSidebar ? "w-64" : "w-0"
+        } transition-all duration-300 border-r border-border bg-card overflow-hidden flex flex-col`}
+      >
+        <div className="p-4 border-b border-border">
+          <Button onClick={createNewConversation} className="w-full bg-transparent" variant="outline">
+            <Plus className="w-4 h-4 mr-2" />
+            Nouvelle conversation
+          </Button>
         </div>
-      )}
 
-      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
-        <div
-          className={`${
-            showHistory ? "h-48 md:h-auto md:w-80" : "h-0 md:w-0"
-          } transition-all duration-300 bg-white border-b md:border-b-0 md:border-r border-slate-200 overflow-hidden flex flex-col`}
-        >
-          <div className="p-2 md:p-4 border-b border-slate-200">
-            <Button
-              onClick={createNewConversation}
-              className="w-full text-sm md:text-base"
-              style={{ backgroundColor: "#f2d895" }}
+        <div className="flex-1 overflow-y-auto p-2">
+          {conversations.map((conv) => (
+            <div
+              key={conv.id}
+              onClick={() => loadConversation(conv)}
+              className={`p-3 mb-2 rounded-lg cursor-pointer hover:bg-accent transition-colors group ${
+                currentConversation?.id === conv.id ? "bg-accent" : ""
+              }`}
             >
-              <Plus className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
-              Nouvelle conversation
-            </Button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-1 md:p-2">
-            {!user ? (
-              <div className="text-center text-slate-500 text-xs md:text-sm mt-4 md:mt-8 px-2 md:px-4">
-                Connectez-vous pour sauvegarder vos conversations
-              </div>
-            ) : conversations.length === 0 ? (
-              <div className="text-center text-slate-500 text-xs md:text-sm mt-4 md:mt-8 px-2 md:px-4">
-                Aucune conversation
-              </div>
-            ) : (
-              <div className="space-y-1 md:space-y-2">
-                {conversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    className={`p-2 md:p-3 rounded-lg cursor-pointer group transition-colors relative ${
-                      currentConversation?.id === conv.id
-                        ? "bg-amber-50 border-2 border-amber-200"
-                        : "hover:bg-slate-100"
-                    }`}
-                    onClick={() => loadConversation(conv)}
-                  >
-                    <div className="flex items-start gap-1 md:gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs md:text-sm text-slate-800 truncate font-medium">{conv.title}</p>
-                        <p className="text-[10px] md:text-xs text-slate-500">
-                          {conv.messages.length} message(s) •{" "}
-                          {conv.updatedAt.toLocaleDateString("fr-FR", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteConversation(conv.id)
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-3 h-3 md:w-4 md:h-4 text-red-400 hover:text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="p-3 md:p-6 bg-white border-b border-slate-200">
-            <div className="max-w-4xl mx-auto">
-              <h1 className="text-xl md:text-3xl font-serif text-slate-800 mb-1 md:mb-2" style={{ color: "#f2d895" }}>
-                Recherche de Luminaires
-              </h1>
-              <p className="text-xs md:text-base text-slate-600">
-                {currentConversation
-                  ? "Continuez votre recherche ou affinez les résultats"
-                  : "Commencez une nouvelle recherche par texte ou par image"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-4xl mx-auto p-3 md:p-6">
-              {!currentConversation && !isSearching && (
-                <div className="text-center mt-10 md:mt-20">
-                  <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                    <ImageIcon className="w-7 h-7 md:w-10 md:h-10" style={{ color: "#f2d895" }} />
-                  </div>
-                  <h2 className="text-xl md:text-2xl font-serif text-slate-800 mb-2 md:mb-3">
-                    Comment puis-je vous aider ?
-                  </h2>
-                  <p className="text-sm md:text-base text-slate-600 mb-4 md:mb-8 px-4">
-                    Décrivez le luminaire que vous recherchez ou téléversez une image
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-foreground">{conv.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {conv.messages.length} message{conv.messages.length > 1 ? "s" : ""}
                   </p>
                 </div>
-              )}
-
-              {currentConversation && (
-                <div className="space-y-4 md:space-y-6">
-                  {currentConversation.messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[85%] md:max-w-[80%] ${message.role === "user" ? "bg-amber-100" : "bg-white border border-slate-200"} rounded-2xl p-3 md:p-4`}
-                      >
-                        {message.role === "user" && (
-                          <>
-                            <p className="text-sm md:text-base text-slate-800 mb-2">{message.content}</p>
-                            {message.imageUrl && (
-                              <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden mt-2">
-                                <Image
-                                  src={message.imageUrl || "/placeholder.svg"}
-                                  alt="Uploaded image"
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                            )}
-                            <p className="text-[10px] md:text-xs text-slate-500 mt-2">
-                              {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                          </>
-                        )}
-
-                        {message.role === "assistant" && (
-                          <>
-                            <p className="text-sm md:text-base text-slate-800 mb-3 md:mb-4">{message.content}</p>
-
-                            {message.results && message.results.length > 0 && (
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
-                                {message.results.slice(0, 5).map((result, index) => {
-                                  if (!result.luminaireId) return null
-
-                                  return (
-                                    <Link
-                                      key={index}
-                                      href={result.luminaireUrl || "#"}
-                                      className="group block rounded-lg overflow-hidden border border-slate-200 hover:border-amber-300 transition-all hover:shadow-lg"
-                                    >
-                                      <div className="relative w-full aspect-square bg-slate-100">
-                                        <Image
-                                          src={result.imageUrl || "/placeholder.svg"}
-                                          alt={result.nom || "Luminaire"}
-                                          fill
-                                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                          unoptimized
-                                        />
-                                      </div>
-                                      <div className="p-2 md:p-3 bg-white">
-                                        <p className="text-xs md:text-sm font-medium text-slate-800 line-clamp-1">
-                                          {result.nom}
-                                        </p>
-                                        <p className="text-[10px] md:text-xs text-slate-600 line-clamp-1">
-                                          {result.artiste}
-                                        </p>
-                                        {result.annee && (
-                                          <p className="text-[10px] md:text-xs text-slate-500">{result.annee}</p>
-                                        )}
-                                      </div>
-                                    </Link>
-                                  )
-                                })}
-                              </div>
-                            )}
-
-                            <p className="text-[10px] md:text-xs text-slate-500 mt-3">
-                              {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {isSearching && (
-                    <div className="flex justify-start">
-                      <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4">
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#f2d895" }} />
-                          <span className="text-sm md:text-base text-slate-600">Recherche en cours...</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="p-3 md:p-4 bg-white border-t border-slate-200">
-            <div className="max-w-4xl mx-auto">
-              {imagePreview && (
-                <div className="mb-3 relative inline-block">
-                  <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 border-amber-200">
-                    <Image src={imagePreview || "/placeholder.svg"} alt="Preview" fill className="object-cover" />
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedImage(null)
-                      setImagePreview(null)
-                    }}
-                    className="absolute -top-2 -right-2 w-5 h-5 md:w-6 md:h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                 <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
-                  className="shrink-0 h-10 w-10 md:h-12 md:w-12"
-                  disabled={isSearching}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                  onClick={(e) => deleteConversation(conv.id, e)}
                 >
-                  <Upload className="w-4 h-4 md:w-5 md:h-5" />
-                </Button>
-
-                <Input
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSearch()
-                    }
-                  }}
-                  placeholder="Décrivez le luminaire ou affinez votre recherche..."
-                  className="flex-1 h-10 md:h-12 text-sm md:text-base"
-                  disabled={isSearching}
-                />
-
-                <Button
-                  onClick={handleSearch}
-                  size="icon"
-                  style={{ backgroundColor: "#f2d895" }}
-                  className="shrink-0 h-10 w-10 md:h-12 md:w-12"
-                  disabled={isSearching || (!inputValue.trim() && !selectedImage)}
-                >
-                  {isSearching ? (
-                    <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4 md:w-5 md:h-5" />
-                  )}
+                  <X className="w-3 h-3" />
                 </Button>
               </div>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="h-16 border-b border-border flex items-center px-4">
+          <Button variant="ghost" size="icon" onClick={() => setShowSidebar(!showSidebar)}>
+            {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          </Button>
+          <h1 className="text-lg font-semibold ml-4">Recherche IA</h1>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {!currentConversation && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p className="text-lg mb-2">Commencez une nouvelle recherche</p>
+                <p className="text-sm">Décrivez un luminaire ou uploadez une image</p>
+              </div>
+            </div>
+          )}
+
+          {currentConversation?.messages.map((message) => (
+            <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-3xl ${
+                  message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
+                } rounded-lg p-4`}
+              >
+                {message.content && <p className="mb-2">{message.content}</p>}
+
+                {message.imageUrl && (
+                  <div className="mb-2">
+                    <Image
+                      src={message.imageUrl || "/placeholder.svg"}
+                      alt="Uploaded"
+                      width={200}
+                      height={200}
+                      className="rounded-lg object-cover"
+                    />
+                  </div>
+                )}
+
+                {message.results && message.results.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    {message.results.map((result, idx) => (
+                      <Link
+                        key={idx}
+                        href={`/luminaires/${result.luminaireId}`}
+                        className="block bg-background rounded-lg overflow-hidden shadow hover:shadow-lg transition-shadow border border-border"
+                      >
+                        {result.imageUrl && (
+                          <div className="relative h-48 w-full">
+                            <Image
+                              src={result.imageUrl || "/placeholder.svg"}
+                              alt={result.nom || "Luminaire"}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        )}
+                        <div className="p-3">
+                          <p className="font-semibold text-sm text-foreground truncate">{result.nom}</p>
+                          <p className="text-xs text-muted-foreground truncate">{result.artiste}</p>
+                          {result.annee && <p className="text-xs text-muted-foreground">{result.annee}</p>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input area */}
+        <div className="border-t border-border p-4">
+          {imagePreview && (
+            <div className="mb-4 relative inline-block">
+              <Image
+                src={imagePreview || "/placeholder.svg"}
+                alt="Preview"
+                width={100}
+                height={100}
+                className="rounded-lg object-cover"
+              />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute -top-2 -right-2 h-6 w-6"
+                onClick={removeSelectedImage}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+
+          <div className="flex items-end gap-2">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+            <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isSearching}>
+              <Upload className="w-4 h-4" />
+            </Button>
+
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Décrivez le luminaire ou affinez votre recherche..."
+              disabled={isSearching}
+              className="flex-1"
+            />
+
+            <Button onClick={handleSearch} disabled={isSearching || (!inputValue.trim() && !selectedImage)}>
+              {isSearching ? "..." : <Send className="w-4 h-4" />}
+            </Button>
           </div>
         </div>
       </div>
