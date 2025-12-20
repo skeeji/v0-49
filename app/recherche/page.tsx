@@ -261,15 +261,17 @@ export default function RecherchePage() {
   }
 
   const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
+    const IMAGE_SERVER_PREFIX = "https://chatbot-984654216979.europe-west1.run.app"
+
     const enriched = await Promise.all(
       results.map(async (result) => {
         let imageUrl = "/placeholder.svg"
         let fileName = ""
 
-        // Handle image URL from orchestrator
         if (result.image_url) {
-          imageUrl = result.image_url
-          fileName = imageUrl.split("/").pop()?.toLowerCase() || ""
+          // If the URL is relative (starts with /), add the Cloud Run prefix
+          imageUrl = result.image_url.startsWith("/") ? `${IMAGE_SERVER_PREFIX}${result.image_url}` : result.image_url
+          fileName = result.image_url.split("/").pop()?.toLowerCase() || ""
         } else if (result.image_id) {
           fileName = String(result.image_id).toLowerCase()
         }
