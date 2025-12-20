@@ -179,6 +179,8 @@ export default function RecherchePage() {
   const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
     const enriched = await Promise.all(
       results.map(async (result) => {
+        console.log("[v0] Raw result from orchestrator:", result)
+
         let imageUrl = "/placeholder.svg"
         let fileName = ""
 
@@ -187,16 +189,23 @@ export default function RecherchePage() {
           fileName = result.image_url.split("/").pop()?.toLowerCase() || ""
         } else if (result.image_id) {
           fileName = String(result.image_id).toLowerCase()
+        } else if (result.image || result.filename) {
+          fileName = (result.image || result.filename).toLowerCase()
+          imageUrl = `${IMAGE_SERVER_PREFIX}/images/${fileName}`
         }
 
         let luminaireId = null
+        let enrichedMetadata = null
+
         if (fileName) {
           try {
             const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
             if (response.ok) {
               const data = await response.json()
+              console.log("[v0] Luminaire data from API:", data)
               if (data.success && data.found) {
                 luminaireId = data.luminaireId
+                enrichedMetadata = data.metadata
               }
             }
           } catch (error) {
@@ -204,22 +213,44 @@ export default function RecherchePage() {
           }
         }
 
-        const metadata = result.metadata || {}
+        const metadata = enrichedMetadata || result.metadata || result || {}
 
         const nom =
-          metadata.nom || metadata.name || metadata.title || result.nom || result.name || result.title || "Sans nom"
+          metadata.nom ||
+          metadata.name ||
+          metadata.title ||
+          metadata.modele ||
+          metadata.model ||
+          result.nom ||
+          result.name ||
+          result.title ||
+          result.modele ||
+          "Sans nom"
 
         const artiste =
           metadata.artiste ||
           metadata.artist ||
           metadata.designer ||
+          metadata.createur ||
+          metadata.auteur ||
           result.artiste ||
           result.artist ||
           result.designer ||
+          result.createur ||
           "Inconnu"
 
         const annee =
-          metadata.annee || metadata.year || metadata.date || result.annee || result.year || result.date || ""
+          metadata.annee ||
+          metadata.year ||
+          metadata.date ||
+          metadata.periode ||
+          result.annee ||
+          result.year ||
+          result.date ||
+          result.periode ||
+          ""
+
+        console.log("[v0] Extracted metadata:", { nom, artiste, annee })
 
         return {
           imageUrl,
@@ -231,7 +262,6 @@ export default function RecherchePage() {
         }
       }),
     )
-
     return enriched
   }
 
