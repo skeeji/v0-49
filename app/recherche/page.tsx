@@ -178,7 +178,7 @@ export default function RecherchePage() {
 
   const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
     const enriched = await Promise.all(
-      results.map(async (result) => {
+      results.slice(0, 5).map(async (result) => {
         console.log("[v0] Raw result from orchestrator:", result)
 
         let imageUrl = "/placeholder.svg"
@@ -213,18 +213,16 @@ export default function RecherchePage() {
           }
         }
 
-        const metadata = enrichedMetadata || result.metadata || result || {}
+        const metadata = enrichedMetadata || {}
 
         const nom =
           metadata.nom ||
           metadata.name ||
           metadata.title ||
           metadata.modele ||
-          metadata.model ||
           result.nom ||
           result.name ||
           result.title ||
-          result.modele ||
           "Sans nom"
 
         const artiste =
@@ -232,11 +230,9 @@ export default function RecherchePage() {
           metadata.artist ||
           metadata.designer ||
           metadata.createur ||
-          metadata.auteur ||
           result.artiste ||
           result.artist ||
           result.designer ||
-          result.createur ||
           "Inconnu"
 
         const annee =
@@ -247,10 +243,9 @@ export default function RecherchePage() {
           result.annee ||
           result.year ||
           result.date ||
-          result.periode ||
           ""
 
-        console.log("[v0] Extracted metadata:", { nom, artiste, annee })
+        console.log("[v0] Final extracted metadata:", { nom, artiste, annee, luminaireId })
 
         return {
           imageUrl,
@@ -258,11 +253,12 @@ export default function RecherchePage() {
           luminaireId,
           nom,
           artiste,
-          annee: String(annee),
+          annee,
         }
       }),
     )
-    return enriched
+
+    return enriched.filter((r) => r.luminaireId !== null)
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -275,7 +271,10 @@ export default function RecherchePage() {
   }
 
   const handleSearch = async () => {
-    if (!inputValue.trim() && !selectedImage) return
+    if (!inputValue.trim() && !selectedImage) {
+      toast.error("Veuillez entrer une description ou téléverser une image")
+      return
+    }
 
     if (!user) {
       toast.error("Connexion requise pour utiliser la recherche")
@@ -296,16 +295,15 @@ export default function RecherchePage() {
     const newSearchContext =
       conversationContext + (inputValue.trim() ? (conversationContext ? ", " : "") + inputValue.trim() : "")
 
-    const displayText = inputValue.trim() || "Recherche par image"
+    const displayText = inputValue.trim() || (selectedImage ? "Recherche par image" : "")
 
+    let userImageUrl: string | undefined = undefined
     if (selectedImage) {
-      const imageUrl = URL.createObjectURL(selectedImage)
-      addMessage("user", displayText, imageUrl)
-    } else {
-      addMessage("user", displayText)
+      userImageUrl = URL.createObjectURL(selectedImage)
     }
 
-    const currentInput = inputValue
+    addMessage("user", displayText, userImageUrl)
+
     const currentImage = selectedImage
 
     setInputValue("")
@@ -322,7 +320,7 @@ export default function RecherchePage() {
         formData.append("image", currentImage)
       }
 
-      formData.append("top_k", "3")
+      formData.append("top_k", "5")
 
       const response = await fetch(API_ORCHESTRATOR, {
         method: "POST",
@@ -344,21 +342,21 @@ export default function RecherchePage() {
           newSearchContext,
         )
 
-        toast.success(`${enrichedResults.length} luminaire(s) trouvé(s)`)
+        if (user) {
+          incrementSearchCount()
+        }
       } else {
-        addMessage(
-          "assistant",
-          "Je n'ai trouvé aucun luminaire correspondant à votre recherche. Essayez une autre description ou image.",
-          undefined,
-          undefined,
-          newSearchContext,
-        )
-        toast.info("Aucun résultat trouvé")
+        addMessage("assistant", "Je n'ai trouvé aucun luminaire correspondant à votre recherche.", undefined, [])
       }
     } catch (error) {
-      console.error("Search error:", error)
-      addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.")
+      console.error("Erreur de recherche:", error)
       toast.error("Erreur lors de la recherche")
+      addMessage(
+        "assistant",
+        "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.",
+        undefined,
+        [],
+      )
     } finally {
       setIsSearching(false)
     }
@@ -517,7 +515,7 @@ export default function RecherchePage() {
 
                             {message.results && message.results.length > 0 && (
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
-                                {message.results.slice(0, 3).map((result, index) => {
+                                {message.results.slice(0, 5).map((result, index) => {
                                   if (!result.luminaireId) return null
 
                                   return (
@@ -536,13 +534,15 @@ export default function RecherchePage() {
                                         />
                                       </div>
                                       <div className="p-2 md:p-3 bg-white">
-                                        <p className="text-xs md:text-sm font-medium text-slate-800 truncate">
+                                        <p className="text-xs md:text-sm font-medium text-slate-800 line-clamp-1">
                                           {result.nom}
                                         </p>
-                                        <p className="text-[10px] md:text-xs text-slate-600 truncate">
+                                        <p className="text-[10px] md:text-xs text-slate-600 line-clamp-1">
                                           {result.artiste}
                                         </p>
-                                        <p className="text-[10px] md:text-xs text-slate-500">{result.annee}</p>
+                                        {result.annee && (
+                                          <p className="text-[10px] md:text-xs text-slate-500">{result.annee}</p>
+                                        )}
                                       </div>
                                     </Link>
                                   )
