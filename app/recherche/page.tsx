@@ -177,14 +177,8 @@ export default function RecherchePage() {
   const IMAGE_SERVER_PREFIX = "https://image-similarity-api-590690354412.us-central1.run.app"
 
   const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
-    console.log("[v0] ========== ENRICHMENT START ==========")
-    console.log("[v0] Number of results to enrich:", results.length)
-
     const enriched = await Promise.all(
-      results.slice(0, 5).map(async (result, index) => {
-        console.log(`[v0] ========== RESULT ${index + 1} ==========`)
-        console.log("[v0] Raw result from orchestrator:", JSON.stringify(result, null, 2))
-
+      results.slice(0, 5).map(async (result) => {
         let imageUrl = "/placeholder.svg"
         let fileName = ""
 
@@ -199,115 +193,64 @@ export default function RecherchePage() {
           imageUrl = `${IMAGE_SERVER_PREFIX}/images/${fileName}`
         }
 
-        console.log("[v0] Extracted fileName:", fileName)
-        console.log("[v0] Image URL:", imageUrl)
-
         let luminaireId = null
         let enrichedMetadata = null
 
         if (fileName) {
           try {
             const apiUrl = `/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`
-            console.log("[v0] Calling local API:", apiUrl)
-
             const response = await fetch(apiUrl)
-            console.log("[v0] API response status:", response.status)
 
             if (response.ok) {
               const data = await response.json()
-              console.log("[v0] API response data:", JSON.stringify(data, null, 2))
-
               if (data.success && data.found) {
                 luminaireId = data.luminaireId
                 enrichedMetadata = data.metadata
-                console.log("[v0] Found luminaire ID:", luminaireId)
-                console.log("[v0] Enriched metadata:", JSON.stringify(enrichedMetadata, null, 2))
-              } else {
-                console.log("[v0] Luminaire not found in local database")
               }
-            } else {
-              console.log("[v0] API call failed with status:", response.status)
             }
           } catch (error) {
-            console.error("[v0] Error fetching luminaire ID:", error)
+            console.error("Error fetching luminaire ID:", error)
           }
-        } else {
-          console.log("[v0] No fileName to search")
         }
 
         const apiMeta = enrichedMetadata || {}
         const resultMeta = result.metadata || {}
 
-        console.log("[v0] apiMeta:", JSON.stringify(apiMeta, null, 2))
-        console.log("[v0] resultMeta:", JSON.stringify(resultMeta, null, 2))
-        console.log(
-          "[v0] result direct fields:",
-          JSON.stringify(
-            {
-              nom: result.nom,
-              name: result.name,
-              artiste: result.artiste,
-              designer: result.designer,
-              annee: result.annee,
-              year: result.year,
-            },
-            null,
-            2,
-          ),
-        )
-
         const nom =
           apiMeta.nom ||
           apiMeta.name ||
           apiMeta.title ||
-          apiMeta.modele ||
           resultMeta.nom ||
           resultMeta.name ||
           resultMeta.title ||
-          resultMeta.modele ||
           result.nom ||
           result.name ||
           result.title ||
-          result.modele ||
           (fileName ? fileName.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "").replace(/[_-]/g, " ") : "Sans nom")
 
         const artiste =
           apiMeta.artiste ||
           apiMeta.artist ||
           apiMeta.designer ||
-          apiMeta.createur ||
-          apiMeta.auteur ||
           resultMeta.artiste ||
           resultMeta.artist ||
           resultMeta.designer ||
-          resultMeta.createur ||
-          resultMeta.auteur ||
           result.artiste ||
           result.artist ||
           result.designer ||
-          result.createur ||
-          result.auteur ||
           "Inconnu"
 
         const annee =
           apiMeta.annee ||
           apiMeta.year ||
           apiMeta.date ||
-          apiMeta.periode ||
-          apiMeta.epoque ||
           resultMeta.annee ||
           resultMeta.year ||
           resultMeta.date ||
-          resultMeta.periode ||
-          resultMeta.epoque ||
           result.annee ||
           result.year ||
           result.date ||
-          result.periode ||
-          result.epoque ||
           ""
-
-        console.log("[v0] Final extracted metadata:", { nom, artiste, annee, luminaireId, fileName })
 
         return {
           imageUrl,
@@ -320,11 +263,7 @@ export default function RecherchePage() {
       }),
     )
 
-    const validResults = enriched.filter((r) => r.luminaireId !== null)
-    console.log("[v0] Valid results with luminaireId:", validResults.length)
-    console.log("[v0] ========== ENRICHMENT END ==========")
-
-    return validResults
+    return enriched.filter((r) => r.luminaireId !== null)
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -397,7 +336,6 @@ export default function RecherchePage() {
       if (!response.ok) throw new Error("Erreur lors de la recherche")
 
       const data = await response.json()
-      console.log("[v0] API orchestrator response:", data)
 
       if (data.results && data.results.length > 0) {
         const enrichedResults = await enrichOrchestratorResults(data.results)
