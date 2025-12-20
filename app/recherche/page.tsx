@@ -234,12 +234,18 @@ export default function RecherchePage() {
 
       const enrichedResults: SearchResult[] = await Promise.all(
         rawResults.map(async (result: any) => {
-          console.log("[v0] Processing result:", result)
+          console.log("[v0] ========== PROCESSING RESULT ==========")
+          console.log("[v0] Raw result object:", JSON.stringify(result, null, 2))
+          console.log("[v0] Result keys:", Object.keys(result))
 
           // For image searches: result has metadata object
           // For text searches: result has fields directly
           const metadata = result.metadata || {}
           const hasMetadata = Object.keys(metadata).length > 0
+
+          console.log("[v0] Metadata object:", JSON.stringify(metadata, null, 2))
+          console.log("[v0] Metadata keys:", Object.keys(metadata))
+          console.log("[v0] Has metadata?", hasMetadata)
 
           // Extract image URL
           const imageUrl = result.imageUrl || result.image_url || result.image || result.lien_site || ""
@@ -248,59 +254,100 @@ export default function RecherchePage() {
           const filenameWithExt = imageUrl.split("/").pop() || ""
           const imageName = filenameWithExt.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "")
 
-          console.log("[v0] Extracted filename:", imageName, "from:", imageUrl)
+          console.log("[v0] Image URL:", imageUrl)
+          console.log("[v0] Full Image URL:", fullImageUrl)
+          console.log("[v0] Extracted filename:", imageName)
 
           // Try to get luminaireId from local API
           let luminaireId = result.luminaireId || null
+          console.log("[v0] Initial luminaireId:", luminaireId)
+
           if (imageName && !luminaireId) {
             try {
               const metaResponse = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(imageName)}`)
               const metaData = await metaResponse.json()
-              console.log("[v0] Metadata response for", imageName, ":", metaData)
+              console.log("[v0] Metadata API response for", imageName, ":", JSON.stringify(metaData, null, 2))
               if (metaData.success && metaData.luminaireId) {
                 luminaireId = metaData.luminaireId
+                console.log("[v0] Found luminaireId from API:", luminaireId)
+              } else {
+                console.log("[v0] No luminaireId found in API response")
               }
             } catch (error) {
               console.error("[v0] Error fetching metadata:", error)
             }
           }
 
+          const extractedNom =
+            metadata.nom ||
+            metadata.name ||
+            metadata.title ||
+            metadata.modele ||
+            result.nom ||
+            result.name ||
+            result.title ||
+            result.modele ||
+            "Sans nom"
+
+          const extractedArtiste =
+            metadata.artiste ||
+            metadata.artist ||
+            metadata.designer ||
+            metadata.createur ||
+            result.artiste ||
+            result.artist ||
+            result.designer ||
+            result.createur ||
+            "Inconnu"
+
+          const extractedAnnee =
+            metadata.annee ||
+            metadata.year ||
+            metadata.date ||
+            metadata.periode ||
+            result.annee ||
+            result.year ||
+            result.date ||
+            result.periode ||
+            ""
+
+          console.log("[v0] Extraction attempts:")
+          console.log("[v0]   - metadata.nom:", metadata.nom)
+          console.log("[v0]   - metadata.name:", metadata.name)
+          console.log("[v0]   - metadata.title:", metadata.title)
+          console.log("[v0]   - metadata.modele:", metadata.modele)
+          console.log("[v0]   - result.nom:", result.nom)
+          console.log("[v0]   - result.name:", result.name)
+          console.log("[v0]   - result.title:", result.title)
+          console.log("[v0]   - result.modele:", result.modele)
+          console.log("[v0]   - FINAL nom:", extractedNom)
+
+          console.log("[v0]   - metadata.artiste:", metadata.artiste)
+          console.log("[v0]   - metadata.artist:", metadata.artist)
+          console.log("[v0]   - metadata.designer:", metadata.designer)
+          console.log("[v0]   - result.artiste:", result.artiste)
+          console.log("[v0]   - result.artist:", result.artist)
+          console.log("[v0]   - result.designer:", result.designer)
+          console.log("[v0]   - FINAL artiste:", extractedArtiste)
+
+          console.log("[v0]   - metadata.annee:", metadata.annee)
+          console.log("[v0]   - metadata.year:", metadata.year)
+          console.log("[v0]   - result.annee:", result.annee)
+          console.log("[v0]   - result.year:", result.year)
+          console.log("[v0]   - FINAL annee:", extractedAnnee)
+
           const finalResult: SearchResult = {
-            nom:
-              metadata.nom ||
-              metadata.name ||
-              metadata.title ||
-              metadata.modele ||
-              result.nom ||
-              result.name ||
-              result.title ||
-              result.modele ||
-              "Sans nom",
-            artiste:
-              metadata.artiste ||
-              metadata.artist ||
-              metadata.designer ||
-              metadata.createur ||
-              result.artiste ||
-              result.artist ||
-              result.designer ||
-              result.createur ||
-              "Inconnu",
-            annee:
-              metadata.annee ||
-              metadata.year ||
-              metadata.date ||
-              metadata.periode ||
-              result.annee ||
-              result.year ||
-              result.date ||
-              result.periode ||
-              "",
+            nom: extractedNom,
+            artiste: extractedArtiste,
+            annee: extractedAnnee,
             luminaireId: luminaireId,
             imageUrl: fullImageUrl,
           }
 
-          console.log("[v0] Final result:", finalResult)
+          console.log("[v0] ========== FINAL RESULT ==========")
+          console.log("[v0]", JSON.stringify(finalResult, null, 2))
+          console.log("[v0] =====================================")
+
           return finalResult
         }),
       )
