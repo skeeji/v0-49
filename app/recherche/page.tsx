@@ -240,12 +240,10 @@ export default function RecherchePage() {
           const imageUrl = result.imageUrl || result.image_url || result.image || result.lien_site || ""
           const fullImageUrl = imageUrl.startsWith("/") ? `${IMAGE_PREFIX}${imageUrl}` : imageUrl
 
-          // Extract filename
-          const imageName =
-            imageUrl
-              .split("/")
-              .pop()
-              ?.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "") || ""
+          const filenameWithExt = imageUrl.split("/").pop() || ""
+          const imageName = filenameWithExt.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "")
+
+          console.log("[v0] Extracted filename:", imageName, "from:", imageUrl)
 
           // Try to get luminaireId from local API
           let luminaireId = result.luminaireId || null
@@ -253,6 +251,7 @@ export default function RecherchePage() {
             try {
               const metaResponse = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(imageName)}`)
               const metaData = await metaResponse.json()
+              console.log("[v0] Metadata response for", imageName, ":", metaData)
               if (metaData.success && metaData.luminaireId) {
                 luminaireId = metaData.luminaireId
               }
@@ -277,9 +276,8 @@ export default function RecherchePage() {
         }),
       )
 
-      // Filter results with luminaireId
-      const validResults = enrichedResults.filter((r) => r.luminaireId)
-      console.log("[v0] Valid results:", validResults.length)
+      const validResults = enrichedResults
+      console.log("[v0] Total results:", validResults.length)
 
       // Create assistant message
       const assistantMessage: Message = {
@@ -460,34 +458,41 @@ export default function RecherchePage() {
 
                 {message.results && message.results.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    {message.results.map((result, idx) => (
-                      <Link
-                        key={idx}
-                        href={`/luminaires/${result.luminaireId}`}
-                        className="block bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-200 border border-amber-100"
-                      >
-                        {result.imageUrl && (
-                          <div className="relative h-48 w-full">
-                            <Image
-                              src={result.imageUrl || "/placeholder.svg"}
-                              alt={result.nom || "Luminaire"}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        )}
-                        <div className="p-4">
-                          <p className="font-semibold text-sm text-slate-800 mb-1">{result.nom}</p>
-                          <p className="text-xs text-slate-600 mb-1">{result.artiste}</p>
-                          {result.annee && (
-                            <p className="text-xs" style={{ color: "#f2d895" }}>
-                              {result.annee}
-                            </p>
+                    {message.results.map((result, idx) => {
+                      const CardWrapper = result.luminaireId ? Link : "div"
+                      const cardProps = result.luminaireId ? { href: `/luminaires/${result.luminaireId}` } : {}
+
+                      return (
+                        <CardWrapper
+                          key={idx}
+                          {...cardProps}
+                          className={`block bg-white rounded-xl overflow-hidden shadow-md transition-all duration-200 border border-amber-100 ${
+                            result.luminaireId ? "hover:shadow-xl cursor-pointer" : "opacity-75"
+                          }`}
+                        >
+                          {result.imageUrl && (
+                            <div className="relative h-48 w-full">
+                              <Image
+                                src={result.imageUrl || "/placeholder.svg"}
+                                alt={result.nom || "Luminaire"}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
                           )}
-                        </div>
-                      </Link>
-                    ))}
+                          <div className="p-4">
+                            <p className="font-semibold text-sm text-slate-800 mb-1">{result.nom}</p>
+                            <p className="text-xs text-slate-600 mb-1">{result.artiste}</p>
+                            {result.annee && (
+                              <p className="text-xs" style={{ color: "#f2d895" }}>
+                                {result.annee}
+                              </p>
+                            )}
+                          </div>
+                        </CardWrapper>
+                      )
+                    })}
                   </div>
                 )}
               </div>
