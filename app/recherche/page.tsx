@@ -554,7 +554,7 @@ export default function RecherchePage() {
                 )}
 
                 {message.results && message.results.length > 0 && (
-                  <div className="flex gap-4 mt-4 overflow-x-auto pb-2">
+                  <div className="grid grid-cols-4 gap-4 mt-4 w-full">
                     {message.results.map((result, idx) => {
                       const CardWrapper = result.luminaireId ? Link : "div"
                       const cardProps = result.luminaireId ? { href: `/luminaires/${result.luminaireId}` } : {}
@@ -563,7 +563,7 @@ export default function RecherchePage() {
                         <CardWrapper
                           key={idx}
                           {...cardProps}
-                          className={`flex-shrink-0 w-56 block bg-white rounded-xl overflow-hidden shadow-md transition-all duration-200 border border-amber-100 ${
+                          className={`block bg-white rounded-xl overflow-hidden shadow-md transition-all duration-200 border border-amber-100 ${
                             result.luminaireId ? "hover:shadow-xl cursor-pointer" : "opacity-75"
                           }`}
                         >
