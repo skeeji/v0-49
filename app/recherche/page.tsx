@@ -190,7 +190,6 @@ export default function RecherchePage() {
         }
 
         let luminaireId = null
-        let enrichedMetadata = null
 
         if (fileName) {
           try {
@@ -199,7 +198,6 @@ export default function RecherchePage() {
               const data = await response.json()
               if (data.success && data.found) {
                 luminaireId = data.luminaireId
-                enrichedMetadata = data.metadata
               }
             }
           } catch (error) {
@@ -207,47 +205,15 @@ export default function RecherchePage() {
           }
         }
 
-        const metadata = result.metadata || enrichedMetadata || result
-
-        const nom =
-          metadata.nom ||
-          metadata.name ||
-          metadata.title ||
-          metadata.Nom ||
-          result.nom ||
-          result.name ||
-          result.title ||
-          "Sans nom"
-
-        const artiste =
-          metadata.artiste ||
-          metadata.designer ||
-          metadata.artist ||
-          metadata.Artiste ||
-          metadata.Designer ||
-          result.artiste ||
-          result.designer ||
-          result.artist ||
-          "Inconnu"
-
-        const annee =
-          metadata.annee ||
-          metadata.year ||
-          metadata.date ||
-          metadata.Annee ||
-          metadata.Year ||
-          result.annee ||
-          result.year ||
-          result.date ||
-          ""
+        const metadata = result.metadata || result
 
         return {
           imageUrl,
           luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
           luminaireId,
-          nom,
-          artiste,
-          annee: annee ? String(annee) : "",
+          nom: metadata.nom || result.nom || "Sans nom",
+          artiste: metadata.artiste || result.artiste || metadata.designer || result.designer || "Inconnu",
+          annee: metadata.annee || result.annee || "",
         }
       }),
     )
@@ -286,12 +252,13 @@ export default function RecherchePage() {
     const newSearchContext =
       conversationContext + (inputValue.trim() ? (conversationContext ? ", " : "") + inputValue.trim() : "")
 
-    const userMessageContent = inputValue.trim() || "Recherche par image"
+    const displayText = inputValue.trim() || "Recherche par image"
+
     if (selectedImage) {
       const imageUrl = URL.createObjectURL(selectedImage)
-      addMessage("user", userMessageContent, imageUrl)
+      addMessage("user", displayText, imageUrl)
     } else {
-      addMessage("user", userMessageContent)
+      addMessage("user", displayText)
     }
 
     const currentInput = inputValue
@@ -483,20 +450,16 @@ export default function RecherchePage() {
                       >
                         {message.role === "user" && (
                           <>
-                            {message.imageUrl ? (
-                              <div className="space-y-2">
-                                <p className="text-xs md:text-sm text-slate-600">{message.content}</p>
-                                <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden">
-                                  <Image
-                                    src={message.imageUrl || "/placeholder.svg"}
-                                    alt="Uploaded"
-                                    fill
-                                    className="object-cover"
-                                  />
-                                </div>
+                            <p className="text-sm md:text-base text-slate-800 mb-2">{message.content}</p>
+                            {message.imageUrl && (
+                              <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden mt-2">
+                                <Image
+                                  src={message.imageUrl || "/placeholder.svg"}
+                                  alt="Uploaded image"
+                                  fill
+                                  className="object-cover"
+                                />
                               </div>
-                            ) : (
-                              <p className="text-sm md:text-base text-slate-800">{message.content}</p>
                             )}
                             <p className="text-[10px] md:text-xs text-slate-500 mt-2">
                               {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
@@ -554,9 +517,9 @@ export default function RecherchePage() {
                   {isSearching && (
                     <div className="flex justify-start">
                       <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4">
-                        <div className="flex items-center gap-2 md:gap-3">
+                        <div className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#f2d895" }} />
-                          <p className="text-xs md:text-sm text-slate-600">Recherche en cours...</p>
+                          <span className="text-sm md:text-base text-slate-600">Recherche en cours...</span>
                         </div>
                       </div>
                     </div>
@@ -567,38 +530,33 @@ export default function RecherchePage() {
             </div>
           </div>
 
-          <div className="border-t border-slate-200 bg-white p-3 md:p-4">
+          <div className="p-3 md:p-4 bg-white border-t border-slate-200">
             <div className="max-w-4xl mx-auto">
               {imagePreview && (
-                <div className="mb-2 md:mb-3 flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-amber-50 rounded-lg">
-                  <div className="relative w-12 h-12 md:w-16 md:h-16 rounded overflow-hidden flex-shrink-0">
+                <div className="mb-3 relative inline-block">
+                  <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 border-amber-200">
                     <Image src={imagePreview || "/placeholder.svg"} alt="Preview" fill className="object-cover" />
                   </div>
-                  <p className="text-xs md:text-sm text-slate-600 flex-1">Image sélectionnée</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <button
                     onClick={() => {
                       setSelectedImage(null)
                       setImagePreview(null)
                     }}
-                    className="text-xs md:text-sm"
+                    className="absolute -top-2 -right-2 w-5 h-5 md:w-6 md:h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600"
                   >
-                    Supprimer
-                  </Button>
+                    ×
+                  </button>
                 </div>
               )}
 
-              <div className="flex gap-2 md:gap-3">
-                <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" className="hidden" />
-
+              <div className="flex gap-2">
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                 <Button
-                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
                   variant="outline"
                   size="icon"
-                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 h-10 w-10 md:h-12 md:w-12"
                   disabled={isSearching}
-                  className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10"
                 >
                   <Upload className="w-4 h-4 md:w-5 md:h-5" />
                 </Button>
@@ -613,16 +571,16 @@ export default function RecherchePage() {
                     }
                   }}
                   placeholder="Décrivez le luminaire ou affinez votre recherche..."
+                  className="flex-1 h-10 md:h-12 text-sm md:text-base"
                   disabled={isSearching}
-                  className="flex-1 text-sm md:text-base"
                 />
 
                 <Button
                   onClick={handleSearch}
-                  disabled={isSearching || (!inputValue.trim() && !selectedImage)}
-                  className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10"
                   size="icon"
                   style={{ backgroundColor: "#f2d895" }}
+                  className="shrink-0 h-10 w-10 md:h-12 md:w-12"
+                  disabled={isSearching || (!inputValue.trim() && !selectedImage)}
                 >
                   {isSearching ? (
                     <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
