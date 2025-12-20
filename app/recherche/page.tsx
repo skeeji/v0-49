@@ -210,13 +210,15 @@ export default function RecherchePage() {
         fileInputRef.current.value = ""
       }
 
-      // Call API
+      // Call orchestrator API
       const formData = new FormData()
       formData.append("query", searchText || "")
       if (searchImage) {
         formData.append("image", searchImage)
       }
       formData.append("top_k", "5")
+
+      console.log("[v0] Calling orchestrator API with:", { query: searchText, hasImage: !!searchImage })
 
       const response = await fetch(API_ORCHESTRATOR, {
         method: "POST",
@@ -226,38 +228,58 @@ export default function RecherchePage() {
       if (!response.ok) throw new Error("Erreur lors de la recherche")
 
       const data = await response.json()
+      console.log("[v0] Orchestrator response:", data)
+
       const rawResults = data.results || []
 
-      // Enrich results with metadata
       const enrichedResults: SearchResult[] = await Promise.all(
         rawResults.map(async (result: any) => {
-          // Extract image filename from various possible fields
-          const imageUrl = result.imageUrl || result.image_url || result.lien_site || ""
+          console.log("[v0] Processing result:", result)
+
+          // Extract image URL
+          const imageUrl = result.imageUrl || result.image_url || result.image || result.lien_site || ""
+          const fullImageUrl = imageUrl.startsWith("/") ? `${IMAGE_PREFIX}${imageUrl}` : imageUrl
+
+          // Extract filename
           const imageName =
             imageUrl
               .split("/")
               .pop()
               ?.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "") || ""
 
-          // Get metadata from local API
-          const metadata = imageName ? await getLuminaireMetadata(imageName) : null
-
-          // Build final result
-          const finalResult: SearchResult = {
-            nom: result.nom || result.name || result.title || result.modele || "Sans nom",
-            artiste:
-              result.artiste || result.artist || result.designer || result.createur || result.auteur || "Inconnu",
-            annee: result.annee || result.year || result.date || result.periode || result.epoque || "",
-            luminaireId: metadata?.luminaireId || result.luminaireId || null,
-            imageUrl: imageUrl.startsWith("/") ? `${IMAGE_PREFIX}${imageUrl}` : imageUrl,
+          // Try to get luminaireId from local API
+          let luminaireId = result.luminaireId || null
+          if (imageName && !luminaireId) {
+            try {
+              const metaResponse = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(imageName)}`)
+              const metaData = await metaResponse.json()
+              if (metaData.success && metaData.luminaireId) {
+                luminaireId = metaData.luminaireId
+              }
+            } catch (error) {
+              console.error("[v0] Error fetching metadata:", error)
+            }
           }
 
+          // Extract metadata from orchestrator response
+          const metadata = result.metadata || result
+
+          const finalResult: SearchResult = {
+            nom: metadata.nom || metadata.name || metadata.title || metadata.modele || "Sans nom",
+            artiste: metadata.artiste || metadata.artist || metadata.designer || metadata.createur || "Inconnu",
+            annee: metadata.annee || metadata.year || metadata.date || metadata.periode || "",
+            luminaireId: luminaireId,
+            imageUrl: fullImageUrl,
+          }
+
+          console.log("[v0] Final result:", finalResult)
           return finalResult
         }),
       )
 
       // Filter results with luminaireId
       const validResults = enrichedResults.filter((r) => r.luminaireId)
+      console.log("[v0] Valid results:", validResults.length)
 
       // Create assistant message
       const assistantMessage: Message = {
@@ -291,7 +313,7 @@ export default function RecherchePage() {
       setConversations(updatedConversations)
       saveConversations(updatedConversations)
     } catch (error) {
-      console.error("Search error:", error)
+      console.error("[v0] Search error:", error)
       // Add error message
       const errorMessage: Message = {
         id: Date.now().toString(),
@@ -340,15 +362,19 @@ export default function RecherchePage() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
       {/* Sidebar */}
       <div
         className={`${
           showSidebar ? "w-64" : "w-0"
-        } transition-all duration-300 border-r border-border bg-card overflow-hidden flex flex-col`}
+        } transition-all duration-300 border-r border-amber-200 bg-white/80 backdrop-blur-sm overflow-hidden flex flex-col`}
       >
-        <div className="p-4 border-b border-border">
-          <Button onClick={createNewConversation} className="w-full bg-transparent" variant="outline">
+        <div className="p-4 border-b border-amber-200">
+          <Button
+            onClick={createNewConversation}
+            className="w-full"
+            style={{ backgroundColor: "#f2d895", color: "white" }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Nouvelle conversation
           </Button>
@@ -359,14 +385,14 @@ export default function RecherchePage() {
             <div
               key={conv.id}
               onClick={() => loadConversation(conv)}
-              className={`p-3 mb-2 rounded-lg cursor-pointer hover:bg-accent transition-colors group ${
-                currentConversation?.id === conv.id ? "bg-accent" : ""
+              className={`p-3 mb-2 rounded-lg cursor-pointer hover:bg-amber-100 transition-colors group ${
+                currentConversation?.id === conv.id ? "bg-amber-100" : ""
               }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate text-foreground">{conv.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm font-medium truncate text-slate-800">{conv.title}</p>
+                  <p className="text-xs text-slate-600">
                     {conv.messages.length} message{conv.messages.length > 1 ? "s" : ""}
                   </p>
                 </div>
@@ -387,20 +413,24 @@ export default function RecherchePage() {
       {/* Main content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="h-16 border-b border-border flex items-center px-4">
+        <div className="h-16 border-b border-amber-200 bg-white/80 backdrop-blur-sm flex items-center px-4">
           <Button variant="ghost" size="icon" onClick={() => setShowSidebar(!showSidebar)}>
             {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
           </Button>
-          <h1 className="text-lg font-semibold ml-4">Recherche IA</h1>
+          <h1 className="text-lg font-semibold ml-4" style={{ color: "#f2d895" }}>
+            Recherche IA
+          </h1>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {!currentConversation && (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <p className="text-lg mb-2">Commencez une nouvelle recherche</p>
-                <p className="text-sm">Décrivez un luminaire ou uploadez une image</p>
+              <div className="text-center text-slate-700">
+                <p className="text-xl mb-2 font-serif" style={{ color: "#f2d895" }}>
+                  Commencez une nouvelle recherche
+                </p>
+                <p className="text-sm text-slate-600">Décrivez un luminaire ou uploadez une image</p>
               </div>
             </div>
           )}
@@ -408,20 +438,22 @@ export default function RecherchePage() {
           {currentConversation?.messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-3xl ${
-                  message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-                } rounded-lg p-4`}
+                className={`max-w-3xl rounded-2xl p-6 shadow-lg ${
+                  message.role === "user"
+                    ? "bg-gradient-to-br from-amber-100 to-orange-100 text-slate-800"
+                    : "bg-white/90 backdrop-blur-sm text-slate-800"
+                }`}
               >
-                {message.content && <p className="mb-2">{message.content}</p>}
+                {message.content && <p className="mb-3 leading-relaxed">{message.content}</p>}
 
                 {message.imageUrl && (
-                  <div className="mb-2">
+                  <div className="mb-3">
                     <Image
                       src={message.imageUrl || "/placeholder.svg"}
                       alt="Uploaded"
-                      width={200}
-                      height={200}
-                      className="rounded-lg object-cover"
+                      width={250}
+                      height={250}
+                      className="rounded-xl object-cover shadow-md"
                     />
                   </div>
                 )}
@@ -432,7 +464,7 @@ export default function RecherchePage() {
                       <Link
                         key={idx}
                         href={`/luminaires/${result.luminaireId}`}
-                        className="block bg-background rounded-lg overflow-hidden shadow hover:shadow-lg transition-shadow border border-border"
+                        className="block bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-200 border border-amber-100"
                       >
                         {result.imageUrl && (
                           <div className="relative h-48 w-full">
@@ -445,10 +477,14 @@ export default function RecherchePage() {
                             />
                           </div>
                         )}
-                        <div className="p-3">
-                          <p className="font-semibold text-sm text-foreground truncate">{result.nom}</p>
-                          <p className="text-xs text-muted-foreground truncate">{result.artiste}</p>
-                          {result.annee && <p className="text-xs text-muted-foreground">{result.annee}</p>}
+                        <div className="p-4">
+                          <p className="font-semibold text-sm text-slate-800 mb-1">{result.nom}</p>
+                          <p className="text-xs text-slate-600 mb-1">{result.artiste}</p>
+                          {result.annee && (
+                            <p className="text-xs" style={{ color: "#f2d895" }}>
+                              {result.annee}
+                            </p>
+                          )}
                         </div>
                       </Link>
                     ))}
@@ -462,31 +498,37 @@ export default function RecherchePage() {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-border p-4">
+        <div className="border-t border-amber-200 bg-white/80 backdrop-blur-sm p-4">
           {imagePreview && (
             <div className="mb-4 relative inline-block">
               <Image
                 src={imagePreview || "/placeholder.svg"}
                 alt="Preview"
-                width={100}
-                height={100}
-                className="rounded-lg object-cover"
+                width={120}
+                height={120}
+                className="rounded-xl object-cover shadow-lg"
               />
               <Button
                 variant="destructive"
                 size="icon"
-                className="absolute -top-2 -right-2 h-6 w-6"
+                className="absolute -top-2 -right-2 h-7 w-7 rounded-full shadow-lg"
                 onClick={removeSelectedImage}
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
               </Button>
             </div>
           )}
 
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-3">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-            <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isSearching}>
-              <Upload className="w-4 h-4" />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSearching}
+              className="border-amber-300 hover:bg-amber-50"
+            >
+              <Upload className="w-5 h-5" style={{ color: "#f2d895" }} />
             </Button>
 
             <Input
@@ -495,11 +537,16 @@ export default function RecherchePage() {
               onKeyPress={handleKeyPress}
               placeholder="Décrivez le luminaire ou affinez votre recherche..."
               disabled={isSearching}
-              className="flex-1"
+              className="flex-1 border-amber-300 focus:border-amber-400 bg-white"
             />
 
-            <Button onClick={handleSearch} disabled={isSearching || (!inputValue.trim() && !selectedImage)}>
-              {isSearching ? "..." : <Send className="w-4 h-4" />}
+            <Button
+              onClick={handleSearch}
+              disabled={isSearching || (!inputValue.trim() && !selectedImage)}
+              style={{ backgroundColor: "#f2d895", color: "white" }}
+              className="hover:opacity-90"
+            >
+              {isSearching ? "..." : <Send className="w-5 h-5" />}
             </Button>
           </div>
         </div>
