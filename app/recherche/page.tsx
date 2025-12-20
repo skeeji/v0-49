@@ -568,21 +568,21 @@ export default function RecherchePage() {
                           }`}
                         >
                           {result.imageUrl && (
-                            <div className="relative h-64 w-full">
+                            <div className="relative h-64 w-full bg-white flex items-center justify-center">
                               <Image
                                 src={result.imageUrl || "/placeholder.svg"}
                                 alt={result.nom || "Luminaire"}
                                 fill
-                                className="object-cover"
+                                className="object-contain p-4"
                                 unoptimized
                               />
                             </div>
                           )}
                           <div className="p-4">
-                            <p className="font-semibold text-sm text-slate-800 mb-1">{result.nom}</p>
-                            <p className="text-xs text-slate-600 mb-1">{result.artiste}</p>
+                            <p className="font-semibold text-lg text-slate-800 mb-2">{result.nom}</p>
+                            <p className="text-base text-slate-600 mb-1">{result.artiste}</p>
                             {result.annee && (
-                              <p className="text-xs" style={{ color: "#f2d895" }}>
+                              <p className="text-base font-medium" style={{ color: "#f2d895" }}>
                                 {result.annee}
                               </p>
                             )}
