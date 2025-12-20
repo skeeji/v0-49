@@ -533,7 +533,7 @@ export default function RecherchePage() {
           {currentConversation?.messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-3xl rounded-2xl p-6 shadow-lg ${
+                className={`${message.role === "user" ? "max-w-3xl" : "w-full"} rounded-2xl p-6 shadow-lg ${
                   message.role === "user"
                     ? "bg-gradient-to-br from-amber-100 to-orange-100 text-slate-800"
                     : "bg-white/90 backdrop-blur-sm text-slate-800"
@@ -554,7 +554,7 @@ export default function RecherchePage() {
                 )}
 
                 {message.results && message.results.length > 0 && (
-                  <div className="grid grid-cols-4 gap-4 mt-4 w-full">
+                  <div className="grid grid-cols-4 gap-6 mt-4 w-full">
                     {message.results.map((result, idx) => {
                       const CardWrapper = result.luminaireId ? Link : "div"
                       const cardProps = result.luminaireId ? { href: `/luminaires/${result.luminaireId}` } : {}
