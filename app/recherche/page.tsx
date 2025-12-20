@@ -221,39 +221,51 @@ export default function RecherchePage() {
           apiMeta.nom ||
           apiMeta.name ||
           apiMeta.title ||
+          apiMeta.modele ||
           resultMeta.nom ||
           resultMeta.name ||
           resultMeta.title ||
+          resultMeta.modele ||
           result.nom ||
           result.name ||
           result.title ||
           result.modele ||
-          "Modèle non spécifié"
+          (fileName ? fileName.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "").replace(/[_-]/g, " ") : "Sans nom")
 
         const artiste =
           apiMeta.artiste ||
           apiMeta.artist ||
           apiMeta.designer ||
+          apiMeta.createur ||
+          apiMeta.auteur ||
           resultMeta.artiste ||
           resultMeta.artist ||
           resultMeta.designer ||
+          resultMeta.createur ||
+          resultMeta.auteur ||
           result.artiste ||
           result.artist ||
           result.designer ||
           result.createur ||
+          result.auteur ||
           "Inconnu"
 
         const annee =
           apiMeta.annee ||
           apiMeta.year ||
           apiMeta.date ||
+          apiMeta.periode ||
+          apiMeta.epoque ||
           resultMeta.annee ||
           resultMeta.year ||
           resultMeta.date ||
+          resultMeta.periode ||
+          resultMeta.epoque ||
           result.annee ||
           result.year ||
           result.date ||
           result.periode ||
+          result.epoque ||
           ""
 
         console.log("[v0] Final extracted metadata:", { nom, artiste, annee, luminaireId, fileName })
