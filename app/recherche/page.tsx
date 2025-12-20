@@ -11,8 +11,7 @@ import { toast } from "sonner"
 import Link from "next/link"
 import Image from "next/image"
 
-const API_BASE_URL_TEXT = "https://chatbot-984654216979.europe-west1.run.app"
-const API_BASE_URL_IMAGE = "https://image-similarity-api-590690354412.us-central1.run.app"
+const API_ORCHESTRATOR = "https://gersaint-multimodal-844978726064.europe-west1.run.app/api/multimodal_search"
 
 interface SearchResult {
   imageId?: string
@@ -175,8 +174,8 @@ export default function RecherchePage() {
     return updatedConversation
   }
 
-  const handleTextSearch = async () => {
-    if (!inputValue.trim()) return
+  const handleSearch = async () => {
+    if (!inputValue.trim() && !selectedImage) return
 
     if (!user) {
       toast.error("Connexion requise pour utiliser la recherche")
@@ -191,34 +190,47 @@ export default function RecherchePage() {
     const previousContext = currentConversation?.searchContext || ""
     const newSearchContext = previousContext ? `${previousContext}, ${inputValue}` : inputValue
 
-    addMessage("user", inputValue)
+    // Add user message
+    if (selectedImage) {
+      const imageUrl = URL.createObjectURL(selectedImage)
+      addMessage("user", inputValue || "Recherche par image", imageUrl)
+    } else {
+      addMessage("user", inputValue)
+    }
+
+    const currentInput = inputValue
+    const currentImage = selectedImage
+
     setInputValue("")
+    setSelectedImage(null)
+    setImagePreview(null)
     setIsSearching(true)
 
     try {
-      const response = await fetch(`${API_BASE_URL_TEXT}/api/search_text`, {
+      const formData = new FormData()
+
+      // Add query text (cumulative context)
+      formData.append("query", newSearchContext)
+
+      // Add image if provided
+      if (currentImage) {
+        formData.append("image", currentImage)
+      }
+
+      // Add top_k parameter
+      formData.append("top_k", "3")
+
+      const response = await fetch(API_ORCHESTRATOR, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: newSearchContext,
-          top_k: 3,
-        }),
+        body: formData,
       })
 
       if (!response.ok) throw new Error("Erreur lors de la recherche")
 
-      const text = await response.text()
-      let data
-      try {
-        data = JSON.parse(text)
-      } catch {
-        data = JSON.parse(text.replace(/:\s*NaN/g, ": null"))
-      }
+      const data = await response.json()
 
       if (data.results && data.results.length > 0) {
-        const enrichedResults = await enrichResultsWithIds(data.results)
+        const enrichedResults = await enrichOrchestratorResults(data.results)
 
         addMessage(
           "assistant",
@@ -232,7 +244,7 @@ export default function RecherchePage() {
       } else {
         addMessage(
           "assistant",
-          "Je n'ai trouvé aucun luminaire correspondant à votre recherche. Essayez une autre description.",
+          "Je n'ai trouvé aucun luminaire correspondant à votre recherche. Essayez une autre description ou image.",
           undefined,
           undefined,
           newSearchContext,
@@ -248,74 +260,23 @@ export default function RecherchePage() {
     }
   }
 
-  const handleImageSearch = async (file: File) => {
-    if (!user) {
-      toast.error("Connexion requise pour utiliser la recherche")
-      return
-    }
-
-    if (userData?.role !== "premium" && userData?.role !== "admin") {
-      toast.error("Cette fonctionnalité est réservée aux membres Premium")
-      return
-    }
-
-    const imageUrl = URL.createObjectURL(file)
-
-    addMessage("user", "Recherche par image", imageUrl)
-
-    setInputValue("")
-    setSelectedImage(null)
-    setImagePreview(null)
-    setIsSearching(true)
-
-    try {
-      const formData = new FormData()
-      formData.append("image", file)
-      formData.append("top_k", "3")
-
-      const response = await fetch(`${API_BASE_URL_IMAGE}/api/search`, {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) throw new Error("Erreur lors de la recherche par image")
-
-      const data = await response.json()
-
-      if (data.results && data.results.length > 0) {
-        const enrichedResults = await enrichImageResultsWithIds(data.results)
-
-        addMessage(
-          "assistant",
-          `J'ai trouvé ${enrichedResults.length} luminaire(s) similaire(s) :`,
-          undefined,
-          enrichedResults,
-        )
-
-        toast.success(`${enrichedResults.length} luminaire(s) similaire(s) trouvé(s)`)
-      } else {
-        addMessage("assistant", "Je n'ai trouvé aucun luminaire similaire. Essayez une autre image.")
-        toast.info("Aucun résultat trouvé")
-      }
-    } catch (error) {
-      console.error("Image search error:", error)
-      addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche par image.")
-      toast.error("Erreur lors de la recherche par image")
-    } finally {
-      setIsSearching(false)
-    }
-  }
-
-  const enrichResultsWithIds = async (results: any[]): Promise<SearchResult[]> => {
+  const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
     const enriched = await Promise.all(
       results.map(async (result) => {
-        const imageUrl = result.image_url?.startsWith("http")
-          ? result.image_url
-          : `${API_BASE_URL_TEXT}${result.image_url}`
+        let imageUrl = "/placeholder.svg"
+        let fileName = ""
 
-        const fileName = imageUrl.split("/").pop()?.toLowerCase()
+        // Handle image URL from orchestrator
+        if (result.image_url) {
+          imageUrl = result.image_url
+          fileName = imageUrl.split("/").pop()?.toLowerCase() || ""
+        } else if (result.image_id) {
+          fileName = String(result.image_id).toLowerCase()
+        }
+
         let luminaireId = null
 
+        // Fetch luminaire ID from filename
         if (fileName) {
           try {
             const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
@@ -335,54 +296,9 @@ export default function RecherchePage() {
           luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
           luminaireId,
           nom: result.nom || "Sans nom",
-          artiste: result.artiste || "Inconnu",
-          annee: result.annee === null ? "Non spécifié" : String(result.annee),
-          similarity: result.similarity || 0,
-        }
-      }),
-    )
-
-    return enriched
-  }
-
-  const enrichImageResultsWithIds = async (results: any[]): Promise<SearchResult[]> => {
-    const enriched = await Promise.all(
-      results.map(async (result) => {
-        const imageId = String(result.image_id || "").split("#")[0]
-        let imageUrl = "/placeholder.svg"
-
-        if (result.image_url) {
-          const urlString = String(result.image_url).trim()
-          if (urlString.startsWith("http")) {
-            imageUrl = urlString.split("#")[0]
-          } else {
-            imageUrl = `${API_BASE_URL_IMAGE}/images/${imageId}`
-          }
-        }
-
-        const fileName = imageId.toLowerCase()
-        let luminaireId = null
-
-        if (fileName) {
-          try {
-            const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
-            if (response.ok) {
-              const data = await response.json()
-              if (data.success && data.found) {
-                luminaireId = data.luminaireId
-              }
-            }
-          } catch (error) {
-            console.error("Error fetching luminaire ID:", error)
-          }
-        }
-
-        return {
-          imageId,
-          imageUrl,
-          luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
-          luminaireId,
-          similarity: result.similarity || 0,
+          artiste: result.artiste || result.designer || "Inconnu",
+          annee: result.annee === null || result.annee === undefined ? "Non spécifié" : String(result.annee),
+          similarity: result.similarity || result.score || 0,
         }
       }),
     )
@@ -396,7 +312,6 @@ export default function RecherchePage() {
       setSelectedImage(file)
       const preview = URL.createObjectURL(file)
       setImagePreview(preview)
-      handleImageSearch(file)
     }
   }
 
@@ -532,7 +447,7 @@ export default function RecherchePage() {
                           <>
                             {message.imageUrl ? (
                               <div className="space-y-2">
-                                <p className="text-xs md:text-sm text-slate-600">Image uploadée :</p>
+                                <p className="text-xs md:text-sm text-slate-600">{message.content}</p>
                                 <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden">
                                   <Image
                                     src={message.imageUrl || "/placeholder.svg"}
@@ -563,43 +478,34 @@ export default function RecherchePage() {
                                   return (
                                     <Link
                                       key={index}
-                                      href={`/luminaires/${result.luminaireId}`}
-                                      className="block group"
+                                      href={result.luminaireUrl || "#"}
+                                      className="group block rounded-lg overflow-hidden border border-slate-200 hover:border-amber-300 transition-all hover:shadow-lg"
                                     >
-                                      <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
-                                        <div className="relative w-full h-48 md:h-64 bg-slate-100">
-                                          <Image
-                                            src={result.imageUrl || "/placeholder.svg"}
-                                            alt={result.nom || result.imageId || "Luminaire"}
-                                            fill
-                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                            unoptimized
-                                          />
-                                        </div>
-                                        <div className="p-3 md:p-4 space-y-1 md:space-y-2">
-                                          <h4 className="font-semibold text-slate-900 text-sm md:text-lg line-clamp-2">
-                                            {result.nom || result.imageId || "Luminaire"}
-                                          </h4>
-                                          {result.artiste && (
-                                            <p className="text-xs md:text-sm text-slate-600">
-                                              {result.artiste}
-                                              {result.annee && ` • ${result.annee}`}
-                                            </p>
-                                          )}
-                                          {result.similarity && (
-                                            <p className="text-xs md:text-sm font-medium" style={{ color: "#c4a363" }}>
-                                              {Math.round(result.similarity * 100)}% similaire
-                                            </p>
-                                          )}
-                                        </div>
-                                      </Card>
+                                      <div className="relative w-full aspect-square bg-slate-100">
+                                        <Image
+                                          src={result.imageUrl || "/placeholder.svg"}
+                                          alt={result.nom || "Luminaire"}
+                                          fill
+                                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                          unoptimized
+                                        />
+                                      </div>
+                                      <div className="p-2 md:p-3 bg-white">
+                                        <p className="text-xs md:text-sm font-medium text-slate-800 truncate">
+                                          {result.nom}
+                                        </p>
+                                        <p className="text-[10px] md:text-xs text-slate-600 truncate">
+                                          {result.artiste}
+                                        </p>
+                                        <p className="text-[10px] md:text-xs text-slate-500">{result.annee}</p>
+                                      </div>
                                     </Link>
                                   )
                                 })}
                               </div>
                             )}
 
-                            <p className="text-[10px] md:text-xs text-slate-500 mt-2">
+                            <p className="text-[10px] md:text-xs text-slate-500 mt-3">
                               {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                             </p>
                           </>
@@ -607,57 +513,77 @@ export default function RecherchePage() {
                       </div>
                     </div>
                   ))}
-
                   {isSearching && (
                     <div className="flex justify-start">
                       <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4">
-                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#f2d895" }} />
+                        <div className="flex items-center gap-2 md:gap-3">
+                          <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#f2d895" }} />
+                          <p className="text-xs md:text-sm text-slate-600">Recherche en cours...</p>
+                        </div>
                       </div>
                     </div>
                   )}
-
                   <div ref={messagesEndRef} />
                 </div>
               )}
             </div>
           </div>
 
-          <div className="border-t border-slate-200 bg-white p-2 md:p-4">
+          <div className="border-t border-slate-200 bg-white p-3 md:p-4">
             <div className="max-w-4xl mx-auto">
-              <div className="flex gap-2 md:gap-3 items-end">
-                {imagePreview && (
-                  <div className="relative w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden flex-shrink-0">
+              {imagePreview && (
+                <div className="mb-2 md:mb-3 flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-amber-50 rounded-lg">
+                  <div className="relative w-12 h-12 md:w-16 md:h-16 rounded overflow-hidden flex-shrink-0">
                     <Image src={imagePreview || "/placeholder.svg"} alt="Preview" fill className="object-cover" />
                   </div>
-                )}
-
-                <div className="flex-1 relative">
-                  <Input
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleTextSearch()
-                      }
+                  <p className="text-xs md:text-sm text-slate-600 flex-1">Image sélectionnée</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedImage(null)
+                      setImagePreview(null)
                     }}
-                    placeholder="Décrivez le luminaire..."
-                    className="pr-10 md:pr-12 h-10 md:h-12 rounded-xl text-sm md:text-base"
-                    disabled={isSearching}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                    disabled={isSearching}
+                    className="text-xs md:text-sm"
                   >
-                    <Upload className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
-                  </button>
+                    Supprimer
+                  </Button>
                 </div>
+              )}
+
+              <div className="flex gap-2 md:gap-3">
+                <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" className="hidden" />
 
                 <Button
-                  onClick={handleTextSearch}
-                  disabled={!inputValue.trim() || isSearching}
-                  className="h-10 md:h-12 px-4 md:px-6 rounded-xl text-white"
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSearching}
+                  className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10"
+                >
+                  <Upload className="w-4 h-4 md:w-5 md:h-5" />
+                </Button>
+
+                <Input
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSearch()
+                    }
+                  }}
+                  placeholder="Décrivez le luminaire ou affinez votre recherche..."
+                  disabled={isSearching}
+                  className="flex-1 text-sm md:text-base"
+                />
+
+                <Button
+                  onClick={handleSearch}
+                  disabled={isSearching || (!inputValue.trim() && !selectedImage)}
+                  className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10"
+                  size="icon"
                   style={{ backgroundColor: "#f2d895" }}
                 >
                   {isSearching ? (
@@ -667,18 +593,10 @@ export default function RecherchePage() {
                   )}
                 </Button>
               </div>
-
-              {!user && (
-                <p className="text-[10px] md:text-xs text-slate-500 mt-2 text-center">
-                  Connectez-vous pour utiliser la recherche
-                </p>
-              )}
             </div>
           </div>
         </div>
       </div>
-
-      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
     </div>
   )
 }
