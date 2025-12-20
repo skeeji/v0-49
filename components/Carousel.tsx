@@ -31,7 +31,6 @@ export function Carousel({ items }: CarouselProps) {
     <div className="relative">
       <div className="flex items-center justify-between mb-4">
         <h4 className="font-medium text-gray-700">Luminaires de la période</h4>
-
         <div className="flex gap-2">
           <Button onClick={prevSlide} variant="outline" size="sm" disabled={currentIndex === 0}>
             <ChevronLeft className="w-4 h-4" />
@@ -46,7 +45,6 @@ export function Carousel({ items }: CarouselProps) {
           </Button>
         </div>
       </div>
-
       <div className="grid grid-cols-3 gap-4">
         {items.slice(currentIndex, currentIndex + itemsPerView).map((item, index) => (
           <div key={index} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">

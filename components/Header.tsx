@@ -3,135 +3,130 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Menu, X, Search, User } from "lucide-react"
+import { usePathname } from "next/navigation"
+import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DrawerNav } from "@/components/DrawerNav"
-import { LoginModal } from "@/components/LoginModal"
-import { UserMenu } from "@/components/UserMenu"
 import { useAuth } from "@/contexts/AuthContext"
+import { UserMenu } from "@/components/UserMenu"
 
 export function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
-  const { user, logout } = useAuth()
+  const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
+  const { user, userData, signInWithGoogle } = useAuth()
+  const pathname = usePathname()
 
-  // Charger le logo personnalisé
   useEffect(() => {
-    async function loadLogo() {
+    const loadLogo = async () => {
       try {
         const response = await fetch("/api/logo")
         if (response.ok) {
-          const logoBlob = await response.blob()
-          const logoObjectUrl = URL.createObjectURL(logoBlob)
-          setLogoUrl(logoObjectUrl)
+          const contentType = response.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const data = await response.json()
+            if (data.success && data.logo && data.logo._id) {
+              setLogoUrl(`/api/images/${data.logo._id}`)
+            }
+          } else {
+            // L'API retourne directement l'image
+            setLogoUrl("/api/logo")
+          }
         }
       } catch (error) {
-        console.log("Aucun logo personnalisé trouvé, utilisation du logo par défaut")
+        console.error("Erreur lors du chargement du logo:", error)
+        setLogoUrl("/placeholder-logo.svg")
       }
     }
 
     loadLogo()
-
-    // Nettoyer l'URL d'objet lors du démontage
-    return () => {
-      if (logoUrl) {
-        URL.revokeObjectURL(logoUrl)
-      }
-    }
   }, [])
 
-  const toggleDrawer = () => {
-    setIsDrawerOpen(!isDrawerOpen)
+  const navItems = [
+    { href: "/recherche", label: "Recherche" }, // Ajout du lien Recherche dans la navigation
+    { href: "/luminaires", label: "Luminaires" },
+    { href: "/designers", label: "Designers" },
+    { href: "/chronologie", label: "Chronologie" },
+    { href: "/pricing", label: "Tarifs" },
+  ]
+
+  if (userData?.role === "admin") {
+    navItems.push({ href: "/import", label: "Import" })
   }
 
-  const handleLoginClick = () => {
-    setIsLoginModalOpen(true)
-  }
-
-  const handleLogout = () => {
-    logout()
+  const isActivePage = (href: string) => {
+    return pathname === href || pathname.startsWith(href + "/")
   }
 
   return (
     <>
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="container-responsive">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
+      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 h-20">
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex items-center justify-between h-full">
+            {/* Logo - Taille encore plus grande */}
             <Link href="/" className="flex items-center">
-              {logoUrl ? (
+              <div className="w-32 h-32 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
                   alt="Logo"
-                  width={120}
-                  height={40}
-                  className="h-8 w-auto object-contain"
-                  onError={() => {
-                    console.log("Erreur chargement logo personnalisé, fallback vers le texte")
-                    setLogoUrl(null)
+                  fill
+                  className="object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder-logo.svg"
                   }}
                 />
-              ) : (
-                <span className="text-2xl font-playfair text-dark">GERSAINT PARIS</span>
-              )}
+              </div>
             </Link>
 
-            {/* Navigation Desktop */}
+            {/* Navigation desktop */}
             <nav className="hidden md:flex items-center space-x-8">
-              <Link href="/luminaires" className="text-gray-700 hover:text-orange-500 transition-colors">
-                Luminaires
-              </Link>
-              <Link href="/designers" className="text-gray-700 hover:text-orange-500 transition-colors">
-                Designers
-              </Link>
-              <Link href="/chronologie" className="text-gray-700 hover:text-orange-500 transition-colors">
-                Chronologie
-              </Link>
+              {navItems.map((item) => (
+                <div key={item.href} className="relative">
+                  <Link
+                    href={item.href}
+                    className="text-gray-700 hover:text-gray-900 font-medium transition-colors font-serif py-4 block"
+                  >
+                    {item.label}
+                  </Link>
+                  {isActivePage(item.href) && (
+                    <div className="absolute bottom-0 left-0 right-0 h-px" style={{ backgroundColor: "#f2d895" }}></div>
+                  )}
+                </div>
+              ))}
             </nav>
 
-            {/* Actions Desktop */}
-            <div className="hidden md:flex items-center space-x-4">
-              <Link href="/luminaires">
-                <Button variant="ghost" size="sm" className="text-gray-700 hover:text-orange-500">
-                  <Search className="w-4 h-4" />
-                </Button>
-              </Link>
-
+            {/* Actions utilisateur */}
+            <div className="flex items-center space-x-4">
               {user ? (
-                <UserMenu user={user} onLogout={handleLogout} />
+                <UserMenu />
               ) : (
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLoginClick}
-                  className="text-gray-700 hover:text-orange-500"
+                  onClick={signInWithGoogle}
+                  className="text-white font-medium px-6 py-2 rounded-lg transition-all duration-200 hover:shadow-lg"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                 >
-                  <User className="w-4 h-4 mr-2" />
                   Connexion
                 </Button>
               )}
-            </div>
 
-            {/* Menu Mobile */}
-            <Button variant="ghost" size="sm" className="md:hidden" onClick={toggleDrawer}>
-              {isDrawerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
+              {/* Menu mobile */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="md:hidden"
+                onClick={() => setIsDrawerOpen(true)}
+                aria-label="Ouvrir le menu"
+              >
+                <Menu className="w-6 h-6" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Drawer Navigation Mobile */}
-      <DrawerNav
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        user={user}
-        onLoginClick={handleLoginClick}
-        onLogout={handleLogout}
-      />
-
-      {/* Login Modal */}
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      {/* Drawer mobile */}
+      <DrawerNav isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} navItems={navItems} />
     </>
   )
 }

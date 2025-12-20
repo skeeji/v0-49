@@ -17,7 +17,6 @@ export function Toast() {
     const handleToast = (event: CustomEvent) => {
       const { message, type } = event.detail
       const id = Date.now().toString()
-
       setToasts((prev) => [...prev, { id, message, type }])
 
       setTimeout(() => {
@@ -26,7 +25,6 @@ export function Toast() {
     }
 
     window.addEventListener("show-toast", handleToast as EventListener)
-
     return () => {
       window.removeEventListener("show-toast", handleToast as EventListener)
     }

@@ -1,18 +1,20 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { GalleryGrid } from "@/components/GalleryGrid"
 import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
-import { SortSelector } from "@/components/SortSelector"
+import { RangeSlider } from "@/components/RangeSlider"
 import { Button } from "@/components/ui/button"
 import { Grid, List, Plus } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
-import { CSVExportButton } from "@/components/CSVExportButton"
-import { useToast } from "@/hooks/useToast"
+import { useAuth } from "@/contexts/AuthContext"
+import { toast } from "sonner"
+import Link from "next/link"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
+  const [allLuminaires, setAllLuminaires] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,21 +22,103 @@ export default function LuminairesPage() {
   const [columns, setColumns] = useState(4)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // États pour les filtres et la pagination
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedDesigner, setSelectedDesigner] = useState("")
-  const [selectedPeriode, setSelectedPeriode] = useState("")
-  const [selectedMateriaux, setSelectedMateriaux] = useState("")
-  const [selectedCouleurs, setSelectedCouleurs] = useState("")
+  const [selectedCategorie, setSelectedCategorie] = useState("")
+  const [selectedMateriau, setSelectedMateriau] = useState("")
+  const [yearRange, setYearRange] = useState<number[]>([])
+  const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [showFavorites, setShowFavorites] = useState(false)
 
-  const { showToast } = useToast()
+  const yearRangeRef = useRef(yearRange)
+  const sliderModifiedRef = useRef(sliderModified)
 
-  // CORRECTION: Fonction pour charger les luminaires avec scroll infini
+  useEffect(() => {
+    yearRangeRef.current = yearRange
+    sliderModifiedRef.current = sliderModified
+  })
+
+  const { user, userData } = useAuth()
+  const isAdmin = userData?.role === "admin"
+  const [favorites, setFavorites] = useState<string[]>([])
+
+  useEffect(() => {
+    const loadFavorites = async () => {
+      if (user?.email) {
+        try {
+          const response = await fetch(`/api/users/favorites?email=${encodeURIComponent(user.email)}`)
+          const data = await response.json()
+          if (data.success) {
+            setFavorites(data.favorites || [])
+          }
+        } catch (error) {
+          console.error("❌ Erreur chargement favoris:", error)
+        }
+      } else {
+        setFavorites([])
+      }
+    }
+
+    loadFavorites()
+  }, [user?.email])
+
+  const toggleFavorite = useCallback(
+    async (luminaireId: string) => {
+      if (!user?.email) {
+        toast.error("Vous devez être connecté pour gérer vos favoris")
+        return
+      }
+
+      const isFavorite = favorites.includes(luminaireId)
+      const action = isFavorite ? "remove" : "add"
+
+      // Mise à jour optimiste de l'UI
+      setFavorites((prev) => (isFavorite ? prev.filter((id) => id !== luminaireId) : [...prev, luminaireId]))
+
+      try {
+        const response = await fetch("/api/users/favorites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: user.email,
+            luminaireId,
+            action,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!data.success) {
+          // Rollback en cas d'erreur
+          setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
+          toast.error("Erreur lors de la mise à jour des favoris")
+        }
+      } catch (error) {
+        console.error("❌ Erreur toggle favori:", error)
+        // Rollback en cas d'erreur
+        setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
+        toast.error("Erreur lors de la mise à jour des favoris")
+      }
+    },
+    [user?.email, favorites],
+  )
+
+  const loadAllLuminaires = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/luminaires?limit=10000&page=1`)
+      const data = await response.json()
+      if (data.success) {
+        setAllLuminaires(data.luminaires)
+      }
+    } catch (err) {
+      console.error("❌ Erreur chargement données globales:", err)
+    }
+  }, [])
+
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
@@ -47,82 +131,78 @@ export default function LuminairesPage() {
 
         const params = new URLSearchParams({
           page: page.toString(),
-          limit: "50", // Réduire pour de meilleures performances
+          limit: "50",
           search: searchTerm,
-          designer: selectedDesigner,
-          periode: selectedPeriode,
-          materiaux: selectedMateriaux,
-          couleurs: selectedCouleurs,
           sortField,
           sortDirection,
         })
 
-        console.log(`🔍 Chargement page ${page} avec filtres:`, Object.fromEntries(params))
+        if (sliderModifiedRef.current && yearRangeRef.current.length === 2) {
+          params.append("yearMin", yearRangeRef.current[0].toString())
+          params.append("yearMax", yearRangeRef.current[1].toString())
+        }
+
+        if (selectedCategorie && selectedCategorie !== "all") {
+          params.append("categorie", selectedCategorie)
+        }
+
+        if (selectedMateriau && selectedMateriau !== "all") {
+          params.append("materiau", selectedMateriau)
+        }
 
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
 
-        console.log("📊 Données reçues:", data)
-
         if (data.success) {
           if (append && page > 1) {
-            // CORRECTION: Ajouter les nouveaux luminaires à la liste existante
-            setLuminaires((prev) => [...prev, ...data.luminaires])
+            const existingIds = new Set(luminaires.map((l) => l._id))
+            const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
+
+            if (newLuminaires.length > 0) {
+              setLuminaires((prev) => [...prev, ...newLuminaires])
+            }
           } else {
-            // Première page ou reset
             setLuminaires(data.luminaires)
-            setCurrentPage(1)
           }
 
-          setTotalItems(data.pagination.total)
-          setHasMore(data.pagination.hasMore)
-
-          console.log(`📊 ${data.luminaires.length} luminaires chargés depuis MongoDB (page ${page})`)
-          console.log(`📊 Total dans la base: ${data.pagination.total}`)
+          setHasMore(data.pagination?.hasMore || false)
+          setTotalItems(data.pagination?.total || 0)
         } else {
           throw new Error(data.error || "Erreur lors du chargement")
         }
       } catch (err: any) {
         console.error("❌ Erreur chargement:", err)
         setError(err.message)
-        showToast("Erreur lors du chargement des luminaires", "error")
+        toast.error("Erreur lors du chargement des luminaires")
       } finally {
         setLoading(false)
         setLoadingMore(false)
       }
     },
-    [
-      searchTerm,
-      selectedDesigner,
-      selectedPeriode,
-      selectedMateriaux,
-      selectedCouleurs,
-      sortField,
-      sortDirection,
-      showToast,
-    ],
+    [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, luminaires],
   )
 
-  // CORRECTION: Charger les luminaires au montage et lors des changements de filtres
+  useEffect(() => {
+    loadAllLuminaires()
+  }, [loadAllLuminaires])
+
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedDesigner, selectedPeriode, selectedMateriaux, selectedCouleurs, sortField, sortDirection])
+  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified])
 
-  // CORRECTION: Fonction pour charger plus de luminaires (scroll infini)
   const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading) {
+    if (!loadingMore && hasMore && !loading && !showFavorites) {
       const nextPage = currentPage + 1
-      console.log(`📄 Chargement page suivante: ${nextPage}`)
       setCurrentPage(nextPage)
       loadLuminaires(nextPage, true)
     }
-  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires])
+  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires, showFavorites])
 
-  // CORRECTION: Scroll infini optimisé
   useEffect(() => {
+    if (showFavorites) return
+
     const handleScroll = () => {
-      // Vérifier si on est proche du bas de la page
       const scrollTop = document.documentElement.scrollTop
       const scrollHeight = document.documentElement.scrollHeight
       const clientHeight = document.documentElement.clientHeight
@@ -132,47 +212,43 @@ export default function LuminairesPage() {
       }
     }
 
-    // Throttle pour éviter trop d'appels
     let timeoutId: NodeJS.Timeout
+
     const throttledHandleScroll = () => {
       clearTimeout(timeoutId)
       timeoutId = setTimeout(handleScroll, 200)
     }
 
     window.addEventListener("scroll", throttledHandleScroll, { passive: true })
+
     return () => {
       window.removeEventListener("scroll", throttledHandleScroll)
       clearTimeout(timeoutId)
     }
-  }, [loadMore])
+  }, [loadMore, showFavorites])
 
-  // Fonction pour mettre à jour un luminaire
-  const handleItemUpdate = useCallback(
-    async (id: string, updates: any) => {
-      try {
-        const response = await fetch(`/api/luminaires/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updates),
-        })
+  const handleItemUpdate = useCallback(async (id: string, updates: any) => {
+    try {
+      const response = await fetch(`/api/luminaires/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
 
-        const data = await response.json()
+      const data = await response.json()
 
-        if (data.success) {
-          setLuminaires((prev) => prev.map((item) => (item._id === id ? { ...item, ...updates } : item)))
-          showToast("Luminaire mis à jour avec succès", "success")
-        } else {
-          throw new Error(data.error)
-        }
-      } catch (err: any) {
-        console.error("❌ Erreur mise à jour:", err)
-        showToast("Erreur lors de la mise à jour", "error")
+      if (data.success) {
+        setLuminaires((prev) => prev.map((item) => (item._id === id ? { ...item, ...updates } : item)))
+        toast.success("Luminaire mis à jour avec succès")
+      } else {
+        throw new Error(data.error)
       }
-    },
-    [showToast],
-  )
+    } catch (err: any) {
+      console.error("❌ Erreur mise à jour:", err)
+      toast.error("Erreur lors de la mise à jour")
+    }
+  }, [])
 
-  // Fonction pour créer un nouveau luminaire
   const handleCreateLuminaire = useCallback(
     async (luminaireData: any) => {
       try {
@@ -185,37 +261,102 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (data.success) {
-          showToast("Luminaire créé avec succès", "success")
+          toast.success("Luminaire créé avec succès")
           setIsModalOpen(false)
-          // Recharger la première page
           loadLuminaires(1, false)
+          loadAllLuminaires()
         } else {
           throw new Error(data.error)
         }
+
+        return data
       } catch (err: any) {
         console.error("❌ Erreur création:", err)
-        showToast("Erreur lors de la création", "error")
+        toast.error("Erreur lors de la création")
+        return { success: false, error: err.message }
       }
     },
-    [loadLuminaires, showToast],
+    [loadLuminaires, loadAllLuminaires],
   )
 
-  // Options pour les filtres (calculées à partir des données)
   const filterOptions = useMemo(() => {
-    const designers = [...new Set(luminaires.map((l) => l.designer).filter(Boolean))].sort()
-    const periodes = [...new Set(luminaires.map((l) => l.periode).filter(Boolean))].sort()
-    const materiaux = [...new Set(luminaires.flatMap((l) => l.materiaux || []).filter(Boolean))].sort()
-    const couleurs = [...new Set(luminaires.flatMap((l) => l.couleurs || []).filter(Boolean))].sort()
+    const categories = [...new Set(allLuminaires.map((l) => l.categorie || l["Catégorie"]).filter(Boolean))].sort()
 
-    return { designers, periodes, materiaux, couleurs }
-  }, [luminaires])
+    const materiaux = new Set<string>()
+    allLuminaires.forEach((l) => {
+      const matValue = l["Matériaux"] || (Array.isArray(l.materiaux) ? l.materiaux.join(", ") : l.materiaux) || ""
+
+      if (typeof matValue === "string" && matValue.trim()) {
+        matValue.split(",").forEach((mat) => {
+          const cleanMat = mat.trim()
+          if (cleanMat && cleanMat.length > 0) {
+            materiaux.add(cleanMat)
+          }
+        })
+      }
+    })
+
+    return {
+      categories,
+      materiaux: Array.from(materiaux).sort(),
+    }
+  }, [allLuminaires])
+
+  const yearBounds = useMemo(() => {
+    const years = allLuminaires
+      .map((l) => {
+        const year = l.annee || l.year
+        const numYear = Number.parseInt(year)
+        return !isNaN(numYear) ? numYear : null
+      })
+      .filter((year): year is number => year !== null)
+      .sort((a, b) => a - b)
+
+    if (years.length === 0) return { min: 1900, max: 2024 }
+
+    return {
+      min: years[0],
+      max: years[years.length - 1],
+    }
+  }, [allLuminaires])
+
+  useEffect(() => {
+    if (allLuminaires.length > 0 && yearRange.length === 0) {
+      setYearRange([yearBounds.min, yearBounds.max])
+    }
+  }, [yearBounds, allLuminaires.length, yearRange.length])
+
+  const handleYearRangeChange = (newRange: number[]) => {
+    setYearRange(newRange)
+    setSliderModified(true)
+    setCurrentPage(1)
+    loadLuminaires(1, false)
+  }
+
+  const freeUserLimit = useMemo(() => {
+    if (!user || userData?.role === "free") {
+      return Math.ceil(totalItems * 0.1)
+    }
+    return totalItems
+  }, [user, userData, totalItems])
+
+  const displayedLuminaires = useMemo(() => {
+    if (showFavorites) {
+      const favoriteItems = allLuminaires.filter((item) => {
+        const itemId = String(item._id || item.id || "")
+        return favorites.includes(itemId)
+      })
+      return favoriteItems
+    }
+    return luminaires
+  }, [luminaires, allLuminaires, showFavorites, favorites])
 
   if (loading && luminaires.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
             <p className="text-gray-600">Chargement des luminaires...</p>
           </div>
         </div>
@@ -236,23 +377,36 @@ export default function LuminairesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* En-tête */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-playfair text-dark mb-2">Luminaires</h1>
+          <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
           <p className="text-gray-600">
-            {totalItems > 0 ? `${luminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
-            {hasMore && ` (scroll pour charger plus)`}
+            {totalItems > 0 ? `${displayedLuminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
           </p>
         </div>
 
         <div className="flex items-center gap-4 mt-4 lg:mt-0">
-          <Button onClick={() => setIsModalOpen(true)} className="bg-orange hover:bg-orange/90">
-            <Plus className="w-4 h-4 mr-2" />
-            Ajouter
-          </Button>
+          {isAdmin && (
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              style={{ backgroundColor: "#f2d895", color: "#000" }}
+              className="hover:opacity-90"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Ajouter
+            </Button>
+          )}
 
-          <CSVExportButton data={luminaires} filename="luminaires" />
+          {user && userData?.role !== "free" && (
+            <Button
+              onClick={() => setShowFavorites(!showFavorites)}
+              variant={showFavorites ? "default" : "outline"}
+              style={showFavorites ? { backgroundColor: "#f2d895", color: "#000" } : {}}
+              className="hover:opacity-90"
+            >
+              ❤️ Favoris ({favorites.length})
+            </Button>
+          )}
 
           <div className="flex items-center gap-2">
             <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
@@ -279,64 +433,101 @@ export default function LuminairesPage() {
         </div>
       </div>
 
-      {/* Filtres */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
-        <div className="lg:col-span-2">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
+      {(!user || userData?.role === "free") && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm" style={{ color: "#d4a574" }}>
+          <p className="flex items-center font-serif">
+            <span className="mr-2">ℹ️</span>
+            <span>
+              {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont accessibles
+              ({freeUserLimit} luminaires).
+              <Link href="/pricing" className="ml-1 underline font-medium">
+                Passez à Premium
+              </Link>{" "}
+              pour accéder à toute la collection.
+            </span>
+          </p>
         </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
         <DropdownFilter
-          label="Designer"
-          value={selectedDesigner}
-          onChange={setSelectedDesigner}
-          options={filterOptions.designers}
+          label="Toutes les catégories"
+          value={selectedCategorie}
+          onChange={setSelectedCategorie}
+          options={filterOptions.categories}
         />
 
         <DropdownFilter
-          label="Période"
-          value={selectedPeriode}
-          onChange={setSelectedPeriode}
-          options={filterOptions.periodes}
-        />
-
-        <DropdownFilter
-          label="Matériaux"
-          value={selectedMateriaux}
-          onChange={setSelectedMateriaux}
+          label="Tous les matériaux"
+          value={selectedMateriau}
+          onChange={setSelectedMateriau}
           options={filterOptions.materiaux}
         />
 
-        <SortSelector
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSortChange={(field, direction) => {
+        <select
+          value={`${sortField}-${sortDirection}`}
+          onChange={(e) => {
+            const [field, direction] = e.target.value.split("-")
             setSortField(field)
-            setSortDirection(direction)
+            setSortDirection(direction as "asc" | "desc")
           }}
-          options={[
-            { value: "nom", label: "Nom" },
-            { value: "designer", label: "Designer" },
-            { value: "annee", label: "Année" },
-            { value: "periode", label: "Période" },
-          ]}
-        />
+          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+        >
+          <option value="nom-asc">Nom A-Z</option>
+          <option value="nom-desc">Nom Z-A</option>
+          <option value="designer-asc">Designer A-Z</option>
+          <option value="designer-desc">Designer Z-A</option>
+          <option value="annee-asc">Année croissante</option>
+          <option value="annee-desc">Année décroissante</option>
+        </select>
       </div>
 
-      {/* Grille des luminaires */}
-      <GalleryGrid items={luminaires} viewMode={viewMode} onItemUpdate={handleItemUpdate} columns={columns} />
+      <div className="mb-8">
+        <RangeSlider
+          min={yearBounds.min}
+          max={yearBounds.max}
+          value={yearRange}
+          onValueCommit={handleYearRangeChange}
+        />
+        {sliderModified && (
+          <div className="mt-2 text-sm" style={{ color: "#d4a574" }}>
+            Filtre actif: {yearRange[0]} - {yearRange[1]}
+            <button
+              onClick={() => {
+                setYearRange([yearBounds.min, yearBounds.max])
+                setSliderModified(false)
+              }}
+              className="ml-2 underline hover:no-underline"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        )}
+      </div>
 
-      {/* Indicateur de chargement pour le scroll infini */}
-      {loadingMore && (
+      <GalleryGrid
+        items={displayedLuminaires}
+        viewMode={viewMode}
+        onItemUpdate={handleItemUpdate}
+        columns={columns}
+        freeUserLimit={freeUserLimit}
+        isUserFree={!user || userData?.role === "free"}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
+      />
+
+      {loadingMore && !showFavorites && (
         <div className="text-center mt-8">
-          <div className="inline-flex items-center px-4 py-2 bg-orange/10 rounded-lg">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange mr-2"></div>
-            <span className="text-orange">Chargement de plus de luminaires...</span>
+          <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
+            <span className="text-orange-500">Chargement de plus de luminaires...</span>
           </div>
         </div>
       )}
 
-      {/* Message fin de liste */}
-      {!hasMore && luminaires.length > 0 && (
+      {!hasMore && luminaires.length > 0 && !showFavorites && (
         <div className="text-center mt-8 py-4">
           <p className="text-gray-500">
             ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
@@ -344,16 +535,22 @@ export default function LuminairesPage() {
         </div>
       )}
 
-      {/* Message aucun résultat */}
-      {luminaires.length === 0 && !loading && (
+      {displayedLuminaires.length === 0 && !loading && (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">Aucun luminaire trouvé</p>
-          <p className="text-gray-400 text-sm mt-2">Essayez de modifier vos critères de recherche</p>
+          <p className="text-gray-500 text-lg">{showFavorites ? "Aucun favori trouvé" : "Aucun luminaire trouvé"}</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {showFavorites ? "Ajoutez des luminaires à vos favoris" : "Essayez de modifier vos critères de recherche"}
+          </p>
         </div>
       )}
 
-      {/* Modal de création */}
-      <LuminaireFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleCreateLuminaire} />
+      {isAdmin && (
+        <LuminaireFormModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleCreateLuminaire}
+        />
+      )}
     </div>
   )
 }

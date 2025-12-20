@@ -31,10 +31,17 @@ export default function HomePage() {
   const [showBackgroundOptions, setShowBackgroundOptions] = useState(false)
   const [selectedImageForSearch, setSelectedImageForSearch] = useState<File | null>(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1)
+
+  // États pour les restrictions
+  // const [searchCount, setSearchCount] = useState(0)
+  // const [monthlySearchLimit] = useState(3)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { user, userData, incrementSearchCount, canSearch } = useAuth()
+
+  const { user, userData, incrementSearchCount } = useAuth()
 
   const callImageSimilarityAPI = async (file: File) => {
     try {
@@ -73,7 +80,7 @@ export default function HomePage() {
         console.log(`❌ Erreur HTTP: ${response.status} - ${errorText}`)
         return { success: false, data: [], type: "http_error", status: response.status, error: errorText }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("💥 Erreur API:", error)
       return { success: false, data: [], type: "network_error", error: error.message }
     }
@@ -88,15 +95,13 @@ export default function HomePage() {
       const imageUrl = result.image_url || ""
       const metadata = result.metadata || {}
 
-      // Nettoyer l'image_id
+      // Nettoyer l'image_id pour obtenir le nom du fichier
       const cleanImageId = String(imageId).split("#")[0]
 
       // Construire l'URL complète
       let finalImageUrl = "/placeholder.svg?height=200&width=200&text=Image+non+disponible"
-
       if (imageUrl && String(imageUrl).trim()) {
         const urlString = String(imageUrl).trim()
-
         if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
           finalImageUrl = urlString.split("#")[0]
         } else if (urlString.startsWith("/")) {
@@ -107,13 +112,12 @@ export default function HomePage() {
         }
       }
 
-      // CORRECTION: Chercher par filename dans la base MongoDB
+      // Chercher par filename dans la base MongoDB (même nom d'image)
       const localMatch = luminaires.find((luminaire: any) => {
         const localFilename = (luminaire.filename || luminaire["Nom du fichier"] || "").toLowerCase()
         const searchFilename = cleanImageId.toLowerCase()
-
-        // Correspondance exacte par filename
-        return localFilename === searchFilename || localFilename.includes(searchFilename.replace(/\.[^/.]+$/, ""))
+        // Correspondance exacte par nom de fichier
+        return localFilename === searchFilename
       })
 
       console.log(`🔍 Recherche: "${cleanImageId}" → ${localMatch ? `✅ Trouvé: ${localMatch._id}` : "❌ Pas trouvé"}`)
@@ -121,7 +125,7 @@ export default function HomePage() {
       return {
         imageId: cleanImageId,
         imageUrl: finalImageUrl,
-        // CORRECTION: Utiliser l'ID MongoDB pour créer le lien vers la page luminaire
+        // Utiliser l'ID MongoDB pour créer le lien vers la page luminaire
         luminaireUrl: localMatch ? `/luminaires/${localMatch._id}` : null,
         localMatch: localMatch,
         hasLocalMatch: !!localMatch,
@@ -137,7 +141,6 @@ export default function HomePage() {
 
   const removeBackground = async (file: File) => {
     setIsRemovingBackground(true)
-
     try {
       console.log("🎨 Début suppression arrière-plan...")
       console.log(`📁 Fichier: ${file.name}, Taille: ${file.size} bytes`)
@@ -189,22 +192,19 @@ export default function HomePage() {
   }
 
   const handleImageSearch = async (file: File) => {
-    // Vérifier si l'utilisateur peut effectuer une recherche
-    if (!canSearch) {
-      toast.error("Limite de recherches quotidiennes atteinte (3/3)")
-      return
-    }
-
-    // Pour les utilisateurs non connectés, afficher la modal de connexion
+    // Vérifier si l'utilisateur est connecté
     if (!user) {
+      toast.error("Connexion requise pour utiliser la recherche IA")
       setShowLoginModal(true)
       return
     }
 
-    // Incrémenter le compteur de recherches pour les utilisateurs "free"
+    // Vérifier la limite pour les utilisateurs gratuits connectés
     if (userData?.role === "free") {
       const canProceed = await incrementSearchCount()
-      if (!canProceed) return
+      if (!canProceed) {
+        return // Le message d'erreur est déjà affiché par incrementSearchCount
+      }
     }
 
     setIsSearching(true)
@@ -218,7 +218,6 @@ export default function HomePage() {
 
       if (apiResponse.success && apiResponse.data && apiResponse.data.length > 0) {
         console.log(`🎉 API réussie! ${apiResponse.data.length} résultats`)
-
         const processedResults = processApiResults(apiResponse.data)
 
         if (processedResults.length > 0) {
@@ -226,6 +225,14 @@ export default function HomePage() {
           const localMatches = processedResults.filter((r) => r.hasLocalMatch).length
           console.log(`🎯 ${processedResults.length} résultats traités, ${localMatches} avec correspondance locale`)
           toast.success(`${processedResults.length} luminaire(s) similaire(s) trouvé(s)`)
+
+          // Message d'avertissement pour les utilisateurs gratuits
+          if (userData?.role === "free") {
+            const remaining = 3 - (userData.searchCount || 0)
+            if (remaining <= 1) {
+              toast.warning(`Plus que ${remaining} recherche(s) restante(s) ce mois-ci`)
+            }
+          }
         } else {
           toast.info("Aucun résultat trouvé")
         }
@@ -260,7 +267,6 @@ export default function HomePage() {
 
   const cleanupCamera = () => {
     console.log("🧹 Nettoyage complet de la caméra...")
-
     if (stream) {
       stream.getTracks().forEach((track) => {
         console.log(`🔌 Arrêt du track: ${track.kind}, état avant: ${track.readyState}`)
@@ -269,14 +275,12 @@ export default function HomePage() {
       })
       setStream(null)
     }
-
     if (videoRef.current) {
       videoRef.current.srcObject = null
       videoRef.current.pause()
       videoRef.current.load()
       console.log("📺 Élément vidéo nettoyé")
     }
-
     setIsCameraActive(false)
     setIsCameraLoading(false)
     console.log("✅ Nettoyage caméra terminé")
@@ -287,6 +291,11 @@ export default function HomePage() {
       console.log("📷 === DÉMARRAGE CAMÉRA ===")
       setSearchMode("camera")
       setIsCameraLoading(true)
+
+      // Vérifier la disponibilité de l'API
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("L'API caméra n'est pas disponible sur cet appareil ou navigateur")
+      }
 
       // Nettoyer tout flux existant
       cleanupCamera()
@@ -300,6 +309,7 @@ export default function HomePage() {
           width: { ideal: 1280, min: 640, max: 1920 },
           height: { ideal: 720, min: 480, max: 1080 },
           frameRate: { ideal: 30, max: 60 },
+          zoom: true,
         },
         audio: false,
       }
@@ -314,6 +324,7 @@ export default function HomePage() {
       setStream(mediaStream)
       setIsCameraLoading(false)
       setIsCameraActive(true)
+      setZoomLevel(1)
 
       // Attacher le flux après que l'état soit mis à jour
       setTimeout(() => {
@@ -324,9 +335,8 @@ export default function HomePage() {
           toast.success("Caméra activée - Touchez l'écran pour capturer")
         }
       }, 100)
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ === ERREUR CAMÉRA ===", error)
-
       let errorMessage = "Impossible d'accéder à la caméra"
 
       if (error.name === "NotAllowedError") {
@@ -356,7 +366,6 @@ export default function HomePage() {
     }
 
     setIsCapturing(true)
-
     try {
       console.log("📸 === DÉBUT CAPTURE PHOTO ===")
 
@@ -447,12 +456,12 @@ export default function HomePage() {
       cleanupCamera()
 
       console.log("✅ === CAPTURE TERMINÉE AVEC SUCCÈS ===")
-      toast.success("Photo capturée - Recherche en cours...")
+      toast.success("Photo capturée avec succès!")
 
       // Afficher les options d'arrière-plan
       setShowBackgroundOptions(true)
       setSelectedImageForSearch(file)
-    } catch (error) {
+    } catch (error: any) {
       console.error("💥 === ERREUR CAPTURE ===", error)
       toast.error(`Erreur capture: ${error.message}`)
     } finally {
@@ -491,6 +500,7 @@ export default function HomePage() {
     setBackgroundRemovedImage(null)
     setShowBackgroundOptions(false)
     setSelectedImageForSearch(null)
+    setZoomLevel(1)
 
     // Réinitialiser l'input file
     if (fileInputRef.current) {
@@ -505,7 +515,6 @@ export default function HomePage() {
       console.log("🔄 Nouvelle recherche avec la même image")
       setIsSearching(true)
       setSearchResults([])
-
       setTimeout(() => {
         handleImageSearch(selectedFile)
       }, 500)
@@ -522,7 +531,7 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    // CORRECTION: Charger les luminaires depuis l'API MongoDB
+    // Charger les luminaires depuis l'API MongoDB
     const loadLuminaires = async () => {
       try {
         const response = await fetch("/api/luminaires?limit=10000") // Charger tous les luminaires
@@ -538,20 +547,26 @@ export default function HomePage() {
       }
     }
 
-    // CORRECTION: Charger la vidéo d'accueil depuis l'API
+    // Charger la vidéo d'accueil depuis l'API
     const loadWelcomeVideo = async () => {
       try {
+        console.log("🎥 Chargement de la vidéo de bienvenue...")
         const response = await fetch("/api/welcome-video")
         if (response.ok) {
           const data = await response.json()
+          console.log("📄 Réponse API vidéo:", data)
           if (data.success && data.video) {
             const videoUrl = `/api/videos/${data.video._id}`
             setWelcomeVideo(videoUrl)
-            console.log("🎥 Vidéo de bienvenue chargée:", videoUrl)
+            console.log("✅ Vidéo de bienvenue chargée:", videoUrl)
+          } else {
+            console.log("⚠️ Pas de vidéo trouvée dans la réponse")
           }
+        } else {
+          console.log("❌ Erreur HTTP lors du chargement de la vidéo:", response.status)
         }
       } catch (error) {
-        console.error("Erreur lors du chargement de la vidéo:", error)
+        console.error("💥 Erreur lors du chargement de la vidéo:", error)
       }
     }
 
@@ -570,60 +585,114 @@ export default function HomePage() {
     }
   }, [])
 
+  const handleZoomIn = async () => {
+    if (!stream) return
+
+    const videoTrack = stream.getVideoTracks()[0]
+    const capabilities = videoTrack.getCapabilities() as any
+
+    if (capabilities.zoom) {
+      const newZoom = Math.min(zoomLevel + 0.5, Math.min(capabilities.zoom.max || 10, 10))
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{ zoom: newZoom } as any],
+        })
+        setZoomLevel(newZoom)
+        console.log(`🔍 Zoom appliqué: ${newZoom}x`)
+      } catch (error) {
+        console.error("Erreur zoom:", error)
+        toast.error("Zoom non supporté sur cet appareil")
+      }
+    } else {
+      toast.info("Zoom non supporté sur cet appareil")
+    }
+  }
+
+  const handleZoomOut = async () => {
+    if (!stream) return
+
+    const videoTrack = stream.getVideoTracks()[0]
+    const capabilities = videoTrack.getCapabilities() as any
+
+    if (capabilities.zoom) {
+      const newZoom = Math.max(zoomLevel - 0.5, capabilities.zoom.min || 1)
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{ zoom: newZoom } as any],
+        })
+        setZoomLevel(newZoom)
+        console.log(`🔍 Zoom appliqué: ${newZoom}x`)
+      } catch (error) {
+        console.error("Erreur zoom:", error)
+      }
+    }
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Vidéo de fond */}
       {welcomeVideo ? (
-        <video autoPlay muted loop className="absolute inset-0 w-full h-full object-cover">
+        <video
+          autoPlay
+          muted
+          loop
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={(e) => {
+            console.error("❌ Erreur lecture vidéo:", e)
+          }}
+          onLoadStart={() => console.log("🎥 Début chargement vidéo")}
+          onLoadedData={() => console.log("✅ Vidéo chargée avec succès")}
+        >
           <source src={welcomeVideo} type="video/mp4" />
+          Votre navigateur ne supporte pas la lecture vidéo.
         </video>
       ) : (
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-orange to-gold" />
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50" />
       )}
 
-      {/* Overlay orangé */}
-      <div className="absolute inset-0 bg-orange opacity-60" />
+      {/* Overlay plus clair */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-amber-50/60 to-orange-50/40" />
 
       {/* Contenu principal */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen container-responsive">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl font-playfair text-white mb-4 leading-tight">
-            Luminaires du Moyen Âge
-            <br />à nos jours
+          <h1 className="text-4xl md:text-6xl font-serif leading-tight" style={{ color: "#f2d895" }}>
+            Luminaires
+            <br />
+            <span className="text-2xl md:text-3xl font-light">Du Moyen-âge à nos jours</span>
           </h1>
-          <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Découvrez des luminaires de toutes époques et styles
-          </p>
         </div>
 
         {/* Zone de recherche par image */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 md:p-8 max-w-md w-full shadow-2xl">
-          <h2 className="text-xl md:text-2xl font-playfair text-dark mb-4 md:mb-6 text-center">
-            Recherche par image IA
-          </h2>
+        <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-10 max-w-lg w-full shadow-2xl border border-white/20">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mb-4">
+              <h2 className="text-2xl md:text-3xl font-serif" style={{ color: "#f2d895" }}>
+                Recherche IA
+              </h2>
+            </div>
+            <p className="text-slate-600 leading-relaxed">
+              Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
+            </p>
+          </div>
 
-          {/* Message pour les utilisateurs "free" */}
-          {userData?.role === "free" && (
-            <div className="mb-4 p-2 bg-blue-50 rounded-lg text-xs text-blue-800">
-              <p className="flex items-center">
-                <span className="mr-1">ℹ️</span>
-                <span>Compte gratuit : {3 - (userData.searchCount || 0)}/3 recherches restantes aujourd'hui</span>
+          {/* Appel à l'action pour les comptes premium */}
+          {(!user || userData?.role === "free") && (
+            <div className="mt-4 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800 font-medium">
+                🌟 Passez à Premium pour des recherches illimitées et la suppression d'arrière-plan !
+                <Link href="/pricing" className="ml-1 underline font-bold hover:no-underline">
+                  Découvrir Premium
+                </Link>
               </p>
             </div>
           )}
 
-          {/* Espace pour les instructions */}
-          <div className="mb-4 text-center">
-            <p className="text-xs md:text-sm text-gray-600">
-              Prenez une photo ou téléversez une image pour trouver des luminaires similaires
-            </p>
-          </div>
-
           {/* Affichage de l'image après recherche */}
           {capturedImage && !isSearching && searchResults.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-2 text-center">Image analysée :</h3>
-              <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden max-w-48 mx-auto">
+            <div className="mb-8">
+              <h3 className="text-lg font-medium text-slate-700 mb-4 text-center">Image analysée :</h3>
+              <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden max-w-64 mx-auto shadow-lg">
                 <Image src={capturedImage || "/placeholder.svg"} alt="Image analysée" fill className="object-contain" />
               </div>
             </div>
@@ -636,71 +705,101 @@ export default function HomePage() {
             playsInline
             muted
             onClick={capturePhoto}
-            className={`w-full rounded-lg bg-black cursor-pointer ${
+            className={`w-full rounded-2xl bg-slate-900 cursor-pointer shadow-lg ${
               searchMode === "camera" && isCameraActive && !capturedImage ? "block" : "hidden"
             }`}
             style={{ aspectRatio: "4/3" }}
           />
+
           <canvas ref={canvasRef} className="hidden" />
 
           {/* Étape 1: Sélection de la méthode */}
           {!searchMode && !capturedImage && !isSearching && (
-            <div className="space-y-3 md:space-y-4">
+            <div className="space-y-4">
               <Button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-orange hover:bg-orange/90 text-white py-3 md:py-4 text-base md:text-lg"
-                disabled={isSearching || !canSearch}
+                onClick={() => {
+                  if (!user) {
+                    toast.error("Connexion requise pour utiliser la recherche IA")
+                    setShowLoginModal(true)
+                    return
+                  }
+                  fileInputRef.current?.click()
+                }}
+                className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
+                style={{ backgroundColor: "#f2d895" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                disabled={isSearching}
               >
-                <Upload className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                <Upload className="w-5 h-5 mr-3" />
                 Téléverser une image
               </Button>
 
               <Button
-                onClick={startCamera}
-                variant="outline"
-                className="w-full border-orange text-orange hover:bg-orange hover:text-white py-3 md:py-4 text-base md:text-lg bg-transparent"
-                disabled={isSearching || isCameraLoading || !canSearch}
+                onClick={() => {
+                  if (!user) {
+                    toast.error("Connexion requise pour utiliser la recherche IA")
+                    setShowLoginModal(true)
+                    return
+                  }
+                  if (userData?.role === "free") {
+                    toast.error("Fonctionnalité réservée aux comptes Premium")
+                    return
+                  }
+                  startCamera()
+                }}
+                className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
+                style={{ backgroundColor: userData?.role === "free" ? "#ccc" : "#f2d895" }}
+                onMouseEnter={(e) => {
+                  if (userData?.role !== "free") {
+                    e.currentTarget.style.backgroundColor = "#e6c77a"
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (userData?.role !== "free") {
+                    e.currentTarget.style.backgroundColor = "#f2d895"
+                  }
+                }}
+                disabled={isSearching || isCameraLoading || userData?.role === "free"}
               >
                 {isCameraLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange mr-2"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white mr-3"></div>
                     Activation caméra...
+                  </>
+                ) : userData?.role === "free" ? (
+                  <>
+                    <Camera className="w-5 h-5 mr-3" />
+                    Fonctionnalité Premium
                   </>
                 ) : (
                   <>
-                    <Camera className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                    <Camera className="w-5 h-5 mr-3" />
                     Prendre une photo
                   </>
                 )}
               </Button>
 
-              {!canSearch && userData?.role === "free" && (
-                <div className="text-center text-red-500 text-xs">
-                  Limite de recherches quotidiennes atteinte (3/3).
-                  <Link href="#" className="ml-1 underline">
-                    Passez à Premium
-                  </Link>{" "}
-                  pour des recherches illimitées.
-                </div>
-              )}
-
-              <p className="text-xs text-gray-600 text-center">
-                L'IA analyse votre image et trouve les 10 luminaires les plus similaires
+              <p className="text-xs text-slate-500 text-center leading-relaxed">
+                Connectez-vous pour utiliser notre IA qui analyse votre image et trouve les 10 luminaires les plus
+                similaires
               </p>
             </div>
           )}
 
           {/* Étape 2a: Caméra en cours d'activation */}
           {searchMode === "camera" && isCameraLoading && (
-            <div className="space-y-4 text-center">
-              <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+            <div className="space-y-6 text-center">
+              <div className="w-full h-64 bg-slate-100 rounded-2xl flex items-center justify-center">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Activation de la caméra...</p>
+                  <div
+                    className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 mx-auto mb-4"
+                    style={{ borderTopColor: "#f2d895" }}
+                  ></div>
+                  <p className="text-slate-600 font-medium">Activation de la caméra...</p>
                 </div>
               </div>
-
-              <Button onClick={resetSearch} variant="outline" className="w-full bg-transparent">
+              <Button onClick={resetSearch} variant="outline" className="w-full rounded-xl bg-transparent">
                 <X className="w-4 h-4 mr-2" />
                 Annuler
               </Button>
@@ -709,22 +808,53 @@ export default function HomePage() {
 
           {/* Étape 2b: Caméra active */}
           {searchMode === "camera" && isCameraActive && !capturedImage && (
-            <div className="space-y-4">
-              {/* Le flux vidéo est maintenant rendu en haut avec une classe conditionnelle */}
-
+            <div className="space-y-6">
               {/* Overlay avec instructions */}
               <div className="relative -mt-4">
                 {/* Indicateur de statut */}
-                <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded z-10">
-                  🟢 Touchez l'écran pour capturer
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-10">
+                  <div className="bg-black/70 text-[#f2d895] px-4 py-2 rounded-lg text-sm font-medium shadow-lg">
+                    Touchez l'écran pour capturer
+                  </div>
                 </div>
+                <div className="absolute top-3 right-3 bg-black/70 text-white text-sm px-3 py-2 rounded-lg z-10 shadow-lg">
+                  {zoomLevel.toFixed(1)}x
+                </div>
+              </div>
 
-                {/* Pas d'indicateur supplémentaire */}
+              <div className="flex gap-2 justify-center">
+                <Button
+                  onClick={handleZoomOut}
+                  className="w-12 h-12 rounded-full text-white text-xl font-bold"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  disabled={isCapturing || zoomLevel <= 1}
+                >
+                  -
+                </Button>
+                <Button
+                  onClick={handleZoomIn}
+                  className="w-12 h-12 rounded-full text-white text-xl font-bold"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  disabled={isCapturing}
+                >
+                  +
+                </Button>
               </div>
 
               {/* Boutons de contrôle */}
-              <div className="flex gap-2">
-                <Button onClick={capturePhoto} className="flex-1 bg-orange hover:bg-orange/90" disabled={isCapturing}>
+              <div className="flex gap-3">
+                <Button
+                  onClick={capturePhoto}
+                  className="flex-1 text-white rounded-xl"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  disabled={isCapturing}
+                >
                   {isCapturing ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>
@@ -736,13 +866,17 @@ export default function HomePage() {
                     </>
                   )}
                 </Button>
-
-                <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent" disabled={isCapturing}>
+                <Button
+                  onClick={resetSearch}
+                  variant="outline"
+                  className="px-6 rounded-xl bg-transparent"
+                  disabled={isCapturing}
+                >
                   <X className="w-4 h-4" />
                 </Button>
               </div>
 
-              <p className="text-xs text-gray-600 text-center">
+              <p className="text-xs text-slate-500 text-center">
                 Cadrez le luminaire et touchez l'écran ou le bouton pour capturer
               </p>
             </div>
@@ -750,9 +884,9 @@ export default function HomePage() {
 
           {/* Étape 3: Recherche en cours */}
           {isSearching && (
-            <div className="space-y-4 text-center">
+            <div className="space-y-6 text-center">
               {capturedImage && (
-                <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-4">
+                <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden mb-6 shadow-lg">
                   <Image
                     src={capturedImage || "/placeholder.svg"}
                     alt="Image en cours d'analyse"
@@ -761,82 +895,122 @@ export default function HomePage() {
                   />
                 </div>
               )}
-
               <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange mx-auto mb-2"></div>
-                <p className="text-sm font-medium text-dark">Analyse IA en cours...</p>
-                <p className="text-xs text-gray-500">Recherche des luminaires similaires</p>
+                <div
+                  className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 mx-auto mb-4"
+                  style={{ borderTopColor: "#f2d895" }}
+                ></div>
+                <p className="text-lg font-medium text-slate-800 mb-2">Analyse IA en cours...</p>
+                <p className="text-sm text-slate-600">Recherche des luminaires similaires dans notre collection</p>
+
+                {/* Message d'avertissement pour les utilisateurs gratuits */}
+                {userData?.role === "free" && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      Plus que {3 - (userData.searchCount || 0)} recherche(s) restante(s) ce mois-ci.
+                      <Link href="/pricing" className="ml-1 underline font-medium">
+                        Passez à Premium
+                      </Link>{" "}
+                      pour des recherches illimitées.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {/* Étape 2.5: Options d'arrière-plan */}
           {showBackgroundOptions && !isSearching && (
-            <div className="space-y-4">
-              <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-4">
+            <div className="space-y-6">
+              <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden mb-6 shadow-lg">
                 <Image src={capturedImage || "/placeholder.svg"} alt="Image capturée" fill className="object-contain" />
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="removeBackground"
-                    className="w-4 h-4 text-orange bg-gray-100 border-gray-300 rounded focus:ring-orange focus:ring-2"
-                    onChange={async (e) => {
-                      if (e.target.checked) {
-                        // Supprimer l'arrière-plan et mettre à jour l'affichage
-                        if (selectedImageForSearch && !isRemovingBackground) {
-                          const processedFile = await removeBackground(selectedImageForSearch)
-                          if (processedFile && backgroundRemovedImage) {
-                            setSelectedImageForSearch(processedFile)
-                            setCapturedImage(backgroundRemovedImage)
+              <div className="space-y-6">
+                {/* Afficher la checkbox seulement pour les utilisateurs premium/admin */}
+                {user && userData?.role !== "free" && (
+                  <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <input
+                      type="checkbox"
+                      id="removeBackground"
+                      className="w-5 h-5 bg-white border-slate-300 rounded focus:ring-2"
+                      style={{ accentColor: "#f2d895" }}
+                      onChange={async (e) => {
+                        if (e.target.checked) {
+                          // Supprimer l'arrière-plan et mettre à jour l'affichage
+                          if (selectedImageForSearch && !isRemovingBackground) {
+                            const processedFile = await removeBackground(selectedImageForSearch)
+                            if (processedFile && backgroundRemovedImage) {
+                              setSelectedImageForSearch(processedFile)
+                              setCapturedImage(backgroundRemovedImage)
+                            }
+                          }
+                        } else {
+                          // Remettre l'image originale
+                          if (selectedFile) {
+                            const originalUrl = URL.createObjectURL(selectedFile)
+                            setCapturedImage(originalUrl)
+                            setSelectedImageForSearch(selectedFile)
+                            // Nettoyer l'ancienne URL de l'image sans arrière-plan
+                            if (backgroundRemovedImage) {
+                              URL.revokeObjectURL(backgroundRemovedImage)
+                              setBackgroundRemovedImage(null)
+                            }
                           }
                         }
-                      } else {
-                        // Remettre l'image originale
-                        if (selectedFile) {
-                          const originalUrl = URL.createObjectURL(selectedFile)
-                          setCapturedImage(originalUrl)
-                          setSelectedImageForSearch(selectedFile)
-                          // Nettoyer l'ancienne URL de l'image sans arrière-plan
-                          if (backgroundRemovedImage) {
-                            URL.revokeObjectURL(backgroundRemovedImage)
-                            setBackgroundRemovedImage(null)
-                          }
-                        }
-                      }
-                    }}
-                    disabled={isRemovingBackground}
-                  />
-                  <label htmlFor="removeBackground" className="text-sm font-medium text-gray-700 cursor-pointer">
-                    Supprimer l'arrière-plan avant la recherche
-                  </label>
-                </div>
-
-                {isRemovingBackground && (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600">Suppression de l'arrière-plan en cours...</p>
+                      }}
+                      disabled={isRemovingBackground}
+                    />
+                    <label htmlFor="removeBackground" className="text-sm font-medium text-slate-700 cursor-pointer">
+                      Supprimer l'arrière-plan avant la recherche
+                    </label>
                   </div>
                 )}
 
-                <div className="flex gap-2">
+                {/* Message pour les utilisateurs gratuits */}
+                {(!user || userData?.role === "free") && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Fonctionnalité Premium :</strong> La suppression d'arrière-plan est disponible avec un
+                      abonnement Premium.
+                      <Link href="/pricing" className="ml-2 underline">
+                        Voir les forfaits
+                      </Link>
+                    </p>
+                  </div>
+                )}
+
+                {isRemovingBackground && (
+                  <div className="text-center py-6">
+                    <div
+                      className="animate-spin rounded-full h-8 w-8 border-4 border-slate-300 mx-auto mb-3"
+                      style={{ borderTopColor: "#f2d895" }}
+                    ></div>
+                    <p className="text-sm text-slate-600">Suppression de l'arrière-plan en cours...</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
                   <Button
                     onClick={searchWithOriginal}
-                    className="flex-1 bg-orange hover:bg-orange/90"
+                    className="flex-1 text-white rounded-xl"
+                    style={{ backgroundColor: "#f2d895" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                     disabled={isRemovingBackground}
                   >
                     Rechercher maintenant
                   </Button>
-                  <Button onClick={resetSearch} variant="outline" className="px-4 bg-transparent">
+                  <Button onClick={resetSearch} variant="outline" className="px-6 rounded-xl bg-transparent">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
 
-              <p className="text-xs text-gray-600 text-center">
-                La suppression d'arrière-plan peut améliorer la précision de la recherche
+              <p className="text-xs text-slate-500 text-center">
+                {user && userData?.role !== "free"
+                  ? "La suppression d'arrière-plan peut améliorer la précision de la recherche"
+                  : "Connectez-vous avec un compte Premium pour plus de fonctionnalités"}
               </p>
             </div>
           )}
@@ -846,17 +1020,20 @@ export default function HomePage() {
 
         {/* Résultats de recherche */}
         {searchResults.length > 0 && (
-          <div className="mt-6 md:mt-8 bg-white/95 backdrop-blur-sm rounded-2xl p-4 md:p-6 max-w-6xl w-full">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-6 gap-3">
-              <h3 className="text-lg md:text-xl font-playfair text-dark text-center md:text-left">
-                🎯 Top {searchResults.length} luminaires similaires (IA)
+          <div className="mt-8 bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-8 max-w-7xl w-full shadow-2xl border border-white/20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+              <h3 className="text-2xl md:text-3xl font-serif text-slate-800 text-center md:text-left">
+                🎯 Top {searchResults.length} luminaires similaires
               </h3>
-              <div className="flex gap-2 justify-center md:justify-end">
+              <div className="flex gap-3 justify-center md:justify-end">
                 <Button
                   onClick={searchAgain}
-                  className="bg-orange hover:bg-orange/90 text-sm md:text-base"
+                  className="text-white rounded-xl shadow-lg"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                   size="sm"
-                  disabled={isSearching || !canSearch}
+                  disabled={isSearching}
                 >
                   {isSearching ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>
@@ -868,7 +1045,7 @@ export default function HomePage() {
                   onClick={resetSearch}
                   variant="outline"
                   size="sm"
-                  className="text-sm md:text-base bg-transparent"
+                  className="rounded-xl shadow-lg bg-transparent"
                 >
                   <X className="w-4 h-4 mr-2" />
                   Nouvelle image
@@ -876,18 +1053,21 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
               {searchResults.map((result: any, index) => (
-                <div key={index} className="bg-white rounded-lg p-2 md:p-3 shadow-md border">
+                <div
+                  key={index}
+                  className="bg-white rounded-2xl p-4 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200"
+                >
                   {/* Image cliquable */}
                   {result.hasLocalMatch && result.luminaireUrl ? (
                     <Link href={result.luminaireUrl}>
-                      <div className="relative w-full h-24 md:h-32 mb-2 md:mb-3 cursor-pointer hover:scale-105 transition-transform">
+                      <div className="relative w-full h-32 md:h-40 mb-4 cursor-pointer hover:scale-105 transition-transform duration-200">
                         <Image
                           src={result.imageUrl || "/placeholder.svg"}
                           alt={result.imageId || `Résultat ${index + 1}`}
                           fill
-                          className="object-cover rounded-lg"
+                          className="object-cover rounded-xl"
                           onError={(e) => {
                             const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || `Image ${index + 1}`)}`
                             e.currentTarget.src = fallbackUrl
@@ -896,12 +1076,12 @@ export default function HomePage() {
                       </div>
                     </Link>
                   ) : (
-                    <div className="relative w-full h-24 md:h-32 mb-2 md:mb-3">
+                    <div className="relative w-full h-32 md:h-40 mb-4">
                       <Image
                         src={result.imageUrl || "/placeholder.svg"}
                         alt={result.imageId || `Résultat ${index + 1}`}
                         fill
-                        className="object-cover rounded-lg"
+                        className="object-cover rounded-xl"
                         onError={(e) => {
                           const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || `Image ${index + 1}`)}`
                           e.currentTarget.src = fallbackUrl
@@ -910,19 +1090,20 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  <p className="text-xs md:text-sm font-medium text-dark truncate mb-1 md:mb-2">
+                  <p className="text-sm font-medium text-slate-800 truncate mb-2">
                     {result.localMatch?.nom || result.imageId || `Résultat ${index + 1}`}
                   </p>
-                  <p className="text-xs text-orange mb-2 md:mb-3">Similarité: {Math.round(result.similarity * 100)}%</p>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-slate-600 mb-3">Similarité: {Math.round(result.similarity * 100)}%</p>
+
+                  <p className="text-xs text-slate-500">
                     {result.hasLocalMatch ? "Fiche disponible" : "Image similaire"}
                   </p>
                 </div>
               ))}
             </div>
 
-            <div className="mt-3 md:mt-4 text-center text-xs md:text-sm text-gray-600">
+            <div className="mt-6 text-center text-sm text-slate-600">
               Cliquez sur une image pour voir la fiche détaillée
             </div>
           </div>

@@ -1,19 +1,19 @@
-import { MongoClient } from "mongodb"
+import { MongoClient, type Db } from "mongodb"
+import { env } from "./env"
 
-// Assure-toi que la variable d'environnement est définie.
-if (!process.env.MONGODB_URI) {
-  throw new Error('Invalid/Missing environment variable: "MONGODB_URI"')
+if (!env.MONGODB_URI) {
+  throw new Error("Please define the MONGODB_URI environment variable inside .env.local")
 }
 
-const uri = process.env.MONGODB_URI
+const uri = env.MONGODB_URI
 const options = {}
 
 let client: MongoClient
 let clientPromise: Promise<MongoClient>
 
-// En environnement de développement, on utilise une variable globale pour que la
-// connexion ne soit pas recréée à chaque rechargement à chaud (HMR).
-if (process.env.NODE_ENV === "development") {
+if (env.NODE_ENV === "development") {
+  // In development mode, use a global variable so that the value
+  // is preserved across module reloads caused by HMR (Hot Module Replacement).
   const globalWithMongo = global as typeof globalThis & {
     _mongoClientPromise?: Promise<MongoClient>
   }
@@ -24,11 +24,14 @@ if (process.env.NODE_ENV === "development") {
   }
   clientPromise = globalWithMongo._mongoClientPromise
 } else {
-  // En production, il n'est pas nécessaire d'utiliser une variable globale.
+  // In production mode, it's best to not use a global variable.
   client = new MongoClient(uri, options)
   clientPromise = client.connect()
 }
 
-// Exporte une promesse de client MongoDB. En l'exportant de cette manière,
-// le client sera partagé sur n'importe quelle fonction qui importe ce module.
 export default clientPromise
+
+export async function getDatabase(): Promise<Db> {
+  const client = await clientPromise
+  return client.db("luminaires")
+}

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 echo "🛑 Arrêt de l'application..."
 
 # Arrêter les services de production

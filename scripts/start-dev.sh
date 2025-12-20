@@ -1,5 +1,4 @@
 #!/bin/bash
-
 echo "🚀 Démarrage de l'application en mode développement..."
 
 # Vérifier si Docker est installé

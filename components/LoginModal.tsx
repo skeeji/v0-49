@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { X } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
-import Image from "next/image"
+import { Chrome } from "lucide-react"
 
 interface LoginModalProps {
   isOpen: boolean
@@ -12,65 +12,59 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
-  const { signInWithGoogle, isLoading } = useAuth()
-  const [error, setError] = useState<string | null>(null)
+  const { signInWithGoogle } = useAuth()
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleLogin = async () => {
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true)
     try {
-      setError(null)
       await signInWithGoogle()
       onClose()
-    } catch (err) {
-      setError("Erreur lors de la connexion. Veuillez réessayer.")
+    } catch (error) {
+      console.error("Erreur lors de la connexion:", error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-playfair text-dark">Connexion</h2>
-          <Button onClick={onClose} variant="ghost" size="sm">
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-serif text-slate-800">Connexion requise</DialogTitle>
+          <DialogDescription className="text-slate-600">
+            Connectez-vous pour utiliser la recherche par image IA et accéder à toutes les fonctionnalités.
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="text-center mb-8">
-          <p className="text-gray-600 mb-4">
-            Connectez-vous pour accéder à toutes les fonctionnalités de la galerie de luminaires.
-          </p>
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-        </div>
-
-        <div className="space-y-4">
+        <div className="space-y-4 pt-4">
           <Button
-            onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-2 py-6"
+            onClick={handleGoogleSignIn}
             disabled={isLoading}
+            className="w-full bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl shadow-lg transition-all duration-200"
           >
             {isLoading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white mr-3"></div>
             ) : (
-              <>
-                <Image
-                  src="/placeholder.svg?height=20&width=20&text=G"
-                  alt="Google"
-                  width={20}
-                  height={20}
-                  className="rounded-full"
-                />
-                <span>Continuer avec Google</span>
-              </>
+              <Chrome className="w-5 h-5 mr-3" />
             )}
+            Continuer avec Google
           </Button>
-        </div>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>En vous connectant, vous acceptez nos conditions d'utilisation et notre politique de confidentialité.</p>
+          <div className="text-center">
+            <p className="text-sm text-slate-500">En vous connectant, vous acceptez nos conditions d'utilisation</p>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-xl">
+            <h4 className="font-medium text-slate-800 mb-2">Avantages de la connexion :</h4>
+            <ul className="text-sm text-slate-600 space-y-1">
+              <li>• 3 recherches IA gratuites par jour</li>
+              <li>• Sauvegarde de vos favoris</li>
+              <li>• Accès aux fonctionnalités premium</li>
+            </ul>
+          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,64 +1,153 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 
-// Fonction pour extraire le nom du designer
-const getDesignerNameOnly = (str = ""): string => {
-  if (!str) return ""
-  return str.split("(")[0].trim()
-}
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { name: string } }) {
   try {
-    console.log("🔍 API /api/designers/[name] GET - Name:", params.name)
+    const designerName = decodeURIComponent(params.name)
+    console.log(`🔍 API /api/designers/${designerName} - Recherche designer`)
 
     const client = await clientPromise
-    const db = client.db()
+    const db = client.db(DBNAME)
 
-    const designerSlug = decodeURIComponent(params.name)
-    console.log("🔍 Designer slug:", designerSlug)
+    // Recherche très flexible pour gérer tous les cas, y compris les caractères spéciaux
+    const searchPatterns = [
+      // Recherche exacte dans "Artiste / Dates"
+      { "Artiste / Dates": designerName },
+      // Recherche exacte dans "designer"
+      { designer: designerName },
+      // Recherche insensible à la casse dans "Artiste / Dates"
+      { "Artiste / Dates": { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
+      // Recherche insensible à la casse dans "designer"
+      { designer: { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
+      // Recherche partielle dans "Artiste / Dates"
+      { "Artiste / Dates": { $regex: designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+      // Recherche partielle dans "designer"
+      { designer: { $regex: designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+      // Recherche en supprimant les caractères spéciaux dans "Artiste / Dates"
+      { "Artiste / Dates": { $regex: designerName.replace(/[^a-zA-Z0-9\s]/g, ""), $options: "i" } },
+      // Recherche en supprimant les caractères spéciaux dans "designer"
+      { designer: { $regex: designerName.replace(/[^a-zA-Z0-9\s]/g, ""), $options: "i" } },
+      // Recherche sur le premier mot seulement dans "Artiste / Dates"
+      { "Artiste / Dates": { $regex: `^${designerName.split(" ")[0]}`, $options: "i" } },
+      // Recherche sur le premier mot seulement dans "designer"
+      { designer: { $regex: `^${designerName.split(" ")[0]}`, $options: "i" } },
+    ]
 
-    // Récupérer tous les luminaires
-    const luminaires = await db.collection("luminaires").find({}).toArray()
-    console.log("📊 Total luminaires:", luminaires.length)
+    let luminaires = []
+    let searchUsed = ""
 
-    // Filtrer les luminaires pour ce designer
-    const designerLuminaires = luminaires.filter((luminaire) => {
-      const designerName = getDesignerNameOnly(luminaire.designer)
-      const slug = designerName
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "")
-      return slug === designerSlug
-    })
+    for (let i = 0; i < searchPatterns.length; i++) {
+      const pattern = searchPatterns[i]
+      luminaires = await db.collection("luminaires").find(pattern).toArray()
+      if (luminaires.length > 0) {
+        searchUsed = `Pattern ${i + 1}`
+        console.log(`✅ Trouvé avec ${searchUsed}: ${luminaires.length} luminaires`)
+        break
+      }
+    }
 
-    console.log("📊 Luminaires pour ce designer:", designerLuminaires.length)
+    console.log(`📊 ${luminaires.length} luminaires trouvés pour "${designerName}"`)
 
-    if (designerLuminaires.length === 0) {
-      return NextResponse.json({ success: false, error: "Designer non trouvé" }, { status: 404 })
+    if (luminaires.length === 0) {
+      // Essayer une recherche encore plus large avec $or
+      const broadSearch = await db
+        .collection("luminaires")
+        .find({
+          $or: [
+            { "Artiste / Dates": { $regex: designerName.split(" ")[0], $options: "i" } },
+            { designer: { $regex: designerName.split(" ")[0], $options: "i" } },
+          ],
+        })
+        .toArray()
+
+      console.log(`🔍 Recherche large: ${broadSearch.length} résultats`)
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Designer non trouvé",
+          debug: {
+            searchTerm: designerName,
+            broadResults: broadSearch.length,
+            suggestions: broadSearch.slice(0, 5).map((l) => l["Artiste / Dates"] || l["designer"]),
+          },
+        },
+        { status: 404 },
+      )
+    }
+
+    // Chercher l'image du designer dans la collection designers avec recherche flexible
+    let designerImage = null
+    let imagedesigner = null
+
+    try {
+      const designerQueries = [
+        { Nom: designerName },
+        { Nom: { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } },
+        { Nom: { $regex: designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+        { Nom: { $regex: designerName.split(" ")[0], $options: "i" } },
+      ]
+
+      for (const query of designerQueries) {
+        const designerDoc = await db.collection("designers").findOne(query)
+        if (designerDoc && designerDoc.imagedesigner) {
+          designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
+          imagedesigner = designerDoc.imagedesigner
+          console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
+          break
+        }
+      }
+    } catch (error) {
+      console.log("⚠️ Pas d'image trouvée pour ce designer")
     }
 
     // Créer l'objet designer
-    const firstLuminaire = designerLuminaires[0]
-    const designerName = getDesignerNameOnly(firstLuminaire.designer)
-
     const designer = {
       nom: designerName,
-      slug: designerSlug,
-      image: null, // À implémenter si vous avez des images de designers
-      count: designerLuminaires.length,
+      count: luminaires.length,
+      image: designerImage,
+      imagedesigner: imagedesigner, // Ajouter le nom du fichier pour la page de détail
+      biographie: "",
+      specialites: [],
     }
 
-    console.log("✅ Designer trouvé:", designer.nom)
+    // Adapter les luminaires pour l'affichage
+    const adaptedLuminaires = luminaires.map((lum: any) => {
+      // Correction du bug d'affichage des images de luminaires
+      const imageFilename = lum.filename || lum["Nom du fichier"]
+
+      return {
+        ...lum,
+        id: lum._id,
+        image: imageFilename ? `/api/images/filename/${imageFilename}` : null,
+        filename: imageFilename, // Utiliser le nom de fichier trouvé
+        name: lum["Nom luminaire"] || "Sans nom",
+        year: lum["Année"] || "",
+      }
+    })
 
     return NextResponse.json({
       success: true,
       data: {
         designer,
-        luminaires: designerLuminaires,
+        luminaires: adaptedLuminaires,
+      },
+      debug: {
+        searchUsed,
+        originalName: designerName,
       },
     })
-  } catch (error) {
-    console.error("❌ Erreur API /api/designers/[name] GET:", error)
-    return NextResponse.json({ success: false, error: "Erreur serveur" }, { status: 500 })
+  } catch (error: any) {
+    console.error(`❌ Erreur API designers/${params.name}:`, error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur serveur",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { TimelineBlock } from "@/components/TimelineBlock"
+import { useAuth } from "@/contexts/AuthContext"
 
 const periods = [
   {
@@ -107,7 +108,11 @@ const periods = [
 export default function ChronologiePage() {
   const [timelineData, setTimelineData] = useState<any[]>([])
   const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
+  const [periodImages, setPeriodImages] = useState<{ [key: string]: string }>({})
   const [isLoading, setIsLoading] = useState(true)
+  const { userData } = useAuth()
+
+  const canEdit = userData?.role === "admin"
 
   useEffect(() => {
     const savedDescriptions = JSON.parse(localStorage.getItem("timeline-descriptions") || "{}")
@@ -116,24 +121,49 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true)
       try {
-        const response = await fetch("/api/luminaires")
+        const response = await fetch("/api/luminaires?limit=10000")
         const data = await response.json()
 
+        const imagesResponse = await fetch("/api/period-images")
+        const imagesData = await imagesResponse.json()
+
+        if (imagesData.success) {
+          setPeriodImages(imagesData.images)
+        }
+
         if (data.success && data.luminaires) {
-          // CORRECTION: Adapter les données et ne pas mettre 2025 par défaut
-          const adaptedLuminaires = data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            image: lum.images?.[0],
-            year: lum.annee && !isNaN(Number(lum.annee)) ? Number(lum.annee) : null, // Ne pas mettre 2025 par défaut
-            artist: lum.designer,
-          }))
+          const adaptedLuminaires = data.luminaires.map((lum: any) => {
+            let year = null
+            const anneeValue = lum.annee || lum.Année || lum.year
+
+            if (anneeValue) {
+              const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(anneeValue)
+              if (!isNaN(numYear) && numYear > 1000 && numYear < 2100) {
+                year = numYear
+              }
+            }
+
+            let imageUrl = null
+            if (lum.fileId) {
+              imageUrl = `/api/images/${lum.fileId}`
+            } else if (lum.filename || lum["Nom du fichier"]) {
+              const filename = lum.filename || lum["Nom du fichier"]
+              imageUrl = `/api/images/filename/${encodeURIComponent(filename)}`
+            }
+
+            return {
+              ...lum,
+              id: lum._id,
+              image: imageUrl,
+              year: year,
+              artist: lum["Artiste / Dates"] || lum.designer || "",
+              name: lum["Nom luminaire"] || lum.nom || "Sans nom",
+            }
+          })
 
           const grouped = periods.map((period) => {
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
-              // CORRECTION: Ignorer les luminaires sans année valide
-              if (!luminaire.year || luminaire.year === null) return false
-              return luminaire.year >= period.start && luminaire.year <= period.end
+              return luminaire.year !== null && luminaire.year >= period.start && luminaire.year <= period.end
             })
 
             const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => (a.year || 0) - (b.year || 0))
@@ -142,6 +172,7 @@ export default function ChronologiePage() {
               ...period,
               description: savedDescriptions[period.name] || period.defaultDescription,
               luminaires: sortedLuminaires,
+              imageUrl: imagesData.success ? imagesData.images[period.name] : null,
             }
           })
 
@@ -153,11 +184,13 @@ export default function ChronologiePage() {
         setIsLoading(false)
       }
     }
+
     fetchAndProcessData()
   }, [])
 
   useEffect(() => {
     if (isLoading) return
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -168,15 +201,20 @@ export default function ChronologiePage() {
       },
       { threshold: 0.1 },
     )
+
     const elements = document.querySelectorAll(".scroll-reveal")
     elements.forEach((el) => observer.observe(el))
+
     return () => observer.disconnect()
   }, [timelineData, isLoading])
 
   const updateDescription = (periodName: string, newDescription: string) => {
+    if (!canEdit) return
+
     const updatedDescriptions = { ...descriptions, [periodName]: newDescription }
     setDescriptions(updatedDescriptions)
     localStorage.setItem("timeline-descriptions", JSON.stringify(updatedDescriptions))
+
     setTimelineData((prev) =>
       prev.map((period) => (period.name === periodName ? { ...period, description: newDescription } : period)),
     )
@@ -185,15 +223,24 @@ export default function ChronologiePage() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <p>Chargement...</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="font-serif">Chargement de la chronologie...</p>
+        </div>
       </div>
     )
   }
 
+  const totalLuminaires = timelineData.reduce((sum, period) => sum + period.luminaires.length, 0)
+
   return (
-    <div className="container-responsive py-8">
+    <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-playfair text-dark mb-12 text-center">Chronologie des Périodes Artistiques</h1>
+        <h1 className="text-4xl font-serif text-gray-900 mb-4 text-center">Chronologie des Périodes Artistiques</h1>
+        <p className="text-center text-gray-600 mb-12 font-serif">
+          {totalLuminaires} luminaires classés par période historique
+        </p>
+
         <div className="space-y-16">
           {timelineData.map((period, index) => (
             <TimelineBlock
@@ -202,6 +249,7 @@ export default function ChronologiePage() {
               isLeft={index % 2 === 0}
               className="scroll-reveal"
               onDescriptionUpdate={updateDescription}
+              canEdit={canEdit}
             />
           ))}
         </div>

@@ -1,30 +1,32 @@
 "use client"
-
 import { useState } from "react"
-import { Edit2, Check, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Check, X, Edit } from "lucide-react"
 
 interface EditableFieldProps {
   value: string
   onSave: (value: string) => void
-  className?: string
   placeholder?: string
   multiline?: boolean
+  disabled?: boolean
+  className?: string
 }
 
 export function EditableField({
   value,
   onSave,
-  className = "",
   placeholder = "",
   multiline = false,
+  disabled = false,
+  className = "",
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(value)
 
   const handleSave = () => {
+    // CORRECTION: Préserver exactement le formatage (espaces, sauts de ligne, majuscules)
     onSave(editValue)
     setIsEditing(false)
   }
@@ -34,45 +36,51 @@ export function EditableField({
     setIsEditing(false)
   }
 
+  if (disabled) {
+    return (
+      <div className={`p-2 ${className}`} style={{ whiteSpace: "pre-wrap" }}>
+        {value || <span className="text-gray-400 italic">{placeholder}</span>}
+      </div>
+    )
+  }
+
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="space-y-2">
         {multiline ? (
           <Textarea
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             placeholder={placeholder}
-            className="flex-1"
-            rows={3}
+            className="min-h-[100px]"
+            style={{ whiteSpace: "pre-wrap" }}
           />
         ) : (
-          <Input
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            placeholder={placeholder}
-            className="flex-1"
-          />
+          <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder={placeholder} />
         )}
-
-        <Button onClick={handleSave} size="sm" className="bg-green-500 hover:bg-green-600">
-          <Check className="w-4 h-4" />
-        </Button>
-
-        <Button onClick={handleCancel} variant="outline" size="sm">
-          <X className="w-4 h-4" />
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={handleSave}>
+            <Check className="w-4 h-4" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCancel}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
     <div
-      className={`group cursor-pointer hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1 ${className}`}
+      className={`group cursor-pointer p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 ${className}`}
       onClick={() => setIsEditing(true)}
+      style={{ whiteSpace: "pre-wrap" }}
     >
-      <div className="flex items-center gap-2">
-        <span className={value ? "" : "text-gray-400 italic"}>{value || placeholder}</span>
-        <Edit2 className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="flex items-center justify-between">
+        <span style={{ whiteSpace: "pre-wrap" }}>
+          {value || <span className="text-gray-400 italic">{placeholder}</span>}
+        </span>
+        <Edit className="w-4 h-4 opacity-0 group-hover:opacity-50" />
       </div>
     </div>
   )

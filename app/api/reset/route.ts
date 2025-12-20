@@ -1,56 +1,110 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { getBucket } from "@/lib/gridfs"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-export async function DELETE(request: NextRequest) {
+export async function POST() {
   try {
-    console.log("🗑️ Début de la réinitialisation complète du serveur...")
+    console.log("🗑️ Début du reset de la base de données...")
 
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    // Supprimer toutes les collections MongoDB
-    const collections = await db.listCollections().toArray()
-    console.log(`📋 Collections trouvées: ${collections.map((c) => c.name).join(", ")}`)
+    // 1. Sauvegarder les favoris de tous les utilisateurs
+    console.log("💾 Sauvegarde des favoris...")
+    const usersCollection = db.collection("users")
+    const users = await usersCollection.find({}).toArray()
 
-    for (const collection of collections) {
-      const result = await db.collection(collection.name).deleteMany({})
-      console.log(`🗑️ Collection ${collection.name}: ${result.deletedCount} documents supprimés`)
+    const allFavorites: Array<{
+      userId: string
+      luminaireProps: {
+        nom: string
+        designer: string
+        filename: string
+        periode: string
+      }
+    }> = []
+
+    for (const user of users) {
+      if (user.favorites && Array.isArray(user.favorites) && user.favorites.length > 0) {
+        const luminairesCollection = db.collection("luminaires")
+
+        for (const favId of user.favorites) {
+          const luminaire = await luminairesCollection.findOne({ _id: favId })
+          if (luminaire) {
+            allFavorites.push({
+              userId: user.uid,
+              luminaireProps: {
+                nom: luminaire.nom || luminaire["Nom luminaire"] || "",
+                designer: luminaire.designer || luminaire["Artiste / Dates"] || "",
+                filename:
+                  luminaire.filename ||
+                  luminaire["Nom du fichier"] ||
+                  luminaire["Image luminaire (Nom du fichier)"] ||
+                  "",
+                periode: luminaire.periode || luminaire["Spécialité"] || "",
+              },
+            })
+          }
+        }
+      }
     }
 
-    // Supprimer tous les fichiers GridFS
+    console.log(`💾 ${allFavorites.length} favoris sauvegardés pour ${users.length} utilisateurs`)
+
+    // 2. Supprimer les collections
+    const collections = await db.listCollections().toArray()
+    const collectionNames = collections.map((c) => c.name)
+
+    for (const collectionName of collectionNames) {
+      // NE PAS supprimer la collection users
+      if (collectionName !== "users") {
+        await db.collection(collectionName).drop()
+        console.log(`✅ Collection "${collectionName}" supprimée`)
+      }
+    }
+
+    // 3. Supprimer les fichiers GridFS
     try {
       const bucket = await getBucket()
       const files = await bucket.find({}).toArray()
-      console.log(`📁 Fichiers GridFS trouvés: ${files.length}`)
 
       for (const file of files) {
         await bucket.delete(file._id)
-        console.log(`🗑️ Fichier GridFS supprimé: ${file.filename}`)
       }
-    } catch (gridfsError) {
-      console.warn("⚠️ Erreur GridFS (peut-être vide):", gridfsError)
+
+      console.log(`✅ ${files.length} fichiers GridFS supprimés`)
+    } catch (error) {
+      console.log("⚠️ Erreur lors de la suppression des fichiers GridFS:", error)
     }
 
-    console.log("✅ Réinitialisation complète terminée")
+    // 4. Vider les favoris de tous les utilisateurs (temporairement)
+    await usersCollection.updateMany({}, { $set: { favorites: [] } })
+    console.log("✅ Favoris des utilisateurs vidés temporairement")
+
+    // 5. Recréer les collections nécessaires
+    await db.createCollection("luminaires")
+    await db.createCollection("designers")
+    await db.createCollection("timeline_descriptions")
+    await db.createCollection("period_images")
+
+    console.log("✅ Collections recréées")
+
+    // 6. Note: Les favoris seront restaurés automatiquement après le réimport des luminaires
+    // via un script séparé ou manuellement
 
     return NextResponse.json({
       success: true,
-      message: "Serveur réinitialisé avec succès",
-      details: {
-        collections: collections.length,
-        files: "Tous les fichiers GridFS supprimés",
-      },
+      message: `Base de données vidée avec succès. ${allFavorites.length} favoris sauvegardés et seront restaurés après réimport.`,
+      favoritesBackup: allFavorites,
     })
   } catch (error: any) {
-    console.error("❌ Erreur lors de la réinitialisation:", error)
+    console.error("❌ Erreur lors du reset:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la réinitialisation",
-        details: error.message,
+        error: error.message,
       },
       { status: 500 },
     )
