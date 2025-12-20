@@ -190,6 +190,7 @@ export default function RecherchePage() {
         }
 
         let luminaireId = null
+        let enrichedMetadata = null
 
         if (fileName) {
           try {
@@ -198,6 +199,7 @@ export default function RecherchePage() {
               const data = await response.json()
               if (data.success && data.found) {
                 luminaireId = data.luminaireId
+                enrichedMetadata = data.metadata
               }
             }
           } catch (error) {
@@ -205,15 +207,47 @@ export default function RecherchePage() {
           }
         }
 
-        const metadata = result.metadata || result
+        const metadata = result.metadata || enrichedMetadata || result
+
+        const nom =
+          metadata.nom ||
+          metadata.name ||
+          metadata.title ||
+          metadata.Nom ||
+          result.nom ||
+          result.name ||
+          result.title ||
+          "Sans nom"
+
+        const artiste =
+          metadata.artiste ||
+          metadata.designer ||
+          metadata.artist ||
+          metadata.Artiste ||
+          metadata.Designer ||
+          result.artiste ||
+          result.designer ||
+          result.artist ||
+          "Inconnu"
+
+        const annee =
+          metadata.annee ||
+          metadata.year ||
+          metadata.date ||
+          metadata.Annee ||
+          metadata.Year ||
+          result.annee ||
+          result.year ||
+          result.date ||
+          ""
 
         return {
           imageUrl,
           luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
           luminaireId,
-          nom: metadata.nom || result.nom || "Sans nom",
-          artiste: metadata.artiste || result.artiste || metadata.designer || result.designer || "Inconnu",
-          annee: metadata.annee || result.annee || "",
+          nom,
+          artiste,
+          annee: annee ? String(annee) : "",
         }
       }),
     )
@@ -252,11 +286,12 @@ export default function RecherchePage() {
     const newSearchContext =
       conversationContext + (inputValue.trim() ? (conversationContext ? ", " : "") + inputValue.trim() : "")
 
+    const userMessageContent = inputValue.trim() || "Recherche par image"
     if (selectedImage) {
       const imageUrl = URL.createObjectURL(selectedImage)
-      addMessage("user", inputValue || "Recherche par image", imageUrl)
+      addMessage("user", userMessageContent, imageUrl)
     } else {
-      addMessage("user", inputValue)
+      addMessage("user", userMessageContent)
     }
 
     const currentInput = inputValue
