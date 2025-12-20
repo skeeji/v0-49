@@ -220,7 +220,7 @@ export default function RecherchePage() {
       if (searchImage) {
         formData.append("image", searchImage)
       }
-      formData.append("top_k", "4")
+      formData.append("top_k", "3")
 
       console.log("[v0] Calling orchestrator API with:", { query: searchText, hasImage: !!searchImage })
 
@@ -554,7 +554,7 @@ export default function RecherchePage() {
                 )}
 
                 {message.results && message.results.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-4 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4 w-full">
                     {message.results.map((result, idx) => {
                       const CardWrapper = result.luminaireId ? Link : "div"
                       const cardProps = result.luminaireId ? { href: `/luminaires/${result.luminaireId}` } : {}
