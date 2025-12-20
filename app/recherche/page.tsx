@@ -174,6 +174,62 @@ export default function RecherchePage() {
     return updatedConversation
   }
 
+  const IMAGE_SERVER_PREFIX = "https://image-similarity-api-590690354412.us-central1.run.app"
+
+  const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
+    const enriched = await Promise.all(
+      results.map(async (result) => {
+        let imageUrl = "/placeholder.svg"
+        let fileName = ""
+
+        if (result.image_url) {
+          imageUrl = result.image_url.startsWith("/") ? `${IMAGE_SERVER_PREFIX}${result.image_url}` : result.image_url
+          fileName = result.image_url.split("/").pop()?.toLowerCase() || ""
+        } else if (result.image_id) {
+          fileName = String(result.image_id).toLowerCase()
+        }
+
+        let luminaireId = null
+
+        if (fileName) {
+          try {
+            const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
+            if (response.ok) {
+              const data = await response.json()
+              if (data.success && data.found) {
+                luminaireId = data.luminaireId
+              }
+            }
+          } catch (error) {
+            console.error("Error fetching luminaire ID:", error)
+          }
+        }
+
+        const metadata = result.metadata || result
+
+        return {
+          imageUrl,
+          luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
+          luminaireId,
+          nom: metadata.nom || result.nom || "Sans nom",
+          artiste: metadata.artiste || result.artiste || metadata.designer || result.designer || "Inconnu",
+          annee: metadata.annee || result.annee || "",
+        }
+      }),
+    )
+
+    return enriched
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedImage(file)
+      const preview = URL.createObjectURL(file)
+      setImagePreview(preview)
+    }
+  }
+
   const handleSearch = async () => {
     if (!inputValue.trim() && !selectedImage) return
 
@@ -187,10 +243,15 @@ export default function RecherchePage() {
       return
     }
 
-    const previousContext = currentConversation?.searchContext || ""
-    const newSearchContext = previousContext ? `${previousContext}, ${inputValue}` : inputValue
+    const messages = currentConversation?.messages || []
+    const conversationContext = messages
+      .filter((m) => m.role === "user" && m.content.trim() !== "" && !m.content.startsWith("Je n'ai trouvé"))
+      .map((m) => m.content)
+      .join(", ")
 
-    // Add user message
+    const newSearchContext =
+      conversationContext + (inputValue.trim() ? (conversationContext ? ", " : "") + inputValue.trim() : "")
+
     if (selectedImage) {
       const imageUrl = URL.createObjectURL(selectedImage)
       addMessage("user", inputValue || "Recherche par image", imageUrl)
@@ -209,15 +270,12 @@ export default function RecherchePage() {
     try {
       const formData = new FormData()
 
-      // Add query text (cumulative context)
-      formData.append("query", newSearchContext)
+      formData.append("query", newSearchContext || "")
 
-      // Add image if provided
       if (currentImage) {
         formData.append("image", currentImage)
       }
 
-      // Add top_k parameter
       formData.append("top_k", "3")
 
       const response = await fetch(API_ORCHESTRATOR, {
@@ -257,63 +315,6 @@ export default function RecherchePage() {
       toast.error("Erreur lors de la recherche")
     } finally {
       setIsSearching(false)
-    }
-  }
-
-  const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
-    const IMAGE_SERVER_PREFIX = "https://chatbot-984654216979.europe-west1.run.app"
-
-    const enriched = await Promise.all(
-      results.map(async (result) => {
-        let imageUrl = "/placeholder.svg"
-        let fileName = ""
-
-        if (result.image_url) {
-          // If the URL is relative (starts with /), add the Cloud Run prefix
-          imageUrl = result.image_url.startsWith("/") ? `${IMAGE_SERVER_PREFIX}${result.image_url}` : result.image_url
-          fileName = result.image_url.split("/").pop()?.toLowerCase() || ""
-        } else if (result.image_id) {
-          fileName = String(result.image_id).toLowerCase()
-        }
-
-        let luminaireId = null
-
-        // Fetch luminaire ID from filename
-        if (fileName) {
-          try {
-            const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
-            if (response.ok) {
-              const data = await response.json()
-              if (data.success && data.found) {
-                luminaireId = data.luminaireId
-              }
-            }
-          } catch (error) {
-            console.error("Error fetching luminaire ID:", error)
-          }
-        }
-
-        return {
-          imageUrl,
-          luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
-          luminaireId,
-          nom: result.nom || "Sans nom",
-          artiste: result.artiste || result.designer || "Inconnu",
-          annee: result.annee === null || result.annee === undefined ? "Non spécifié" : String(result.annee),
-          similarity: result.similarity || result.score || 0,
-        }
-      }),
-    )
-
-    return enriched
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setSelectedImage(file)
-      const preview = URL.createObjectURL(file)
-      setImagePreview(preview)
     }
   }
 
