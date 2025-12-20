@@ -179,7 +179,7 @@ export default function RecherchePage() {
   const enrichOrchestratorResults = async (results: any[]): Promise<SearchResult[]> => {
     const enriched = await Promise.all(
       results.slice(0, 5).map(async (result) => {
-        console.log("[v0] Raw result from orchestrator:", result)
+        console.log("[v0] Raw result from orchestrator:", JSON.stringify(result, null, 2))
 
         let imageUrl = "/placeholder.svg"
         let fileName = ""
@@ -189,6 +189,7 @@ export default function RecherchePage() {
           fileName = result.image_url.split("/").pop()?.toLowerCase() || ""
         } else if (result.image_id) {
           fileName = String(result.image_id).toLowerCase()
+          imageUrl = `${IMAGE_SERVER_PREFIX}/images/${fileName}`
         } else if (result.image || result.filename) {
           fileName = (result.image || result.filename).toLowerCase()
           imageUrl = `${IMAGE_SERVER_PREFIX}/images/${fileName}`
@@ -202,50 +203,60 @@ export default function RecherchePage() {
             const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
             if (response.ok) {
               const data = await response.json()
-              console.log("[v0] Luminaire data from API:", data)
+              console.log("[v0] Luminaire data from local API:", data)
               if (data.success && data.found) {
                 luminaireId = data.luminaireId
                 enrichedMetadata = data.metadata
               }
             }
           } catch (error) {
-            console.error("Error fetching luminaire ID:", error)
+            console.error("[v0] Error fetching luminaire ID:", error)
           }
         }
 
-        const metadata = enrichedMetadata || {}
+        const apiMeta = enrichedMetadata || {}
+        const resultMeta = result.metadata || {}
 
         const nom =
-          metadata.nom ||
-          metadata.name ||
-          metadata.title ||
-          metadata.modele ||
+          apiMeta.nom ||
+          apiMeta.name ||
+          apiMeta.title ||
+          resultMeta.nom ||
+          resultMeta.name ||
+          resultMeta.title ||
           result.nom ||
           result.name ||
           result.title ||
-          "Sans nom"
+          result.modele ||
+          "Modèle non spécifié"
 
         const artiste =
-          metadata.artiste ||
-          metadata.artist ||
-          metadata.designer ||
-          metadata.createur ||
+          apiMeta.artiste ||
+          apiMeta.artist ||
+          apiMeta.designer ||
+          resultMeta.artiste ||
+          resultMeta.artist ||
+          resultMeta.designer ||
           result.artiste ||
           result.artist ||
           result.designer ||
+          result.createur ||
           "Inconnu"
 
         const annee =
-          metadata.annee ||
-          metadata.year ||
-          metadata.date ||
-          metadata.periode ||
+          apiMeta.annee ||
+          apiMeta.year ||
+          apiMeta.date ||
+          resultMeta.annee ||
+          resultMeta.year ||
+          resultMeta.date ||
           result.annee ||
           result.year ||
           result.date ||
+          result.periode ||
           ""
 
-        console.log("[v0] Final extracted metadata:", { nom, artiste, annee, luminaireId })
+        console.log("[v0] Final extracted metadata:", { nom, artiste, annee, luminaireId, fileName })
 
         return {
           imageUrl,
@@ -258,7 +269,9 @@ export default function RecherchePage() {
       }),
     )
 
-    return enriched.filter((r) => r.luminaireId !== null)
+    const validResults = enriched.filter((r) => r.luminaireId !== null)
+    console.log("[v0] Valid results after filtering:", validResults.length)
+    return validResults
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -305,6 +318,7 @@ export default function RecherchePage() {
     addMessage("user", displayText, userImageUrl)
 
     const currentImage = selectedImage
+    const currentInput = inputValue
 
     setInputValue("")
     setSelectedImage(null)
@@ -330,6 +344,7 @@ export default function RecherchePage() {
       if (!response.ok) throw new Error("Erreur lors de la recherche")
 
       const data = await response.json()
+      console.log("[v0] API orchestrator response:", data)
 
       if (data.results && data.results.length > 0) {
         const enrichedResults = await enrichOrchestratorResults(data.results)
@@ -349,7 +364,7 @@ export default function RecherchePage() {
         addMessage("assistant", "Je n'ai trouvé aucun luminaire correspondant à votre recherche.", undefined, [])
       }
     } catch (error) {
-      console.error("Erreur de recherche:", error)
+      console.error("[v0] Erreur de recherche:", error)
       toast.error("Erreur lors de la recherche")
       addMessage(
         "assistant",
