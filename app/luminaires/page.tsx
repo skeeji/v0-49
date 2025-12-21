@@ -120,7 +120,7 @@ export default function LuminairesPage() {
   }, [])
 
   const loadLuminaires = useCallback(
-    async (page = 1, append = false) => {
+    async (page = 1, append = false, yearRangeOverride?: number[]) => {
       try {
         if (page === 1) {
           setLoading(true)
@@ -146,10 +146,11 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        if (sliderModifiedRef.current && yearRangeRef.current.length === 2) {
-          params.append("yearMin", yearRangeRef.current[0].toString())
-          params.append("yearMax", yearRangeRef.current[1].toString())
-          console.log("[v0] Filtre année appliqué:", yearRangeRef.current[0], "-", yearRangeRef.current[1])
+        const activeYearRange = yearRangeOverride || yearRangeRef.current
+        if (sliderModifiedRef.current && activeYearRange.length === 2) {
+          params.append("yearMin", activeYearRange[0].toString())
+          params.append("yearMax", activeYearRange[1].toString())
+          console.log("[v0] Filtre année appliqué:", activeYearRange[0], "-", activeYearRange[1])
         }
 
         if (selectedCategorie && selectedCategorie !== "all") {
@@ -202,8 +203,8 @@ export default function LuminairesPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-    loadLuminaires(1, false)
-  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified])
+    loadLuminaires(1, false, yearRange)
+  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified, yearRange])
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && !showFavorites) {
@@ -345,6 +346,7 @@ export default function LuminairesPage() {
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
+    loadLuminaires(1, false, newRange)
   }
 
   const freeUserLimit = useMemo(() => {
