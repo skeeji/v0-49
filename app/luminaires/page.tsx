@@ -327,10 +327,10 @@ export default function LuminairesPage() {
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
   const handleYearRangeChange = (newRange: number[]) => {
+    console.log("[v0] handleYearRangeChange appelé avec:", newRange)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
-    loadLuminaires(1, false)
   }
 
   const freeUserLimit = useMemo(() => {
