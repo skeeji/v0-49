@@ -129,6 +129,15 @@ export default function LuminairesPage() {
           setLoadingMore(true)
         }
 
+        console.log(
+          "[v0] loadLuminaires appelé - page:",
+          page,
+          "sliderModified:",
+          sliderModifiedRef.current,
+          "yearRange:",
+          yearRangeRef.current,
+        )
+
         const params = new URLSearchParams({
           page: page.toString(),
           limit: "50",
@@ -140,6 +149,7 @@ export default function LuminairesPage() {
         if (sliderModifiedRef.current && yearRangeRef.current.length === 2) {
           params.append("yearMin", yearRangeRef.current[0].toString())
           params.append("yearMax", yearRangeRef.current[1].toString())
+          console.log("[v0] Filtre année appliqué:", yearRangeRef.current[0], "-", yearRangeRef.current[1])
         }
 
         if (selectedCategorie && selectedCategorie !== "all") {
@@ -150,8 +160,12 @@ export default function LuminairesPage() {
           params.append("materiau", selectedMateriau)
         }
 
+        console.log("[v0] URL appelée:", `/api/luminaires?${params}`)
+
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
+
+        console.log("[v0] Réponse API:", data)
 
         if (data.success) {
           if (append && page > 1) {
@@ -179,7 +193,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, luminaires],
+    [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection],
   )
 
   useEffect(() => {
