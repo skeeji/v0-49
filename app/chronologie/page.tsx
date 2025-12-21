@@ -222,10 +222,10 @@ export default function ChronologiePage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="font-serif">Chargement de la chronologie...</p>
+      <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-secondary/50 flex items-center justify-center">
+        <div className="text-center animate-fade-in">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-muted border-t-accent mx-auto mb-6"></div>
+          <p className="text-xl text-muted-foreground font-light">Chargement de la chronologie...</p>
         </div>
       </div>
     )
@@ -234,24 +234,28 @@ export default function ChronologiePage() {
   const totalLuminaires = timelineData.reduce((sum, period) => sum + period.luminaires.length, 0)
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-4 text-center">Chronologie des Périodes Artistiques</h1>
-        <p className="text-center text-gray-600 mb-12 font-serif">
-          {totalLuminaires} luminaires classés par période historique
-        </p>
+    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-secondary/50">
+      <div className="container-responsive py-8 md:py-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 animate-slide-up">
+            <h1 className="text-foreground mb-4">Chronologie des Périodes Artistiques</h1>
+            <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+              {totalLuminaires} luminaires classés par période historique
+            </p>
+          </div>
 
-        <div className="space-y-16">
-          {timelineData.map((period, index) => (
-            <TimelineBlock
-              key={period.name}
-              period={period}
-              isLeft={index % 2 === 0}
-              className="scroll-reveal"
-              onDescriptionUpdate={updateDescription}
-              canEdit={canEdit}
-            />
-          ))}
+          <div className="space-y-24">
+            {timelineData.map((period, index) => (
+              <TimelineBlock
+                key={period.name}
+                period={period}
+                isLeft={index % 2 === 0}
+                className="scroll-reveal"
+                onDescriptionUpdate={updateDescription}
+                canEdit={canEdit}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
