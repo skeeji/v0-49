@@ -17,13 +17,9 @@ const IMAGE_PREFIX = "https://image-similarity-api-590690354412.us-central1.run.
 interface SearchResult {
   nom?: string
   artiste?: string
-  designer?: string
   annee?: string
-  year?: string
-  date?: string
   luminaireId?: string
   imageUrl?: string
-  lien_site?: string
 }
 
 interface Message {
@@ -58,7 +54,6 @@ export default function RecherchePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Load conversations from localStorage
   useEffect(() => {
     if (user) {
       const saved = localStorage.getItem(`conversations_${user.uid}`)
@@ -83,19 +78,16 @@ export default function RecherchePage() {
     }
   }, [user])
 
-  // Save conversations to localStorage
   const saveConversations = (convs: Conversation[]) => {
     if (user) {
       localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(convs))
     }
   }
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [currentConversation?.messages])
 
-  // Create new conversation
   const createNewConversation = () => {
     setCurrentConversation(null)
     setInputValue("")
@@ -103,7 +95,6 @@ export default function RecherchePage() {
     setImagePreview(null)
   }
 
-  // Load conversation
   const loadConversation = (conv: Conversation) => {
     setCurrentConversation(conv)
     setInputValue("")
@@ -111,7 +102,6 @@ export default function RecherchePage() {
     setImagePreview(null)
   }
 
-  // Delete conversation
   const deleteConversation = (convId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     const updated = conversations.filter((c) => c.id !== convId)
@@ -122,7 +112,6 @@ export default function RecherchePage() {
     }
   }
 
-  // Handle file selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -132,7 +121,6 @@ export default function RecherchePage() {
     }
   }
 
-  // Remove selected image
   const removeSelectedImage = () => {
     setSelectedImage(null)
     setImagePreview(null)
@@ -141,32 +129,10 @@ export default function RecherchePage() {
     }
   }
 
-  const getLuminaireMetadata = async (filename: string): Promise<SearchResult | null> => {
-    try {
-      const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(filename)}`)
-      const data = await response.json()
-
-      if (data.success && data.luminaireId) {
-        return {
-          luminaireId: data.luminaireId,
-          nom: data.metadata?.nom,
-          artiste: data.metadata?.artiste,
-          annee: data.metadata?.annee,
-        }
-      }
-      return null
-    } catch (error) {
-      console.error("Error fetching luminaire metadata:", error)
-      return null
-    }
-  }
-
-  // Handle search
   const handleSearch = async () => {
     if (!inputValue.trim() && !selectedImage) return
     if (isSearching) return
 
-    // Check if user can search
     if (!user || (userData?.role === "free" && !userData.searchCount)) {
       return
     }
@@ -174,7 +140,6 @@ export default function RecherchePage() {
     setIsSearching(true)
 
     try {
-      // Create user message
       const userContent = inputValue.trim() || "Recherche par image"
       const userMessage: Message = {
         id: Date.now().toString(),
@@ -184,7 +149,6 @@ export default function RecherchePage() {
         timestamp: new Date(),
       }
 
-      // Update or create conversation
       let updatedConversation: Conversation
       if (currentConversation) {
         updatedConversation = {
@@ -204,7 +168,6 @@ export default function RecherchePage() {
 
       setCurrentConversation(updatedConversation)
 
-      // Clear input
       const searchText = inputValue
       const searchImage = selectedImage
       setInputValue("")
@@ -214,7 +177,6 @@ export default function RecherchePage() {
         fileInputRef.current.value = ""
       }
 
-      // Call orchestrator API
       const formData = new FormData()
       formData.append("query", searchText || "")
       if (searchImage) {
@@ -222,198 +184,111 @@ export default function RecherchePage() {
       }
       formData.append("top_k", "3")
 
-      console.log("[v0] Calling orchestrator API with:", { query: searchText, hasImage: !!searchImage })
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 40000) // 40 second timeout
 
-      const response = await fetch(API_ORCHESTRATOR, {
-        method: "POST",
-        body: formData,
-      })
+      try {
+        const response = await fetch(API_ORCHESTRATOR, {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        })
 
-      if (!response.ok) throw new Error("Erreur lors de la recherche")
+        clearTimeout(timeoutId)
 
-      const data = await response.json()
-      console.log("[v0] Orchestrator response:", data)
+        if (!response.ok) throw new Error("Erreur lors de la recherche")
 
-      const rawResults = data.results || []
+        const data = await response.json()
+        const rawResults = data.results || []
 
-      const enrichedResults: SearchResult[] = await Promise.all(
-        rawResults.map(async (result: any) => {
-          console.log("[v0] ========== PROCESSING RESULT ==========")
-          console.log("[v0] Raw result object:", JSON.stringify(result, null, 2))
-          console.log("[v0] Result keys:", Object.keys(result))
+        const enrichedResults: SearchResult[] = rawResults.map((result: any) => {
+          const metadata = result.metadata || result
 
-          // For image searches: result has metadata object
-          // For text searches: result has fields directly
-          const metadata = result.metadata || {}
-          const hasMetadata = Object.keys(metadata).length > 0
-
-          console.log("[v0] Metadata object:", JSON.stringify(metadata, null, 2))
-          console.log("[v0] Metadata keys:", Object.keys(metadata))
-          console.log("[v0] Has metadata?", hasMetadata)
-
-          // Extract image URL
-          const imageUrl = result.imageUrl || result.image_url || result.image || result.lien_site || ""
+          const imageUrl = result.imageUrl || result.image_url || result.image || ""
           const fullImageUrl = imageUrl.startsWith("/") ? `${IMAGE_PREFIX}${imageUrl}` : imageUrl
 
-          const filenameWithExt = imageUrl.split("/").pop() || ""
-          const imageName = filenameWithExt.replace(/\.(jpg|jpeg|png|webp|gif)$/i, "")
-
-          console.log("[v0] Image URL:", imageUrl)
-          console.log("[v0] Full Image URL:", fullImageUrl)
-          console.log("[v0] Extracted filename:", imageName)
-
-          let luminaireId = result.luminaireId || null
-          let apiMetadata: SearchResult | null = null
-          console.log("[v0] Initial luminaireId:", luminaireId)
-
-          if (imageName && !luminaireId) {
-            try {
-              const metaResponse = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(imageName)}`)
-              const metaData = await metaResponse.json()
-              console.log("[v0] Metadata API response for", imageName, ":", JSON.stringify(metaData, null, 2))
-              if (metaData.success && metaData.luminaireId) {
-                luminaireId = metaData.luminaireId
-                apiMetadata = {
-                  luminaireId: metaData.luminaireId,
-                  nom: metaData.metadata?.nom,
-                  artiste: metaData.metadata?.artiste,
-                  annee: metaData.metadata?.annee,
-                }
-                console.log("[v0] Found metadata from API:", apiMetadata)
-              } else {
-                console.log("[v0] No luminaireId found in API response")
-              }
-            } catch (error) {
-              console.error("[v0] Error fetching metadata:", error)
+          let luminaireId = result.luminaireId
+          if (luminaireId && typeof luminaireId === "string") {
+            if (luminaireId.includes(".")) {
+              luminaireId = null
             }
           }
 
-          const extractedNom =
-            apiMetadata?.nom ||
+          const nom =
             metadata.nom ||
             metadata.name ||
             metadata.title ||
             metadata.modele ||
             result.nom ||
             result.name ||
-            result.title ||
-            result.modele ||
             "Sans nom"
 
-          const extractedArtiste =
-            apiMetadata?.artiste ||
+          const artiste =
             metadata.artiste ||
             metadata.artist ||
             metadata.designer ||
             metadata.createur ||
             result.artiste ||
             result.artist ||
-            result.designer ||
-            result.createur ||
             "Inconnu"
 
-          const extractedAnnee =
-            apiMetadata?.annee ||
-            metadata.annee ||
-            metadata.year ||
-            metadata.date ||
-            metadata.periode ||
-            result.annee ||
-            result.year ||
-            result.date ||
-            result.periode ||
-            ""
+          const annee = metadata.annee || metadata.year || metadata.date || result.annee || result.year || ""
 
-          console.log("[v0] Extraction attempts:")
-          console.log("[v0]   - apiMetadata?.nom:", apiMetadata?.nom)
-          console.log("[v0]   - metadata.nom:", metadata.nom)
-          console.log("[v0]   - metadata.name:", metadata.name)
-          console.log("[v0]   - metadata.title:", metadata.title)
-          console.log("[v0]   - metadata.modele:", metadata.modele)
-          console.log("[v0]   - result.nom:", result.nom)
-          console.log("[v0]   - result.name:", result.name)
-          console.log("[v0]   - result.title:", result.title)
-          console.log("[v0]   - result.modele:", result.modele)
-          console.log("[v0]   - FINAL nom:", extractedNom)
-
-          console.log("[v0]   - apiMetadata?.artiste:", apiMetadata?.artiste)
-          console.log("[v0]   - metadata.artiste:", metadata.artiste)
-          console.log("[v0]   - metadata.artist:", metadata.artist)
-          console.log("[v0]   - metadata.designer:", metadata.designer)
-          console.log("[v0]   - result.artiste:", result.artiste)
-          console.log("[v0]   - result.artist:", result.artist)
-          console.log("[v0]   - result.designer:", result.designer)
-          console.log("[v0]   - result.createur:", result.createur)
-          console.log("[v0]   - FINAL artiste:", extractedArtiste)
-
-          console.log("[v0]   - apiMetadata?.annee:", apiMetadata?.annee)
-          console.log("[v0]   - metadata.annee:", metadata.annee)
-          console.log("[v0]   - metadata.year:", metadata.year)
-          console.log("[v0]   - metadata.date:", metadata.date)
-          console.log("[v0]   - metadata.periode:", metadata.periode)
-          console.log("[v0]   - result.annee:", result.annee)
-          console.log("[v0]   - result.year:", result.year)
-          console.log("[v0]   - result.date:", result.date)
-          console.log("[v0]   - result.periode:", result.periode)
-          console.log("[v0]   - FINAL annee:", extractedAnnee)
-
-          const finalResult: SearchResult = {
-            nom: extractedNom,
-            artiste: extractedArtiste,
-            annee: extractedAnnee,
-            luminaireId: luminaireId,
+          return {
+            nom,
+            artiste,
+            annee,
+            luminaireId,
             imageUrl: fullImageUrl,
           }
+        })
 
-          console.log("[v0] ========== FINAL RESULT ==========")
-          console.log("[v0]", JSON.stringify(finalResult, null, 2))
-          console.log("[v0] =====================================")
+        const validResults = enrichedResults
 
-          return finalResult
-        }),
-      )
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `J'ai trouvé ${validResults.length} luminaire(s) correspondant à votre recherche :`,
+          results: validResults,
+          timestamp: new Date(),
+        }
 
-      const validResults = enrichedResults
-      console.log("[v0] Total results:", validResults.length)
+        updatedConversation = {
+          ...updatedConversation,
+          messages: [...updatedConversation.messages, assistantMessage],
+          updatedAt: new Date(),
+        }
 
-      // Create assistant message
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `J'ai trouvé ${validResults.length} luminaire(s) correspondant à votre recherche :`,
-        results: validResults,
-        timestamp: new Date(),
+        setCurrentConversation(updatedConversation)
+
+        const convIndex = conversations.findIndex((c) => c.id === updatedConversation.id)
+        let updatedConversations: Conversation[]
+
+        if (convIndex >= 0) {
+          updatedConversations = [...conversations]
+          updatedConversations[convIndex] = updatedConversation
+        } else {
+          updatedConversations = [updatedConversation, ...conversations]
+        }
+
+        setConversations(updatedConversations)
+        saveConversations(updatedConversations)
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId)
+        if (fetchError.name === "AbortError") {
+          throw new Error("La recherche a pris trop de temps. Veuillez réessayer.")
+        }
+        throw fetchError
       }
-
-      // Update conversation
-      updatedConversation = {
-        ...updatedConversation,
-        messages: [...updatedConversation.messages, assistantMessage],
-        updatedAt: new Date(),
-      }
-
-      setCurrentConversation(updatedConversation)
-
-      // Save to conversations list
-      const convIndex = conversations.findIndex((c) => c.id === updatedConversation.id)
-      let updatedConversations: Conversation[]
-
-      if (convIndex >= 0) {
-        updatedConversations = [...conversations]
-        updatedConversations[convIndex] = updatedConversation
-      } else {
-        updatedConversations = [updatedConversation, ...conversations]
-      }
-
-      setConversations(updatedConversations)
-      saveConversations(updatedConversations)
     } catch (error) {
-      console.error("[v0] Search error:", error)
-      // Add error message
+      console.error("Search error:", error)
       const errorMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
-        content: "Désolé, une erreur est survenue lors de la recherche. Veuillez réessayer.",
+        content:
+          error instanceof Error
+            ? error.message
+            : "Désolé, une erreur est survenue lors de la recherche. Veuillez réessayer.",
         timestamp: new Date(),
       }
 
@@ -430,7 +305,6 @@ export default function RecherchePage() {
     }
   }
 
-  // Handle Enter key
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -438,7 +312,6 @@ export default function RecherchePage() {
     }
   }
 
-  // Check access
   if (!user || !userData?.role || (userData.role !== "premium" && userData.role !== "admin")) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -458,7 +331,6 @@ export default function RecherchePage() {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
-      {/* Sidebar */}
       <div
         className={`${
           showSidebar ? "w-64" : "w-0"
@@ -505,9 +377,7 @@ export default function RecherchePage() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
         <div className="h-16 border-b border-amber-200 bg-white/80 backdrop-blur-sm flex items-center px-4">
           <Button variant="ghost" size="icon" onClick={() => setShowSidebar(!showSidebar)}>
             {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -517,7 +387,6 @@ export default function RecherchePage() {
           </h1>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {!currentConversation && (
             <div className="flex items-center justify-center h-full">
@@ -560,32 +429,34 @@ export default function RecherchePage() {
                       const cardProps = result.luminaireId ? { href: `/luminaires/${result.luminaireId}` } : {}
 
                       return (
-                        <CardWrapper
-                          key={idx}
-                          {...cardProps}
-                          className={`block bg-white rounded-xl overflow-hidden shadow-md transition-all duration-200 border border-amber-100 ${
-                            result.luminaireId ? "hover:shadow-xl cursor-pointer" : "opacity-75"
-                          }`}
-                        >
-                          {result.imageUrl && (
-                            <div className="relative h-64 w-full bg-white flex items-center justify-center">
+                        <CardWrapper key={idx} {...cardProps}>
+                          <div
+                            className={`bg-white rounded-3xl overflow-hidden border border-amber-200 transition-all duration-300 h-full flex flex-col ${
+                              result.luminaireId ? "hover:shadow-xl hover:scale-105 cursor-pointer" : ""
+                            }`}
+                          >
+                            <div className="relative h-64 bg-white flex items-center justify-center p-4">
                               <Image
                                 src={result.imageUrl || "/placeholder.svg"}
                                 alt={result.nom || "Luminaire"}
-                                fill
-                                className="object-contain p-4"
+                                width={300}
+                                height={300}
+                                className="object-contain max-h-full"
                                 unoptimized
                               />
                             </div>
-                          )}
-                          <div className="p-4">
-                            <p className="font-semibold text-lg text-slate-800 mb-2">{result.nom}</p>
-                            <p className="text-base text-slate-600 mb-1">{result.artiste}</p>
-                            {result.annee && (
-                              <p className="text-base font-medium" style={{ color: "#f2d895" }}>
-                                {result.annee}
-                              </p>
-                            )}
+                            <div className="p-4 flex-1">
+                              {result.nom && result.nom !== "Sans nom" && (
+                                <h3 className="text-lg font-bold mb-2 text-slate-800">{result.nom}</h3>
+                              )}
+                              {result.artiste && result.artiste !== "Inconnu" && (
+                                <p className="text-base text-slate-700 mb-1">{result.artiste}</p>
+                              )}
+                              {result.annee && <p className="text-base font-medium text-amber-600">{result.annee}</p>}
+                              {!result.luminaireId && (
+                                <p className="text-sm text-slate-500 italic mt-2">Fiche détaillée non disponible</p>
+                              )}
+                            </div>
                           </div>
                         </CardWrapper>
                       )
@@ -599,7 +470,6 @@ export default function RecherchePage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input area */}
         <div className="border-t border-amber-200 bg-white/80 backdrop-blur-sm p-4">
           {imagePreview && (
             <div className="mb-4 relative inline-block">
