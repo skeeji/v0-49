@@ -188,7 +188,13 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified])
+  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection])
+
+  useEffect(() => {
+    if (sliderModified) {
+      console.log("[v0] 📊 Slider filter applied:", yearRange)
+    }
+  }, [sliderModified, yearRange])
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && !showFavorites) {
@@ -199,8 +205,7 @@ export default function LuminairesPage() {
   }, [loadingMore, hasMore, loading, currentPage, loadLuminaires, showFavorites])
 
   useEffect(() => {
-    if (showFavorites) return
-
+    console.log("[v0] 🔄 Effect triggered - sliderModified:", sliderModified, "yearRange:", yearRange)
     const handleScroll = () => {
       const scrollTop = document.documentElement.scrollTop
       const scrollHeight = document.documentElement.scrollHeight
@@ -326,6 +331,7 @@ export default function LuminairesPage() {
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
   const handleYearRangeChange = (newRange: number[]) => {
+    console.log("[v0] 🎯 RangeSlider changed:", newRange)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)

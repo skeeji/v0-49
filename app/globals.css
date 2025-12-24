@@ -11,27 +11,27 @@
     --card-foreground: 30 10% 20%;
     --popover: 0 0% 100%;
     --popover-foreground: 30 10% 20%;
-    --primary: 35 65% 50%; /* Amber/Gold */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 35 30% 95%; /* Beige clair */
+    --primary: 45 93% 47%; /* Jaune doré comme l'ancienne version */
+    --primary-foreground: 0 0% 0%;
+    --secondary: 45 20% 95%;
     --secondary-foreground: 30 10% 20%;
-    --muted: 35 20% 90%;
+    --muted: 45 15% 90%;
     --muted-foreground: 30 10% 40%;
-    --accent: 35 65% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 45 93% 47%;
+    --accent-foreground: 0 0% 0%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 35 15% 85%;
-    --input: 35 15% 85%;
-    --ring: 35 65% 50%;
+    --border: 45 15% 85%;
+    --input: 45 15% 85%;
+    --ring: 45 93% 47%;
     --radius: 0.75rem;
 
-    /* Couleurs personnalisées */
-    --gold: 35 65% 50%;
-    --gold-dark: 35 65% 40%;
-    --beige: 35 30% 95%;
-    --beige-dark: 35 20% 85%;
-    --cream: 40 30% 97%;
+    /* Couleurs personnalisées - jaune doré */
+    --gold: 45 93% 47%;
+    --gold-dark: 45 93% 37%;
+    --beige: 45 20% 95%;
+    --beige-dark: 45 15% 85%;
+    --cream: 45 20% 97%;
   }
 
   .dark {
