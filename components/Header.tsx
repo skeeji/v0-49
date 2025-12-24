@@ -78,19 +78,17 @@ export function Header() {
             </Link>
 
             {/* Navigation desktop */}
-            <nav className="hidden md:flex items-center space-x-8">
+            <nav className="hidden md:flex items-center space-x-2">
               {navItems.map((item) => (
-                <div key={item.href} className="relative">
-                  <Link
-                    href={item.href}
-                    className="text-gray-700 hover:text-gray-900 font-medium transition-colors font-serif py-4 block"
-                  >
-                    {item.label}
-                  </Link>
-                  {isActivePage(item.href) && (
-                    <div className="absolute bottom-0 left-0 right-0 h-px" style={{ backgroundColor: "#f2d895" }}></div>
-                  )}
-                </div>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`px-4 py-2 rounded-full font-medium transition-all ${
+                    isActivePage(item.href) ? "bg-gold text-white" : "text-gray-700 hover:bg-beige hover:text-gray-900"
+                  }`}
+                >
+                  {item.label}
+                </Link>
               ))}
             </nav>
 
@@ -101,10 +99,7 @@ export function Header() {
               ) : (
                 <Button
                   onClick={signInWithGoogle}
-                  className="text-white font-medium px-6 py-2 rounded-lg transition-all duration-200 hover:shadow-lg"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  className="text-white font-medium px-6 py-2 rounded-full transition-all duration-200 hover:shadow-lg bg-gold hover:bg-gold-dark"
                 >
                   Connexion
                 </Button>

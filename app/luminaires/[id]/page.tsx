@@ -463,7 +463,10 @@ export default function LuminaireDetailPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <Link href="/luminaires">
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 bg-transparent rounded-xl border-2 border-gold hover:bg-beige"
+            >
               <ArrowLeft className="w-4 h-4" />
               Retour
             </Button>
@@ -480,8 +483,7 @@ export default function LuminaireDetailPage() {
             {(userData?.role === "admin" || userData?.role === "premium") && (
               <Button
                 onClick={generatePDF}
-                style={{ backgroundColor: "#f2d895", color: "#000" }}
-                className="hover:opacity-90"
+                className="bg-gold hover:bg-gold-dark text-white rounded-xl"
                 disabled={generatingPDF}
               >
                 <Download className="w-4 h-4 mr-2" />

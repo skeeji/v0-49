@@ -649,17 +649,11 @@ export default function HomePage() {
         <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-cream via-beige to-beige-dark" />
       )}
 
-      <div className="absolute inset-0 bg-white/30 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-white/20" />
 
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-20">
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif text-foreground tracking-tight">Recherche IA</h1>
-          {userData?.role === "premium" || userData?.role === "admin" ? (
-            <div className="inline-flex items-center gap-2 mt-3 px-4 py-1.5 bg-gold/10 border border-gold/30 rounded-full">
-              <div className="w-2 h-2 bg-gold rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-gold">Premium</span>
-            </div>
-          ) : null}
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif text-gold tracking-tight">Recherche IA</h1>
         </div>
 
         <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full shadow-xl border border-border">

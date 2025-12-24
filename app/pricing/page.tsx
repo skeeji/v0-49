@@ -108,7 +108,7 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <Card className="relative border-2 border-border rounded-2xl">
             <CardHeader className="text-center pb-8">
               <CardTitle className="text-2xl font-serif text-foreground">Accès Gratuit</CardTitle>
@@ -147,47 +147,6 @@ export default function PricingPage() {
                     <XCircle className="w-4 h-4 text-red-600" />
                   </div>
                   <span className="text-sm text-foreground">Pas de téléchargement ni favoris</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative border-2 border-border rounded-2xl">
-            <CardHeader className="text-center pb-8">
-              <CardTitle className="text-2xl font-serif text-foreground">Essentiel</CardTitle>
-              <CardDescription className="text-muted-foreground">Pour les amateurs éclairés</CardDescription>
-              <div className="mt-4">
-                <span className="text-4xl font-bold text-foreground">19€</span>
-                <span className="text-muted-foreground ml-2">/ mois</span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full bg-gold hover:bg-gold-dark text-white rounded-xl">Bientôt disponible</Button>
-
-              <div className="space-y-3 pt-4">
-                <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  </div>
-                  <span className="text-sm text-foreground">Accès à 50% de la collection</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  </div>
-                  <span className="text-sm text-foreground">50 recherches IA par mois</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  </div>
-                  <span className="text-sm text-foreground">Téléchargement de fiches en PDF</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  </div>
-                  <span className="text-sm text-foreground">Gestion des favoris</span>
                 </div>
               </div>
             </CardContent>

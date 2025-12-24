@@ -7,6 +7,15 @@ import Link from "next/link"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 
+const PERIODS = [
+  { id: "1960s", label: "1960s - 1990s", start: 1960, end: 1990 },
+  { id: "1990s", label: "1990s - 1960s", start: 1990, end: 1960 },
+  { id: "1920s", label: "1920s - 1930s", start: 1920, end: 1930 },
+  { id: "contemporary", label: "Contemporary", start: 1961, end: 2024 },
+  { id: "modernism", label: "Modernism", start: 1900, end: 1960 },
+  { id: "art-deco", label: "Art Deco", start: 1920, end: 1939 },
+]
+
 export default function DesignersPage() {
   const [allDesigners, setAllDesigners] = useState([])
   const [filteredDesigners, setFilteredDesigners] = useState([])
@@ -17,6 +26,7 @@ export default function DesignersPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
+  const [selectedPeriod, setSelectedPeriod] = useState("all")
   const { user, userData } = useAuth()
 
   const ITEMS_PER_PAGE = 50
@@ -139,6 +149,22 @@ export default function DesignersPage() {
       filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
 
+    if (selectedPeriod !== "all") {
+      const period = PERIODS.find((p) => p.id === selectedPeriod)
+      if (period) {
+        filtered = filtered.filter((designer) => {
+          if (designer.years && designer.years.length > 0) {
+            const minYear = Math.min(...designer.years)
+            const maxYear = Math.max(...designer.years)
+            return (
+              (minYear >= period.start && minYear <= period.end) || (maxYear >= period.start && maxYear <= period.end)
+            )
+          }
+          return false
+        })
+      }
+    }
+
     const uniqueDesigners = filtered.filter(
       (designer, index, self) => index === self.findIndex((d) => d.name === designer.name),
     )
@@ -166,7 +192,7 @@ export default function DesignersPage() {
     setPage(0)
     setHasMore(true)
     setDisplayedDesigners([])
-  }, [allDesigners, searchTerm, sortBy])
+  }, [allDesigners, searchTerm, sortBy, selectedPeriod])
 
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore) return
@@ -217,10 +243,10 @@ export default function DesignersPage() {
     <div className="container-responsive py-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-2">Designers</h1>
-          <p className="text-muted-foreground">
-            {displayedDesigners.length}/{filteredDesigners.length} résultats affichés
-          </p>
+          <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-2">
+            Designers ({displayedDesigners.length}/{filteredDesigners.length})
+          </h1>
+          <p className="text-muted-foreground">Rechercher un designer...</p>
         </div>
 
         {(!user || userData?.role === "free") && (
@@ -239,8 +265,21 @@ export default function DesignersPage() {
         )}
 
         <div className="bg-white rounded-xl p-6 border border-border shadow-sm mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un designer..." />
+
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="px-4 py-2 border-2 border-border rounded-lg text-sm bg-white hover:border-gold transition-colors"
+            >
+              <option value="all">Toutes les périodes</option>
+              {PERIODS.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.label}
+                </option>
+              ))}
+            </select>
 
             <select
               value={sortBy}

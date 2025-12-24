@@ -428,19 +428,15 @@ export default function RecherchePage() {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+    <div className="flex h-screen bg-gradient-to-br from-beige via-cream to-beige-dark">
       {/* Sidebar */}
       <div
         className={`${
           showSidebar ? "w-64" : "w-0"
-        } transition-all duration-300 border-r border-amber-200 bg-white/80 backdrop-blur-sm overflow-hidden flex flex-col`}
+        } transition-all duration-300 border-r border-gold/20 bg-white/90 backdrop-blur-sm overflow-hidden flex flex-col`}
       >
-        <div className="p-4 border-b border-amber-200">
-          <Button
-            onClick={createNewConversation}
-            className="w-full"
-            style={{ backgroundColor: "#f2d895", color: "white" }}
-          >
+        <div className="p-4 border-b border-gold/20">
+          <Button onClick={createNewConversation} className="w-full bg-gold hover:bg-gold-dark text-white rounded-xl">
             <Plus className="w-4 h-4 mr-2" />
             Nouvelle conversation
           </Button>
@@ -479,13 +475,11 @@ export default function RecherchePage() {
       {/* Main content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="h-16 border-b border-amber-200 bg-white/80 backdrop-blur-sm flex items-center px-4">
+        <div className="h-16 border-b border-gold/20 bg-white/90 backdrop-blur-sm flex items-center px-4">
           <Button variant="ghost" size="icon" onClick={() => setShowSidebar(!showSidebar)}>
             {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
           </Button>
-          <h1 className="text-lg font-semibold ml-4" style={{ color: "#f2d895" }}>
-            Recherche IA
-          </h1>
+          <h1 className="text-lg font-semibold ml-4 text-gold">Recherche IA</h1>
         </div>
 
         {/* Messages */}
@@ -571,7 +565,7 @@ export default function RecherchePage() {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-amber-200 bg-white/80 backdrop-blur-sm p-4">
+        <div className="border-t border-gold/20 bg-white/90 backdrop-blur-sm p-4">
           {imagePreview && (
             <div className="mb-4 relative inline-block">
               <Image
