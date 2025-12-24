@@ -6,7 +6,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
-import { Loader2 } from "lucide-react"
 
 export default function DesignersPage() {
   const [allDesigners, setAllDesigners] = useState([])
@@ -27,7 +26,6 @@ export default function DesignersPage() {
     rootMargin: "100px",
   })
 
-  // Calculer la limite pour les comptes gratuits
   const freeUserLimit =
     !user || userData?.role === "free" ? Math.ceil(filteredDesigners.length * 0.1) : filteredDesigners.length
 
@@ -35,14 +33,12 @@ export default function DesignersPage() {
     async function fetchData() {
       setIsLoading(true)
       try {
-        // Charger tous les luminaires pour extraire TOUS les designers
         const luminairesResponse = await fetch("/api/luminaires?limit=10000")
         const luminairesData = await luminairesResponse.json()
 
         if (luminairesData.success) {
           console.log(`👨‍🎨 Extraction des designers depuis ${luminairesData.luminaires.length} luminaires`)
 
-          // Grouper les luminaires par designer et récupérer l'image du designer
           const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
             const designerName = luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"
 
@@ -64,7 +60,6 @@ export default function DesignersPage() {
               console.log(`🖼️ Image designer trouvée pour ${designerName}: ${luminaire.designerImageFilename}`)
             }
 
-            // Construction de l'URL de l'image du luminaire
             let luminaireImageUrl = "/placeholder.svg"
             if (luminaire.imageId) {
               luminaireImageUrl = `/api/images/${luminaire.imageId}`
@@ -83,7 +78,6 @@ export default function DesignersPage() {
               name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
             })
 
-            // Extraire les années du champ "Artiste / Dates"
             const artistDates = luminaire["Artiste / Dates"] || luminaire.designer || ""
             const yearMatches = artistDates.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g)
             if (yearMatches) {
@@ -97,7 +91,6 @@ export default function DesignersPage() {
 
           console.log(`👨‍🎨 ${Object.keys(designerGroups).length} designers uniques trouvés`)
 
-          // Essayer aussi l'ancienne méthode en fallback
           try {
             const designersResponse = await fetch("/api/designers-data")
             const designersResult = await designersResponse.json()
@@ -105,7 +98,6 @@ export default function DesignersPage() {
             if (designersResult.success && designersResult.designers) {
               console.log(`🖼️ ${designersResult.designers.length} images de designers disponibles (fallback)`)
 
-              // Associer les images aux designers qui n'en ont pas encore
               Object.keys(designerGroups).forEach((designerName) => {
                 if (!designerGroups[designerName].image) {
                   const designerInfo = designersResult.designers.find(
@@ -127,7 +119,6 @@ export default function DesignersPage() {
 
           console.log(`✅ ${designersArray.length} designers finaux`)
 
-          // Stocker TOUS les designers
           setAllDesigners(designersArray)
           setFilteredDesigners(designersArray)
         }
@@ -141,7 +132,6 @@ export default function DesignersPage() {
     fetchData()
   }, [])
 
-  // Filtrer et trier
   useEffect(() => {
     let filtered = [...allDesigners]
 
@@ -149,7 +139,6 @@ export default function DesignersPage() {
       filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
 
-    // Supprimer les doublons
     const uniqueDesigners = filtered.filter(
       (designer, index, self) => index === self.findIndex((d) => d.name === designer.name),
     )
@@ -179,7 +168,6 @@ export default function DesignersPage() {
     setDisplayedDesigners([])
   }, [allDesigners, searchTerm, sortBy])
 
-  // Charger plus d'éléments - maintenant charge TOUS les designers
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore) return
 
@@ -202,14 +190,12 @@ export default function DesignersPage() {
     }, 300)
   }, [page, filteredDesigners, isLoadingMore, hasMore])
 
-  // Charger plus quand on arrive en bas
   useEffect(() => {
     if (inView && !isLoadingMore && hasMore) {
       loadMore()
     }
   }, [inView, loadMore, isLoadingMore, hasMore])
 
-  // Charger la première page
   useEffect(() => {
     if (filteredDesigners.length > 0 && displayedDesigners.length === 0) {
       loadMore()
@@ -218,51 +204,48 @@ export default function DesignersPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container-responsive py-12">
         <div className="text-center py-16">
-          <Loader2 className="w-12 h-12 mx-auto animate-spin text-gray-400 mb-4" />
-          <p className="text-lg text-gray-600 font-serif">Chargement des designers...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-beige-dark border-t-gold mx-auto mb-4"></div>
+          <p className="text-lg text-muted-foreground font-serif">Chargement des designers...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-8">
-          Designers ({displayedDesigners.length}/{filteredDesigners.length})
-        </h1>
+    <div className="container-responsive py-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-2">Designers</h1>
+          <p className="text-muted-foreground">
+            {displayedDesigners.length}/{filteredDesigners.length} résultats affichés
+          </p>
+        </div>
 
-        {/* Message pour les utilisateurs non connectés ou "free" */}
         {(!user || userData?.role === "free") && (
-          <div
-            className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm"
-            style={{ color: "#d4a574" }}
-          >
-            <p className="flex items-center font-serif">
-              <span className="mr-2"></span>
+          <div className="bg-beige border-2 border-gold/30 rounded-xl p-4 mb-6">
+            <p className="text-sm text-foreground flex items-start gap-2">
+              <span className="text-gold font-semibold">ℹ️</span>
               <span>
                 {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des designers sont accessibles
                 ({freeUserLimit} designers).
-                <Link href="/pricing" className="ml-1 underline font-medium">
-                  Passez à Premium
-                </Link>{" "}
-                pour accéder à tous les designers.
+                <Link href="/pricing" className="ml-1 text-gold font-semibold hover:underline">
+                  Passez à Premium →
+                </Link>
               </span>
             </p>
           </div>
         )}
 
-        {/* Filtres */}
-        <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
+        <div className="bg-white rounded-xl p-6 border border-border shadow-sm mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un designer..." />
 
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="px-4 py-2 border-2 border-border rounded-lg text-sm bg-white hover:border-gold transition-colors"
             >
               <option value="name-asc">Nom A → Z</option>
               <option value="name-desc">Nom Z → A</option>
@@ -272,11 +255,10 @@ export default function DesignersPage() {
           </div>
         </div>
 
-        {/* Grille des designers */}
         {displayedDesigners.length === 0 && !isLoading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg font-serif">Aucun designer trouvé</p>
-            <p className="text-gray-400 text-sm mt-2 font-serif">
+          <div className="text-center py-16 bg-beige rounded-xl">
+            <p className="text-foreground text-lg font-medium mb-2">Aucun designer trouvé</p>
+            <p className="text-muted-foreground text-sm">
               Importez des luminaires et des designers pour voir cette section
             </p>
           </div>
@@ -290,12 +272,13 @@ export default function DesignersPage() {
                 return (
                   <DesignerCard key={index} {...(isAccessible ? { href: `/designers/${designer.slug}` } : {})}>
                     <div
-                      className={`bg-white rounded-xl p-6 shadow-lg transition-shadow cursor-pointer h-full ${
-                        isAccessible ? "hover:shadow-xl" : "opacity-50 grayscale cursor-not-allowed"
+                      className={`bg-white rounded-xl p-6 border border-border transition-all h-full ${
+                        isAccessible
+                          ? "hover:shadow-lg hover:border-gold cursor-pointer"
+                          : "opacity-50 grayscale cursor-not-allowed"
                       }`}
                     >
                       <div className="text-center">
-                        {/* Portrait circulaire */}
                         <div className="w-24 h-24 mx-auto mb-4 relative">
                           {designer.image ? (
                             <Image
@@ -303,31 +286,30 @@ export default function DesignersPage() {
                               alt={designer.name}
                               fill
                               unoptimized
-                              className="object-cover rounded-full"
+                              className="object-cover rounded-full border-2 border-gold/20"
                               onError={(e) => {
                                 e.currentTarget.src = "/placeholder.svg"
                               }}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200">
+                            <div className="w-full h-full flex items-center justify-center bg-beige rounded-full border-2 border-gold/20">
                               <div className="text-center">
-                                <div className="text-2xl text-gray-400 mb-1">👤</div>
-                                <span className="text-xs text-gray-500 font-serif">Image manquante</span>
+                                <div className="text-2xl text-gold mb-1">👤</div>
+                                <span className="text-xs text-muted-foreground font-serif">Image manquante</span>
                               </div>
                             </div>
                           )}
                         </div>
 
-                        <h3 className="text-xl font-serif text-gray-900 mb-2">{designer.name}</h3>
+                        <h3 className="text-lg font-serif text-foreground mb-2 line-clamp-2">{designer.name}</h3>
 
-                        <p className="text-gray-600 mb-4 font-serif">
+                        <p className="text-sm text-muted-foreground mb-4">
                           {designer.count} luminaire{designer.count > 1 ? "s" : ""}
                         </p>
 
-                        {/* Aperçu des luminaires */}
                         <div className="grid grid-cols-3 gap-2 mb-4">
                           {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
-                            <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
+                            <div key={idx} className="aspect-square relative bg-cream rounded-lg overflow-hidden">
                               <Image
                                 src={luminaire.image || "/placeholder.svg"}
                                 alt={luminaire.name}
@@ -344,15 +326,12 @@ export default function DesignersPage() {
                         </div>
 
                         {isAccessible ? (
-                          <span
-                            className="font-medium font-serif hover:opacity-80 transition-opacity"
-                            style={{ color: "#d4a574" }}
-                          >
+                          <span className="text-sm font-medium text-gold hover:underline transition-all">
                             Voir le designer →
                           </span>
                         ) : (
                           <div className="text-center">
-                            <span className="text-gray-400 font-serif text-sm">🔒 Premium requis</span>
+                            <span className="text-muted-foreground text-sm">Premium requis</span>
                           </div>
                         )}
                       </div>
@@ -362,21 +341,20 @@ export default function DesignersPage() {
               })}
             </div>
 
-            {/* Indicateur de chargement */}
             {hasMore && (
               <div ref={ref} className="text-center py-8">
                 {isLoadingMore && (
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="text-gray-600 font-serif">Chargement...</span>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-gold border-t-transparent"></div>
+                    <span className="text-muted-foreground">Chargement...</span>
                   </div>
                 )}
               </div>
             )}
 
             {!hasMore && displayedDesigners.length > 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <p className="font-serif">Tous les designers ont été chargés</p>
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Tous les designers ont été chargés</p>
               </div>
             )}
           </>

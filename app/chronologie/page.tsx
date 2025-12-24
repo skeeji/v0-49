@@ -224,8 +224,8 @@ export default function ChronologiePage() {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="font-serif">Chargement de la chronologie...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-beige-dark border-t-gold mx-auto mb-4"></div>
+          <p className="font-serif text-muted-foreground">Chargement de la chronologie...</p>
         </div>
       </div>
     )
@@ -234,10 +234,12 @@ export default function ChronologiePage() {
   const totalLuminaires = timelineData.reduce((sum, period) => sum + period.luminaires.length, 0)
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container-responsive py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-4 text-center">Chronologie des Périodes Artistiques</h1>
-        <p className="text-center text-gray-600 mb-12 font-serif">
+        <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-4 text-center">
+          Chronologie des Périodes Artistiques
+        </h1>
+        <p className="text-center text-muted-foreground mb-12">
           {totalLuminaires} luminaires classés par période historique
         </p>
 

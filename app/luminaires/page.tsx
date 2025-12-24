@@ -6,7 +6,7 @@ import { SearchBar } from "@/components/SearchBar"
 import { DropdownFilter } from "@/components/DropdownFilter"
 import { RangeSlider } from "@/components/RangeSlider"
 import { Button } from "@/components/ui/button"
-import { Grid, List, Plus } from "lucide-react"
+import { Grid, List, Plus, Heart } from "lucide-react"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -76,7 +76,6 @@ export default function LuminairesPage() {
       const isFavorite = favorites.includes(luminaireId)
       const action = isFavorite ? "remove" : "add"
 
-      // Mise à jour optimiste de l'UI
       setFavorites((prev) => (isFavorite ? prev.filter((id) => id !== luminaireId) : [...prev, luminaireId]))
 
       try {
@@ -93,13 +92,11 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (!data.success) {
-          // Rollback en cas d'erreur
           setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
           toast.error("Erreur lors de la mise à jour des favoris")
         }
       } catch (error) {
         console.error("❌ Erreur toggle favori:", error)
-        // Rollback en cas d'erreur
         setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
         toast.error("Erreur lors de la mise à jour des favoris")
       }
@@ -120,7 +117,7 @@ export default function LuminairesPage() {
   }, [])
 
   const loadLuminaires = useCallback(
-    async (page = 1, append = false) => {
+    async (page = 1, append = false, yearRangeOverride?: number[]) => {
       try {
         if (page === 1) {
           setLoading(true)
@@ -137,9 +134,11 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        if (sliderModifiedRef.current && yearRangeRef.current.length === 2) {
-          params.append("yearMin", yearRangeRef.current[0].toString())
-          params.append("yearMax", yearRangeRef.current[1].toString())
+        const effectiveYearRange = yearRangeOverride || yearRangeRef.current
+
+        if (sliderModifiedRef.current && effectiveYearRange.length === 2) {
+          params.append("yearMin", effectiveYearRange[0].toString())
+          params.append("yearMax", effectiveYearRange[1].toString())
         }
 
         if (selectedCategorie && selectedCategorie !== "all") {
@@ -330,7 +329,7 @@ export default function LuminairesPage() {
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
-    loadLuminaires(1, false)
+    loadLuminaires(1, false, newRange)
   }
 
   const freeUserLimit = useMemo(() => {
@@ -353,11 +352,11 @@ export default function LuminairesPage() {
 
   if (loading && luminaires.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container-responsive py-12">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Chargement des luminaires...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-beige-dark border-t-gold mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Chargement des luminaires...</p>
           </div>
         </div>
       </div>
@@ -366,32 +365,30 @@ export default function LuminairesPage() {
 
   if (error && luminaires.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container-responsive py-12">
         <div className="text-center">
           <p className="text-red-600 mb-4">Erreur: {error}</p>
-          <Button onClick={() => loadLuminaires(1, false)}>Réessayer</Button>
+          <Button onClick={() => loadLuminaires(1, false)} className="bg-gold hover:bg-gold-dark text-white">
+            Réessayer
+          </Button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container-responsive py-8">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
-          <p className="text-gray-600">
-            {totalItems > 0 ? `${displayedLuminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
+          <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-2">Luminaires</h1>
+          <p className="text-muted-foreground">
+            {totalItems > 0 ? `${displayedLuminaires.length} résultats affichés` : "Aucun luminaire trouvé"}
           </p>
         </div>
 
-        <div className="flex items-center gap-4 mt-4 lg:mt-0">
+        <div className="flex items-center gap-3 mt-4 lg:mt-0 flex-wrap">
           {isAdmin && (
-            <Button
-              onClick={() => setIsModalOpen(true)}
-              style={{ backgroundColor: "#f2d895", color: "#000" }}
-              className="hover:opacity-90"
-            >
+            <Button onClick={() => setIsModalOpen(true)} className="bg-gold hover:bg-gold-dark text-white rounded-lg">
               <Plus className="w-4 h-4 mr-2" />
               Ajouter
             </Button>
@@ -401,18 +398,28 @@ export default function LuminairesPage() {
             <Button
               onClick={() => setShowFavorites(!showFavorites)}
               variant={showFavorites ? "default" : "outline"}
-              style={showFavorites ? { backgroundColor: "#f2d895", color: "#000" } : {}}
-              className="hover:opacity-90"
+              className={`rounded-lg ${showFavorites ? "bg-gold hover:bg-gold-dark text-white" : "border-2 hover:border-gold hover:text-gold"}`}
             >
-              ❤️ Favoris ({favorites.length})
+              <Heart className={`w-4 h-4 mr-2 ${showFavorites ? "fill-current" : ""}`} />
+              Favoris ({favorites.length})
             </Button>
           )}
 
-          <div className="flex items-center gap-2">
-            <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
+          <div className="flex items-center gap-2 border border-border rounded-lg p-1">
+            <Button
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("grid")}
+              className={viewMode === "grid" ? "bg-gold hover:bg-gold-dark text-white" : ""}
+            >
               <Grid className="w-4 h-4" />
             </Button>
-            <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className={viewMode === "list" ? "bg-gold hover:bg-gold-dark text-white" : ""}
+            >
               <List className="w-4 h-4" />
             </Button>
           </div>
@@ -421,7 +428,7 @@ export default function LuminairesPage() {
             <select
               value={columns}
               onChange={(e) => setColumns(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="px-4 py-2 border-2 border-border rounded-lg text-sm bg-white hover:border-gold transition-colors"
             >
               <option value={3}>3 colonnes</option>
               <option value={4}>4 colonnes</option>
@@ -434,22 +441,21 @@ export default function LuminairesPage() {
       </div>
 
       {(!user || userData?.role === "free") && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm" style={{ color: "#d4a574" }}>
-          <p className="flex items-center font-serif">
-            <span className="mr-2">ℹ️</span>
+        <div className="bg-beige border-2 border-gold/30 rounded-xl p-4 mb-6">
+          <p className="text-sm text-foreground flex items-start gap-2">
+            <span className="text-gold font-semibold">ℹ️</span>
             <span>
               {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont accessibles
               ({freeUserLimit} luminaires).
-              <Link href="/pricing" className="ml-1 underline font-medium">
-                Passez à Premium
-              </Link>{" "}
-              pour accéder à toute la collection.
+              <Link href="/pricing" className="ml-1 text-gold font-semibold hover:underline">
+                Passez à Premium →
+              </Link>
             </span>
           </p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
         <DropdownFilter
@@ -473,7 +479,7 @@ export default function LuminairesPage() {
             setSortField(field)
             setSortDirection(direction as "asc" | "desc")
           }}
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+          className="px-4 py-2 border-2 border-border rounded-lg text-sm bg-white hover:border-gold transition-colors"
         >
           <option value="nom-asc">Nom A-Z</option>
           <option value="nom-desc">Nom Z-A</option>
@@ -484,7 +490,7 @@ export default function LuminairesPage() {
         </select>
       </div>
 
-      <div className="mb-8">
+      <div className="mb-8 bg-white border border-border rounded-xl p-6">
         <RangeSlider
           min={yearBounds.min}
           max={yearBounds.max}
@@ -492,14 +498,16 @@ export default function LuminairesPage() {
           onValueCommit={handleYearRangeChange}
         />
         {sliderModified && (
-          <div className="mt-2 text-sm" style={{ color: "#d4a574" }}>
-            Filtre actif: {yearRange[0]} - {yearRange[1]}
+          <div className="mt-3 text-sm text-gold flex items-center justify-between">
+            <span>
+              Filtre actif: {yearRange[0]} - {yearRange[1]}
+            </span>
             <button
               onClick={() => {
                 setYearRange([yearBounds.min, yearBounds.max])
                 setSliderModified(false)
               }}
-              className="ml-2 underline hover:no-underline"
+              className="text-gold hover:underline font-medium"
             >
               Réinitialiser
             </button>
@@ -520,25 +528,27 @@ export default function LuminairesPage() {
 
       {loadingMore && !showFavorites && (
         <div className="text-center mt-8">
-          <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
-            <span className="text-orange-500">Chargement de plus de luminaires...</span>
+          <div className="inline-flex items-center px-6 py-3 bg-beige border border-gold/30 rounded-xl">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-gold border-t-transparent mr-3"></div>
+            <span className="text-gold font-medium">Chargement...</span>
           </div>
         </div>
       )}
 
       {!hasMore && luminaires.length > 0 && !showFavorites && (
         <div className="text-center mt-8 py-4">
-          <p className="text-gray-500">
-            ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
+          <p className="text-muted-foreground">
+            Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
           </p>
         </div>
       )}
 
       {displayedLuminaires.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">{showFavorites ? "Aucun favori trouvé" : "Aucun luminaire trouvé"}</p>
-          <p className="text-gray-400 text-sm mt-2">
+        <div className="text-center py-16 bg-beige rounded-xl">
+          <p className="text-foreground text-lg font-medium mb-2">
+            {showFavorites ? "Aucun favori trouvé" : "Aucun luminaire trouvé"}
+          </p>
+          <p className="text-muted-foreground text-sm">
             {showFavorites ? "Ajoutez des luminaires à vos favoris" : "Essayez de modifier vos critères de recherche"}
           </p>
         </div>

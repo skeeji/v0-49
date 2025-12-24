@@ -630,7 +630,6 @@ export default function HomePage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Vidéo de fond */}
       {welcomeVideo ? (
         <video
           autoPlay
@@ -647,42 +646,33 @@ export default function HomePage() {
           Votre navigateur ne supporte pas la lecture vidéo.
         </video>
       ) : (
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50" />
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-cream via-beige to-beige-dark" />
       )}
 
-      {/* Overlay plus clair */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-amber-50/60 to-orange-50/40" />
+      <div className="absolute inset-0 bg-white/30 backdrop-blur-[2px]" />
 
-      {/* Contenu principal */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-serif leading-tight" style={{ color: "#f2d895" }}>
-            Luminaires
-            <br />
-            <span className="text-2xl md:text-3xl font-light">Du Moyen-âge à nos jours</span>
-          </h1>
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-20">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif text-foreground tracking-tight">Recherche IA</h1>
+          {userData?.role === "premium" || userData?.role === "admin" ? (
+            <div className="inline-flex items-center gap-2 mt-3 px-4 py-1.5 bg-gold/10 border border-gold/30 rounded-full">
+              <div className="w-2 h-2 bg-gold rounded-full animate-pulse" />
+              <span className="text-sm font-medium text-gold">Premium</span>
+            </div>
+          ) : null}
         </div>
 
-        {/* Zone de recherche par image */}
-        <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-10 max-w-lg w-full shadow-2xl border border-white/20">
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center mb-4">
-              <h2 className="text-2xl md:text-3xl font-serif" style={{ color: "#f2d895" }}>
-                Recherche IA
-              </h2>
-            </div>
-            <p className="text-slate-600 leading-relaxed">
-              Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
-            </p>
-          </div>
+        <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full shadow-xl border border-border">
+          <p className="text-center text-sm text-muted-foreground mb-6 leading-relaxed">
+            Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
+          </p>
 
-          {/* Appel à l'action pour les comptes premium */}
           {(!user || userData?.role === "free") && (
-            <div className="mt-4 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800 font-medium">
-                🌟 Passez à Premium pour des recherches illimitées et la suppression d'arrière-plan !
-                <Link href="/pricing" className="ml-1 underline font-bold hover:no-underline">
-                  Découvrir Premium
+            <div className="mb-6 p-4 bg-beige rounded-xl border border-gold/20">
+              <p className="text-sm text-foreground">
+                Passez à <span className="font-semibold text-gold">Premium</span> pour des recherches illimitées
+                <Link href="/pricing" className="block mt-2 text-gold font-medium hover:underline">
+                  Découvrir les forfaits →
                 </Link>
               </p>
             </div>
@@ -690,9 +680,9 @@ export default function HomePage() {
 
           {/* Affichage de l'image après recherche */}
           {capturedImage && !isSearching && searchResults.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-lg font-medium text-slate-700 mb-4 text-center">Image analysée :</h3>
-              <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden max-w-64 mx-auto shadow-lg">
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 text-center">Image analysée</h3>
+              <div className="aspect-square relative bg-beige rounded-xl overflow-hidden max-w-64 mx-auto">
                 <Image src={capturedImage || "/placeholder.svg"} alt="Image analysée" fill className="object-contain" />
               </div>
             </div>
@@ -705,7 +695,7 @@ export default function HomePage() {
             playsInline
             muted
             onClick={capturePhoto}
-            className={`w-full rounded-2xl bg-slate-900 cursor-pointer shadow-lg ${
+            className={`w-full rounded-xl bg-slate-900 cursor-pointer ${
               searchMode === "camera" && isCameraActive && !capturedImage ? "block" : "hidden"
             }`}
             style={{ aspectRatio: "4/3" }}
@@ -713,9 +703,8 @@ export default function HomePage() {
 
           <canvas ref={canvasRef} className="hidden" />
 
-          {/* Étape 1: Sélection de la méthode */}
           {!searchMode && !capturedImage && !isSearching && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <Button
                 onClick={() => {
                   if (!user) {
@@ -725,13 +714,10 @@ export default function HomePage() {
                   }
                   fileInputRef.current?.click()
                 }}
-                className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
-                style={{ backgroundColor: "#f2d895" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                className="w-full bg-gold hover:bg-gold-dark text-white py-6 text-base rounded-xl transition-all duration-200"
                 disabled={isSearching}
               >
-                <Upload className="w-5 h-5 mr-3" />
+                <Upload className="w-5 h-5 mr-2" />
                 Téléverser une image
               </Button>
 
@@ -748,55 +734,41 @@ export default function HomePage() {
                   }
                   startCamera()
                 }}
-                className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
-                style={{ backgroundColor: userData?.role === "free" ? "#ccc" : "#f2d895" }}
-                onMouseEnter={(e) => {
-                  if (userData?.role !== "free") {
-                    e.currentTarget.style.backgroundColor = "#e6c77a"
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (userData?.role !== "free") {
-                    e.currentTarget.style.backgroundColor = "#f2d895"
-                  }
-                }}
+                variant="outline"
+                className="w-full py-6 text-base rounded-xl border-2 hover:border-gold hover:text-gold transition-all duration-200"
                 disabled={isSearching || isCameraLoading || userData?.role === "free"}
               >
                 {isCameraLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white mr-3"></div>
-                    Activation caméra...
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-gold border-t-transparent mr-2"></div>
+                    Activation...
                   </>
                 ) : userData?.role === "free" ? (
                   <>
-                    <Camera className="w-5 h-5 mr-3" />
-                    Fonctionnalité Premium
+                    <Camera className="w-5 h-5 mr-2" />
+                    Prendre une photo (Premium)
                   </>
                 ) : (
                   <>
-                    <Camera className="w-5 h-5 mr-3" />
+                    <Camera className="w-5 h-5 mr-2" />
                     Prendre une photo
                   </>
                 )}
               </Button>
 
-              <p className="text-xs text-slate-500 text-center leading-relaxed">
-                Connectez-vous pour utiliser notre IA qui analyse votre image et trouve les 10 luminaires les plus
-                similaires
+              <p className="text-xs text-muted-foreground text-center pt-2">
+                Connectez-vous pour utiliser notre IA qui analyse votre image
               </p>
             </div>
           )}
 
-          {/* Étape 2a: Caméra en cours d'activation */}
+          {/* Caméra en cours d'activation */}
           {searchMode === "camera" && isCameraLoading && (
-            <div className="space-y-6 text-center">
-              <div className="w-full h-64 bg-slate-100 rounded-2xl flex items-center justify-center">
+            <div className="space-y-4 text-center">
+              <div className="w-full h-64 bg-beige rounded-xl flex items-center justify-center">
                 <div className="text-center">
-                  <div
-                    className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 mx-auto mb-4"
-                    style={{ borderTopColor: "#f2d895" }}
-                  ></div>
-                  <p className="text-slate-600 font-medium">Activation de la caméra...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-beige-dark border-t-gold mx-auto mb-3"></div>
+                  <p className="text-sm text-muted-foreground">Activation de la caméra...</p>
                 </div>
               </div>
               <Button onClick={resetSearch} variant="outline" className="w-full rounded-xl bg-transparent">
@@ -806,18 +778,16 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Étape 2b: Caméra active */}
+          {/* Caméra active */}
           {searchMode === "camera" && isCameraActive && !capturedImage && (
-            <div className="space-y-6">
-              {/* Overlay avec instructions */}
-              <div className="relative -mt-4">
-                {/* Indicateur de statut */}
+            <div className="space-y-4">
+              <div className="relative">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-10">
-                  <div className="bg-black/70 text-[#f2d895] px-4 py-2 rounded-lg text-sm font-medium shadow-lg">
-                    Touchez l'écran pour capturer
+                  <div className="bg-black/70 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Touchez pour capturer
                   </div>
                 </div>
-                <div className="absolute top-3 right-3 bg-black/70 text-white text-sm px-3 py-2 rounded-lg z-10 shadow-lg">
+                <div className="absolute top-3 right-3 bg-black/70 text-white text-sm px-3 py-2 rounded-lg z-10">
                   {zoomLevel.toFixed(1)}x
                 </div>
               </div>
@@ -825,34 +795,26 @@ export default function HomePage() {
               <div className="flex gap-2 justify-center">
                 <Button
                   onClick={handleZoomOut}
-                  className="w-12 h-12 rounded-full text-white text-xl font-bold"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  size="icon"
+                  className="w-12 h-12 rounded-full bg-gold hover:bg-gold-dark text-white"
                   disabled={isCapturing || zoomLevel <= 1}
                 >
                   -
                 </Button>
                 <Button
                   onClick={handleZoomIn}
-                  className="w-12 h-12 rounded-full text-white text-xl font-bold"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  size="icon"
+                  className="w-12 h-12 rounded-full bg-gold hover:bg-gold-dark text-white"
                   disabled={isCapturing}
                 >
                   +
                 </Button>
               </div>
 
-              {/* Boutons de contrôle */}
               <div className="flex gap-3">
                 <Button
                   onClick={capturePhoto}
-                  className="flex-1 text-white rounded-xl"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  className="flex-1 bg-gold hover:bg-gold-dark text-white rounded-xl"
                   disabled={isCapturing}
                 >
                   {isCapturing ? (
@@ -862,156 +824,117 @@ export default function HomePage() {
                     </>
                   ) : (
                     <>
-                      <Camera className="w-4 h-4 mr-2" />📸 Capturer
+                      <Camera className="w-4 h-4 mr-2" />
+                      Capturer
                     </>
                   )}
                 </Button>
                 <Button
                   onClick={resetSearch}
                   variant="outline"
-                  className="px-6 rounded-xl bg-transparent"
+                  size="icon"
+                  className="rounded-xl bg-transparent"
                   disabled={isCapturing}
                 >
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-
-              <p className="text-xs text-slate-500 text-center">
-                Cadrez le luminaire et touchez l'écran ou le bouton pour capturer
-              </p>
             </div>
           )}
 
-          {/* Étape 3: Recherche en cours */}
+          {/* Recherche en cours */}
           {isSearching && (
-            <div className="space-y-6 text-center">
+            <div className="space-y-4 text-center">
               {capturedImage && (
-                <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden mb-6 shadow-lg">
+                <div className="aspect-square relative bg-beige rounded-xl overflow-hidden mb-4">
                   <Image
                     src={capturedImage || "/placeholder.svg"}
-                    alt="Image en cours d'analyse"
+                    alt="Analyse en cours"
                     fill
                     className="object-contain"
                   />
                 </div>
               )}
-              <div className="text-center">
-                <div
-                  className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 mx-auto mb-4"
-                  style={{ borderTopColor: "#f2d895" }}
-                ></div>
-                <p className="text-lg font-medium text-slate-800 mb-2">Analyse IA en cours...</p>
-                <p className="text-sm text-slate-600">Recherche des luminaires similaires dans notre collection</p>
-
-                {/* Message d'avertissement pour les utilisateurs gratuits */}
-                {userData?.role === "free" && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      Plus que {3 - (userData.searchCount || 0)} recherche(s) restante(s) ce mois-ci.
-                      <Link href="/pricing" className="ml-1 underline font-medium">
-                        Passez à Premium
-                      </Link>{" "}
-                      pour des recherches illimitées.
-                    </p>
-                  </div>
-                )}
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-beige-dark border-t-gold mx-auto mb-3"></div>
+                <p className="font-medium text-foreground mb-1">Analyse IA en cours...</p>
+                <p className="text-sm text-muted-foreground">Recherche des luminaires similaires</p>
               </div>
             </div>
           )}
 
-          {/* Étape 2.5: Options d'arrière-plan */}
+          {/* Options d'arrière-plan */}
           {showBackgroundOptions && !isSearching && (
-            <div className="space-y-6">
-              <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden mb-6 shadow-lg">
+            <div className="space-y-4">
+              <div className="aspect-square relative bg-beige rounded-xl overflow-hidden mb-4">
                 <Image src={capturedImage || "/placeholder.svg"} alt="Image capturée" fill className="object-contain" />
               </div>
 
-              <div className="space-y-6">
-                {/* Afficher la checkbox seulement pour les utilisateurs premium/admin */}
-                {user && userData?.role !== "free" && (
-                  <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <input
-                      type="checkbox"
-                      id="removeBackground"
-                      className="w-5 h-5 bg-white border-slate-300 rounded focus:ring-2"
-                      style={{ accentColor: "#f2d895" }}
-                      onChange={async (e) => {
-                        if (e.target.checked) {
-                          // Supprimer l'arrière-plan et mettre à jour l'affichage
-                          if (selectedImageForSearch && !isRemovingBackground) {
-                            const processedFile = await removeBackground(selectedImageForSearch)
-                            if (processedFile && backgroundRemovedImage) {
-                              setSelectedImageForSearch(processedFile)
-                              setCapturedImage(backgroundRemovedImage)
-                            }
-                          }
-                        } else {
-                          // Remettre l'image originale
-                          if (selectedFile) {
-                            const originalUrl = URL.createObjectURL(selectedFile)
-                            setCapturedImage(originalUrl)
-                            setSelectedImageForSearch(selectedFile)
-                            // Nettoyer l'ancienne URL de l'image sans arrière-plan
-                            if (backgroundRemovedImage) {
-                              URL.revokeObjectURL(backgroundRemovedImage)
-                              setBackgroundRemovedImage(null)
-                            }
+              {user && userData?.role !== "free" && (
+                <div className="flex items-center space-x-3 p-4 bg-beige rounded-xl border border-border">
+                  <input
+                    type="checkbox"
+                    id="removeBackground"
+                    className="w-5 h-5 rounded focus:ring-2 focus:ring-gold accent-gold"
+                    onChange={async (e) => {
+                      if (e.target.checked) {
+                        if (selectedImageForSearch && !isRemovingBackground) {
+                          const processedFile = await removeBackground(selectedImageForSearch)
+                          if (processedFile && backgroundRemovedImage) {
+                            setSelectedImageForSearch(processedFile)
+                            setCapturedImage(backgroundRemovedImage)
                           }
                         }
-                      }}
-                      disabled={isRemovingBackground}
-                    />
-                    <label htmlFor="removeBackground" className="text-sm font-medium text-slate-700 cursor-pointer">
-                      Supprimer l'arrière-plan avant la recherche
-                    </label>
-                  </div>
-                )}
-
-                {/* Message pour les utilisateurs gratuits */}
-                {(!user || userData?.role === "free") && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Fonctionnalité Premium :</strong> La suppression d'arrière-plan est disponible avec un
-                      abonnement Premium.
-                      <Link href="/pricing" className="ml-2 underline">
-                        Voir les forfaits
-                      </Link>
-                    </p>
-                  </div>
-                )}
-
-                {isRemovingBackground && (
-                  <div className="text-center py-6">
-                    <div
-                      className="animate-spin rounded-full h-8 w-8 border-4 border-slate-300 mx-auto mb-3"
-                      style={{ borderTopColor: "#f2d895" }}
-                    ></div>
-                    <p className="text-sm text-slate-600">Suppression de l'arrière-plan en cours...</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  <Button
-                    onClick={searchWithOriginal}
-                    className="flex-1 text-white rounded-xl"
-                    style={{ backgroundColor: "#f2d895" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                      } else {
+                        if (selectedFile) {
+                          const originalUrl = URL.createObjectURL(selectedFile)
+                          setCapturedImage(originalUrl)
+                          setSelectedImageForSearch(selectedFile)
+                          if (backgroundRemovedImage) {
+                            URL.revokeObjectURL(backgroundRemovedImage)
+                            setBackgroundRemovedImage(null)
+                          }
+                        }
+                      }
+                    }}
                     disabled={isRemovingBackground}
-                  >
-                    Rechercher maintenant
-                  </Button>
-                  <Button onClick={resetSearch} variant="outline" className="px-6 rounded-xl bg-transparent">
-                    <X className="w-4 h-4" />
-                  </Button>
+                  />
+                  <label htmlFor="removeBackground" className="text-sm text-foreground cursor-pointer flex-1">
+                    Supprimer l'arrière-plan
+                  </label>
                 </div>
-              </div>
+              )}
 
-              <p className="text-xs text-slate-500 text-center">
-                {user && userData?.role !== "free"
-                  ? "La suppression d'arrière-plan peut améliorer la précision de la recherche"
-                  : "Connectez-vous avec un compte Premium pour plus de fonctionnalités"}
-              </p>
+              {(!user || userData?.role === "free") && (
+                <div className="p-4 bg-beige rounded-xl border border-gold/20">
+                  <p className="text-sm text-foreground">
+                    <span className="font-semibold text-gold">Fonctionnalité Premium :</span> Suppression d'arrière-plan
+                    <Link href="/pricing" className="block mt-1 text-gold hover:underline">
+                      Voir les forfaits →
+                    </Link>
+                  </p>
+                </div>
+              )}
+
+              {isRemovingBackground && (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-beige-dark border-t-gold mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">Suppression en cours...</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={searchWithOriginal}
+                  className="flex-1 bg-gold hover:bg-gold-dark text-white rounded-xl"
+                  disabled={isRemovingBackground}
+                >
+                  Rechercher
+                </Button>
+                <Button onClick={resetSearch} variant="outline" size="icon" className="rounded-xl bg-transparent">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           )}
 
@@ -1020,91 +943,89 @@ export default function HomePage() {
 
         {/* Résultats de recherche */}
         {searchResults.length > 0 && (
-          <div className="mt-8 bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-8 max-w-7xl w-full shadow-2xl border border-white/20">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-              <h3 className="text-2xl md:text-3xl font-serif text-slate-800 text-center md:text-left">
-                🎯 Top {searchResults.length} luminaires similaires
+          <div className="mt-8 bg-white rounded-2xl p-6 md:p-8 max-w-6xl w-full shadow-xl border border-border">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+              <h3 className="text-xl md:text-2xl font-serif text-foreground">
+                J'ai trouvé {searchResults.length} luminaire(s) correspondant à votre recherche :
               </h3>
-              <div className="flex gap-3 justify-center md:justify-end">
+              <div className="flex gap-2">
                 <Button
                   onClick={searchAgain}
-                  className="text-white rounded-xl shadow-lg"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                   size="sm"
+                  variant="outline"
+                  className="rounded-lg hover:border-gold hover:text-gold bg-transparent"
                   disabled={isSearching}
                 >
                   {isSearching ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gold border-t-transparent mr-2"></div>
                   ) : (
-                    <span>🔄 Refaire la recherche</span>
+                    <span>Refaire</span>
                   )}
                 </Button>
-                <Button
-                  onClick={resetSearch}
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl shadow-lg bg-transparent"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Nouvelle image
+                <Button onClick={resetSearch} size="sm" variant="outline" className="rounded-lg bg-transparent">
+                  <X className="w-4 h-4 mr-1" />
+                  Nouvelle
                 </Button>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {searchResults.map((result: any, index) => (
-                <div
-                  key={index}
-                  className="bg-white rounded-2xl p-4 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200"
-                >
-                  {/* Image cliquable */}
+                <div key={index} className="group">
                   {result.hasLocalMatch && result.luminaireUrl ? (
                     <Link href={result.luminaireUrl}>
-                      <div className="relative w-full h-32 md:h-40 mb-4 cursor-pointer hover:scale-105 transition-transform duration-200">
+                      <div className="bg-cream rounded-xl overflow-hidden border border-border hover:shadow-lg transition-all duration-300">
+                        <div className="relative w-full h-48 bg-white">
+                          <Image
+                            src={result.imageUrl || "/placeholder.svg"}
+                            alt={result.imageId || `Résultat ${index + 1}`}
+                            fill
+                            className="object-contain p-4 group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              e.currentTarget.src = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || "Image")}`
+                            }}
+                          />
+                        </div>
+                        <div className="p-4">
+                          <p className="font-medium text-foreground truncate mb-1">
+                            {result.localMatch?.nom || result.imageId || `Résultat ${index + 1}`}
+                          </p>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {result.localMatch?.artiste || "Designer inconnu"}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gold font-medium">
+                              Similarité: {Math.round(result.similarity * 100)}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">Voir la fiche →</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="bg-cream rounded-xl overflow-hidden border border-border">
+                      <div className="relative w-full h-48 bg-white">
                         <Image
                           src={result.imageUrl || "/placeholder.svg"}
                           alt={result.imageId || `Résultat ${index + 1}`}
                           fill
-                          className="object-cover rounded-xl"
+                          className="object-contain p-4"
                           onError={(e) => {
-                            const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || `Image ${index + 1}`)}`
-                            e.currentTarget.src = fallbackUrl
+                            e.currentTarget.src = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || "Image")}`
                           }}
                         />
                       </div>
-                    </Link>
-                  ) : (
-                    <div className="relative w-full h-32 md:h-40 mb-4">
-                      <Image
-                        src={result.imageUrl || "/placeholder.svg"}
-                        alt={result.imageId || `Résultat ${index + 1}`}
-                        fill
-                        className="object-cover rounded-xl"
-                        onError={(e) => {
-                          const fallbackUrl = `/placeholder.svg?height=200&width=200&text=${encodeURIComponent(result.imageId || `Image ${index + 1}`)}`
-                          e.currentTarget.src = fallbackUrl
-                        }}
-                      />
+                      <div className="p-4">
+                        <p className="font-medium text-foreground truncate mb-1">
+                          {result.imageId || `Résultat ${index + 1}`}
+                        </p>
+                        <p className="text-sm text-muted-foreground">Image similaire</p>
+                        <p className="text-xs text-gold mt-2">Similarité: {Math.round(result.similarity * 100)}%</p>
+                      </div>
                     </div>
                   )}
-
-                  <p className="text-sm font-medium text-slate-800 truncate mb-2">
-                    {result.localMatch?.nom || result.imageId || `Résultat ${index + 1}`}
-                  </p>
-
-                  <p className="text-sm text-slate-600 mb-3">Similarité: {Math.round(result.similarity * 100)}%</p>
-
-                  <p className="text-xs text-slate-500">
-                    {result.hasLocalMatch ? "Fiche disponible" : "Image similaire"}
-                  </p>
                 </div>
               ))}
-            </div>
-
-            <div className="mt-6 text-center text-sm text-slate-600">
-              Cliquez sur une image pour voir la fiche détaillée
             </div>
           </div>
         )}

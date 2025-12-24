@@ -4,48 +4,56 @@
 
 @layer base {
   :root {
+    /* Nouvelle palette inspirée des images: amber/gold accents, beige backgrounds */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 30 10% 20%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 30 10% 20%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 30 10% 20%;
+    --primary: 35 65% 50%; /* Amber/Gold */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 35 30% 95%; /* Beige clair */
+    --secondary-foreground: 30 10% 20%;
+    --muted: 35 20% 90%;
+    --muted-foreground: 30 10% 40%;
+    --accent: 35 65% 50%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --border: 35 15% 85%;
+    --input: 35 15% 85%;
+    --ring: 35 65% 50%;
+    --radius: 0.75rem;
+
+    /* Couleurs personnalisées */
+    --gold: 35 65% 50%;
+    --gold-dark: 35 65% 40%;
+    --beige: 35 30% 95%;
+    --beige-dark: 35 20% 85%;
+    --cream: 40 30% 97%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --background: 30 10% 10%;
+    --foreground: 0 0% 98%;
+    --card: 30 10% 15%;
+    --card-foreground: 0 0% 98%;
+    --popover: 30 10% 15%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 35 65% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 10% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 30 10% 25%;
+    --muted-foreground: 35 10% 60%;
+    --accent: 35 65% 50%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 30 10% 25%;
+    --input: 30 10% 25%;
+    --ring: 35 65% 50%;
   }
 }
 
@@ -54,37 +62,91 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Typographie avec hiérarchie claire */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-serif;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl font-normal tracking-tight;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl font-normal tracking-tight;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl font-normal;
+  }
+}
+
+/* Classes utilitaires personnalisées */
+@layer utilities {
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+
+  .bg-gold {
+    background-color: hsl(var(--gold));
+  }
+
+  .bg-gold-dark {
+    background-color: hsl(var(--gold-dark));
+  }
+
+  .bg-beige {
+    background-color: hsl(var(--beige));
+  }
+
+  .bg-beige-dark {
+    background-color: hsl(var(--beige-dark));
+  }
+
+  .bg-cream {
+    background-color: hsl(var(--cream));
+  }
+
+  .border-gold {
+    border-color: hsl(var(--gold));
+  }
+
+  .hover-gold {
+    @apply hover:bg-gold hover:text-white transition-colors duration-300;
   }
 }
 
 /* Styles personnalisés */
 .container-responsive {
-  @apply container mx-auto px-4;
+  @apply container mx-auto px-4 lg:px-8;
 }
 
 .font-playfair {
   font-family: "Playfair Display", serif;
 }
 
-.text-dark {
-  @apply text-gray-900;
+.font-serif {
+  font-family: "Playfair Display", serif;
 }
 
-.text-orange {
-  @apply text-orange-500;
+.font-sans {
+  font-family: "Inter", sans-serif;
 }
 
-.bg-orange {
-  @apply bg-orange-500;
+/* Boutons avec style gold/amber */
+.btn-primary {
+  @apply bg-gold text-white px-6 py-3 rounded-lg font-medium hover:bg-gold-dark transition-all duration-300;
 }
 
-.bg-cream {
-  @apply bg-orange-50;
-}
-
-.bg-gold {
-  @apply bg-yellow-500;
+.btn-secondary {
+  @apply bg-white text-foreground border border-border px-6 py-3 rounded-lg font-medium hover:border-gold transition-all duration-300;
 }
 
 /* Animation pour la chronologie */
@@ -104,9 +166,18 @@
   aspect-ratio: 1 / 1;
 }
 
+/* Cards avec bordures subtiles */
+.card-luminaire {
+  @apply bg-white border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300;
+}
+
+.card-designer {
+  @apply bg-white border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .container-responsive {
-    @apply px-2;
+    @apply px-4;
   }
 }

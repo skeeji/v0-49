@@ -35,7 +35,7 @@ export default function PricingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const monthlyPrice = 30
-  const annualPrice = 22 // 2 mois offerts
+  const annualPrice = 22
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -83,105 +83,134 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-16">
-      <div className="max-w-4xl mx-auto">
-        {/* Titre principal */}
+    <div className="container-responsive py-16">
+      <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-serif text-gray-900 mb-4">
-            Choisissez le forfait qui vous convient
-          </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Découvrez notre collection complète de luminaires avec des fonctionnalités avancées
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif text-foreground mb-4">Nos plans d'adhésion</h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Découvrez la collection la plus fabuleuse de luminaires rares et historiques
           </p>
         </div>
 
-        {/* Sélecteur de facturation */}
         <div className="flex items-center justify-center mb-12">
-          <div className="flex items-center space-x-4 bg-gray-100 rounded-lg p-1">
-            <span className={`px-4 py-2 text-sm font-medium ${!isAnnual ? "text-gray-900" : "text-gray-500"}`}>
+          <div className="flex items-center space-x-4 bg-beige rounded-xl p-1.5 border border-gold/20">
+            <span
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${!isAnnual ? "bg-white text-foreground shadow-sm" : "text-muted-foreground"}`}
+            >
               Mensuel
             </span>
-            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} className="data-[state=checked]:bg-orange-500" />
-            <span className={`px-4 py-2 text-sm font-medium ${isAnnual ? "text-gray-900" : "text-gray-500"}`}>
+            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} className="data-[state=checked]:bg-gold" />
+            <span
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isAnnual ? "bg-white text-foreground shadow-sm" : "text-muted-foreground"}`}
+            >
               Annuel (2 mois offerts)
             </span>
           </div>
         </div>
 
-        {/* Cartes des forfaits */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Carte Gratuit */}
-          <Card className="relative">
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <Card className="relative border-2 border-border rounded-2xl">
             <CardHeader className="text-center pb-8">
-              <CardTitle className="text-2xl font-serif">Gratuit</CardTitle>
-              <CardDescription className="text-gray-600">Découvrez notre collection</CardDescription>
+              <CardTitle className="text-2xl font-serif text-foreground">Accès Gratuit</CardTitle>
+              <CardDescription className="text-muted-foreground">Découvrez notre collection</CardDescription>
               <div className="mt-4">
-                <span className="text-4xl font-bold">€0</span>
-                <span className="text-gray-600 ml-2">/ mois</span>
+                <span className="text-4xl font-bold text-foreground">0€</span>
+                <span className="text-muted-foreground ml-2">/ mois</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button disabled className="w-full bg-transparent" variant="outline">
+              <Button disabled className="w-full bg-transparent rounded-xl" variant="outline">
                 Votre forfait actuel
               </Button>
 
               <div className="space-y-3 pt-4">
                 <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Limite de 3 recherches par mois</span>
+                  <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Accès limité à 10% de la collection</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Accès à 10% des luminaires et designers</span>
+                  <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                  </div>
+                  <span className="text-sm text-foreground">3 recherches IA maximum par mois</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Recherche par image via upload uniquement</span>
+                  <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Recherche par upload uniquement</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Pas de suppression de l'arrière-plan</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Pas de téléchargement PDF</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Pas d'ajout aux favoris</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Pas d'accès à l'estimation de prix</span>
+                  <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Pas de téléchargement ni favoris</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Carte Premium */}
-          <Card className="relative border-2 border-orange-500 shadow-lg">
+          <Card className="relative border-2 border-border rounded-2xl">
+            <CardHeader className="text-center pb-8">
+              <CardTitle className="text-2xl font-serif text-foreground">Essentiel</CardTitle>
+              <CardDescription className="text-muted-foreground">Pour les amateurs éclairés</CardDescription>
+              <div className="mt-4">
+                <span className="text-4xl font-bold text-foreground">19€</span>
+                <span className="text-muted-foreground ml-2">/ mois</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button className="w-full bg-gold hover:bg-gold-dark text-white rounded-xl">Bientôt disponible</Button>
+
+              <div className="space-y-3 pt-4">
+                <div className="flex items-start space-x-3">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Accès à 50% de la collection</span>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">50 recherches IA par mois</span>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Téléchargement de fiches en PDF</span>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Gestion des favoris</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative border-2 border-gold rounded-2xl shadow-lg">
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <span className="bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-medium">Recommandé</span>
+              <span className="bg-gold text-white px-4 py-1 rounded-full text-sm font-medium">Premium</span>
             </div>
             <CardHeader className="text-center pb-8">
-              <CardTitle className="text-2xl font-serif">Premium</CardTitle>
-              <CardDescription className="text-gray-600">Accès complet à toutes les fonctionnalités</CardDescription>
+              <CardTitle className="text-2xl font-serif text-foreground">Premium</CardTitle>
+              <CardDescription className="text-muted-foreground">Accès illimité et complet</CardDescription>
               <div className="mt-4">
-                <span className="text-4xl font-bold">€{isAnnual ? annualPrice : monthlyPrice}</span>
-                <span className="text-gray-600 ml-2">/ mois</span>
-                {isAnnual && <div className="text-sm text-green-600 mt-1">Économisez €96 par an</div>}
+                <span className="text-4xl font-bold text-foreground">49€</span>
+                <span className="text-muted-foreground ml-2">/ mois</span>
+                {isAnnual && <div className="text-sm text-green-600 mt-1">Économisez 96€ par an</div>}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button
-                    className="w-full text-white"
-                    style={{ backgroundColor: "#f2d895" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
-                  >
-                    Passer à Premium
+                  <Button className="w-full bg-gold hover:bg-gold-dark text-white rounded-xl">
+                    Souscrire à l'abonnement
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">
@@ -256,9 +285,8 @@ export default function PricingPage() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full"
+                      className="w-full bg-gold hover:bg-gold-dark text-white"
                       disabled={isSubmitting}
-                      style={{ backgroundColor: "#f2d895" }}
                     >
                       {isSubmitting ? "Envoi en cours..." : "Envoyer la demande"}
                     </Button>
@@ -268,41 +296,50 @@ export default function PricingPage() {
 
               <div className="space-y-3 pt-4">
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Recherches par image illimitées</span>
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Accès illimité à toute la collection</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Accès à toute la collection</span>
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Recherches IA illimitées</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Recherche via upload et prise de photo</span>
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Recherche via caméra et upload</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Suppression de l'arrière-plan</span>
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Suppression d'arrière-plan automatique</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Téléchargement des fiches en PDF</span>
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Téléchargement PDF et gestion favoris</span>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Ajout aux favoris</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Accès à l'estimation de prix</span>
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm text-foreground">Consultation d'experts personnalisée</span>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* FAQ ou informations supplémentaires */}
         <div className="text-center mt-12">
-          <p className="text-gray-600">Questions ? Contactez-nous pour plus d'informations sur nos forfaits.</p>
+          <p className="text-muted-foreground">
+            Des questions sur nos forfaits ? Contactez-nous pour plus d'informations.
+          </p>
         </div>
       </div>
     </div>
