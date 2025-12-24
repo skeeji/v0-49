@@ -662,13 +662,16 @@ export default function HomePage() {
           </p>
 
           {(!user || userData?.role === "free") && (
-            <div className="mb-6 p-4 bg-beige rounded-xl border border-gold/20">
-              <p className="text-sm text-foreground">
-                Passez à <span className="font-semibold text-gold">Premium</span> pour des recherches illimitées
-                <Link href="/pricing" className="block mt-2 text-gold font-medium hover:underline">
-                  Découvrir les forfaits →
-                </Link>
+            <div className="mb-6 p-5 bg-gradient-to-r from-beige to-cream rounded-xl border-2 border-gold/40 shadow-sm">
+              <p className="text-base text-foreground/90 leading-relaxed">
+                Passez à <span className="font-bold text-gold text-lg">Premium</span> pour des recherches illimitées
               </p>
+              <Link
+                href="/pricing"
+                className="inline-block mt-3 text-gold font-semibold text-base hover:underline hover:text-gold-dark transition-colors"
+              >
+                Découvrir les forfaits →
+              </Link>
             </div>
           )}
 

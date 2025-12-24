@@ -250,13 +250,13 @@ export default function DesignersPage() {
         </div>
 
         {(!user || userData?.role === "free") && (
-          <div className="bg-beige border-2 border-gold/30 rounded-xl p-4 mb-6">
-            <p className="text-sm text-foreground flex items-start gap-2">
-              <span className="text-gold font-semibold">ℹ️</span>
+          <div className="bg-gradient-to-r from-beige to-cream border-2 border-gold/40 rounded-xl p-5 mb-6 shadow-sm">
+            <p className="text-base text-foreground/90 leading-relaxed flex items-start gap-3">
+              <span className="text-gold font-bold text-xl flex-shrink-0">ℹ️</span>
               <span>
-                {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des designers sont accessibles
-                ({freeUserLimit} designers).
-                <Link href="/pricing" className="ml-1 text-gold font-semibold hover:underline">
+                <span className="font-semibold">{!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}.</span>{" "}
+                Seuls 10% des designers sont accessibles ({freeUserLimit} designers).
+                <Link href="/pricing" className="ml-2 text-gold font-bold hover:underline inline-block">
                   Passez à Premium →
                 </Link>
               </span>
