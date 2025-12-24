@@ -4,31 +4,31 @@
 
 @layer base {
   :root {
-    /* Palette de couleurs jaune/gold de l'ancienne version */
+    /* Updated color palette to use yellow (#f2d895) instead of gold/amber */
     --background: 0 0% 100%;
     --foreground: 30 10% 20%;
     --card: 0 0% 100%;
     --card-foreground: 30 10% 20%;
     --popover: 0 0% 100%;
     --popover-foreground: 30 10% 20%;
-    --primary: 45 95% 60%; /* Jaune éclatant comme l'ancienne version */
-    --primary-foreground: 0 0% 0%;
-    --secondary: 35 30% 95%;
+    --primary: 43 75% 77%; /* Yellow #f2d895 */
+    --primary-foreground: 30 10% 20%;
+    --secondary: 35 30% 95%; /* Beige clair */
     --secondary-foreground: 30 10% 20%;
     --muted: 35 20% 90%;
     --muted-foreground: 30 10% 40%;
-    --accent: 45 95% 60%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 43 75% 77%;
+    --accent-foreground: 30 10% 20%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 35 15% 85%;
     --input: 35 15% 85%;
-    --ring: 45 95% 60%;
+    --ring: 43 75% 77%;
     --radius: 0.75rem;
 
-    /* Couleurs personnalisées - jaune de l'ancienne version */
-    --gold: 45 95% 60%; /* #f2d895 équivalent */
-    --gold-dark: 45 85% 50%;
+    /* Updated custom colors to yellow */
+    --gold: 43 75% 77%; /* #f2d895 */
+    --gold-dark: 43 75% 67%; /* Darker yellow */
     --beige: 35 30% 95%;
     --beige-dark: 35 20% 85%;
     --cream: 40 30% 97%;
@@ -41,19 +41,19 @@
     --card-foreground: 0 0% 98%;
     --popover: 30 10% 15%;
     --popover-foreground: 0 0% 98%;
-    --primary: 35 65% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 75% 77%;
+    --primary-foreground: 30 10% 20%;
     --secondary: 30 10% 20%;
     --secondary-foreground: 0 0% 98%;
     --muted: 30 10% 25%;
     --muted-foreground: 35 10% 60%;
-    --accent: 35 65% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 43 75% 77%;
+    --accent-foreground: 30 10% 20%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 30 10% 25%;
     --input: 30 10% 25%;
-    --ring: 35 65% 50%;
+    --ring: 43 75% 77%;
   }
 }
 

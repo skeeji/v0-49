@@ -119,6 +119,13 @@ export default function LuminairesPage() {
   const loadLuminaires = useCallback(
     async (page = 1, append = false, yearRangeOverride?: number[]) => {
       try {
+        console.log("[v0] Loading luminaires with params:", {
+          page,
+          append,
+          yearRangeOverride,
+          sliderModified: sliderModifiedRef.current,
+        })
+
         if (page === 1) {
           setLoading(true)
           setError(null)
@@ -139,6 +146,7 @@ export default function LuminairesPage() {
         if (sliderModifiedRef.current && effectiveYearRange.length === 2) {
           params.append("yearMin", effectiveYearRange[0].toString())
           params.append("yearMax", effectiveYearRange[1].toString())
+          console.log("[v0] Applying year filter:", effectiveYearRange)
         }
 
         if (selectedCategorie && selectedCategorie !== "all") {
@@ -149,17 +157,23 @@ export default function LuminairesPage() {
           params.append("materiau", selectedMateriau)
         }
 
+        console.log("[v0] API URL:", `/api/luminaires?${params}`)
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
 
         if (data.success) {
-          if (append && page > 1) {
-            const existingIds = new Set(luminaires.map((l) => l._id))
-            const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
+          console.log("[v0] Received luminaires:", data.luminaires.length)
 
-            if (newLuminaires.length > 0) {
-              setLuminaires((prev) => [...prev, ...newLuminaires])
-            }
+          if (append && page > 1) {
+            setLuminaires((prev) => {
+              const existingIds = new Set(prev.map((l) => l._id))
+              const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
+
+              if (newLuminaires.length > 0) {
+                return [...prev, ...newLuminaires]
+              }
+              return prev
+            })
           } else {
             setLuminaires(data.luminaires)
           }
@@ -178,7 +192,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, luminaires],
+    [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection],
   )
 
   useEffect(() => {
@@ -326,8 +340,7 @@ export default function LuminairesPage() {
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
   const handleYearRangeChange = (newRange: number[]) => {
-    console.log("[v0] handleYearRangeChange appelé avec:", newRange)
-    console.log("[v0] yearBounds:", yearBounds)
+    console.log("[v0] Year range changed:", newRange)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
