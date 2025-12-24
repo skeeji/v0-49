@@ -456,13 +456,14 @@ export default function LuminairesPage() {
       </div>
 
       {(!user || userData?.role === "free") && (
-        <div className="bg-gradient-to-r from-beige to-cream border-2 border-gold/40 rounded-xl p-5 mb-6 shadow-sm">
-          <p className="text-base text-foreground/90 leading-relaxed flex items-start gap-3">
-            <span className="text-gold font-bold text-xl flex-shrink-0">ℹ️</span>
+        <div className="bg-gradient-to-r from-gold/10 to-beige border-2 border-gold rounded-xl p-4 mb-6 shadow-sm">
+          <p className="text-sm text-foreground flex items-start gap-2">
             <span>
-              <span className="font-semibold">{!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}.</span>{" "}
+              <span className="font-semibold text-gold">
+                {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}.
+              </span>{" "}
               Seuls 10% des luminaires sont accessibles ({freeUserLimit} luminaires).
-              <Link href="/pricing" className="ml-2 text-gold font-bold hover:underline inline-block">
+              <Link href="/pricing" className="ml-1 text-gold font-bold hover:underline">
                 Passez à Premium →
               </Link>
             </span>

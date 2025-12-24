@@ -662,16 +662,13 @@ export default function HomePage() {
           </p>
 
           {(!user || userData?.role === "free") && (
-            <div className="mb-6 p-5 bg-gradient-to-r from-beige to-cream rounded-xl border-2 border-gold/40 shadow-sm">
-              <p className="text-base text-foreground/90 leading-relaxed">
-                Passez à <span className="font-bold text-gold text-lg">Premium</span> pour des recherches illimitées
+            <div className="mb-6 p-4 bg-gradient-to-r from-gold/10 to-beige rounded-xl border-2 border-gold shadow-sm">
+              <p className="text-sm text-foreground">
+                Passez à <span className="font-bold text-gold">Premium</span> pour des recherches illimitées
+                <Link href="/pricing" className="block mt-2 text-gold font-bold hover:underline">
+                  Découvrir les forfaits →
+                </Link>
               </p>
-              <Link
-                href="/pricing"
-                className="inline-block mt-3 text-gold font-semibold text-base hover:underline hover:text-gold-dark transition-colors"
-              >
-                Découvrir les forfaits →
-              </Link>
             </div>
           )}
 
@@ -903,10 +900,10 @@ export default function HomePage() {
               )}
 
               {(!user || userData?.role === "free") && (
-                <div className="p-4 bg-beige rounded-xl border border-gold/20">
+                <div className="p-4 bg-gradient-to-r from-gold/10 to-beige rounded-xl border-2 border-gold shadow-sm">
                   <p className="text-sm text-foreground">
-                    <span className="font-semibold text-gold">Fonctionnalité Premium :</span> Suppression d'arrière-plan
-                    <Link href="/pricing" className="block mt-1 text-gold hover:underline">
+                    <span className="font-bold text-gold">Fonctionnalité Premium :</span> Suppression d'arrière-plan
+                    <Link href="/pricing" className="block mt-1 text-gold font-bold hover:underline">
                       Voir les forfaits →
                     </Link>
                   </p>
