@@ -188,13 +188,7 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection])
-
-  useEffect(() => {
-    if (sliderModified) {
-      console.log("[v0] 📊 Slider filter applied:", yearRange)
-    }
-  }, [sliderModified, yearRange])
+  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified])
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && !showFavorites) {
@@ -205,7 +199,8 @@ export default function LuminairesPage() {
   }, [loadingMore, hasMore, loading, currentPage, loadLuminaires, showFavorites])
 
   useEffect(() => {
-    console.log("[v0] 🔄 Effect triggered - sliderModified:", sliderModified, "yearRange:", yearRange)
+    if (showFavorites) return
+
     const handleScroll = () => {
       const scrollTop = document.documentElement.scrollTop
       const scrollHeight = document.documentElement.scrollHeight
@@ -331,7 +326,8 @@ export default function LuminairesPage() {
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
   const handleYearRangeChange = (newRange: number[]) => {
-    console.log("[v0] 🎯 RangeSlider changed:", newRange)
+    console.log("[v0] handleYearRangeChange appelé avec:", newRange)
+    console.log("[v0] yearBounds:", yearBounds)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)

@@ -1,47 +1,51 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-export default function DesignerDetailPage() {
-  const params = useParams()
-  const designerName = decodeURIComponent(params.name as string)
+interface Designer {
+  _id: string
+  nom: string
+  "Dates de naissance et mort": string
+  Nationalite?: string
+  photo?: string
+  luminaires?: any[]
+}
 
+export default function DesignerPage() {
+  const params = useParams()
+  const router = useRouter()
+  const [designer, setDesigner] = useState<Designer | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [designer, setDesigner] = useState<any>(null)
-  const [luminaires, setLuminaires] = useState<any[]>([])
+
+  const designerName = decodeURIComponent(params.name as string)
 
   useEffect(() => {
-    const fetchDesignerData = async () => {
-      setLoading(true)
-      setError(null)
-
+    const loadDesigner = async () => {
       try {
+        setLoading(true)
         const response = await fetch(`/api/designers/${encodeURIComponent(designerName)}`)
         const data = await response.json()
 
         if (data.success) {
-          setDesigner(data.data.designer)
-          setLuminaires(data.data.luminaires)
+          setDesigner(data.designer)
         } else {
-          setError(data.error || "Designer non trouvé")
+          throw new Error(data.error || "Designer non trouvé")
         }
       } catch (err: any) {
         console.error("Erreur chargement designer:", err)
-        setError("Erreur lors du chargement des données")
+        setError(err.message)
       } finally {
         setLoading(false)
       }
     }
 
-    if (designerName) {
-      fetchDesignerData()
-    }
+    loadDesigner()
   }, [designerName])
 
   if (loading) {
@@ -50,7 +54,7 @@ export default function DesignerDetailPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-beige-dark border-t-gold mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Chargement du designer...</p>
+            <p className="text-muted-foreground">Chargement...</p>
           </div>
         </div>
       </div>
@@ -61,13 +65,10 @@ export default function DesignerDetailPage() {
     return (
       <div className="container-responsive py-12">
         <div className="text-center">
-          <p className="text-red-600 mb-4">Erreur: {error || "Designer non trouvé"}</p>
-          <Link href="/designers">
-            <Button className="bg-gold hover:bg-gold-dark text-white">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Retour aux designers
-            </Button>
-          </Link>
+          <p className="text-red-600 mb-4">{error || "Designer non trouvé"}</p>
+          <Button onClick={() => router.push("/designers")} className="bg-gold hover:bg-gold-dark text-white">
+            Retour aux designers
+          </Button>
         </div>
       </div>
     )
@@ -75,104 +76,108 @@ export default function DesignerDetailPage() {
 
   return (
     <div className="container-responsive py-8">
-      <Link href="/designers">
-        <Button variant="outline" className="mb-6 border-2 hover:border-gold hover:text-gold bg-transparent">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Retour aux designers
-        </Button>
+      {/* Bouton retour */}
+      <Link
+        href="/designers"
+        className="inline-flex items-center gap-2 text-gold hover:text-gold-dark transition-colors mb-8"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="font-medium">Retour aux designers</span>
       </Link>
 
-      <div className="bg-white rounded-xl p-8 border border-border mb-8">
+      {/* En-tête avec photo et infos */}
+      <div className="bg-white rounded-2xl border border-border p-8 mb-8">
         <div className="flex flex-col md:flex-row gap-8 items-start">
+          {/* Photo du designer */}
           <div className="flex-shrink-0">
-            {designer.image ? (
-              <div className="w-32 h-32 relative">
+            <div className="w-32 h-32 md:w-40 md:h-40 relative rounded-full overflow-hidden border-4 border-gold">
+              {designer.photo ? (
                 <Image
-                  src={designer.image || "/placeholder.svg"}
+                  src={designer.photo || "/placeholder.svg"}
                   alt={designer.nom}
                   fill
-                  unoptimized
-                  className="object-cover rounded-full border-4 border-gold/30"
-                  onError={(e) => {
-                    e.currentTarget.src = "/placeholder.svg"
-                  }}
+                  className="object-cover"
+                  sizes="(max-width: 768px) 128px, 160px"
                 />
-              </div>
-            ) : (
-              <div className="w-32 h-32 flex items-center justify-center bg-beige rounded-full border-4 border-gold/30">
-                <div className="text-center">
-                  <div className="text-4xl text-gold mb-2">👤</div>
-                  <span className="text-xs text-muted-foreground font-serif">Image manquante</span>
+              ) : (
+                <div className="w-full h-full bg-beige flex items-center justify-center">
+                  <span className="text-4xl font-serif text-gold">{designer.nom.charAt(0)}</span>
                 </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1">
-            <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-4">{designer.nom}</h1>
-
-            <div className="flex flex-wrap gap-4 mb-6">
-              <div className="bg-beige px-4 py-2 rounded-lg">
-                <span className="text-sm text-muted-foreground">Luminaires</span>
-                <p className="text-xl font-semibold text-gold">{designer.count}</p>
-              </div>
+              )}
             </div>
+          </div>
 
-            {designer.biographie && (
-              <div className="prose max-w-none">
-                <p className="text-muted-foreground">{designer.biographie}</p>
-              </div>
-            )}
+          {/* Informations */}
+          <div className="flex-1">
+            <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-3">{designer.nom}</h1>
+
+            <div className="space-y-2 text-muted-foreground">
+              {designer["Dates de naissance et mort"] && (
+                <p className="flex items-center gap-2">
+                  <span className="text-gold">📅</span>
+                  <span>{designer["Dates de naissance et mort"]}</span>
+                </p>
+              )}
+
+              {designer.Nationalite && (
+                <p className="flex items-center gap-2">
+                  <span className="text-gold">🌍</span>
+                  <span>{designer.Nationalite}</span>
+                </p>
+              )}
+
+              <p className="flex items-center gap-2">
+                <span className="text-gold">💡</span>
+                <span className="font-medium">
+                  {designer.luminaires?.length || 0} luminaire{(designer.luminaires?.length || 0) > 1 ? "s" : ""}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-2xl font-serif text-foreground mb-4">Luminaires créés ({luminaires.length})</h2>
-      </div>
-
-      {luminaires.length === 0 ? (
-        <div className="text-center py-16 bg-beige rounded-xl">
-          <p className="text-foreground text-lg font-medium mb-2">Aucun luminaire trouvé</p>
-          <p className="text-muted-foreground text-sm">Ce designer n'a pas encore de luminaires dans la collection</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {luminaires.map((luminaire) => (
-            <Link
-              key={luminaire._id || luminaire.id}
-              href={`/luminaires/${luminaire._id || luminaire.id}`}
-              className="group"
-            >
-              <div className="bg-white rounded-xl border border-border overflow-hidden hover:shadow-lg hover:border-gold transition-all">
-                <div className="aspect-square relative bg-cream">
-                  {luminaire.image ? (
+      {/* Grille des luminaires */}
+      {designer.luminaires && designer.luminaires.length > 0 ? (
+        <div>
+          <h2 className="text-2xl font-serif text-foreground mb-6">Luminaires créés</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {designer.luminaires.map((luminaire) => (
+              <Link
+                key={luminaire._id}
+                href={`/luminaires/${luminaire._id}`}
+                className="group card-luminaire hover:scale-105 transition-all duration-300"
+              >
+                <div className="aspect-square relative bg-beige">
+                  {luminaire.image_principale ? (
                     <Image
-                      src={luminaire.image || "/placeholder.svg"}
-                      alt={luminaire.name || "Luminaire"}
+                      src={luminaire.image_principale || "/placeholder.svg"}
+                      alt={luminaire.nom || "Luminaire"}
                       fill
-                      unoptimized
-                      className="object-contain p-4 group-hover:scale-105 transition-transform"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg"
-                      }}
+                      className="object-contain p-4"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-muted-foreground text-sm">Image manquante</span>
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      <span>Pas d'image</span>
                     </div>
                   )}
                 </div>
 
-                <div className="p-3">
-                  <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-1">
-                    {luminaire.name || luminaire["Nom luminaire"] || "Sans nom"}
+                <div className="p-4">
+                  <h3 className="font-medium text-foreground group-hover:text-gold transition-colors line-clamp-2">
+                    {luminaire.nom || "Sans nom"}
                   </h3>
-                  {luminaire.year && <p className="text-xs text-muted-foreground">{luminaire.year}</p>}
+                  {luminaire.annee && <p className="text-sm text-muted-foreground mt-1">{luminaire.annee}</p>}
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-beige rounded-xl">
+          <p className="text-foreground text-lg font-medium mb-2">Aucun luminaire trouvé</p>
+          <p className="text-muted-foreground text-sm">Ce designer n'a pas encore de luminaires dans la collection</p>
         </div>
       )}
     </div>
