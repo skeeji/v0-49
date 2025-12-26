@@ -344,7 +344,6 @@ export default function LuminairesPage() {
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
-    loadLuminaires(1, false, newRange)
   }
 
   const freeUserLimit = useMemo(() => {
@@ -397,7 +396,11 @@ export default function LuminairesPage() {
         <div>
           <h1 className="text-3xl md:text-4xl font-serif text-foreground mb-2">Luminaires</h1>
           <p className="text-muted-foreground">
-            {totalItems > 0 ? `${displayedLuminaires.length} résultats affichés` : "Aucun luminaire trouvé"}
+            {showFavorites
+              ? `${displayedLuminaires.length} favori${displayedLuminaires.length > 1 ? "s" : ""}`
+              : totalItems > 0
+                ? `${displayedLuminaires.length} / ${totalItems} luminaires`
+                : "Aucun luminaire trouvé"}
           </p>
         </div>
 

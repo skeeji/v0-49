@@ -47,8 +47,8 @@ export function DrawerNav({ isOpen, onClose, navItems }: DrawerNavProps) {
                   onClick={onClose}
                   className={`block px-4 py-3 rounded-lg font-medium transition-colors ${
                     isActivePage(item.href)
-                      ? "bg-orange-50 text-orange-600 border-l-4 border-orange-500"
-                      : "text-gray-700 hover:bg-gray-50"
+                      ? "bg-gold text-white border-l-4 border-gold-dark"
+                      : "text-gray-700 hover:bg-beige"
                   }`}
                 >
                   {item.label}
@@ -91,8 +91,7 @@ export function DrawerNav({ isOpen, onClose, navItems }: DrawerNavProps) {
                   signInWithGoogle()
                   onClose()
                 }}
-                className="w-full text-white font-medium"
-                style={{ backgroundColor: "#f2d895" }}
+                className="w-full text-white font-medium bg-gold hover:bg-gold-dark"
               >
                 Connexion
               </Button>

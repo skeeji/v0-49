@@ -433,7 +433,7 @@ export default function RecherchePage() {
       <div
         className={`${
           showSidebar ? "w-64" : "w-0"
-        } transition-all duration-300 border-r border-gold/20 bg-white/90 backdrop-blur-sm overflow-hidden flex flex-col`}
+        } transition-all duration-300 border-r border-gold/20 bg-white/90 backdrop-blur-sm overflow-hidden flex flex-col md:block hidden`}
       >
         <div className="p-4 border-b border-gold/20">
           <Button onClick={createNewConversation} className="w-full bg-gold hover:bg-gold-dark text-white rounded-xl">
@@ -476,18 +476,23 @@ export default function RecherchePage() {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="h-16 border-b border-gold/20 bg-white/90 backdrop-blur-sm flex items-center px-4">
-          <Button variant="ghost" size="icon" onClick={() => setShowSidebar(!showSidebar)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSidebar(!showSidebar)}
+            className="md:inline-flex hidden"
+          >
             {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
           </Button>
           <h1 className="text-lg font-semibold ml-4 text-gold">Recherche IA</h1>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4 md:space-y-6">
           {!currentConversation && (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center text-slate-700">
-                <p className="text-xl mb-2 font-serif" style={{ color: "#f2d895" }}>
+              <div className="text-center text-slate-700 px-4">
+                <p className="text-lg md:text-xl mb-2 font-serif" style={{ color: "#f2d895" }}>
                   Commencez une nouvelle recherche
                 </p>
                 <p className="text-sm text-slate-600">Décrivez un luminaire ou uploadez une image</p>
@@ -519,7 +524,7 @@ export default function RecherchePage() {
                 )}
 
                 {message.results && message.results.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6 mt-4 w-full">
                     {message.results.map((result, idx) => {
                       const CardWrapper = result.luminaireId ? Link : "div"
                       const cardProps = result.luminaireId ? { href: `/luminaires/${result.luminaireId}` } : {}
@@ -533,7 +538,7 @@ export default function RecherchePage() {
                           }`}
                         >
                           {result.imageUrl && (
-                            <div className="relative h-64 w-full bg-white flex items-center justify-center">
+                            <div className="relative h-48 md:h-64 w-full bg-white flex items-center justify-center">
                               <Image
                                 src={result.imageUrl || "/placeholder.svg"}
                                 alt={result.nom || "Luminaire"}
