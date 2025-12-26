@@ -49,11 +49,16 @@ export async function GET(request: NextRequest) {
     if (yearMin && yearMax) {
       const min = Number.parseInt(yearMin)
       const max = Number.parseInt(yearMax)
+      console.log(`[v0 API] Year filter requested: ${min} - ${max}`)
+
       andConditions.push({
         $or: [
           { annee: { $gte: min, $lte: max } },
           { year: { $gte: min, $lte: max } },
           { Année: { $gte: min, $lte: max } },
+          { annee: { $gte: min.toString(), $lte: max.toString() } },
+          { year: { $gte: min.toString(), $lte: max.toString() } },
+          { Année: { $gte: min.toString(), $lte: max.toString() } },
         ],
       })
     }
@@ -75,8 +80,10 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit
 
-    // IMPORTANT: Retourner TOUS les champs, pas seulement une projection limitée
     const luminaires = await collection.find(filter).sort(sortObject).skip(skip).limit(limit).toArray()
+
+    console.log(`[v0 API] Filter applied:`, JSON.stringify(filter))
+    console.log(`[v0 API] Found ${luminaires.length} luminaires out of ${total} total matching filter`)
 
     return NextResponse.json({
       success: true,
