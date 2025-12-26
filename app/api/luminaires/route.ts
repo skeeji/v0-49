@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     const db = client.db(DBNAME)
     const collection = db.collection("luminaires")
 
+    const globalTotal = await collection.countDocuments({})
+
     const filter: any = {}
     const andConditions: any[] = []
 
@@ -92,6 +94,7 @@ export async function GET(request: NextRequest) {
         page: page,
         limit: limit,
         total: total,
+        globalTotal: globalTotal, // Added global total for display
         hasMore: skip + luminaires.length < total,
       },
     })

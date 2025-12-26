@@ -31,6 +31,7 @@ export default function LuminairesPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
+  const [totalGlobalItems, setTotalGlobalItems] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [showFavorites, setShowFavorites] = useState(false)
 
@@ -117,7 +118,7 @@ export default function LuminairesPage() {
   }, [])
 
   const loadLuminaires = useCallback(
-    async (page = 1, append = false, yearRangeOverride?: number[]) => {
+    async (page = 1, append = false, yearRangeOverride?: number[], sliderModified = false) => {
       try {
         console.log("[v0] Loading luminaires with params:", {
           page,
@@ -180,6 +181,9 @@ export default function LuminairesPage() {
 
           setHasMore(data.pagination?.hasMore || false)
           setTotalItems(data.pagination?.total || 0)
+          if (data.pagination?.globalTotal) {
+            setTotalGlobalItems(data.pagination.globalTotal)
+          }
         } else {
           throw new Error(data.error || "Erreur lors du chargement")
         }
@@ -399,7 +403,7 @@ export default function LuminairesPage() {
             {showFavorites
               ? `${displayedLuminaires.length} favori${displayedLuminaires.length > 1 ? "s" : ""}`
               : totalItems > 0
-                ? `${displayedLuminaires.length} / ${totalItems} luminaires`
+                ? `${displayedLuminaires.length} / ${totalGlobalItems || totalItems} luminaires`
                 : "Aucun luminaire trouvé"}
           </p>
         </div>
