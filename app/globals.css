@@ -56,12 +56,13 @@
     @apply border-border;
   }
   body {
-    /* Fond du site en crème #f5f1e8 */
-    @apply bg-[#f5f1e8] text-foreground;
+    /* Fond principal du site en #F8F8F8 selon le design system */
+    background-color: #f8f8f8;
+    color: #333333;
   }
 }
 
-/* Styles personnalisés */
+/* Ajout des classes utilitaires du design system luxe */
 .container-responsive {
   @apply container mx-auto px-4;
 }
@@ -70,14 +71,35 @@
   font-family: "Playfair Display", serif;
 }
 
-.text-dark {
-  @apply text-gray-900;
+.text-primary-dark {
+  color: #333333;
 }
 
-.bg-cream {
-  background-color: hsl(var(--cream));
+.text-secondary-dark {
+  color: #666666;
 }
 
+.text-accent-beige {
+  color: #9a8c7f;
+}
+
+.bg-accent-beige {
+  background-color: #9a8c7f;
+}
+
+.bg-light-beige {
+  background-color: #b0a298;
+}
+
+.bg-hover-light {
+  background-color: #eaeaea;
+}
+
+.border-accent-beige {
+  border-color: #9a8c7f;
+}
+
+/* Navigation inférieure mobile */
 .bottom-nav {
   @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50;
   @apply flex items-center justify-around py-3 px-4;
@@ -90,10 +112,6 @@
 
 .bottom-nav-item.active {
   @apply text-gray-900 font-medium;
-}
-
-.bg-gold {
-  @apply bg-yellow-500;
 }
 
 /* Animation pour la chronologie */
