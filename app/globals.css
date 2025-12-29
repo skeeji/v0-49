@@ -54,20 +54,37 @@
     @apply border-border;
   }
   body {
-    /* Fond crème selon images de référence */
+    /* Fond crème selon images de référence appliqué à tout le site */
     background-color: #f5f1e8;
     color: #333333;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 }
 
-/* Classes utilitaires pour le design system des images */
+/* Classes utilitaires pour le design system cohérent */
 .card-reference {
   @apply bg-white rounded-2xl shadow-sm border border-gray-100;
 }
 
 .font-serif {
   font-family: "Playfair Display", serif;
+}
+
+/* Bottom navigation pour mobile */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50;
+}
+
+.bottom-nav-item {
+  @apply flex flex-col items-center gap-1 px-3 py-2 text-gray-600 transition-colors;
+}
+
+.bottom-nav-item.active {
+  @apply text-[#f2d895];
+}
+
+.bottom-nav-item span {
+  @apply text-xs font-medium;
 }
 
 /* Animation chronologie */

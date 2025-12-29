@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, ArrowLeft, Search, SlidersHorizontal, Home, Users, Grid3x3, Mail, User } from "lucide-react"
+import { Loader2, ArrowLeft, Search, Heart, Grid3x3, Home, Users, Mail, User } from "lucide-react"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -73,7 +73,6 @@ export default function LuminairesPage() {
       const isFavorite = favorites.includes(luminaireId)
       const action = isFavorite ? "remove" : "add"
 
-      // Mise à jour optimiste de l'UI
       setFavorites((prev) => (isFavorite ? prev.filter((id) => id !== luminaireId) : [...prev, luminaireId]))
 
       try {
@@ -90,13 +89,11 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (!data.success) {
-          // Rollback en cas d'erreur
           setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
           toast.error("Erreur lors de la mise à jour des favoris")
         }
       } catch (error) {
         console.error("❌ Erreur toggle favori:", error)
-        // Rollback en cas d'erreur
         setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
         toast.error("Erreur lors de la mise à jour des favoris")
       }
@@ -224,58 +221,6 @@ export default function LuminairesPage() {
     }
   }, [loadMore, showFavorites])
 
-  const handleItemUpdate = useCallback(async (id: string, updates: any) => {
-    try {
-      const response = await fetch(`/api/luminaires/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setLuminaires((prev) => prev.map((item) => (item._id === id ? { ...item, ...updates } : item)))
-        toast.success("Luminaire mis à jour avec succès")
-      } else {
-        throw new Error(data.error)
-      }
-    } catch (err: any) {
-      console.error("❌ Erreur mise à jour:", err)
-      toast.error("Erreur lors de la mise à jour")
-    }
-  }, [])
-
-  const handleCreateLuminaire = useCallback(
-    async (luminaireData: any) => {
-      try {
-        const response = await fetch("/api/luminaires", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(luminaireData),
-        })
-
-        const data = await response.json()
-
-        if (data.success) {
-          toast.success("Luminaire créé avec succès")
-          setIsModalOpen(false)
-          loadLuminaires(1, false)
-          loadAllLuminaires()
-        } else {
-          throw new Error(data.error)
-        }
-
-        return data
-      } catch (err: any) {
-        console.error("❌ Erreur création:", err)
-        toast.error("Erreur lors de la création")
-        return { success: false, error: err.message }
-      }
-    },
-    [loadLuminaires, loadAllLuminaires],
-  )
-
   const filterOptions = useMemo(() => {
     const categories = [...new Set(allLuminaires.map((l) => l.categorie || l["Catégorie"]).filter(Boolean))].sort()
 
@@ -350,6 +295,13 @@ export default function LuminairesPage() {
 
   const pathname = usePathname()
 
+  const resetSlider = () => {
+    setYearRange([yearBounds.min, yearBounds.max])
+    setSliderModified(false)
+    setCurrentPage(1)
+    loadLuminaires(1, false)
+  }
+
   if (loading && luminaires.length === 0) {
     return (
       <div className="min-h-screen bg-[#f5f1e8] pb-20">
@@ -381,8 +333,8 @@ export default function LuminairesPage() {
           <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search luminaires or designers..." />
 
           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm w-full justify-center">
-            <SlidersHorizontal className="w-4 h-4" />
-            Filter & Sort
+            <Heart className="w-4 h-4" />
+            Favoris ({favorites.length})
           </button>
         </div>
       </div>
@@ -470,27 +422,44 @@ export default function LuminairesPage() {
         )}
       </div>
 
-      <nav className="bottom-nav">
-        <Link href="/" className={`bottom-nav-item ${pathname === "/" ? "active" : ""}`}>
-          <Home className="w-5 h-5" />
-          <span>Home</span>
-        </Link>
-        <Link href="/designers" className={`bottom-nav-item ${pathname.startsWith("/designers") ? "active" : ""}`}>
-          <Users className="w-5 h-5" />
-          <span>Designers</span>
-        </Link>
-        <Link href="/luminaires" className={`bottom-nav-item ${pathname.startsWith("/luminaires") ? "active" : ""}`}>
-          <Grid3x3 className="w-5 h-5" />
-          <span>Collection</span>
-        </Link>
-        <Link href="/recherche" className={`bottom-nav-item ${pathname === "/recherche" ? "active" : ""}`}>
-          <Mail className="w-5 h-5" />
-          <span>Inquire</span>
-        </Link>
-        <Link href="/pricing" className={`bottom-nav-item ${pathname === "/pricing" ? "active" : ""}`}>
-          <User className="w-5 h-5" />
-          <span>Account</span>
-        </Link>
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div className="flex items-center justify-around h-16">
+          <Link
+            href="/"
+            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/" ? "text-[#f2d895]" : "text-gray-600"}`}
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-xs">Home</span>
+          </Link>
+          <Link
+            href="/designers"
+            className={`flex flex-col items-center gap-1 px-3 ${pathname.startsWith("/designers") ? "text-[#f2d895]" : "text-gray-600"}`}
+          >
+            <Users className="w-5 h-5" />
+            <span className="text-xs">Designers</span>
+          </Link>
+          <Link
+            href="/luminaires"
+            className={`flex flex-col items-center gap-1 px-3 ${pathname.startsWith("/luminaires") ? "text-[#f2d895]" : "text-gray-600"}`}
+          >
+            <Grid3x3 className="w-5 h-5" />
+            <span className="text-xs">Collection</span>
+          </Link>
+          <Link
+            href="/recherche"
+            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/recherche" ? "text-[#f2d895]" : "text-gray-600"}`}
+          >
+            <Mail className="w-5 h-5" />
+            <span className="text-xs">Inquire</span>
+          </Link>
+          <Link
+            href="/pricing"
+            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/pricing" ? "text-[#f2d895]" : "text-gray-600"}`}
+          >
+            <User className="w-5 h-5" />
+            <span className="text-xs">Account</span>
+          </Link>
+        </div>
       </nav>
     </div>
   )
