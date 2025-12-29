@@ -409,7 +409,7 @@ export default function LuminairesPage() {
                 >
                   <div className="p-4">
                     <div className="aspect-square mb-3 flex items-center justify-center">
-                      <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-gray-200 shadow-lg">
+                      <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-gray-300 shadow-md">
                         <Image
                           src={
                             luminaire.imageId
