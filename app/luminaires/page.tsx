@@ -407,9 +407,8 @@ export default function LuminairesPage() {
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                   }`}
                 >
-                  <div className="p-3">
-                    {/* Centered product image on cream background */}
-                    <div className="bg-cream rounded-xl aspect-square mb-3 p-6 flex items-center justify-center">
+                  <div className="p-4">
+                    <div className="bg-[#f5f1e8] rounded-2xl aspect-square mb-3 p-8 flex items-center justify-center shadow-sm">
                       <div className="relative w-full h-full">
                         <Image
                           src={
@@ -424,7 +423,7 @@ export default function LuminairesPage() {
                           alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
                           fill
                           unoptimized
-                          className="object-contain"
+                          className="object-contain drop-shadow-md"
                           onError={(e) => {
                             e.currentTarget.src = "/placeholder.svg"
                           }}
