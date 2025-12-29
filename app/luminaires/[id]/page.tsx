@@ -51,7 +51,7 @@ export default function LuminaireDetailPage() {
             estimation: result.data.estimation || result.data["Estimation"] || "",
             editeur: result.data.editeur || result.data["Editeur"] || "",
             categorie: result.data.categorie || result.data["Catégorie"] || "",
-            designerImage: result.data.designerImage || result.data["Image du designer"] || "",
+            designerImageFilename: result.data.designerImageFilename || result.data["Image du designer"] || "",
 
             specialty: (() => {
               if (result.data.periode && String(result.data.periode).trim() !== "") {
@@ -601,19 +601,22 @@ export default function LuminaireDetailPage() {
                   className="flex items-center gap-3 flex-1"
                 >
                   <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
-                    {luminaire.designerImage ? (
+                    {luminaire.designerImageFilename ? (
                       <Image
-                        src={`/api/images/filename/${luminaire.designerImage}`}
+                        src={`/api/images/filename/${luminaire.designerImageFilename}`}
                         alt={luminaire.artist}
-                        fill
-                        className="object-cover"
+                        width={48}
+                        height={48}
+                        className="object-cover w-full h-full"
                         unoptimized
                         onError={(e) => {
-                          console.error("[v0] Failed to load designer image:", luminaire.designerImage)
-                          const parent = e.currentTarget.parentElement
+                          console.error("[v0] Failed to load designer image:", luminaire.designerImageFilename)
+                          const target = e.currentTarget
+                          target.style.display = "none"
+                          const parent = target.parentElement
                           if (parent) {
                             parent.innerHTML =
-                              '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-6 h-6 text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
+                              '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="lucide lucide-user w-6 h-6 text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
                           }
                         }}
                       />
@@ -622,17 +625,13 @@ export default function LuminaireDetailPage() {
                     )}
                   </div>
                   <div>
-                    {canEdit ? (
-                      <EditableField
-                        value={luminaire.artist}
-                        onSave={(value) => handleUpdate("artist", value)}
-                        canEdit={canEdit}
-                        className="font-semibold text-gray-900"
-                        style={{ whiteSpace: "pre-wrap" }}
-                      />
-                    ) : (
-                      <div className="font-semibold text-gray-900">{luminaire.artist}</div>
-                    )}
+                    <EditableField
+                      value={luminaire.artist}
+                      onSave={(value) => handleUpdate("artist", value)}
+                      canEdit={canEdit}
+                      className="font-semibold text-gray-900"
+                      style={{ whiteSpace: "pre-wrap" }}
+                    />
                   </div>
                 </Link>
                 <ArrowRight className="w-5 h-5 text-gray-400" />
@@ -765,22 +764,24 @@ export default function LuminaireDetailPage() {
 
           {/* Similar luminaires section */}
           {similarLuminaires.length > 0 && (
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif text-gray-900">Plus de {luminaire.artist}</h2>
+            <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-serif font-medium text-gray-900">
+                  Plus de {luminaire.artist?.split("(")[0]?.trim()}
+                </h2>
                 <Link
-                  href={`/designers/${encodeURIComponent(luminaire.artist)}`}
-                  className="text-sm text-[#8b7355] hover:underline"
+                  href={`/luminaires?designer=${encodeURIComponent(luminaire.artist || "")}`}
+                  className="text-sm text-gray-600 hover:text-gray-900"
                 >
                   Voir tout
                 </Link>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {similarLuminaires.map((similar) => (
-                  <Link key={similar.id} href={`/luminaires/${similar.id}`}>
-                    <div className="group cursor-pointer">
-                      <div className="aspect-square relative bg-transparent mb-2 overflow-hidden rounded-xl">
+                {similarLuminaires.slice(0, 4).map((similar) => (
+                  <Link key={similar._id} href={`/luminaires/${similar._id}`} className="block">
+                    <div className="bg-transparent rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="aspect-square relative bg-transparent overflow-hidden rounded-xl">
                         {similar.filename ? (
                           <Image
                             src={`/api/images/filename/${similar.filename}`}
@@ -795,13 +796,15 @@ export default function LuminaireDetailPage() {
                           </div>
                         )}
                       </div>
-                      <h3 className="font-serif text-sm font-medium text-gray-900">
-                        {similar["Nom luminaire"] || "Sans nom"}
-                      </h3>
-                      <p className="text-xs text-gray-600">
-                        {similar["Artiste / Dates"] || similar.designer}
-                        {similar.annee || similar["Année"] ? `, ${similar.annee || similar["Année"]}` : ""}
-                      </p>
+                      <div className="p-3 text-center">
+                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1">
+                          {similar["Nom luminaire"] || "Sans nom"}
+                        </h3>
+                        <p className="text-xs text-gray-600">
+                          {similar.editeur || "Artisan"}
+                          {similar.year && `, ${similar.year}`}
+                        </p>
+                      </div>
                     </div>
                   </Link>
                 ))}

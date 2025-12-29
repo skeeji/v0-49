@@ -316,35 +316,36 @@ export default function LuminairesPage() {
     }
   }, [allLuminaires])
 
-  const yearBounds = useMemo(() => {
-    const years = allLuminaires
-      .map((l) => {
-        const year = l.annee || l.year
-        const numYear = Number.parseInt(year)
-        return !isNaN(numYear) ? numYear : null
-      })
-      .filter((year): year is number => year !== null)
-      .sort((a, b) => a - b)
-
-    if (years.length === 0) return { min: 1900, max: 2024 }
-
-    return {
-      min: years[0],
-      max: years[years.length - 1],
-    }
-  }, [allLuminaires])
+  const [yearBounds, setYearBounds] = useState({ min: 1900, max: 2024 })
 
   useEffect(() => {
-    if (yearBounds.min && yearBounds.max && yearRange.length === 0) {
-      setYearRange([yearBounds.min, yearBounds.max])
+    async function fetchYearBounds() {
+      try {
+        const response = await fetch("/api/luminaires/stats")
+        const result = await response.json()
+
+        if (result.success && result.data.yearRange) {
+          const min = result.data.yearRange.min
+          const max = result.data.yearRange.max
+          setYearBounds({ min, max })
+          setYearRange([min, max])
+          console.log("[v0] Year bounds set:", { min, max })
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching year bounds:", error)
+        setYearRange([yearBounds.min, yearBounds.max])
+      }
     }
-  }, [yearBounds, yearRange.length])
+
+    fetchYearBounds()
+  }, [])
 
   const handleYearRangeChange = (newRange: number[]) => {
     console.log("[v0] Year range changed:", newRange)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
+    // Reload luminaires with new filter
     loadLuminaires(1, false)
   }
 
@@ -497,6 +498,7 @@ export default function LuminairesPage() {
           </select>
         </div>
 
+        {/* Slider section */}
         <div className="rounded-xl p-6 mb-6 bg-transparent">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-medium text-gray-900">Période chronologique</h3>
@@ -515,6 +517,7 @@ export default function LuminairesPage() {
                 background: transparent;
                 outline: none;
                 pointer-events: all;
+                position: absolute;
               }
               input[type="range"]::-webkit-slider-thumb {
                 -webkit-appearance: none;
@@ -546,9 +549,35 @@ export default function LuminairesPage() {
                 display: flex;
                 align-items: center;
               }
+              .range-track {
+                position: absolute;
+                width: 100%;
+                height: 2px;
+                background: #e5e7eb;
+                border-radius: 9999px;
+              }
+              .range-progress {
+                position: absolute;
+                height: 2px;
+                background: #8b7355;
+                border-radius: 9999px;
+              }
             `}</style>
 
             <div className="range-container">
+              {/* Background track */}
+              <div className="range-track" />
+
+              {/* Active progress */}
+              <div
+                className="range-progress"
+                style={{
+                  left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+                  right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+                }}
+              />
+
+              {/* Min slider */}
               <input
                 type="range"
                 min={yearBounds.min}
@@ -560,9 +589,10 @@ export default function LuminairesPage() {
                     handleYearRangeChange([newMin, yearRange[1]])
                   }
                 }}
-                className="absolute w-full"
-                style={{ zIndex: 5 }}
+                style={{ zIndex: yearRange[0] > yearBounds.min + (yearBounds.max - yearBounds.min) * 0.5 ? 5 : 3 }}
               />
+
+              {/* Max slider */}
               <input
                 type="range"
                 min={yearBounds.min}
@@ -574,18 +604,8 @@ export default function LuminairesPage() {
                     handleYearRangeChange([yearRange[0], newMax])
                   }
                 }}
-                className="absolute w-full"
-                style={{ zIndex: 4 }}
+                style={{ zIndex: yearRange[1] < yearBounds.min + (yearBounds.max - yearBounds.min) * 0.5 ? 5 : 3 }}
               />
-              <div className="absolute w-full h-2 bg-gray-200 rounded-full">
-                <div
-                  className="absolute h-full bg-[#8b7355] rounded-full"
-                  style={{
-                    left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
-                    right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
-                  }}
-                />
-              </div>
             </div>
           </div>
 
@@ -626,54 +646,46 @@ export default function LuminairesPage() {
 
         {/* Grid or List view */}
         <div
-          className={`grid ${viewMode === "grid" ? `grid-cols-2 ${columns === 3 ? "md:grid-cols-3" : columns === 4 ? "md:grid-cols-4" : columns === 6 ? "md:grid-cols-6" : "md:grid-cols-2"}` : "grid-cols-1"} gap-4`}
+          className={`grid gap-4 ${
+            columns === 2
+              ? "grid-cols-2"
+              : columns === 3
+                ? "grid-cols-2 md:grid-cols-3"
+                : columns === 4
+                  ? "grid-cols-2 md:grid-cols-4"
+                  : "grid-cols-2 md:grid-cols-6"
+          }`}
         >
-          {displayedLuminaires.map((luminaire) => {
-            const itemId = String(luminaire._id || luminaire.id || "")
-
-            return (
-              <Link key={itemId} href={`/luminaires/${itemId}`} className="block">
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                  <div className="aspect-square relative bg-transparent overflow-hidden">
-                    {luminaire.filename ? (
-                      <Image
-                        src={`/api/images/filename/${luminaire.filename}`}
-                        alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none"
-                          const nextElement = e.currentTarget.nextElementSibling as HTMLElement
-                          if (nextElement) {
-                            nextElement.classList.remove("hidden")
-                          }
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className={`w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 ${
-                        luminaire.filename ? "hidden" : ""
-                      }`}
-                    >
-                      <div className="text-5xl">🏮</div>
+          {displayedLuminaires.map((luminaire) => (
+            <Link key={luminaire._id} href={`/luminaires/${luminaire._id}`}>
+              <div className="bg-transparent rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                <div className="aspect-square relative bg-transparent overflow-hidden rounded-xl">
+                  {luminaire.filename ? (
+                    <Image
+                      src={`/api/images/filename/${luminaire.filename}`}
+                      alt={luminaire["Nom luminaire"] || "Luminaire"}
+                      fill
+                      className="object-cover rounded-xl"
+                      sizes={columns === 6 ? "16vw" : columns === 4 ? "25vw" : columns === 3 ? "33vw" : "50vw"}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 rounded-xl">
+                      <div className="text-4xl">🏮</div>
                     </div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-serif text-sm font-medium text-gray-900 line-clamp-2 mb-1">
-                      {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
-                    </h3>
-                    <p className="text-xs text-gray-600">
-                      {luminaire["Artiste / Dates"] || luminaire.designer || "Artiste inconnu"}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {luminaire.annee || luminaire["Année"] || "Année inconnue"}
-                    </p>
-                  </div>
+                  )}
                 </div>
-              </Link>
-            )
-          })}
+                <div className="p-3 text-center">
+                  <h3 className="font-serif text-sm font-medium text-gray-900 mb-1">
+                    {luminaire["Nom luminaire"] || "Sans nom"}
+                  </h3>
+                  <p className="text-xs text-gray-600">
+                    {luminaire["Artiste / Dates"]?.split(",")[0] || "Artiste inconnu"}
+                  </p>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
 
         {/* Loading indicator */}

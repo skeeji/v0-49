@@ -350,13 +350,10 @@ export default function DesignerDetailPage() {
                     if (!canEdit) return
                     updateDesignerName(newName)
                   }}
-                  className="text-xl md:text-2xl font-serif text-gray-900 mb-1"
+                  className="text-xl md:text-2xl font-serif text-gray-900 mb-2"
                   placeholder="Nom du designer"
                   disabled={!canEdit}
                 />
-                <p className="text-sm text-gray-600 mb-2">
-                  {description?.match(/\d{4}/g)?.join("-") || "Période inconnue"}
-                </p>
                 <p className="text-xs text-gray-500">{designer.count} Luminaires</p>
               </div>
             </div>
