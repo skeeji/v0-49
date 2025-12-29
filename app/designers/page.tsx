@@ -221,7 +221,7 @@ export default function DesignersPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white pb-20">
+      <div className="min-h-screen bg-[#f5f1e8] pb-20">
         <div className="text-center py-16">
           <Loader2 className="w-12 h-12 mx-auto animate-spin text-gray-400 mb-4" />
           <p className="text-lg text-gray-600">Chargement des designers...</p>
@@ -231,7 +231,7 @@ export default function DesignersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen bg-[#f5f1e8] pb-20">
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 py-4">
           <Link href="/" className="p-2">
@@ -280,7 +280,7 @@ export default function DesignersPage() {
                 className="block"
               >
                 <div
-                  className={`bg-[#f5f1e8] rounded-xl border border-gray-200 overflow-hidden transition-shadow ${
+                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow ${
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                   }`}
                 >

@@ -56,7 +56,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    /* Fond du site en crème #f5f1e8 */
+    @apply bg-[#f5f1e8] text-foreground;
   }
 }
 

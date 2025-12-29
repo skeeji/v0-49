@@ -364,7 +364,7 @@ export default function LuminairesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen bg-[#f5f1e8] pb-20">
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 py-4">
           <Link href="/" className="p-2">
@@ -409,7 +409,7 @@ export default function LuminairesPage() {
                 >
                   <div className="p-4">
                     <div className="aspect-square mb-3 flex items-center justify-center">
-                      <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-md">
+                      <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-gray-200 shadow-lg">
                         <Image
                           src={
                             luminaire.imageId
