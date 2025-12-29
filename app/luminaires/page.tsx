@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, Heart, List } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
+import { LayoutGrid } from "lucide-react"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -334,17 +335,17 @@ export default function LuminairesPage() {
   }, [allLuminaires])
 
   useEffect(() => {
-    if (allLuminaires.length > 0 && yearRange.length === 0) {
+    if (yearBounds.min && yearBounds.max && yearRange.length === 0) {
       setYearRange([yearBounds.min, yearBounds.max])
     }
-  }, [yearBounds, allLuminaires.length, yearRange.length])
+  }, [yearBounds, yearRange.length])
 
   const handleYearRangeChange = (newRange: number[]) => {
     console.log("[v0] Year range changed:", newRange)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
-    // Don't call loadLuminaires here, let the useEffect handle it
+    loadLuminaires(1, false)
   }
 
   const freeUserLimit = useMemo(() => {
@@ -403,34 +404,36 @@ export default function LuminairesPage() {
             </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-2">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg border transition-colors ${
-                viewMode === "grid" ? "bg-[#8b7355] text-white border-[#8b7355]" : "border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              <Grid3x3 className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg border transition-colors ${
-                viewMode === "list" ? "bg-[#8b7355] text-white border-[#8b7355]" : "border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              <List className="w-5 h-5" />
-            </button>
+          <div className="hidden md:flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded ${viewMode === "grid" ? "bg-gray-200" : "bg-gray-100"}`}
+                aria-label="Vue grille"
+              >
+                <LayoutGrid className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded ${viewMode === "list" ? "bg-gray-200" : "bg-gray-100"}`}
+                aria-label="Vue liste"
+              >
+                <List className="w-5 h-5" />
+              </button>
+            </div>
 
-            <select
-              value={columns}
-              onChange={(e) => setColumns(Number(e.target.value))}
-              className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm"
-            >
-              <option value={2}>2 colonnes</option>
-              <option value={3}>3 colonnes</option>
-              <option value={4}>4 colonnes</option>
-              <option value={6}>6 colonnes</option>
-            </select>
+            {viewMode === "grid" && (
+              <select
+                value={columns}
+                onChange={(e) => setColumns(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                <option value={2}>2 colonnes</option>
+                <option value={3}>3 colonnes</option>
+                <option value={4}>4 colonnes</option>
+                <option value={6}>6 colonnes</option>
+              </select>
+            )}
           </div>
         </div>
 
@@ -613,136 +616,54 @@ export default function LuminairesPage() {
         )}
 
         {/* Grid or List view */}
-        {viewMode === "grid" ? (
-          <div
-            className={`grid gap-4 ${
-              columns === 2
-                ? "grid-cols-2"
-                : columns === 3
-                  ? "grid-cols-2 md:grid-cols-3"
-                  : columns === 4
-                    ? "grid-cols-2 md:grid-cols-4"
-                    : columns === 5
-                      ? "grid-cols-2 md:grid-cols-5"
-                      : "grid-cols-2 md:grid-cols-6"
-            }`}
-          >
-            {displayedLuminaires.map((luminaire) => {
-              const itemId = String(luminaire._id || luminaire.id || "")
+        <div className={`grid ${viewMode === "grid" ? `grid-cols-2 md:grid-cols-${columns}` : "grid-cols-1"} gap-4`}>
+          {displayedLuminaires.map((luminaire) => {
+            const itemId = String(luminaire._id || luminaire.id || "")
 
-              return (
-                <Link key={itemId} href={`/luminaires/${itemId}`} className="block">
-                  <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="aspect-square relative bg-transparent">
-                      {luminaire.filename ? (
-                        <Image
-                          src={`/api/images/filename/${luminaire.filename}`}
-                          alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
-                          fill
-                          className="object-contain rounded-xl p-2"
-                          unoptimized
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none"
-                            const nextElement = e.currentTarget.nextElementSibling as HTMLElement
-                            if (nextElement) {
-                              nextElement.classList.remove("hidden")
-                            }
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className={`w-full h-full flex items-center justify-center text-gray-400 ${
-                          luminaire.filename ? "hidden" : ""
-                        }`}
-                      >
-                        <div className="text-5xl">🏮</div>
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-serif text-sm font-medium text-gray-900 line-clamp-2 mb-1">
-                        {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
-                      </h3>
-                      <p className="text-xs text-gray-600">
-                        {luminaire["Artiste / Dates"] || luminaire.designer || "Artiste inconnu"}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {luminaire.annee || luminaire["Année"] || "Année inconnue"}
-                      </p>
+            return (
+              <Link key={itemId} href={`/luminaires/${itemId}`} className="block">
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="aspect-square relative bg-transparent">
+                    {luminaire.filename ? (
+                      <Image
+                        src={`/api/images/filename/${luminaire.filename}`}
+                        alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
+                        fill
+                        className="object-contain rounded-xl p-2"
+                        unoptimized
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none"
+                          const nextElement = e.currentTarget.nextElementSibling as HTMLElement
+                          if (nextElement) {
+                            nextElement.classList.remove("hidden")
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`w-full h-full flex items-center justify-center text-gray-400 ${
+                        luminaire.filename ? "hidden" : ""
+                      }`}
+                    >
+                      <div className="text-5xl">🏮</div>
                     </div>
                   </div>
-                </Link>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {displayedLuminaires.map((item, index) => {
-              const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
-              const luminaireId = String(item._id || item.id || "")
-              const isFavorite = favorites.includes(luminaireId)
-
-              const LuminaireCard = isAccessible ? Link : "div"
-
-              return (
-                <LuminaireCard
-                  key={luminaireId || index}
-                  {...(isAccessible ? { href: `/luminaires/${luminaireId}` } : {})}
-                  className="block"
-                >
-                  <div
-                    className={`bg-white rounded-2xl overflow-hidden transition-shadow flex ${
-                      isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
-                    }`}
-                  >
-                    <div className="w-32 h-32 relative bg-gray-50 flex-shrink-0 rounded-2xl overflow-hidden">
-                      {item.filename || item["Nom du fichier"] ? (
-                        <Image
-                          src={`/api/images/filename/${item.filename || item["Nom du fichier"]}`}
-                          alt={String(item["Nom luminaire"] || item.nom || "Luminaire")}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                          onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg?height=200&width=200"
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <div className="text-4xl">🏮</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-4 flex-1 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-serif text-lg font-medium text-gray-900 mb-1">
-                          {item["Nom luminaire"] || item.nom || "Sans nom"}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-1">
-                          {item["Artiste / Dates"] || item.designer || "Artiste inconnu"}
-                        </p>
-                        <p className="text-xs text-gray-600">{item.annee || item["Année"] || "Année inconnue"}</p>
-                      </div>
-
-                      {isAccessible && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            toggleFavorite(luminaireId)
-                          }}
-                          className="w-8 h-8 flex items-center justify-center"
-                        >
-                          <span className={`text-xl ${isFavorite ? "text-red-500" : "text-gray-400"}`}>♥</span>
-                        </button>
-                      )}
-                    </div>
+                  <div className="p-4">
+                    <h3 className="font-serif text-sm font-medium text-gray-900 line-clamp-2 mb-1">
+                      {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
+                    </h3>
+                    <p className="text-xs text-gray-600">
+                      {luminaire["Artiste / Dates"] || luminaire.designer || "Artiste inconnu"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {luminaire.annee || luminaire["Année"] || "Année inconnue"}
+                    </p>
                   </div>
-                </LuminaireCard>
-              )
-            })}
-          </div>
-        )}
+                </div>
+              </Link>
+            )
+          })}
+        </div>
 
         {/* Loading indicator */}
         {loadingMore && !showFavorites && (

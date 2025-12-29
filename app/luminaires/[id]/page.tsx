@@ -326,89 +326,115 @@ export default function LuminaireDetailPage() {
 
   const generatePDF = async () => {
     if (!luminaire) return
-
     setGeneratingPDF(true)
+
     try {
-      const pdf = new jsPDF()
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const margin = 20
 
-      pdf.setFontSize(20)
-      pdf.text(String(luminaire.name || "Luminaire sans nom"), 20, 30)
+      pdf.setFillColor(245, 241, 232) // #f5f1e8
+      pdf.rect(0, 0, pageWidth, pageHeight, "F")
 
+      pdf.setFont("times", "bold")
+      pdf.setFontSize(24)
+      pdf.setTextColor(60, 60, 60)
+      pdf.text("GERSAINT", margin, margin)
+
+      // Luminaire name
+      pdf.setFontSize(18)
+      pdf.setTextColor(40, 40, 40)
+      const nameY = margin + 15
+      pdf.text(luminaire.name || "Sans nom", margin, nameY)
+
+      // Artist and year
+      pdf.setFont("times", "italic")
       pdf.setFontSize(12)
-      let yPos = 50
+      pdf.setTextColor(100, 100, 100)
+      pdf.text(`${luminaire.artist}${luminaire.year ? `, ${luminaire.year}` : ""}`, margin, nameY + 8)
 
-      const addField = (label: string, value: string) => {
-        const cleanValue = String(value || "").trim()
-        if (cleanValue && cleanValue !== "[object Object]") {
-          const lines = pdf.splitTextToSize(`${label}: ${cleanValue}`, 170)
-          pdf.text(lines, 20, yPos)
-          yPos += lines.length * 7
+      let yPosition = nameY + 20
+
+      if (luminaire.filename) {
+        try {
+          const imageUrl = `/api/images/filename/${luminaire.filename}`
+          const img = await fetch(imageUrl)
+          const blob = await img.blob()
+          const reader = new FileReader()
+
+          await new Promise((resolve) => {
+            reader.onloadend = () => {
+              const base64data = reader.result as string
+              const imgWidth = 80
+              const imgHeight = 80
+              const imgX = (pageWidth - imgWidth) / 2
+
+              pdf.addImage(base64data, "JPEG", imgX, yPosition, imgWidth, imgHeight)
+              yPosition += imgHeight + 15
+              resolve(null)
+            }
+            reader.readAsDataURL(blob)
+          })
+        } catch (error) {
+          console.error("Error loading image for PDF:", error)
         }
       }
 
-      addField("Artiste / Dates", luminaire.artist)
-      addField("Catégorie", luminaire.categorie)
-      addField("Editeur", luminaire.editeur)
-      addField("Année", luminaire.year)
-      addField("Spécialité", luminaire.specialty)
-      addField("Collaboration / Œuvre", luminaire.collaboration)
-      addField("Description", luminaire.description)
-      addField("Signé", luminaire.signed)
-      addField("Dimensions", luminaire.dimensions)
-      addField("Matériaux", luminaire.materials)
-      addField("Lien site marchand", luminaire.lienSiteMarchand)
+      pdf.setDrawColor(139, 115, 85) // #8b7355
+      pdf.setLineWidth(0.5)
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition)
+      yPosition += 10
 
-      if (canEdit) {
-        addField("Étiquette", luminaire.etiquette)
+      pdf.setFont("times", "normal")
+      pdf.setFontSize(11)
+      pdf.setTextColor(60, 60, 60)
+
+      const addField = (label: string, value: string) => {
+        if (value && value.trim()) {
+          pdf.setFont("times", "bold")
+          pdf.text(`${label}:`, margin, yPosition)
+          pdf.setFont("times", "normal")
+          const splitText = pdf.splitTextToSize(value, pageWidth - margin * 2 - 30)
+          pdf.text(splitText, margin + 30, yPosition)
+          yPosition += splitText.length * 6 + 3
+        }
       }
 
-      addField("Bibliographie", luminaire.bibliographie)
+      addField("Signé", luminaire.signed || "Non")
+      addField("Année", luminaire.year || "Inconnue")
+      addField("Catégorie", luminaire.categorie || "")
+      addField("Éditeur", luminaire.editeur || "")
+      addField("Matériaux", luminaire.materials || "")
+      addField("Dimensions", luminaire.dimensions || "")
 
-      if (canSeeEstimation) {
+      if (canSeeEstimation && luminaire.estimation) {
         addField("Estimation", luminaire.estimation)
       }
 
-      if (luminaire.image) {
-        try {
-          const tempImg = document.createElement("img")
-          tempImg.crossOrigin = "anonymous"
+      addField("Bibliographie", luminaire.bibliographie || "")
+      addField("Lien site marchand", luminaire.lienSiteMarchand || "")
 
-          await new Promise<void>((resolve) => {
-            tempImg.onload = () => {
-              try {
-                const canvas = document.createElement("canvas")
-                const ctx = canvas.getContext("2d")
+      if (luminaire.description && luminaire.description.trim()) {
+        yPosition += 5
+        pdf.setFont("times", "bold")
+        pdf.setFontSize(12)
+        pdf.text("Description", margin, yPosition)
+        yPosition += 7
 
-                if (ctx) {
-                  const targetWidth = 400
-                  const targetHeight = 400
-                  canvas.width = targetWidth
-                  canvas.height = targetHeight
-                  ctx.drawImage(tempImg, 0, 0, targetWidth, targetHeight)
-                  const dataURL = canvas.toDataURL("image/jpeg", 0.95)
-                  pdf.addImage(dataURL, "JPEG", 20, yPos + 10, 150, 150)
-                }
-              } catch (error) {
-                console.error("❌ Erreur traitement image PDF:", error)
-              }
-              resolve()
-            }
-
-            tempImg.onerror = () => {
-              console.error("❌ Erreur chargement image PDF")
-              resolve()
-            }
-
-            tempImg.src = luminaire.image
-          })
-        } catch (error) {
-          console.error("❌ Erreur ajout image PDF:", error)
-        }
+        pdf.setFont("times", "normal")
+        pdf.setFontSize(10)
+        const descLines = pdf.splitTextToSize(luminaire.description, pageWidth - margin * 2)
+        pdf.text(descLines, margin, yPosition)
       }
 
-      pdf.save(`${String(luminaire.name || "luminaire")}.pdf`)
+      pdf.setFontSize(9)
+      pdf.setTextColor(139, 115, 85)
+      pdf.text("www.gersaintparis.com", pageWidth / 2, pageHeight - 10, { align: "center" })
+
+      pdf.save(`${luminaire.name || "luminaire"}.pdf`)
     } catch (error) {
-      console.error("❌ Erreur génération PDF:", error)
+      console.error("Error generating PDF:", error)
     } finally {
       setGeneratingPDF(false)
     }
@@ -583,29 +609,21 @@ export default function LuminaireDetailPage() {
                   href={`/designers/${encodeURIComponent(luminaire.artist)}`}
                   className="flex items-center gap-3 flex-1"
                 >
-                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
                     {luminaire.designerImage ? (
                       <Image
                         src={`/api/images/filename/${luminaire.designerImage}`}
                         alt={luminaire.artist}
-                        width={48}
-                        height={48}
-                        className="object-cover w-full h-full"
+                        fill
+                        className="object-cover"
                         unoptimized
                         onError={(e) => {
                           console.error("[v0] Failed to load designer image:", luminaire.designerImage)
-                          const target = e.currentTarget
-                          target.style.display = "none"
-                          const parent = target.parentElement
-                          if (parent) {
-                            parent.innerHTML =
-                              '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-6 h-6 text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
-                          }
+                          e.currentTarget.style.display = "none"
                         }}
                       />
-                    ) : (
-                      <User className="w-6 h-6 text-gray-400" />
-                    )}
+                    ) : null}
+                    {!luminaire.designerImage && <User className="w-6 h-6 text-gray-400" />}
                   </div>
                   <div>
                     <EditableField
@@ -734,15 +752,14 @@ export default function LuminaireDetailPage() {
               )}
 
               {(userData?.role === "admin" || userData?.role === "premium") && (
-                <Button
+                <button
                   onClick={generatePDF}
-                  className="w-full text-white hover:bg-[#7a6345]"
-                  style={{ backgroundColor: "#8b7355" }}
                   disabled={generatingPDF}
+                  className="w-full mt-6 flex items-center justify-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-lg hover:bg-[#75614a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  {generatingPDF ? "Génération du PDF..." : "Télécharger PDF"}
-                </Button>
+                  <Download className="w-5 h-5" />
+                  {generatingPDF ? "Génération..." : "Télécharger PDF"}
+                </button>
               )}
             </div>
           </div>
@@ -760,30 +777,32 @@ export default function LuminaireDetailPage() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {similarLuminaires.slice(0, 6).map((similar) => (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {similarLuminaires.map((similar) => (
                   <Link key={similar.id} href={`/luminaires/${similar.id}`}>
-                    <div className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                      <div className="aspect-square relative bg-gray-50">
-                        {similar.image ? (
+                    <div className="group cursor-pointer">
+                      <div className="aspect-square relative bg-transparent mb-2 overflow-hidden rounded-xl">
+                        {similar.filename ? (
                           <Image
-                            src={similar.image || "/placeholder.svg"}
-                            alt={similar.name}
+                            src={`/api/images/filename/${similar.filename}`}
+                            alt={similar["Nom luminaire"] || "Luminaire"}
                             fill
+                            className="object-contain rounded-xl"
                             unoptimized
-                            className="object-contain rounded-t-xl"
-                            onError={(e) => {
-                              e.currentTarget.src = "/placeholder.svg"
-                            }}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">🏮</div>
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <div className="text-4xl">🏮</div>
+                          </div>
                         )}
                       </div>
-                      <div className="p-3">
-                        <h3 className="font-medium text-gray-900 text-sm line-clamp-1">{similar.name}</h3>
-                        <p className="text-xs text-gray-600">{similar.year}</p>
-                      </div>
+                      <h3 className="font-serif text-sm font-medium text-gray-900">
+                        {similar["Nom luminaire"] || "Sans nom"}
+                      </h3>
+                      <p className="text-xs text-gray-600">
+                        {similar["Artiste / Dates"] || similar.designer}
+                        {similar.annee || similar["Année"] ? `, ${similar.annee || similar["Année"]}` : ""}
+                      </p>
                     </div>
                   </Link>
                 ))}
