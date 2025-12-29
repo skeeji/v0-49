@@ -18,7 +18,7 @@ export default function LuminairesPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [columns, setColumns] = useState(2) // Version mobile 2 colonnes par défaut
+  const [columns, setColumns] = useState(typeof window !== "undefined" && window.innerWidth >= 768 ? 6 : 2)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -352,6 +352,19 @@ export default function LuminairesPage() {
 
   const pathname = usePathname()
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768 && columns > 2) {
+        setColumns(2)
+      } else if (window.innerWidth >= 768 && columns === 2) {
+        setColumns(6)
+      }
+    }
+
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [columns])
+
   if (loading && luminaires.length === 0) {
     return (
       <div className="min-h-screen bg-[#f5f1e8] pb-20">
@@ -488,7 +501,16 @@ export default function LuminairesPage() {
 
           <div className="relative px-2">
             <style jsx>{`
+              input[type="range"] {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 100%;
+                height: 2px;
+                background: transparent;
+                outline: none;
+              }
               input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
                 appearance: none;
                 width: 20px;
                 height: 20px;
@@ -497,6 +519,8 @@ export default function LuminairesPage() {
                 border-radius: 50%;
                 border: 2px solid white;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                position: relative;
+                z-index: 10;
               }
               input[type="range"]::-moz-range-thumb {
                 width: 20px;
@@ -588,7 +612,7 @@ export default function LuminairesPage() {
         )}
 
         {/* Grid or List view */}
-        {viewMode === "grid" && (
+        {viewMode === "grid" ? (
           <div
             className={`grid gap-4 ${
               columns === 2
@@ -602,73 +626,54 @@ export default function LuminairesPage() {
                       : "grid-cols-2 md:grid-cols-6"
             }`}
           >
-            {displayedLuminaires.map((item, index) => {
-              const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
-              const luminaireId = String(item._id || item.id || "")
-              const isFavorite = favorites.includes(luminaireId)
-
-              const LuminaireCard = isAccessible ? Link : "div"
+            {displayedLuminaires.map((luminaire) => {
+              const itemId = String(luminaire._id || luminaire.id || "")
 
               return (
-                <LuminaireCard
-                  key={luminaireId || index}
-                  {...(isAccessible ? { href: `/luminaires/${luminaireId}` } : {})}
-                  className="block"
-                >
-                  <div
-                    className={`bg-white rounded-2xl overflow-hidden transition-shadow ${
-                      isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
-                    }`}
-                  >
-                    <div className="aspect-square relative bg-transparent p-4">
-                      {item.filename || item["Nom du fichier"] ? (
+                <Link key={itemId} href={`/luminaires/${itemId}`} className="block">
+                  <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="aspect-square relative bg-transparent">
+                      {luminaire.filename ? (
                         <Image
-                          src={`/api/images/filename/${item.filename || item["Nom du fichier"]}`}
-                          alt={String(item["Nom luminaire"] || item.nom || "Luminaire")}
+                          src={`/api/images/filename/${luminaire.filename}`}
+                          alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
                           fill
-                          className="object-cover rounded-2xl"
+                          className="object-contain rounded-xl p-2"
                           unoptimized
                           onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg?height=200&width=200"
+                            e.currentTarget.style.display = "none"
+                            const nextElement = e.currentTarget.nextElementSibling as HTMLElement
+                            if (nextElement) {
+                              nextElement.classList.remove("hidden")
+                            }
                           }}
                         />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <div className="text-6xl">🏮</div>
-                        </div>
-                      )}
-
-                      {isAccessible && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            toggleFavorite(luminaireId)
-                          }}
-                          className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
-                        >
-                          <span className={`text-lg ${isFavorite ? "text-red-500" : "text-gray-400"}`}>♥</span>
-                        </button>
-                      )}
+                      ) : null}
+                      <div
+                        className={`w-full h-full flex items-center justify-center text-gray-400 ${
+                          luminaire.filename ? "hidden" : ""
+                        }`}
+                      >
+                        <div className="text-5xl">🏮</div>
+                      </div>
                     </div>
-
                     <div className="p-4">
-                      <h3 className="font-serif text-base font-medium text-gray-900 mb-1 line-clamp-1">
-                        {item["Nom luminaire"] || item.nom || "Sans nom"}
+                      <h3 className="font-serif text-sm font-medium text-gray-900 line-clamp-2 mb-1">
+                        {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
                       </h3>
-                      <p className="text-sm text-gray-600 mb-1">
-                        {item["Artiste / Dates"] || item.designer || "Artiste inconnu"}
+                      <p className="text-xs text-gray-600">
+                        {luminaire["Artiste / Dates"] || luminaire.designer || "Artiste inconnu"}
                       </p>
-                      <p className="text-xs text-gray-600">{item.annee || item["Année"] || "Année inconnue"}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {luminaire.annee || luminaire["Année"] || "Année inconnue"}
+                      </p>
                     </div>
                   </div>
-                </LuminaireCard>
+                </Link>
               )
             })}
           </div>
-        )}
-
-        {viewMode === "list" && (
+        ) : (
           <div className="space-y-4">
             {displayedLuminaires.map((item, index) => {
               const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true

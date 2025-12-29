@@ -410,7 +410,7 @@ export default function DesignerDetailPage() {
                             src={luminaire.image || "/placeholder.svg"}
                             alt={luminaire.name}
                             fill
-                            className="object-contain rounded-xl p-2"
+                            className="object-contain rounded-xl"
                             unoptimized
                           />
                         ) : (
