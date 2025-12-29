@@ -354,22 +354,16 @@ export default function DesignerDetailPage() {
                   disabled={!canEdit}
                 />
                 <p className="text-sm text-gray-600 mb-2">
-                  {description?.match(/\d{4}/g)?.join("-") || "Period unknown"}
+                  {description?.match(/\d{4}/g)?.join("-") || "Période inconnue"}
                 </p>
-                <p className="text-xs text-gray-500">{designer.count} Luminaires & Furniture Pieces</p>
+                <p className="text-xs text-gray-500">{designer.count} Luminaires & Pièces de Décoration</p>
               </div>
             </div>
-
-            {/* Share Profile button */}
-            <button className="w-full flex items-center justify-between px-4 py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors mb-6">
-              <span>Share Profile</span>
-              <span>🔗</span>
-            </button>
 
             {/* Biography section */}
             {description && (
               <div className="mb-6 pt-6 border-t border-gray-100">
-                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Biography</h3>
+                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Biographie</h3>
                 <EditableField
                   value={description}
                   onSave={updateDesignerSpecialty}
@@ -383,7 +377,7 @@ export default function DesignerDetailPage() {
             {/* Philosophy section */}
             {collaboration && (
               <div className="pt-6 border-t border-gray-100">
-                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Philosophy</h3>
+                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Philosophie</h3>
                 <EditableField
                   value={collaboration}
                   onSave={updateDesignerCollaboration}
@@ -398,8 +392,8 @@ export default function DesignerDetailPage() {
           {/* Iconic Pieces section */}
           <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-serif font-medium text-gray-900">Iconic Pieces</h2>
-              <button className="text-sm text-gray-600 hover:text-gray-900">View All ({designer.count})</button>
+              <h2 className="text-xl font-serif font-medium text-gray-900">Pièces Iconiques</h2>
+              <button className="text-sm text-gray-600 hover:text-gray-900">Voir tout ({designer.count})</button>
             </div>
 
             {designerLuminaires.length > 0 ? (
@@ -441,7 +435,7 @@ export default function DesignerDetailPage() {
 
             {/* View Full Collection button */}
             <button className="w-full py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
-              View Full Collection
+              Voir la collection complète
             </button>
           </div>
 

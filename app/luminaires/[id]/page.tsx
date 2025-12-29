@@ -507,7 +507,7 @@ export default function LuminaireDetailPage() {
 
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
             {/* Large image with carousel dots and favorite button */}
-            <div className="aspect-square relative bg-gray-50">
+            <div className="aspect-square max-h-96 relative bg-gray-50">
               <button
                 onClick={toggleFavorite}
                 className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
@@ -520,7 +520,7 @@ export default function LuminaireDetailPage() {
                   src={luminaire.image || "/placeholder.svg"}
                   alt={String(luminaire.name || "Luminaire")}
                   fill
-                  className="object-contain p-8"
+                  className="object-contain p-8 rounded-2xl"
                   unoptimized
                   onError={(e) => {
                     e.currentTarget.src = "/placeholder.svg"
@@ -628,11 +628,17 @@ export default function LuminaireDetailPage() {
                 </div>
               )}
 
-              {/* Request Information button */}
-              <button className="w-full flex items-center justify-center gap-2 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
-                <span>Request Information</span>
-                <span>→</span>
-              </button>
+              {(userData?.role === "admin" || userData?.role === "premium") && (
+                <Button
+                  onClick={generatePDF}
+                  className="w-full mt-4 text-gray-900 hover:bg-[#e6c77a]"
+                  style={{ backgroundColor: "#f2d895" }}
+                  disabled={generatingPDF}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {generatingPDF ? "Génération..." : "Télécharger PDF"}
+                </Button>
+              )}
             </div>
           </div>
 

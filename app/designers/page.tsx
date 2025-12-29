@@ -7,7 +7,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
-import { Loader2, ArrowLeft, Search, SlidersHorizontal, Home, Users, Grid3x3, Mail, User } from "lucide-react"
+import { Loader2, Home, Users, Grid3x3, Mail, User } from "lucide-react"
 
 export default function DesignersPage() {
   const [allDesigners, setAllDesigners] = useState([])
@@ -22,6 +22,8 @@ export default function DesignersPage() {
   const { user, userData } = useAuth()
   const pathname = usePathname()
   const [filterMode, setFilterMode] = useState<"period" | "az">("period")
+  const [periodFilter, setPeriodFilter] = useState("")
+  const yearFilter = ["modern", "contemporary", "art-deco"] // Declare yearFilter variable
 
   const ITEMS_PER_PAGE = 50
 
@@ -152,6 +154,10 @@ export default function DesignersPage() {
       filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
 
+    if (periodFilter) {
+      filtered = filtered.filter((designer) => designer.years.some((year) => yearFilter.includes(year)))
+    }
+
     // Supprimer les doublons
     const uniqueDesigners = filtered.filter(
       (designer, index, self) => index === self.findIndex((d) => d.name === designer.name),
@@ -180,7 +186,7 @@ export default function DesignersPage() {
     setPage(0)
     setHasMore(true)
     setDisplayedDesigners([])
-  }, [allDesigners, searchTerm, sortBy])
+  }, [allDesigners, searchTerm, sortBy, periodFilter])
 
   // Charger plus d'éléments - maintenant charge TOUS les designers
   const loadMore = useCallback(() => {
@@ -233,36 +239,43 @@ export default function DesignersPage() {
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
       <div className="bg-transparent border-b border-gray-200 sticky top-0 z-40">
-        <div className="flex items-center justify-between px-4 py-4">
-          <Link href="/" className="p-2">
-            <ArrowLeft className="w-6 h-6 text-gray-900" />
-          </Link>
-          <h1 className="text-xl font-serif text-gray-900 font-medium">Designers - Liste V3</h1>
-          <button className="p-2">
-            <Search className="w-6 h-6 text-gray-900" />
-          </button>
-        </div>
+        <div className="px-4 py-4">
+          <h2 className="text-2xl font-serif text-gray-900 mb-4">
+            Designers <span className="text-gray-500">(50/{filteredDesigners.length})</span>
+          </h2>
 
-        {/* Search and filter bar */}
-        <div className="px-4 pb-4 space-y-3">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search designers or periods..." />
+          {/* Search bar without white background */}
+          <div className="mb-4">
+            <SearchBar
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Rechercher un designer..."
+              className="bg-white"
+            />
+          </div>
 
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setFilterMode(filterMode === "period" ? "az" : "period")}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+          <div className="flex items-center gap-3">
+            <select
+              value={periodFilter}
+              onChange={(e) => setPeriodFilter(e.target.value)}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm flex-1"
             >
-              <SlidersHorizontal className="w-4 h-4" />
-              Filter & Sort
-            </button>
+              <option value="">Toutes les périodes</option>
+              <option value="modern">Moderne</option>
+              <option value="contemporary">Contemporain</option>
+              <option value="art-deco">Art Déco</option>
+            </select>
 
-            {filterMode === "period" && (
-              <div className="text-sm text-gray-600">
-                <div>Chronological Period</div>
-                <div className="text-xs text-gray-400">(e.g., Mid-Century, Art Deco, Modernist)</div>
-              </div>
-            )}
-            {filterMode === "az" && <div className="text-sm text-gray-600">A-Z</div>}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="name-asc">Nom A → Z</option>
+              <option value="name-desc">Nom Z → A</option>
+              <option value="year-asc">Année croissante</option>
+              <option value="year-desc">Année décroissante</option>
+            </select>
           </div>
         </div>
       </div>
@@ -287,15 +300,21 @@ export default function DesignersPage() {
 
         {/* Filter row */}
         <div className="flex items-center gap-3 mb-6">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm">
-            <SlidersHorizontal className="w-4 h-4" />
-            Filter & Sort
-          </button>
+          <select
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value)}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm flex-1"
+          >
+            <option value="">Toutes les périodes</option>
+            <option value="modern">Moderne</option>
+            <option value="contemporary">Contemporain</option>
+            <option value="art-deco">Art Déco</option>
+          </select>
 
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm flex-1"
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
           >
             <option value="name-asc">Nom A → Z</option>
             <option value="name-desc">Nom Z → A</option>

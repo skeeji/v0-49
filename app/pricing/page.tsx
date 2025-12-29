@@ -83,8 +83,8 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-16">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#f5f1e8]">
+      <div className="container mx-auto px-4 py-16">
         {/* Titre principal */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-serif text-gray-900 mb-4">

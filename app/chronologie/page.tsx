@@ -307,7 +307,7 @@ export default function ChronologiePage() {
                                 src={luminaire.image || "/placeholder.svg"}
                                 alt={luminaire.name}
                                 fill
-                                className="object-contain p-2"
+                                className="object-contain p-2 rounded-lg"
                                 unoptimized
                               />
                             )}

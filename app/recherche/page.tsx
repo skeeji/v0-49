@@ -401,7 +401,7 @@ export default function RecherchePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50">
+    <div className="min-h-screen bg-[#f5f1e8]">
       {user && userData && userData.role !== "premium" && userData.role !== "admin" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <Card className="max-w-md mx-4 p-8 text-center">
