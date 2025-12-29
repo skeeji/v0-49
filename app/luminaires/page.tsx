@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, SlidersHorizontal, Home, Users, Grid3x3, Mail, User } from "lucide-react"
+import { Loader2, SlidersHorizontal, Home, Users, Grid3x3, Mail, User, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
 
@@ -18,7 +18,7 @@ export default function LuminairesPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [columns, setColumns] = useState(typeof window !== "undefined" && window.innerWidth >= 768 ? 6 : 2)
+  const [columns, setColumns] = useState(2) // Default columns
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -226,6 +226,20 @@ export default function LuminairesPage() {
     }
   }, [loadMore, showFavorites])
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setColumns(2)
+      } else if (columns === 2 && window.innerWidth >= 768) {
+        setColumns(6)
+      }
+    }
+
+    handleResize() // Set initial value
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [columns])
+
   const handleItemUpdate = useCallback(async (id: string, updates: any) => {
     try {
       const response = await fetch(`/api/luminaires/${id}`, {
@@ -326,10 +340,11 @@ export default function LuminairesPage() {
   }, [yearBounds, allLuminaires.length, yearRange.length])
 
   const handleYearRangeChange = (newRange: number[]) => {
+    console.log("[v0] Year range changed:", newRange)
     setYearRange(newRange)
     setSliderModified(true)
     setCurrentPage(1)
-    loadLuminaires(1, false)
+    // Don't call loadLuminaires here, let the useEffect handle it
   }
 
   const freeUserLimit = useMemo(() => {
@@ -351,19 +366,6 @@ export default function LuminairesPage() {
   }, [luminaires, allLuminaires, showFavorites, favorites])
 
   const pathname = usePathname()
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768 && columns > 2) {
-        setColumns(2)
-      } else if (window.innerWidth >= 768 && columns === 2) {
-        setColumns(6)
-      }
-    }
-
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [columns])
 
   if (loading && luminaires.length === 0) {
     return (
@@ -600,15 +602,13 @@ export default function LuminairesPage() {
         </div>
 
         {isAdmin && (
-          <div className="mb-6">
-            <Button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-[#f2d895] text-gray-900 hover:bg-[#e6c77a] flex items-center gap-2"
-            >
-              <span>+</span>
-              Créer un luminaire
-            </Button>
-          </div>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50 rounded-full w-14 h-14 shadow-lg text-white"
+            style={{ backgroundColor: "#8b7355" }}
+          >
+            <Plus className="w-6 h-6" />
+          </Button>
         )}
 
         {/* Grid or List view */}

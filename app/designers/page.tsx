@@ -238,10 +238,13 @@ export default function DesignersPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="bg-transparent border-b border-gray-200 sticky top-0 z-40">
+      <div className="bg-transparent border-b border-gray-200">
         <div className="px-4 py-4">
           <h2 className="text-2xl font-serif text-gray-900 mb-4">
-            Designers <span className="text-gray-500">(50/{filteredDesigners.length})</span>
+            Designers{" "}
+            <span className="text-gray-500">
+              ({displayedDesigners.length}/{filteredDesigners.length})
+            </span>
           </h2>
 
           {/* Search bar without white background */}
@@ -354,7 +357,10 @@ export default function DesignersPage() {
                     <p className="text-xs text-gray-500 mb-3">{designer.count} luminaires</p>
 
                     {isAccessible ? (
-                      <button className="w-full flex items-center justify-between px-3 py-2 bg-[#f5f1e8] border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                      <button
+                        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                        style={{ backgroundColor: "#f5f1e8" }}
+                      >
                         <span>Voir le profil</span>
                         <span>→</span>
                       </button>

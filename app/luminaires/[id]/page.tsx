@@ -579,141 +579,135 @@ export default function LuminaireDetailPage() {
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4 mb-6 flex items-center justify-between hover:bg-gray-100 transition-colors cursor-pointer">
-                <div className="flex items-center gap-3">
+                <Link
+                  href={`/designers/${encodeURIComponent(luminaire.artist)}`}
+                  className="flex items-center gap-3 flex-1"
+                >
                   <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {luminaire.designerImage ? (
                       <Image
-                        src={`/api/images/filename/${luminaire.designerImage}`}
-                        alt={luminaire.artist || "Designer"}
+                        src={luminaire.designerImage || "/placeholder.svg"}
+                        alt={luminaire.artist}
                         width={48}
                         height={48}
                         className="object-cover w-full h-full"
+                        unoptimized
                         onError={(e) => {
+                          console.error("[v0] Failed to load designer image:", luminaire.designerImage)
                           e.currentTarget.style.display = "none"
-                          const nextElement = e.currentTarget.nextElementSibling as HTMLElement
-                          if (nextElement) {
-                            nextElement.classList.remove("hidden")
-                          }
                         }}
                       />
-                    ) : null}
-                    <User className={`w-6 h-6 text-gray-400 ${luminaire.designerImage ? "hidden" : ""}`} />
+                    ) : (
+                      <User className="w-6 h-6 text-gray-400" />
+                    )}
                   </div>
                   <div>
                     <EditableField
-                      value={luminaire.artist || ""}
-                      onSave={(val) => handleUpdate("artist", val)}
+                      value={luminaire.artist}
+                      onSave={(value) => handleUpdate("artist", value)}
+                      canEdit={canEdit}
                       className="font-semibold text-gray-900"
-                      placeholder="Nom du designer"
-                      disabled={!canEdit}
+                      style={{ whiteSpace: "pre-wrap" }}
                     />
                     <p className="text-sm text-gray-600">Designer</p>
                   </div>
-                </div>
+                </Link>
                 <ArrowRight className="w-5 h-5 text-gray-400" />
               </div>
 
-              <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-6">
-                {luminaire.signed && (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {luminaire.signed && luminaire.signed.trim() && (
                   <div>
-                    <div className="text-sm font-medium text-gray-900 mb-1">Signé</div>
+                    <p className="text-sm text-gray-600 mb-1">Signé</p>
                     <EditableField
                       value={luminaire.signed}
-                      onSave={(val) => handleUpdate("signed", val)}
-                      className="text-sm text-gray-600"
-                      placeholder="Signé"
-                      disabled={!canEdit}
+                      onSave={(value) => handleUpdate("signed", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
                     />
                   </div>
                 )}
 
-                {luminaire.year && (
+                {luminaire.year && luminaire.year.trim() && (
                   <div>
-                    <div className="text-sm font-medium text-gray-900 mb-1">Année</div>
+                    <p className="text-sm text-gray-600 mb-1">Année</p>
                     <EditableField
                       value={luminaire.year}
-                      onSave={(val) => handleUpdate("year", val)}
-                      className="text-sm text-gray-600"
-                      placeholder="Année"
-                      disabled={!canEdit}
+                      onSave={(value) => handleUpdate("year", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
                     />
                   </div>
                 )}
 
-                {luminaire.categorie && (
+                {luminaire.categorie && luminaire.categorie.trim() && (
                   <div>
-                    <div className="text-sm font-medium text-gray-900 mb-1">Catégorie</div>
+                    <p className="text-sm text-gray-600 mb-1">Catégorie</p>
                     <EditableField
                       value={luminaire.categorie}
-                      onSave={(val) => handleUpdate("categorie", val)}
-                      className="text-sm text-gray-600"
-                      placeholder="Catégorie"
-                      disabled={!canEdit}
+                      onSave={(value) => handleUpdate("categorie", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
                     />
                   </div>
                 )}
 
-                {luminaire.editeur && (
+                {luminaire.editeur && luminaire.editeur.trim() && (
                   <div>
-                    <div className="text-sm font-medium text-gray-900 mb-1">Éditeur</div>
+                    <p className="text-sm text-gray-600 mb-1">Éditeur</p>
                     <EditableField
                       value={luminaire.editeur}
-                      onSave={(val) => handleUpdate("editeur", val)}
-                      className="text-sm text-gray-600"
-                      placeholder="Éditeur"
-                      disabled={!canEdit}
+                      onSave={(value) => handleUpdate("editeur", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
                     />
                   </div>
                 )}
 
-                {luminaire.bibliographie && (
+                {luminaire.bibliographie && luminaire.bibliographie.trim() && (
                   <div>
-                    <div className="text-sm font-medium text-gray-900 mb-1">Bibliographie</div>
+                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
                     <EditableField
                       value={luminaire.bibliographie}
-                      onSave={(val) => handleUpdate("bibliographie", val)}
-                      className="text-sm text-gray-600"
-                      placeholder="Bibliographie"
-                      disabled={!canEdit}
+                      onSave={(value) => handleUpdate("bibliographie", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
                     />
                   </div>
                 )}
 
-                {luminaire.materials && (
+                {luminaire.materials && luminaire.materials.trim() && (
                   <div>
-                    <div className="text-sm font-medium text-gray-900 mb-1">Matériaux</div>
+                    <p className="text-sm text-gray-600 mb-1">Matériaux</p>
                     <EditableField
                       value={luminaire.materials}
-                      onSave={(val) => handleUpdate("materials", val)}
-                      className="text-sm text-gray-600"
-                      placeholder="Matériaux"
-                      disabled={!canEdit}
+                      onSave={(value) => handleUpdate("materials", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
                     />
                   </div>
                 )}
 
-                {luminaire.dimensions && (
+                {luminaire.dimensions && luminaire.dimensions.trim() && (
                   <div>
-                    <div className="text-sm font-medium text-gray-900 mb-1">Dimensions</div>
+                    <p className="text-sm text-gray-600 mb-1">Dimensions</p>
                     <EditableField
                       value={luminaire.dimensions}
-                      onSave={(val) => handleUpdate("dimensions", val)}
-                      className="text-sm text-gray-600"
-                      placeholder="Dimensions"
-                      disabled={!canEdit}
+                      onSave={(value) => handleUpdate("dimensions", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
                     />
                   </div>
                 )}
 
-                {luminaire.lienSiteMarchand && (
+                {luminaire.lienSiteMarchand && luminaire.lienSiteMarchand.trim() && (
                   <div>
-                    <div className="text-sm font-medium text-gray-900 mb-1">Lien site marchand</div>
+                    <p className="text-sm text-gray-600 mb-1">Lien site marchand</p>
                     <EditableField
                       value={luminaire.lienSiteMarchand}
-                      onSave={(val) => handleUpdate("lienSiteMarchand", val)}
-                      className="text-sm text-gray-600 break-all"
-                      placeholder="URL"
-                      disabled={!canEdit}
+                      onSave={(value) => handleUpdate("lienSiteMarchand", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
                     />
                   </div>
                 )}
@@ -736,7 +730,8 @@ export default function LuminaireDetailPage() {
               {(userData?.role === "admin" || userData?.role === "premium") && (
                 <Button
                   onClick={generatePDF}
-                  className="w-full bg-[#8b7355] text-white hover:bg-[#7a6449] mt-4"
+                  className="w-full text-white hover:bg-[#7a6345]"
+                  style={{ backgroundColor: "#8b7355" }}
                   disabled={generatingPDF}
                 >
                   <Download className="w-4 h-4 mr-2" />
@@ -748,12 +743,12 @@ export default function LuminaireDetailPage() {
 
           {/* Similar luminaires section */}
           {similarLuminaires.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-serif font-medium text-gray-900">Plus de {luminaire.artist}</h2>
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-serif text-gray-900">Plus de {luminaire.artist}</h2>
                 <Link
                   href={`/designers/${encodeURIComponent(luminaire.artist)}`}
-                  className="text-sm text-gray-600 hover:text-gray-900"
+                  className="text-sm text-[#8b7355] hover:underline"
                 >
                   Voir tout
                 </Link>
@@ -761,28 +756,27 @@ export default function LuminaireDetailPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {similarLuminaires.slice(0, 6).map((similar) => (
-                  <Link key={similar.id} href={`/luminaires/${similar.id}`} className="block">
-                    <div className="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="aspect-square relative bg-transparent">
+                  <Link key={similar.id} href={`/luminaires/${similar.id}`}>
+                    <div className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
+                      <div className="aspect-square relative bg-gray-50">
                         {similar.image ? (
                           <Image
                             src={similar.image || "/placeholder.svg"}
                             alt={similar.name}
                             fill
-                            className="object-contain rounded-xl p-2"
                             unoptimized
+                            className="object-contain rounded-t-xl"
+                            onError={(e) => {
+                              e.currentTarget.src = "/placeholder.svg"
+                            }}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            <div className="text-4xl">🏮</div>
-                          </div>
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">🏮</div>
                         )}
                       </div>
-                      <div className="p-3 text-center">
-                        <h3 className="font-serif text-sm font-medium text-gray-900 line-clamp-2 mb-1">
-                          {similar.name}
-                        </h3>
-                        <p className="text-xs text-gray-600">{similar.year || "Année inconnue"}</p>
+                      <div className="p-3">
+                        <h3 className="font-medium text-gray-900 text-sm line-clamp-1">{similar.name}</h3>
+                        <p className="text-xs text-gray-600">{similar.year}</p>
                       </div>
                     </div>
                   </Link>

@@ -196,6 +196,8 @@ export default function RecherchePage() {
     setIsSearching(true)
 
     try {
+      console.log("[v0] Sending text search request with query:", newSearchContext)
+
       const response = await fetch(`${API_BASE_URL_TEXT}/api/search_text`, {
         method: "POST",
         headers: {
@@ -210,6 +212,8 @@ export default function RecherchePage() {
       if (!response.ok) throw new Error("Erreur lors de la recherche")
 
       const text = await response.text()
+      console.log("[v0] API response text:", text)
+
       let data
       try {
         data = JSON.parse(text)
@@ -217,8 +221,12 @@ export default function RecherchePage() {
         data = JSON.parse(text.replace(/:\s*NaN/g, ": null"))
       }
 
+      console.log("[v0] Parsed data:", data)
+
       if (data.results && data.results.length > 0) {
+        console.log("[v0] Enriching", data.results.length, "results")
         const enrichedResults = await enrichResultsWithIds(data.results)
+        console.log("[v0] Enriched results:", enrichedResults)
 
         addMessage(
           "assistant",
@@ -230,6 +238,7 @@ export default function RecherchePage() {
 
         toast.success(`${enrichedResults.length} luminaire(s) trouvé(s)`)
       } else {
+        console.log("[v0] No results found")
         addMessage(
           "assistant",
           "Je n'ai trouvé aucun luminaire correspondant à votre recherche. Essayez une autre description.",
@@ -240,7 +249,7 @@ export default function RecherchePage() {
         toast.info("Aucun résultat trouvé")
       }
     } catch (error) {
-      console.error("Search error:", error)
+      console.error("[v0] Search error:", error)
       addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.")
       toast.error("Erreur lors de la recherche")
     } finally {
