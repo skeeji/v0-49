@@ -507,7 +507,7 @@ export default function LuminaireDetailPage() {
 
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
             {/* Large image with carousel dots and favorite button */}
-            <div className="aspect-square max-h-96 relative bg-gray-50">
+            <div className="aspect-square max-w-md mx-auto relative bg-transparent">
               <button
                 onClick={toggleFavorite}
                 className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
@@ -520,7 +520,7 @@ export default function LuminaireDetailPage() {
                   src={luminaire.image || "/placeholder.svg"}
                   alt={String(luminaire.name || "Luminaire")}
                   fill
-                  className="object-contain p-8 rounded-2xl"
+                  className="object-contain rounded-2xl"
                   unoptimized
                   onError={(e) => {
                     e.currentTarget.src = "/placeholder.svg"
@@ -564,7 +564,7 @@ export default function LuminaireDetailPage() {
                 {canSeeEstimation && luminaire.estimation && (
                   <div className="text-right">
                     <div className="text-2xl font-bold text-gray-900">{luminaire.estimation}</div>
-                    <div className="text-xs text-green-600 font-medium">AVAILABLE</div>
+                    <div className="text-xs text-green-600 font-medium">DISPONIBLE</div>
                   </div>
                 )}
               </div>
@@ -590,7 +590,7 @@ export default function LuminaireDetailPage() {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 {luminaire.materials && (
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Material</div>
+                    <div className="text-xs text-gray-500 mb-1">Matériau</div>
                     <div className="text-sm text-gray-900">{luminaire.materials}</div>
                   </div>
                 )}
@@ -608,7 +608,7 @@ export default function LuminaireDetailPage() {
                 )}
                 {luminaire.etiquette && canEdit && (
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Reference</div>
+                    <div className="text-xs text-gray-500 mb-1">Référence</div>
                     <div className="text-sm text-gray-900">{luminaire.etiquette}</div>
                   </div>
                 )}
@@ -617,7 +617,7 @@ export default function LuminaireDetailPage() {
               {/* History section */}
               {luminaire.description && (
                 <div className="mb-6">
-                  <h3 className="font-serif text-lg font-medium text-gray-900 mb-2">History</h3>
+                  <h3 className="font-serif text-lg font-medium text-gray-900 mb-2">Histoire</h3>
                   <EditableField
                     value={luminaire.description}
                     onSave={(v) => handleUpdate("description", v)}
@@ -647,9 +647,9 @@ export default function LuminaireDetailPage() {
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-serif text-gray-900">
-                  More from {luminaire.artist?.split(",")[0] || "Designer"}
+                  Plus de {luminaire.artist?.split(",")[0] || "Designer"}
                 </h2>
-                <button className="text-sm text-gray-600 hover:text-gray-900">View All</button>
+                <button className="text-sm text-gray-600 hover:text-gray-900">Voir tout</button>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -673,7 +673,7 @@ export default function LuminaireDetailPage() {
                       </div>
                       <div className="p-3">
                         <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">{item.name}</h3>
-                        <p className="text-xs text-gray-600">{item.year || "Year unknown"}</p>
+                        <p className="text-xs text-gray-600">{item.year || "Année inconnue"}</p>
                       </div>
                     </div>
                   </Link>

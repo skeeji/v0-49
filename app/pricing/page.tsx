@@ -101,7 +101,7 @@ export default function PricingPage() {
             <span className={`px-4 py-2 text-sm font-medium ${!isAnnual ? "text-gray-900" : "text-gray-500"}`}>
               Mensuel
             </span>
-            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} className="data-[state=checked]:bg-orange-500" />
+            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} className="data-[state=checked]:bg-[#f2d895]" />
             <span className={`px-4 py-2 text-sm font-medium ${isAnnual ? "text-gray-900" : "text-gray-500"}`}>
               Annuel (2 mois offerts)
             </span>
@@ -159,9 +159,9 @@ export default function PricingPage() {
           </Card>
 
           {/* Carte Premium */}
-          <Card className="relative border-2 border-orange-500 shadow-lg">
+          <Card className="relative border-2 border-[#f2d895] shadow-lg">
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <span className="bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-medium">Recommandé</span>
+              <span className="bg-[#f2d895] text-gray-900 px-4 py-1 rounded-full text-sm font-medium">Recommandé</span>
             </div>
             <CardHeader className="text-center pb-8">
               <CardTitle className="text-2xl font-serif">Premium</CardTitle>
@@ -256,7 +256,7 @@ export default function PricingPage() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full"
+                      className="w-full text-gray-900 hover:bg-[#e6c77a]"
                       disabled={isSubmitting}
                       style={{ backgroundColor: "#f2d895" }}
                     >

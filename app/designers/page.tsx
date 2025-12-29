@@ -250,7 +250,7 @@ export default function DesignersPage() {
               value={searchTerm}
               onChange={setSearchTerm}
               placeholder="Rechercher un designer..."
-              className="bg-white"
+              className="bg-transparent border border-gray-300"
             />
           </div>
 
@@ -281,48 +281,6 @@ export default function DesignersPage() {
       </div>
 
       <div className="px-4 py-4">
-        <h2 className="text-2xl font-serif text-gray-900 mb-4">
-          Designers{" "}
-          <span className="text-gray-500">
-            ({displayedDesigners.length}/{filteredDesigners.length})
-          </span>
-        </h2>
-
-        {/* Search bar without white background */}
-        <div className="mb-4">
-          <SearchBar
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Rechercher un designer..."
-            className="bg-white"
-          />
-        </div>
-
-        {/* Filter row */}
-        <div className="flex items-center gap-3 mb-6">
-          <select
-            value={periodFilter}
-            onChange={(e) => setPeriodFilter(e.target.value)}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm flex-1"
-          >
-            <option value="">Toutes les périodes</option>
-            <option value="modern">Moderne</option>
-            <option value="contemporary">Contemporain</option>
-            <option value="art-deco">Art Déco</option>
-          </select>
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-          >
-            <option value="name-asc">Nom A → Z</option>
-            <option value="name-desc">Nom Z → A</option>
-            <option value="year-asc">Année croissante</option>
-            <option value="year-desc">Année décroissante</option>
-          </select>
-        </div>
-
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {displayedDesigners.map((designer, index) => {
             const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
@@ -391,13 +349,13 @@ export default function DesignersPage() {
                     <p className="text-xs text-gray-600 mb-2">
                       {designer.years.length > 0
                         ? `${Math.min(...designer.years)}-${Math.max(...designer.years)}`
-                        : "Period unknown"}
+                        : "Période inconnue"}
                     </p>
-                    <p className="text-xs text-gray-500 mb-3">{designer.count} Luminaires & Furniture Pieces</p>
+                    <p className="text-xs text-gray-500 mb-3">{designer.count} luminaires</p>
 
                     {isAccessible ? (
                       <button className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
-                        <span>View Profile</span>
+                        <span>Voir le profil</span>
                         <span>→</span>
                       </button>
                     ) : (

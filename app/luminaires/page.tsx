@@ -485,6 +485,28 @@ export default function LuminairesPage() {
           </div>
 
           <div className="relative px-2">
+            <style jsx>{`
+              input[type="range"]::-webkit-slider-thumb {
+                appearance: none;
+                width: 20px;
+                height: 20px;
+                background: #8b7355;
+                cursor: pointer;
+                border-radius: 50%;
+                border: 2px solid white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+              }
+              input[type="range"]::-moz-range-thumb {
+                width: 20px;
+                height: 20px;
+                background: #8b7355;
+                cursor: pointer;
+                border-radius: 50%;
+                border: 2px solid white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+              }
+            `}</style>
+
             <input
               type="range"
               min={yearBounds.min}
@@ -496,7 +518,7 @@ export default function LuminairesPage() {
                   handleYearRangeChange([newMin, yearRange[1]])
                 }
               }}
-              className="absolute w-full h-2 bg-transparent appearance-none pointer-events-none"
+              className="absolute w-full h-2 bg-transparent appearance-none pointer-events-auto"
               style={{
                 zIndex: yearRange[0] > yearBounds.min + (yearBounds.max - yearBounds.min) / 2 ? 5 : 3,
               }}
@@ -512,12 +534,12 @@ export default function LuminairesPage() {
                   handleYearRangeChange([yearRange[0], newMax])
                 }
               }}
-              className="absolute w-full h-2 bg-transparent appearance-none pointer-events-none"
+              className="absolute w-full h-2 bg-transparent appearance-none pointer-events-auto"
               style={{ zIndex: 4 }}
             />
             <div className="relative h-2 bg-gray-200 rounded-full">
               <div
-                className="absolute h-full bg-[#f2d895] rounded-full"
+                className="absolute h-full bg-[#8b7355] rounded-full"
                 style={{
                   left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
                   right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
@@ -589,13 +611,13 @@ export default function LuminairesPage() {
                       isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                     }`}
                   >
-                    <div className="aspect-square relative bg-gray-50">
+                    <div className="aspect-square relative bg-gray-50 rounded-2xl overflow-hidden">
                       {luminaire.filename || luminaire["Nom du fichier"] ? (
                         <Image
                           src={`/api/images/filename/${luminaire.filename || luminaire["Nom du fichier"]}`}
                           alt={String(luminaire["Nom luminaire"] || luminaire.nom || "Luminaire")}
                           fill
-                          className="object-contain p-4"
+                          className="object-cover rounded-2xl"
                           unoptimized
                           onError={(e) => {
                             e.currentTarget.src = "/placeholder.svg"
@@ -657,13 +679,13 @@ export default function LuminairesPage() {
                       isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                     }`}
                   >
-                    <div className="w-32 h-32 relative bg-gray-50 flex-shrink-0">
+                    <div className="w-32 h-32 relative bg-gray-50 flex-shrink-0 rounded-2xl overflow-hidden">
                       {luminaire.filename || luminaire["Nom du fichier"] ? (
                         <Image
                           src={`/api/images/filename/${luminaire.filename || luminaire["Nom du fichier"]}`}
                           alt={String(luminaire["Nom luminaire"] || luminaire.nom || "Luminaire")}
                           fill
-                          className="object-contain p-4"
+                          className="object-cover"
                           unoptimized
                           onError={(e) => {
                             e.currentTarget.src = "/placeholder.svg"

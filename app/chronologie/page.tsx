@@ -254,7 +254,7 @@ export default function ChronologiePage() {
               >
                 <div className="md:flex">
                   {/* Image de la période */}
-                  <div className="md:w-2/5 aspect-[4/3] md:aspect-auto relative bg-gray-100">
+                  <div className="md:w-2/5 aspect-[4/3] md:aspect-auto relative bg-gray-100 rounded-l-2xl overflow-hidden">
                     {period.imageUrl ? (
                       <Image
                         src={period.imageUrl || "/placeholder.svg"}
@@ -278,7 +278,7 @@ export default function ChronologiePage() {
                   <div className="md:w-3/5 p-6">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-sm text-gray-600">
-                        📅 {period.start} - {period.end}
+                        {period.start} - {period.end}
                       </span>
                       <span className="text-sm font-medium text-gray-900">{period.luminaires.length} luminaires</span>
                     </div>
@@ -293,7 +293,6 @@ export default function ChronologiePage() {
                       className="text-sm text-gray-700 leading-relaxed mb-4"
                     />
 
-                    {/* Miniatures des luminaires de la période */}
                     {period.luminaires.length > 0 && (
                       <div className="flex gap-2 mb-4">
                         {period.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
@@ -307,7 +306,7 @@ export default function ChronologiePage() {
                                 src={luminaire.image || "/placeholder.svg"}
                                 alt={luminaire.name}
                                 fill
-                                className="object-contain p-2 rounded-lg"
+                                className="object-cover rounded-lg"
                                 unoptimized
                               />
                             )}

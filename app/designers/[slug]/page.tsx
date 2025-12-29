@@ -374,10 +374,10 @@ export default function DesignerDetailPage() {
               </div>
             )}
 
-            {/* Philosophy section */}
+            {/* Collaboration / Œuvres / Éditeur section */}
             {collaboration && (
               <div className="pt-6 border-t border-gray-100">
-                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Philosophie</h3>
+                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Collaboration / Œuvres / Éditeur</h3>
                 <EditableField
                   value={collaboration}
                   onSave={updateDesignerCollaboration}
@@ -389,10 +389,10 @@ export default function DesignerDetailPage() {
             )}
           </div>
 
-          {/* Iconic Pieces section */}
+          {/* Luminaires section */}
           <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-serif font-medium text-gray-900">Pièces Iconiques</h2>
+              <h2 className="text-xl font-serif font-medium text-gray-900">Luminaires</h2>
               <button className="text-sm text-gray-600 hover:text-gray-900">Voir tout ({designer.count})</button>
             </div>
 
