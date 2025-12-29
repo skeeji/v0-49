@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -340,10 +342,23 @@ export default function LuminairesPage() {
     fetchYearBounds()
   }, [])
 
-  const handleYearRangeChange = (newRange: number[]) => {
-    console.log("[v0] Year range changed:", newRange)
-    setYearRange(newRange)
+  const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newMin = Number(e.target.value)
+    if (newMin <= yearRange[1]) {
+      setYearRange([newMin, yearRange[1]])
+    }
+  }
+
+  const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newMax = Number(e.target.value)
+    if (newMax >= yearRange[0]) {
+      setYearRange([yearRange[0], newMax])
+    }
+  }
+
+  const handleSliderRelease = () => {
     setSliderModified(true)
+    setCurrentPage(1)
   }
 
   useEffect(() => {
@@ -504,157 +519,138 @@ export default function LuminairesPage() {
 
         {/* Slider section */}
         <div className="rounded-xl p-6 mb-6 bg-transparent">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-medium text-gray-900">Période chronologique</h3>
-            <div className="text-sm text-gray-900 font-medium">
-              {yearRange[0]} - {yearRange[1]}
-            </div>
-          </div>
-
-          <div className="relative px-2 py-4">
-            <style jsx>{`
-              .dual-range-slider {
-                position: relative;
-                height: 40px;
-                width: 100%;
-              }
-              
-              .slider-track {
-                position: absolute;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 100%;
-                height: 4px;
-                background: #e5e7eb;
-                border-radius: 9999px;
-              }
-              
-              .slider-range {
-                position: absolute;
-                top: 50%;
-                transform: translateY(-50%);
-                height: 4px;
-                background: #8b7355;
-                border-radius: 9999px;
-              }
-              
-              .slider-input {
-                position: absolute;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                pointer-events: none;
-                -webkit-appearance: none;
-                appearance: none;
-                background: transparent;
-                outline: none;
-              }
-              
-              .slider-input::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 24px;
-                height: 24px;
-                background: #8b7355;
-                cursor: pointer;
-                border-radius: 50%;
-                border: 3px solid white;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-                pointer-events: all;
-                position: relative;
-                z-index: 4;
-              }
-              
-              .slider-input::-moz-range-thumb {
-                width: 24px;
-                height: 24px;
-                background: #8b7355;
-                cursor: pointer;
-                border-radius: 50%;
-                border: 3px solid white;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-                pointer-events: all;
-              }
-              
-              .slider-input:active::-webkit-slider-thumb {
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-                transform: scale(1.1);
-              }
-              
-              .slider-input.min-slider {
-                z-index: 3;
-              }
-              
-              .slider-input.max-slider {
-                z-index: 4;
-              }
-            `}</style>
-
-            <div className="dual-range-slider">
-              <div className="slider-track" />
-              <div
-                className="slider-range"
-                style={{
-                  left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
-                  right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
-                }}
-              />
-
-              <input
-                type="range"
-                className="slider-input min-slider"
-                min={yearBounds.min}
-                max={yearBounds.max}
-                value={yearRange[0]}
-                onChange={(e) => {
-                  const newMin = Number(e.target.value)
-                  if (newMin <= yearRange[1]) {
-                    setYearRange([newMin, yearRange[1]])
-                  }
-                }}
-                onMouseUp={() => setSliderModified(true)}
-                onTouchEnd={() => setSliderModified(true)}
-              />
-
-              <input
-                type="range"
-                className="slider-input max-slider"
-                min={yearBounds.min}
-                max={yearBounds.max}
-                value={yearRange[1]}
-                onChange={(e) => {
-                  const newMax = Number(e.target.value)
-                  if (newMax >= yearRange[0]) {
-                    setYearRange([yearRange[0], newMax])
-                  }
-                }}
-                onMouseUp={() => setSliderModified(true)}
-                onTouchEnd={() => setSliderModified(true)}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between mt-2 text-sm text-gray-600">
-            <span>{yearBounds.min}</span>
-            <span>{yearBounds.max}</span>
-          </div>
-
-          {sliderModified && (
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm text-gray-900">
-                Filtre actif: {yearRange[0]} - {yearRange[1]}
-              </span>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">Période chronologique</h2>
+            {sliderModified && (
               <button
                 onClick={() => {
                   setYearRange([yearBounds.min, yearBounds.max])
                   setSliderModified(false)
+                  setCurrentPage(1)
                 }}
-                className="text-sm text-gray-900 hover:underline"
+                className="text-sm text-[#8b7355] hover:underline"
               >
-                Réinitialiser
+                -
               </button>
-            </div>
-          )}
+            )}
+          </div>
+
+          <style jsx>{`
+            .dual-range-slider {
+              position: relative;
+              width: 100%;
+              height: 40px;
+            }
+
+            .slider-track {
+              position: absolute;
+              top: 50%;
+              transform: translateY(-50%);
+              width: 100%;
+              height: 4px;
+              background: #e5e7eb;
+              border-radius: 2px;
+            }
+
+            .slider-range {
+              position: absolute;
+              top: 50%;
+              transform: translateY(-50%);
+              height: 4px;
+              background: #8b7355;
+              border-radius: 2px;
+              pointer-events: none;
+            }
+
+            .slider-input {
+              position: absolute;
+              top: 50%;
+              transform: translateY(-50%);
+              width: 100%;
+              height: 4px;
+              -webkit-appearance: none;
+              appearance: none;
+              background: transparent;
+              pointer-events: none;
+              margin: 0;
+            }
+
+            .slider-input::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 20px;
+              height: 20px;
+              border-radius: 50%;
+              background: #8b7355;
+              cursor: pointer;
+              pointer-events: auto;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+              position: relative;
+              z-index: 3;
+            }
+
+            .slider-input::-moz-range-thumb {
+              width: 20px;
+              height: 20px;
+              border-radius: 50%;
+              background: #8b7355;
+              cursor: pointer;
+              pointer-events: auto;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+              border: none;
+              position: relative;
+              z-index: 3;
+            }
+
+            .slider-input::-webkit-slider-thumb:hover {
+              background: #75614a;
+            }
+
+            .slider-input::-moz-range-thumb:hover {
+              background: #75614a;
+            }
+
+            .min-slider {
+              z-index: 2;
+            }
+
+            .max-slider {
+              z-index: 4;
+            }
+          `}</style>
+
+          <div className="dual-range-slider">
+            <div className="slider-track" />
+            <div
+              className="slider-range"
+              style={{
+                left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+                right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+              }}
+            />
+
+            <input
+              type="range"
+              className="slider-input min-slider"
+              min={yearBounds.min}
+              max={yearBounds.max}
+              value={yearRange[0]}
+              onChange={handleMinChange}
+              onMouseUp={handleSliderRelease}
+              onTouchEnd={handleSliderRelease}
+            />
+
+            <input
+              type="range"
+              className="slider-input max-slider"
+              min={yearBounds.min}
+              max={yearBounds.max}
+              value={yearRange[1]}
+              onChange={handleMaxChange}
+              onMouseUp={handleSliderRelease}
+              onTouchEnd={handleSliderRelease}
+            />
+          </div>
         </div>
 
         {isAdmin && (

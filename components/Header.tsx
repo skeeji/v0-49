@@ -28,7 +28,6 @@ export function Header() {
               setLogoUrl(`/api/images/${data.logo._id}`)
             }
           } else {
-            // L'API retourne directement l'image
             setLogoUrl("/api/logo")
           }
         }
@@ -42,7 +41,7 @@ export function Header() {
   }, [])
 
   const navItems = [
-    { href: "/recherche", label: "Recherche" }, // Ajout du lien Recherche dans la navigation
+    { href: "/recherche", label: "Recherche" },
     { href: "/luminaires", label: "Luminaires" },
     { href: "/designers", label: "Designers" },
     { href: "/chronologie", label: "Chronologie" },
@@ -57,40 +56,45 @@ export function Header() {
     return pathname === href || pathname.startsWith(href + "/")
   }
 
+  const leftNavItems = navItems.slice(0, 3) // Recherche, Luminaires, Designers
+  const rightNavItems = navItems.slice(3) // Chronologie, Tarifs, Import (if admin)
+
   return (
     <>
       <header
-        className="bg-[#F8F8F8] shadow-sm border-b border-gray-200 sticky top-0 z-40 h-20"
+        className="bg-[#F8F8F8] shadow-sm border-b border-gray-200 sticky top-0 z-40"
         style={{
           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
         }}
       >
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex items-center justify-between h-full md:grid md:grid-cols-[1fr_auto_1fr] md:gap-8">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] md:gap-12">
             {/* Navigation gauche - desktop only */}
-            <nav className="hidden md:flex items-center justify-start space-x-6">
-              {navItems.slice(0, Math.ceil(navItems.length / 2)).map((item) => (
+            <nav className="hidden md:flex items-center justify-end space-x-8">
+              {leftNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block no-underline ${
-                    isActivePage(item.href) ? "text-[#8b7355]" : ""
+                  className={`hover:text-[#8b7355] font-normal transition-colors no-underline ${
+                    isActivePage(item.href) ? "text-[#8b7355]" : "text-[#666666]"
                   }`}
-                  style={{ fontSize: "16px", textDecoration: "none" }}
+                  style={{ fontSize: "18px", textDecoration: "none" }}
                 >
                   {item.label}
                 </Link>
               ))}
             </nav>
 
-            {/* Logo centré - larger on mobile */}
-            <Link href="/" className="flex items-center justify-center">
-              <div className="w-40 h-16 md:w-32 md:h-32 relative">
+            {/* Logo centré - larger and more visible */}
+            <Link href="/" className="flex items-center justify-center no-underline">
+              <div className="w-48 h-20 md:w-56 md:h-24 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
                   alt="Logo"
                   fill
                   className="object-contain"
+                  priority
+                  unoptimized
                   onError={(e) => {
                     e.currentTarget.src = "/placeholder-logo.svg"
                   }}
@@ -99,15 +103,15 @@ export function Header() {
             </Link>
 
             {/* Navigation droite et actions - desktop */}
-            <div className="hidden md:flex items-center justify-end space-x-6">
-              {navItems.slice(Math.ceil(navItems.length / 2)).map((item) => (
+            <div className="hidden md:flex items-center justify-start space-x-8">
+              {rightNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block no-underline ${
-                    isActivePage(item.href) ? "text-[#8b7355]" : ""
+                  className={`hover:text-[#8b7355] font-normal transition-colors no-underline ${
+                    isActivePage(item.href) ? "text-[#8b7355]" : "text-[#666666]"
                   }`}
-                  style={{ fontSize: "16px", textDecoration: "none" }}
+                  style={{ fontSize: "18px", textDecoration: "none" }}
                 >
                   {item.label}
                 </Link>
@@ -121,7 +125,8 @@ export function Header() {
                   className="text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#8b7355] no-underline"
                   style={{
                     backgroundColor: "#8b7355",
-                    fontSize: "16px",
+                    fontSize: "18px",
+                    textDecoration: "none",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#75614a")}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
@@ -149,7 +154,6 @@ export function Header() {
         </div>
       </header>
 
-      {/* Drawer mobile */}
       <DrawerNav isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} navItems={navItems} />
     </>
   )
