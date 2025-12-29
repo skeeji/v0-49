@@ -19,7 +19,7 @@ export default function LuminairesPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [columns, setColumns] = useState(2) // Default columns
+  const [columns, setColumns] = useState(6) // Default columns
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -231,12 +231,12 @@ export default function LuminairesPage() {
     const handleResize = () => {
       if (window.innerWidth < 768) {
         setColumns(2)
-      } else if (columns === 2 && window.innerWidth >= 768) {
+      } else if (window.innerWidth >= 768 && columns === 2) {
         setColumns(6)
       }
     }
 
-    handleResize() // Set initial value
+    handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
   }, [columns])
@@ -344,10 +344,14 @@ export default function LuminairesPage() {
     console.log("[v0] Year range changed:", newRange)
     setYearRange(newRange)
     setSliderModified(true)
-    setCurrentPage(1)
-    // Reload luminaires with new filter
-    loadLuminaires(1, false)
   }
+
+  useEffect(() => {
+    if (sliderModified) {
+      setCurrentPage(1)
+      loadLuminaires(1, false)
+    }
+  }, [sliderModified, yearRange])
 
   const freeUserLimit = useMemo(() => {
     if (!user || userData?.role === "free") {
@@ -427,7 +431,7 @@ export default function LuminairesPage() {
               <select
                 value={columns}
                 onChange={(e) => setColumns(Number(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
               >
                 <option value={2}>2 colonnes</option>
                 <option value={3}>3 colonnes</option>
@@ -586,10 +590,12 @@ export default function LuminairesPage() {
                 onChange={(e) => {
                   const newMin = Number.parseInt(e.target.value)
                   if (newMin <= yearRange[1]) {
-                    handleYearRangeChange([newMin, yearRange[1]])
+                    setYearRange([newMin, yearRange[1]])
                   }
                 }}
-                style={{ zIndex: yearRange[0] > yearBounds.min + (yearBounds.max - yearBounds.min) * 0.5 ? 5 : 3 }}
+                onMouseUp={() => setSliderModified(true)}
+                onTouchEnd={() => setSliderModified(true)}
+                style={{ zIndex: 5 }}
               />
 
               {/* Max slider */}
@@ -601,10 +607,12 @@ export default function LuminairesPage() {
                 onChange={(e) => {
                   const newMax = Number.parseInt(e.target.value)
                   if (newMax >= yearRange[0]) {
-                    handleYearRangeChange([yearRange[0], newMax])
+                    setYearRange([yearRange[0], newMax])
                   }
                 }}
-                style={{ zIndex: yearRange[1] < yearBounds.min + (yearBounds.max - yearBounds.min) * 0.5 ? 5 : 3 }}
+                onMouseUp={() => setSliderModified(true)}
+                onTouchEnd={() => setSliderModified(true)}
+                style={{ zIndex: 3 }}
               />
             </div>
           </div>
@@ -623,8 +631,6 @@ export default function LuminairesPage() {
                 onClick={() => {
                   setYearRange([yearBounds.min, yearBounds.max])
                   setSliderModified(false)
-                  setCurrentPage(1)
-                  loadLuminaires(1, false)
                 }}
                 className="text-sm text-gray-900 hover:underline"
               >
@@ -658,30 +664,31 @@ export default function LuminairesPage() {
         >
           {displayedLuminaires.map((luminaire) => (
             <Link key={luminaire._id} href={`/luminaires/${luminaire._id}`}>
-              <div className="bg-transparent rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                <div className="aspect-square relative bg-transparent overflow-hidden rounded-xl">
+              <div className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
+                <div className="aspect-square relative bg-gray-100 overflow-hidden">
                   {luminaire.filename ? (
                     <Image
                       src={`/api/images/filename/${luminaire.filename}`}
                       alt={luminaire["Nom luminaire"] || "Luminaire"}
                       fill
-                      className="object-cover rounded-xl"
+                      className="object-cover"
                       sizes={columns === 6 ? "16vw" : columns === 4 ? "25vw" : columns === 3 ? "33vw" : "50vw"}
                       unoptimized
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 rounded-xl">
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
                       <div className="text-4xl">🏮</div>
                     </div>
                   )}
                 </div>
-                <div className="p-3 text-center">
-                  <h3 className="font-serif text-sm font-medium text-gray-900 mb-1">
+                <div className="p-3">
+                  <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
                     {luminaire["Nom luminaire"] || "Sans nom"}
                   </h3>
                   <p className="text-xs text-gray-600">
                     {luminaire["Artiste / Dates"]?.split(",")[0] || "Artiste inconnu"}
                   </p>
+                  <p className="text-xs text-gray-500 mt-1">{luminaire.annee || luminaire["Année"] || ""}</p>
                 </div>
               </div>
             </Link>

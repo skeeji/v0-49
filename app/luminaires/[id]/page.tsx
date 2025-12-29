@@ -575,10 +575,6 @@ export default function LuminaireDetailPage() {
                     placeholder="Nom du luminaire"
                     disabled={!canEdit}
                   />
-                  <div className="text-sm text-gray-600">
-                    {luminaire.artist || ""}
-                    {luminaire.year ? `, ${luminaire.year}` : ""}
-                  </div>
                 </div>
 
                 {canSeeEstimation && luminaire.estimation && (
@@ -625,13 +621,8 @@ export default function LuminaireDetailPage() {
                     )}
                   </div>
                   <div>
-                    <EditableField
-                      value={luminaire.artist}
-                      onSave={(value) => handleUpdate("artist", value)}
-                      canEdit={canEdit}
-                      className="font-semibold text-gray-900"
-                      style={{ whiteSpace: "pre-wrap" }}
-                    />
+                    <div className="font-semibold text-gray-900">{luminaire.artist}</div>
+                    <p className="text-sm text-gray-600">Designer</p>
                   </div>
                 </Link>
                 <ArrowRight className="w-5 h-5 text-gray-400" />
@@ -780,30 +771,27 @@ export default function LuminaireDetailPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {similarLuminaires.slice(0, 4).map((similar) => (
                   <Link key={similar._id} href={`/luminaires/${similar._id}`} className="block">
-                    <div className="bg-transparent rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="aspect-square relative bg-transparent overflow-hidden rounded-xl">
+                    <div className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
+                      <div className="aspect-square relative bg-gray-100 overflow-hidden">
                         {similar.filename ? (
                           <Image
                             src={`/api/images/filename/${similar.filename}`}
                             alt={similar["Nom luminaire"] || "Luminaire"}
                             fill
-                            className="object-cover rounded-xl"
+                            className="object-cover"
                             unoptimized
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 rounded-xl">
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
                             <div className="text-4xl">🏮</div>
                           </div>
                         )}
                       </div>
-                      <div className="p-3 text-center">
-                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1">
+                      <div className="p-3">
+                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
                           {similar["Nom luminaire"] || "Sans nom"}
                         </h3>
-                        <p className="text-xs text-gray-600">
-                          {similar.editeur || "Artisan"}
-                          {similar.year && `, ${similar.year}`}
-                        </p>
+                        <p className="text-xs text-gray-600">{similar.year || "Année inconnue"}</p>
                       </div>
                     </div>
                   </Link>

@@ -66,12 +66,25 @@ export function Header() {
         }}
       >
         <div className="container mx-auto px-4 h-full">
-          <div className="flex items-center justify-center md:justify-between h-full relative">
-            {/* Logo - Centré absolument sur mobile, à gauche sur desktop */}
-            <Link
-              href="/"
-              className="flex items-center absolute md:relative left-1/2 md:left-0 transform -translate-x-1/2 md:translate-x-0"
-            >
+          <div className="flex items-center justify-between h-full md:grid md:grid-cols-3 md:gap-4">
+            {/* Navigation gauche - desktop only */}
+            <nav className="hidden md:flex items-center space-x-6">
+              {navItems.slice(0, Math.ceil(navItems.length / 2)).map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block ${
+                    isActivePage(item.href) ? "text-[#8b7355]" : ""
+                  }`}
+                  style={{ fontSize: "16px" }}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Logo centré */}
+            <Link href="/" className="flex items-center justify-center">
               <div className="w-32 h-32 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
@@ -85,26 +98,21 @@ export function Header() {
               </div>
             </Link>
 
-            {/* Navigation desktop */}
-            <nav className="hidden md:flex items-center space-x-12">
-              {navItems.map((item) => (
-                <div key={item.href} className="relative">
-                  <Link
-                    href={item.href}
-                    className="text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block"
-                    style={{ fontSize: "16px" }}
-                  >
-                    {item.label}
-                  </Link>
-                  {isActivePage(item.href) && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8b7355]"></div>
-                  )}
-                </div>
+            {/* Navigation droite et actions - desktop */}
+            <div className="hidden md:flex items-center justify-end space-x-6">
+              {navItems.slice(Math.ceil(navItems.length / 2)).map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block ${
+                    isActivePage(item.href) ? "text-[#8b7355]" : ""
+                  }`}
+                  style={{ fontSize: "16px" }}
+                >
+                  {item.label}
+                </Link>
               ))}
-            </nav>
 
-            {/* Actions utilisateur */}
-            <div className="flex items-center space-x-4 ml-auto md:ml-0">
               {user ? (
                 <UserMenu />
               ) : (
@@ -121,12 +129,16 @@ export function Header() {
                   Connexion
                 </Button>
               )}
+            </div>
 
-              {/* Menu mobile */}
+            {/* Actions mobile - à droite */}
+            <div className="flex items-center space-x-4 ml-auto md:hidden">
+              {user && <UserMenu />}
+
               <Button
                 variant="ghost"
                 size="sm"
-                className="md:hidden text-[#666666]"
+                className="text-[#666666]"
                 onClick={() => setIsDrawerOpen(true)}
                 aria-label="Ouvrir le menu"
               >
