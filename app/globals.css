@@ -24,6 +24,8 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    --cream: 38 45% 95%;
   }
 
   .dark {
@@ -71,16 +73,22 @@
   @apply text-gray-900;
 }
 
-.text-orange {
-  @apply text-orange-500;
-}
-
-.bg-orange {
-  @apply bg-orange-500;
-}
-
 .bg-cream {
-  @apply bg-orange-50;
+  background-color: hsl(var(--cream));
+}
+
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50;
+  @apply flex items-center justify-around py-3 px-4;
+}
+
+.bottom-nav-item {
+  @apply flex flex-col items-center gap-1 text-xs text-gray-600;
+  @apply hover:text-gray-900 transition-colors;
+}
+
+.bottom-nav-item.active {
+  @apply text-gray-900 font-medium;
 }
 
 .bg-gold {

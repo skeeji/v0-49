@@ -11,26 +11,26 @@ Ce guide vous explique comment démarrer l'application avec Docker.
 
 ### Mode Production
 
-```bash
+\`\`\`bash
 # Rendre les scripts exécutables
 chmod +x scripts/*.sh
 
 # Démarrer l'application
 ./scripts/start.sh
-```
+\`\`\`
 
 ### Mode Développement
 
-```bash
+\`\`\`bash
 # Démarrer en mode développement (avec hot reload)
 ./scripts/start-dev.sh
-```
+\`\`\`
 
 ### Arrêter l'application
 
-```bash
+\`\`\`bash
 ./scripts/stop.sh
-```
+\`\`\`
 
 ## 🌐 URLs d'accès
 
@@ -61,7 +61,7 @@ chmod +x scripts/*.sh
 
 ## 🔧 Commandes utiles
 
-```bash
+\`\`\`bash
 # Voir les logs
 docker-compose logs -f
 
@@ -76,7 +76,7 @@ docker-compose build --no-cache
 
 # Nettoyer les volumes (⚠️ supprime les données)
 docker-compose down -v
-```
+\`\`\`
 
 ## 🐛 Dépannage
 
@@ -88,15 +88,15 @@ docker-compose down -v
 
 ### Problèmes de permissions
 
-```bash
+\`\`\`bash
 # Donner les bonnes permissions au dossier uploads
 sudo chown -R $USER:$USER uploads
 chmod 755 uploads
-```
+\`\`\`
 
 ### Réinitialiser la base de données
 
-```bash
+\`\`\`bash
 # Arrêter les services
 docker-compose down
 
@@ -105,7 +105,7 @@ docker volume rm luminaires-gallery_mongodb_data
 
 # Redémarrer
 ./scripts/start.sh
-```
+\`\`\`
 
 ## 🔒 Sécurité
 
@@ -121,7 +121,7 @@ Pour la production, pensez à :
 
 Les logs sont disponibles via :
 
-```bash
+\`\`\`bash
 # Tous les services
 docker-compose logs -f
 
@@ -130,7 +130,7 @@ docker-compose logs -f app
 
 # MongoDB seulement
 docker-compose logs -f mongodb
-```
+\`\`\`
 README.md : 
 
 # Next js web app
