@@ -268,7 +268,7 @@ export default function DesignersPage() {
       </div>
 
       <div className="px-4 py-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {displayedDesigners.map((designer, index) => {
             const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
             const DesignerCard = isAccessible ? Link : "div"
@@ -280,7 +280,7 @@ export default function DesignersPage() {
                 className="block"
               >
                 <div
-                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow ${
+                  className={`bg-[#f5f1e8] rounded-xl border border-gray-200 overflow-hidden transition-shadow ${
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                   }`}
                 >

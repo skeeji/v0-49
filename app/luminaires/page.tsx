@@ -388,7 +388,7 @@ export default function LuminairesPage() {
       </div>
 
       <div className="px-4 py-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {displayedLuminaires.map((luminaire, index) => {
             const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
             const luminaireId = String(luminaire._id || luminaire.id || "")
@@ -408,8 +408,8 @@ export default function LuminairesPage() {
                   }`}
                 >
                   <div className="p-4">
-                    <div className="bg-[#f5f1e8] rounded-2xl aspect-square mb-3 p-8 flex items-center justify-center shadow-sm">
-                      <div className="relative w-full h-full">
+                    <div className="aspect-square mb-3 flex items-center justify-center">
+                      <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-md">
                         <Image
                           src={
                             luminaire.imageId
@@ -423,7 +423,7 @@ export default function LuminairesPage() {
                           alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
                           fill
                           unoptimized
-                          className="object-contain drop-shadow-md"
+                          className="object-contain"
                           onError={(e) => {
                             e.currentTarget.src = "/placeholder.svg"
                           }}
