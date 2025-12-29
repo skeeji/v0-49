@@ -354,7 +354,7 @@ export default function DesignersPage() {
                     <p className="text-xs text-gray-500 mb-3">{designer.count} luminaires</p>
 
                     {isAccessible ? (
-                      <button className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                      <button className="w-full flex items-center justify-between px-3 py-2 bg-[#f5f1e8] border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
                         <span>Voir le profil</span>
                         <span>→</span>
                       </button>

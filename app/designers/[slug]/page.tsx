@@ -357,7 +357,7 @@ export default function DesignerDetailPage() {
                 <p className="text-sm text-gray-600 mb-2">
                   {description?.match(/\d{4}/g)?.join("-") || "Période inconnue"}
                 </p>
-                <p className="text-xs text-gray-500">{designer.count} Luminaires & Pièces de Décoration</p>
+                <p className="text-xs text-gray-500">{designer.count} Luminaires</p>
               </div>
             </div>
 
@@ -404,13 +404,13 @@ export default function DesignerDetailPage() {
                 {designerLuminaires.slice(0, 4).map((luminaire) => (
                   <Link key={luminaire.id} href={`/luminaires/${luminaire.id}`} className="block">
                     <div className="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="aspect-square relative">
+                      <div className="aspect-square relative bg-transparent">
                         {luminaire.image ? (
                           <Image
                             src={luminaire.image || "/placeholder.svg"}
                             alt={luminaire.name}
                             fill
-                            className="object-contain p-4"
+                            className="object-contain rounded-xl p-2"
                             unoptimized
                           />
                         ) : (

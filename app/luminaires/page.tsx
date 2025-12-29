@@ -18,7 +18,7 @@ export default function LuminairesPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [columns, setColumns] = useState(6)
+  const [columns, setColumns] = useState(2) // Version mobile 2 colonnes par défaut
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -588,16 +588,23 @@ export default function LuminairesPage() {
         )}
 
         {/* Grid or List view */}
-        {viewMode === "grid" ? (
+        {viewMode === "grid" && (
           <div
-            className="grid gap-4"
-            style={{
-              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-            }}
+            className={`grid gap-4 ${
+              columns === 2
+                ? "grid-cols-2"
+                : columns === 3
+                  ? "grid-cols-2 md:grid-cols-3"
+                  : columns === 4
+                    ? "grid-cols-2 md:grid-cols-4"
+                    : columns === 5
+                      ? "grid-cols-2 md:grid-cols-5"
+                      : "grid-cols-2 md:grid-cols-6"
+            }`}
           >
-            {displayedLuminaires.map((luminaire, index) => {
+            {displayedLuminaires.map((item, index) => {
               const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
-              const luminaireId = String(luminaire._id || luminaire.id || "")
+              const luminaireId = String(item._id || item.id || "")
               const isFavorite = favorites.includes(luminaireId)
 
               const LuminaireCard = isAccessible ? Link : "div"
@@ -614,15 +621,15 @@ export default function LuminairesPage() {
                     }`}
                   >
                     <div className="aspect-square relative bg-transparent p-4">
-                      {luminaire.filename || luminaire["Nom du fichier"] ? (
+                      {item.filename || item["Nom du fichier"] ? (
                         <Image
-                          src={`/api/images/filename/${luminaire.filename || luminaire["Nom du fichier"]}`}
-                          alt={String(luminaire["Nom luminaire"] || luminaire.nom || "Luminaire")}
+                          src={`/api/images/filename/${item.filename || item["Nom du fichier"]}`}
+                          alt={String(item["Nom luminaire"] || item.nom || "Luminaire")}
                           fill
-                          className="object-contain rounded-2xl"
+                          className="object-cover rounded-2xl"
                           unoptimized
                           onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg"
+                            e.currentTarget.src = "/placeholder.svg?height=200&width=200"
                           }}
                         />
                       ) : (
@@ -647,25 +654,25 @@ export default function LuminairesPage() {
 
                     <div className="p-4">
                       <h3 className="font-serif text-base font-medium text-gray-900 mb-1 line-clamp-1">
-                        {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
+                        {item["Nom luminaire"] || item.nom || "Sans nom"}
                       </h3>
                       <p className="text-sm text-gray-600 mb-1">
-                        {luminaire["Artiste / Dates"] || luminaire.designer || "Artiste inconnu"}
+                        {item["Artiste / Dates"] || item.designer || "Artiste inconnu"}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {luminaire.annee || luminaire["Année"] || "Année inconnue"}
-                      </p>
+                      <p className="text-xs text-gray-600">{item.annee || item["Année"] || "Année inconnue"}</p>
                     </div>
                   </div>
                 </LuminaireCard>
               )
             })}
           </div>
-        ) : (
+        )}
+
+        {viewMode === "list" && (
           <div className="space-y-4">
-            {displayedLuminaires.map((luminaire, index) => {
+            {displayedLuminaires.map((item, index) => {
               const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
-              const luminaireId = String(luminaire._id || luminaire.id || "")
+              const luminaireId = String(item._id || item.id || "")
               const isFavorite = favorites.includes(luminaireId)
 
               const LuminaireCard = isAccessible ? Link : "div"
@@ -682,15 +689,15 @@ export default function LuminairesPage() {
                     }`}
                   >
                     <div className="w-32 h-32 relative bg-gray-50 flex-shrink-0 rounded-2xl overflow-hidden">
-                      {luminaire.filename || luminaire["Nom du fichier"] ? (
+                      {item.filename || item["Nom du fichier"] ? (
                         <Image
-                          src={`/api/images/filename/${luminaire.filename || luminaire["Nom du fichier"]}`}
-                          alt={String(luminaire["Nom luminaire"] || luminaire.nom || "Luminaire")}
+                          src={`/api/images/filename/${item.filename || item["Nom du fichier"]}`}
+                          alt={String(item["Nom luminaire"] || item.nom || "Luminaire")}
                           fill
                           className="object-cover"
                           unoptimized
                           onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg"
+                            e.currentTarget.src = "/placeholder.svg?height=200&width=200"
                           }}
                         />
                       ) : (
@@ -703,14 +710,12 @@ export default function LuminairesPage() {
                     <div className="p-4 flex-1 flex items-center justify-between">
                       <div>
                         <h3 className="font-serif text-lg font-medium text-gray-900 mb-1">
-                          {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
+                          {item["Nom luminaire"] || item.nom || "Sans nom"}
                         </h3>
                         <p className="text-sm text-gray-600 mb-1">
-                          {luminaire["Artiste / Dates"] || luminaire.designer || "Artiste inconnu"}
+                          {item["Artiste / Dates"] || item.designer || "Artiste inconnu"}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {luminaire.annee || luminaire["Année"] || "Année inconnue"}
-                        </p>
+                        <p className="text-xs text-gray-600">{item.annee || item["Année"] || "Année inconnue"}</p>
                       </div>
 
                       {isAccessible && (

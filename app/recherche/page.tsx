@@ -406,7 +406,7 @@ export default function RecherchePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <Card className="max-w-md mx-4 p-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-              <ImageIcon className="w-8 h-8" style={{ color: "#f2d895" }} />
+              <ImageIcon className="w-8 h-8" style={{ color: "#8b7355" }} />
             </div>
             <h2 className="text-2xl font-serif text-slate-800 mb-3">Fonctionnalité Premium</h2>
             <p className="text-slate-600 mb-6">
@@ -414,7 +414,7 @@ export default function RecherchePage() {
               fonctionnalités.
             </p>
             <Link href="/pricing">
-              <Button className="w-full text-white" style={{ backgroundColor: "#f2d895" }}>
+              <Button className="w-full text-white" style={{ backgroundColor: "#8b7355" }}>
                 Voir les tarifs
               </Button>
             </Link>
@@ -431,8 +431,8 @@ export default function RecherchePage() {
           <div className="p-2 md:p-4 border-b border-slate-200">
             <Button
               onClick={createNewConversation}
-              className="w-full text-sm md:text-base"
-              style={{ backgroundColor: "#f2d895" }}
+              className="w-full text-sm md:text-base text-white"
+              style={{ backgroundColor: "#8b7355" }}
             >
               <Plus className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
               Nouvelle conversation
@@ -491,7 +491,7 @@ export default function RecherchePage() {
         <div className="flex-1 flex flex-col min-h-0">
           <div className="p-3 md:p-6 bg-white border-b border-slate-200">
             <div className="max-w-4xl mx-auto">
-              <h1 className="text-xl md:text-3xl font-serif text-slate-800 mb-1 md:mb-2" style={{ color: "#f2d895" }}>
+              <h1 className="text-xl md:text-3xl font-serif text-slate-800 mb-1 md:mb-2" style={{ color: "#8b7355" }}>
                 Recherche de Luminaires
               </h1>
               <p className="text-xs md:text-base text-slate-600">
@@ -507,7 +507,7 @@ export default function RecherchePage() {
               {!currentConversation && !isSearching && (
                 <div className="text-center mt-10 md:mt-20">
                   <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                    <ImageIcon className="w-7 h-7 md:w-10 md:h-10" style={{ color: "#f2d895" }} />
+                    <ImageIcon className="w-7 h-7 md:w-10 md:h-10" style={{ color: "#8b7355" }} />
                   </div>
                   <h2 className="text-xl md:text-2xl font-serif text-slate-800 mb-2 md:mb-3">
                     Comment puis-je vous aider ?
@@ -587,7 +587,7 @@ export default function RecherchePage() {
                                             </p>
                                           )}
                                           {result.similarity && (
-                                            <p className="text-xs md:text-sm font-medium" style={{ color: "#c4a363" }}>
+                                            <p className="text-xs md:text-sm font-medium" style={{ color: "#8b7355" }}>
                                               {Math.round(result.similarity * 100)}% similaire
                                             </p>
                                           )}
@@ -611,7 +611,7 @@ export default function RecherchePage() {
                   {isSearching && (
                     <div className="flex justify-start">
                       <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4">
-                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#f2d895" }} />
+                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#8b7355" }} />
                       </div>
                     </div>
                   )}
@@ -658,7 +658,7 @@ export default function RecherchePage() {
                   onClick={handleTextSearch}
                   disabled={!inputValue.trim() || isSearching}
                   className="h-10 md:h-12 px-4 md:px-6 rounded-xl text-white"
-                  style={{ backgroundColor: "#f2d895" }}
+                  style={{ backgroundColor: "#8b7355" }}
                 >
                   {isSearching ? (
                     <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />

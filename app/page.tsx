@@ -631,13 +631,11 @@ export default function HomePage() {
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Vidéo de fond */}
-      {welcomeVideo ? (
-        <div className="absolute inset-0 z-0">
-          <video autoPlay loop muted playsInline className="w-full h-full object-cover">
-            <source src={welcomeVideo} type="video/mp4" />
-          </video>
-        </div>
-      ) : null}
+      {welcomeVideo && (
+        <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
+          <source src={welcomeVideo} type="video/mp4" />
+        </video>
+      )}
 
       {/* Overlay plus clair */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-orange-50/60 to-yellow-50/40" />
@@ -645,7 +643,7 @@ export default function HomePage() {
       {/* Contenu principal */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-serif leading-tight" style={{ color: "#f2d895" }}>
+          <h1 className="text-4xl md:text-6xl font-serif leading-tight" style={{ color: "#8b7355" }}>
             Luminaires
             <br />
             <span className="text-2xl md:text-3xl font-light">Du Moyen-âge à nos jours</span>
@@ -656,7 +654,7 @@ export default function HomePage() {
         <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-10 max-w-lg w-full shadow-2xl border border-white/20">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-4">
-              <h2 className="text-2xl md:text-3xl font-serif" style={{ color: "#f2d895" }}>
+              <h2 className="text-2xl md:text-3xl font-serif" style={{ color: "#8b7355" }}>
                 Recherche IA
               </h2>
             </div>
@@ -715,9 +713,9 @@ export default function HomePage() {
                   fileInputRef.current?.click()
                 }}
                 className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
-                style={{ backgroundColor: "#f2d895" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                style={{ backgroundColor: "#8b7355" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#7a6345")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                 disabled={isSearching}
               >
                 <Upload className="w-5 h-5 mr-3" />
@@ -738,15 +736,15 @@ export default function HomePage() {
                   startCamera()
                 }}
                 className="w-full text-white py-4 text-lg rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl"
-                style={{ backgroundColor: userData?.role === "free" ? "#ccc" : "#f2d895" }}
+                style={{ backgroundColor: userData?.role === "free" ? "#ccc" : "#8b7355" }}
                 onMouseEnter={(e) => {
                   if (userData?.role !== "free") {
-                    e.currentTarget.style.backgroundColor = "#e6c77a"
+                    e.currentTarget.style.backgroundColor = "#7a6345"
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (userData?.role !== "free") {
-                    e.currentTarget.style.backgroundColor = "#f2d895"
+                    e.currentTarget.style.backgroundColor = "#8b7355"
                   }
                 }}
                 disabled={isSearching || isCameraLoading || userData?.role === "free"}
@@ -783,7 +781,7 @@ export default function HomePage() {
                 <div className="text-center">
                   <div
                     className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 mx-auto mb-4"
-                    style={{ borderTopColor: "#f2d895" }}
+                    style={{ borderTopColor: "#8b7355" }}
                   ></div>
                   <p className="text-slate-600 font-medium">Activation de la caméra...</p>
                 </div>
@@ -802,7 +800,7 @@ export default function HomePage() {
               <div className="relative -mt-4">
                 {/* Indicateur de statut */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-10">
-                  <div className="bg-black/70 text-[#f2d895] px-4 py-2 rounded-lg text-sm font-medium shadow-lg">
+                  <div className="bg-black/70 text-[#8b7355] px-4 py-2 rounded-lg text-sm font-medium shadow-lg">
                     Touchez l'écran pour capturer
                   </div>
                 </div>
@@ -815,9 +813,9 @@ export default function HomePage() {
                 <Button
                   onClick={handleZoomOut}
                   className="w-12 h-12 rounded-full text-white text-xl font-bold"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  style={{ backgroundColor: "#8b7355" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#7a6345")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                   disabled={isCapturing || zoomLevel <= 1}
                 >
                   -
@@ -825,9 +823,9 @@ export default function HomePage() {
                 <Button
                   onClick={handleZoomIn}
                   className="w-12 h-12 rounded-full text-white text-xl font-bold"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  style={{ backgroundColor: "#8b7355" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#7a6345")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                   disabled={isCapturing}
                 >
                   +
@@ -839,9 +837,9 @@ export default function HomePage() {
                 <Button
                   onClick={capturePhoto}
                   className="flex-1 text-white rounded-xl"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  style={{ backgroundColor: "#8b7355" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#7a6345")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                   disabled={isCapturing}
                 >
                   {isCapturing ? (
@@ -887,7 +885,7 @@ export default function HomePage() {
               <div className="text-center">
                 <div
                   className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 mx-auto mb-4"
-                  style={{ borderTopColor: "#f2d895" }}
+                  style={{ borderTopColor: "#8b7355" }}
                 ></div>
                 <p className="text-lg font-medium text-slate-800 mb-2">Analyse IA en cours...</p>
                 <p className="text-sm text-slate-600">Recherche des luminaires similaires dans notre collection</p>
@@ -923,7 +921,7 @@ export default function HomePage() {
                       type="checkbox"
                       id="removeBackground"
                       className="w-5 h-5 bg-white border-slate-300 rounded focus:ring-2"
-                      style={{ accentColor: "#f2d895" }}
+                      style={{ accentColor: "#8b7355" }}
                       onChange={async (e) => {
                         if (e.target.checked) {
                           // Supprimer l'arrière-plan et mettre à jour l'affichage
@@ -973,7 +971,7 @@ export default function HomePage() {
                   <div className="text-center py-6">
                     <div
                       className="animate-spin rounded-full h-8 w-8 border-4 border-slate-300 mx-auto mb-3"
-                      style={{ borderTopColor: "#f2d895" }}
+                      style={{ borderTopColor: "#8b7355" }}
                     ></div>
                     <p className="text-sm text-slate-600">Suppression de l'arrière-plan en cours...</p>
                   </div>
@@ -983,9 +981,9 @@ export default function HomePage() {
                   <Button
                     onClick={searchWithOriginal}
                     className="flex-1 text-white rounded-xl"
-                    style={{ backgroundColor: "#f2d895" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                    style={{ backgroundColor: "#8b7355" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#7a6345")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                     disabled={isRemovingBackground}
                   >
                     Rechercher maintenant
@@ -1018,9 +1016,9 @@ export default function HomePage() {
                 <Button
                   onClick={searchAgain}
                   className="text-white rounded-xl shadow-lg"
-                  style={{ backgroundColor: "#f2d895" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                  style={{ backgroundColor: "#8b7355" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#7a6345")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                   size="sm"
                   disabled={isSearching}
                 >

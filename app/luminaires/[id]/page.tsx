@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Download, Search } from "lucide-react"
+import { ArrowLeft, Download, Search, User, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { useAuth } from "@/contexts/AuthContext"
@@ -507,25 +507,27 @@ export default function LuminaireDetailPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
-            <div className="aspect-[4/3] max-w-2xl mx-auto relative bg-transparent p-8">
+            <div className="aspect-[4/3] max-w-2xl mx-auto relative bg-transparent p-0 flex items-center justify-center">
               <button
                 onClick={toggleFavorite}
-                className="absolute top-12 right-12 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
+                className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
               >
                 <span className={`text-xl ${isFavorite ? "text-red-500" : "text-gray-400"}`}>♥</span>
               </button>
 
               {luminaire.image ? (
-                <Image
-                  src={luminaire.image || "/placeholder.svg"}
-                  alt={String(luminaire.name || "Luminaire")}
-                  fill
-                  className="object-contain"
-                  unoptimized
-                  onError={(e) => {
-                    e.currentTarget.src = "/placeholder.svg"
-                  }}
-                />
+                <div className="relative w-full h-full max-w-lg max-h-[500px]">
+                  <Image
+                    src={luminaire.image || "/placeholder.svg"}
+                    alt={String(luminaire.name || "Luminaire")}
+                    fill
+                    className="object-contain rounded-2xl"
+                    unoptimized
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg"
+                    }}
+                  />
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-center">
@@ -554,130 +556,171 @@ export default function LuminaireDetailPage() {
                 </div>
 
                 {canSeeEstimation && luminaire.estimation && (
-                  <div className="text-right">
-                    <div className="text-xs text-gray-500 mb-1">Estimation</div>
-                    <div className="text-xl font-semibold text-gray-900">{luminaire.estimation}</div>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-1">Estimation</p>
+                    <EditableField
+                      value={luminaire.estimation || ""}
+                      onSave={(v) => handleUpdate("estimation", v)}
+                      className="text-2xl font-bold text-gray-900"
+                      placeholder="Estimation"
+                      disabled={!canEdit}
+                    />
                   </div>
                 )}
               </div>
 
               {/* Designer card with avatar */}
-              {luminaire.artist && (
-                <Link
-                  href={`/designers/${encodeURIComponent(luminaire.artist)}`}
-                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl mb-6 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <Link href={`/designers/${encodeURIComponent(luminaire.artist)}`} className="block">
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg mb-6 hover:bg-gray-100 transition-colors">
+                  {/* Photo du designer */}
+                  <div className="w-12 h-12 relative rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                     {luminaire.designerImage ? (
                       <Image
                         src={luminaire.designerImage || "/placeholder.svg"}
                         alt={luminaire.artist}
-                        width={48}
-                        height={48}
-                        className="object-cover w-full h-full"
+                        fill
+                        className="object-cover"
                         unoptimized
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg"
+                        }}
                       />
                     ) : (
-                      <span className="text-gray-600 text-xl">👤</span>
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <User className="w-6 h-6" />
+                      </div>
                     )}
                   </div>
+
                   <div className="flex-1">
-                    <h3 className="font-serif font-medium text-gray-900">{luminaire.artist}</h3>
-                    <p className="text-sm text-gray-600">{luminaire.specialty || "Designer"}</p>
+                    <EditableField
+                      value={luminaire.artist || ""}
+                      onSave={(v) => handleUpdate("artist", v)}
+                      className="font-medium text-gray-900"
+                      placeholder="Nom du designer"
+                      disabled={!canEdit}
+                    />
+                    <p className="text-sm text-gray-600">Designer</p>
                   </div>
-                  <span className="text-gray-400">→</span>
-                </Link>
-              )}
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </div>
+              </Link>
 
               {/* Specifications grid */}
               <div className="grid grid-cols-2 gap-4 mb-6">
-                {luminaire.materials && (
+                {luminaire.signed && (
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Matériau</div>
+                    <p className="text-sm text-gray-600 mb-1">Signé</p>
                     <EditableField
-                      value={luminaire.materials}
-                      onSave={(v) => handleUpdate("materials", v)}
-                      disabled={!canEdit}
+                      value={luminaire.signed || ""}
+                      onSave={(v) => handleUpdate("signed", v)}
                       className="text-sm text-gray-900"
-                    />
-                  </div>
-                )}
-                {luminaire.dimensions && (
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Dimensions</div>
-                    <EditableField
-                      value={luminaire.dimensions}
-                      onSave={(v) => handleUpdate("dimensions", v)}
+                      placeholder="Signé"
                       disabled={!canEdit}
-                      className="text-sm text-gray-900"
                     />
                   </div>
                 )}
-                {canSeeEstimation && luminaire.estimation && (
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Estimation</div>
-                    <EditableField
-                      value={luminaire.estimation}
-                      onSave={(v) => handleUpdate("estimation", v)}
-                      disabled={!canEdit}
-                      className="text-sm text-gray-900"
-                    />
-                  </div>
-                )}
-                {luminaire.lienSiteMarchand && (
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Lien site web</div>
-                    <EditableField
-                      value={luminaire.lienSiteMarchand}
-                      onSave={(v) => handleUpdate("lienSiteMarchand", v)}
-                      disabled={!canEdit}
-                      className="text-sm text-blue-600 underline break-all"
-                    />
-                  </div>
-                )}
-                {luminaire.etiquette && canEdit && (
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Référence</div>
-                    <EditableField
-                      value={luminaire.etiquette}
-                      onSave={(v) => handleUpdate("etiquette", v)}
-                      disabled={!canEdit}
-                      className="text-sm text-gray-900"
-                    />
-                  </div>
-                )}
+
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Année</p>
+                  <EditableField
+                    value={luminaire.year || ""}
+                    onSave={(v) => handleUpdate("year", v)}
+                    className="text-sm text-gray-900"
+                    placeholder="Année"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Catégorie</p>
+                  <EditableField
+                    value={luminaire.categorie || ""}
+                    onSave={(v) => handleUpdate("categorie", v)}
+                    className="text-sm text-gray-900"
+                    placeholder="Catégorie"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Éditeur</p>
+                  <EditableField
+                    value={luminaire.editeur || ""}
+                    onSave={(v) => handleUpdate("editeur", v)}
+                    className="text-sm text-gray-900"
+                    placeholder="Éditeur"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Matériaux</p>
+                  <EditableField
+                    value={luminaire.materials || ""}
+                    onSave={(v) => handleUpdate("materials", v)}
+                    className="text-sm text-gray-900"
+                    placeholder="Matériaux"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Dimensions</p>
+                  <EditableField
+                    value={luminaire.dimensions || ""}
+                    onSave={(v) => handleUpdate("dimensions", v)}
+                    className="text-sm text-gray-900"
+                    placeholder="Dimensions"
+                    disabled={!canEdit}
+                  />
+                </div>
+
                 {luminaire.bibliographie && (
                   <div className="col-span-2">
-                    <div className="text-xs text-gray-500 mb-1">Bibliographie</div>
+                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
                     <EditableField
-                      value={luminaire.bibliographie}
+                      value={luminaire.bibliographie || ""}
                       onSave={(v) => handleUpdate("bibliographie", v)}
-                      disabled={!canEdit}
                       className="text-sm text-gray-900"
+                      placeholder="Bibliographie"
+                      disabled={!canEdit}
+                    />
+                  </div>
+                )}
+
+                {luminaire.lienSiteMarchand && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-gray-600 mb-1">Lien site marchand</p>
+                    <EditableField
+                      value={luminaire.lienSiteMarchand || ""}
+                      onSave={(v) => handleUpdate("lienSiteMarchand", v)}
+                      className="text-sm text-blue-600 underline"
+                      placeholder="Lien site marchand"
+                      disabled={!canEdit}
                     />
                   </div>
                 )}
               </div>
 
               {/* Description section */}
-              {luminaire.description && (
-                <div className="mb-6">
-                  <h3 className="font-serif text-lg font-medium text-gray-900 mb-2">Description</h3>
-                  <EditableField
-                    value={luminaire.description}
-                    onSave={(v) => handleUpdate("description", v)}
-                    multiline
-                    disabled={!canEdit}
-                    className="text-sm text-gray-700 leading-relaxed"
-                  />
-                </div>
-              )}
+              <div className="mt-8">
+                <h2 className="text-xl font-serif text-gray-900 mb-4">Description</h2>
+                <EditableField
+                  value={luminaire.description || ""}
+                  onSave={(v) => handleUpdate("description", v)}
+                  className="text-gray-700 leading-relaxed"
+                  placeholder="Description du luminaire"
+                  multiline
+                  disabled={!canEdit}
+                />
+              </div>
 
               {/* PDF button */}
               {(userData?.role === "admin" || userData?.role === "premium") && (
                 <Button
                   onClick={generatePDF}
-                  className="w-full mt-4 text-white hover:bg-[#7a6449]"
+                  className="text-white hover:opacity-90"
                   style={{ backgroundColor: "#8b7355" }}
                   disabled={generatingPDF}
                 >
