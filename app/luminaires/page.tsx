@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, SlidersHorizontal, Home, Users, Grid3x3, Mail, User, Plus } from "lucide-react"
+import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, Heart, List } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
 
@@ -390,45 +390,46 @@ export default function LuminairesPage() {
               ({displayedLuminaires.length}/{totalItems})
             </span>
           </h2>
+        </div>
 
-          <div className="flex items-center gap-2">
-            {/* Favorites button */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4 flex-wrap">
             <button
               onClick={() => setShowFavorites(!showFavorites)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm border transition-colors ${
-                showFavorites
-                  ? "bg-[#f2d895] border-[#f2d895] text-gray-900"
-                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-              }`}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
             >
-              <span>♥</span>
-              <span>Favoris ({favorites.length})</span>
+              <Heart className={`w-4 h-4 ${showFavorites ? "fill-red-500 text-red-500" : ""}`} />
+              <span className="text-sm">Favoris ({favorites.length})</span>
             </button>
+          </div>
 
+          <div className="hidden md:flex items-center gap-2">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg ${viewMode === "grid" ? "bg-[#f2d895]" : "bg-white border border-gray-300"}`}
+              className={`p-2 rounded-lg border transition-colors ${
+                viewMode === "grid" ? "bg-[#8b7355] text-white border-[#8b7355]" : "border-gray-300 hover:bg-gray-50"
+              }`}
             >
-              <Grid3x3 className="w-5 h-5 text-gray-900" />
+              <Grid3x3 className="w-5 h-5" />
             </button>
-
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg ${viewMode === "list" ? "bg-[#f2d895]" : "bg-white border border-gray-300"}`}
+              className={`p-2 rounded-lg border transition-colors ${
+                viewMode === "list" ? "bg-[#8b7355] text-white border-[#8b7355]" : "border-gray-300 hover:bg-gray-50"
+              }`}
             >
-              <SlidersHorizontal className="w-5 h-5 text-gray-700" />
+              <List className="w-5 h-5" />
             </button>
 
             <select
               value={columns}
-              onChange={(e) => setColumns(Number.parseInt(e.target.value))}
-              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+              onChange={(e) => setColumns(Number(e.target.value))}
+              className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm"
             >
-              <option value="2">2 colonnes</option>
-              <option value="3">3 colonnes</option>
-              <option value="4">4 colonnes</option>
-              <option value="5">5 colonnes</option>
-              <option value="6">6 colonnes</option>
+              <option value={2}>2 colonnes</option>
+              <option value={3}>3 colonnes</option>
+              <option value={4}>4 colonnes</option>
+              <option value={6}>6 colonnes</option>
             </select>
           </div>
         </div>

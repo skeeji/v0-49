@@ -318,34 +318,37 @@ export default function RecherchePage() {
   const enrichResultsWithIds = async (results: any[]): Promise<SearchResult[]> => {
     const enriched = await Promise.all(
       results.map(async (result) => {
-        const imageUrl = result.image_url?.startsWith("http")
-          ? result.image_url
-          : `${API_BASE_URL_TEXT}${result.image_url}`
+        const luminaireId = result.luminaireId || result.luminaire_id
 
-        const fileName = imageUrl.split("/").pop()?.toLowerCase()
-        let luminaireId = null
+        // Extract filename from luminaireId (e.g., "luminaire_3725.jpg")
+        const fileName = luminaireId?.split("/").pop()?.toLowerCase() || luminaireId
 
+        let mongoId = null
+
+        // Try to get MongoDB ID
         if (fileName) {
           try {
             const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
             if (response.ok) {
               const data = await response.json()
               if (data.success && data.found) {
-                luminaireId = data.luminaireId
+                mongoId = data.luminaireId
               }
             }
           } catch (error) {
-            console.error("Error fetching luminaire ID:", error)
+            console.error("[v0] Error fetching MongoDB ID:", error)
           }
         }
 
+        const imageUrl = result.imageUrl || result.image_url || `/api/images/filename/${fileName}`
+
         return {
           imageUrl,
-          luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
-          luminaireId,
+          luminaireUrl: mongoId ? `/luminaires/${mongoId}` : null,
+          luminaireId: mongoId,
           nom: result.nom || "Sans nom",
           artiste: result.artiste || "Inconnu",
-          annee: result.annee === null ? "Non spécifié" : String(result.annee),
+          annee: result.annee === null || result.annee === "" ? "Non spécifié" : String(result.annee),
           similarity: result.similarity || 0,
         }
       }),
