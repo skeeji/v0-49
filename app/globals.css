@@ -24,6 +24,9 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    /* Ajout couleur crème du design reference */
+    --cream: 38 45% 95%;
   }
 
   .dark {
@@ -54,11 +57,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-[#F8F8F8] text-[#333333];
+    /* Fond principal crème #f5f1e8 selon images de référence */
+    background-color: #f5f1e8;
+    color: #333333;
   }
 }
 
-/* Styles personnalisés */
+/* Classes utilitaires pour le design system des images de référence */
 .container-responsive {
   @apply container mx-auto px-4;
 }
@@ -67,36 +72,27 @@
   font-family: "Playfair Display", serif;
 }
 
-.text-dark {
-  @apply text-gray-900;
+.text-primary-dark {
+  color: #333333;
 }
 
-.text-accent {
-  @apply text-[#9A8C7F];
+.text-secondary-dark {
+  color: #666666;
 }
 
-.text-secondary {
-  @apply text-[#666666];
+/* Navigation inférieure mobile selon Lumianire.png et Designer.png */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50;
+  @apply flex items-center justify-around py-3 px-4;
 }
 
-.border-accent {
-  @apply border-[#9A8C7F];
+.bottom-nav-item {
+  @apply flex flex-col items-center gap-1 text-xs text-gray-600;
+  @apply hover:text-gray-900 transition-colors;
 }
 
-.hover-accent:hover {
-  @apply bg-[#EAEAEA];
-}
-
-.bg-orange {
-  @apply bg-orange-500;
-}
-
-.bg-cream {
-  @apply bg-orange-50;
-}
-
-.bg-gold {
-  @apply bg-yellow-500;
+.bottom-nav-item.active {
+  @apply text-gray-900 font-medium;
 }
 
 /* Animation pour la chronologie */
