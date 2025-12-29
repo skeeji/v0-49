@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, ArrowLeft, Search, Heart, Grid3x3, Home, Users, Mail, User } from "lucide-react"
+import { Loader2, ArrowLeft, Search, SlidersHorizontal, Home, Users, Grid3x3, Mail, User } from "lucide-react"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -73,6 +73,7 @@ export default function LuminairesPage() {
       const isFavorite = favorites.includes(luminaireId)
       const action = isFavorite ? "remove" : "add"
 
+      // Mise à jour optimiste de l'UI
       setFavorites((prev) => (isFavorite ? prev.filter((id) => id !== luminaireId) : [...prev, luminaireId]))
 
       try {
@@ -89,11 +90,13 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (!data.success) {
+          // Rollback en cas d'erreur
           setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
           toast.error("Erreur lors de la mise à jour des favoris")
         }
       } catch (error) {
         console.error("❌ Erreur toggle favori:", error)
+        // Rollback en cas d'erreur
         setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
         toast.error("Erreur lors de la mise à jour des favoris")
       }
@@ -221,6 +224,58 @@ export default function LuminairesPage() {
     }
   }, [loadMore, showFavorites])
 
+  const handleItemUpdate = useCallback(async (id: string, updates: any) => {
+    try {
+      const response = await fetch(`/api/luminaires/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setLuminaires((prev) => prev.map((item) => (item._id === id ? { ...item, ...updates } : item)))
+        toast.success("Luminaire mis à jour avec succès")
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (err: any) {
+      console.error("❌ Erreur mise à jour:", err)
+      toast.error("Erreur lors de la mise à jour")
+    }
+  }, [])
+
+  const handleCreateLuminaire = useCallback(
+    async (luminaireData: any) => {
+      try {
+        const response = await fetch("/api/luminaires", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(luminaireData),
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          toast.success("Luminaire créé avec succès")
+          setIsModalOpen(false)
+          loadLuminaires(1, false)
+          loadAllLuminaires()
+        } else {
+          throw new Error(data.error)
+        }
+
+        return data
+      } catch (err: any) {
+        console.error("❌ Erreur création:", err)
+        toast.error("Erreur lors de la création")
+        return { success: false, error: err.message }
+      }
+    },
+    [loadLuminaires, loadAllLuminaires],
+  )
+
   const filterOptions = useMemo(() => {
     const categories = [...new Set(allLuminaires.map((l) => l.categorie || l["Catégorie"]).filter(Boolean))].sort()
 
@@ -295,13 +350,6 @@ export default function LuminairesPage() {
 
   const pathname = usePathname()
 
-  const resetSlider = () => {
-    setYearRange([yearBounds.min, yearBounds.max])
-    setSliderModified(false)
-    setCurrentPage(1)
-    loadLuminaires(1, false)
-  }
-
   if (loading && luminaires.length === 0) {
     return (
       <div className="min-h-screen bg-[#f5f1e8] pb-20">
@@ -317,30 +365,208 @@ export default function LuminairesPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <div className="bg-transparent border-b border-gray-200 sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 py-4">
           <Link href="/" className="p-2">
             <ArrowLeft className="w-6 h-6 text-gray-900" />
           </Link>
-          <h1 className="text-xl font-serif text-gray-900 font-medium">Luminaires - Collection</h1>
+          <h1 className="text-xl font-serif text-gray-900 font-medium">Luminaires</h1>
           <button className="p-2">
             <Search className="w-6 h-6 text-gray-900" />
-          </button>
-        </div>
-
-        {/* Search and filter bar */}
-        <div className="px-4 pb-4 space-y-3">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search luminaires or designers..." />
-
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm w-full justify-center">
-            <Heart className="w-4 h-4" />
-            Favoris ({favorites.length})
           </button>
         </div>
       </div>
 
       <div className="px-4 py-4">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {/* Title with counter */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-serif text-gray-900">
+            Luminaires
+            <span className="text-gray-500 ml-2">
+              ({displayedLuminaires.length}/{totalItems})
+            </span>
+          </h2>
+
+          <div className="flex items-center gap-2">
+            {/* Favorites button */}
+            <button
+              onClick={() => setShowFavorites(!showFavorites)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm border transition-colors ${
+                showFavorites
+                  ? "bg-[#f2d895] border-[#f2d895] text-gray-900"
+                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <span>♥</span>
+              <span>Favoris ({favorites.length})</span>
+            </button>
+
+            {/* Grid view toggle */}
+            <button className="p-2 bg-[#f2d895] rounded-lg">
+              <Grid3x3 className="w-5 h-5 text-gray-900" />
+            </button>
+
+            <button className="p-2 bg-white border border-gray-300 rounded-lg">
+              <SlidersHorizontal className="w-5 h-5 text-gray-700" />
+            </button>
+
+            {/* Column selector */}
+            <select
+              value={columns}
+              onChange={(e) => setColumns(Number.parseInt(e.target.value))}
+              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="2">2 colonnes</option>
+              <option value="3">3 colonnes</option>
+              <option value="4">4 colonnes</option>
+              <option value="5">5 colonnes</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Search bar */}
+        <div className="mb-4">
+          <SearchBar
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Rechercher un luminaire..."
+            className="bg-white"
+          />
+        </div>
+
+        {/* Filter dropdowns */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <select
+            value={selectedCategorie}
+            onChange={(e) => {
+              setSelectedCategorie(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="">Tous les toutes les catégories</option>
+            {filterOptions.categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedMateriau}
+            onChange={(e) => {
+              setSelectedMateriau(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="">Tous les tous les matériaux</option>
+            {filterOptions.materiaux.map((mat) => (
+              <option key={mat} value={mat}>
+                {mat}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={`${sortField}-${sortDirection}`}
+            onChange={(e) => {
+              const [field, dir] = e.target.value.split("-")
+              setSortField(field)
+              setSortDirection(dir as "asc" | "desc")
+            }}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="nom-asc">Nom A-Z</option>
+            <option value="nom-desc">Nom Z-A</option>
+            <option value="annee-asc">Année croissante</option>
+            <option value="annee-desc">Année décroissante</option>
+          </select>
+        </div>
+
+        {/* Year slider */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-medium text-gray-900">Période chronologique</h3>
+            <div className="text-sm text-[#f2d895] font-medium">
+              {yearRange[0]} - {yearRange[1]}
+            </div>
+          </div>
+
+          <div className="relative px-2">
+            <input
+              type="range"
+              min={yearBounds.min}
+              max={yearBounds.max}
+              value={yearRange[0]}
+              onChange={(e) => {
+                const newMin = Number.parseInt(e.target.value)
+                if (newMin <= yearRange[1]) {
+                  handleYearRangeChange([newMin, yearRange[1]])
+                }
+              }}
+              className="absolute w-full h-2 bg-transparent appearance-none pointer-events-none"
+              style={{
+                zIndex: yearRange[0] > yearBounds.min + (yearBounds.max - yearBounds.min) / 2 ? 5 : 3,
+              }}
+            />
+            <input
+              type="range"
+              min={yearBounds.min}
+              max={yearBounds.max}
+              value={yearRange[1]}
+              onChange={(e) => {
+                const newMax = Number.parseInt(e.target.value)
+                if (newMax >= yearRange[0]) {
+                  handleYearRangeChange([yearRange[0], newMax])
+                }
+              }}
+              className="absolute w-full h-2 bg-transparent appearance-none pointer-events-none"
+              style={{ zIndex: 4 }}
+            />
+            <div className="relative h-2 bg-gray-200 rounded-full">
+              <div
+                className="absolute h-full bg-[#f2d895] rounded-full"
+                style={{
+                  left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+                  right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+            <span>{yearBounds.min}</span>
+            <span>{yearBounds.max}</span>
+          </div>
+
+          {sliderModified && (
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-sm text-[#f2d895]">
+                Filtre actif: {yearRange[0]} - {yearRange[1]}
+              </span>
+              <button
+                onClick={() => {
+                  setYearRange([yearBounds.min, yearBounds.max])
+                  setSliderModified(false)
+                  setCurrentPage(1)
+                  loadLuminaires(1, false)
+                }}
+                className="text-sm text-[#f2d895] hover:underline"
+              >
+                Réinitialiser
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Grid */}
+        <div
+          className="grid gap-4"
+          style={{
+            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+          }}
+        >
           {displayedLuminaires.map((luminaire, index) => {
             const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
             const luminaireId = String(luminaire._id || luminaire.id || "")
@@ -360,7 +586,19 @@ export default function LuminairesPage() {
                   }`}
                 >
                   <div className="p-4">
-                    <div className="aspect-square mb-3 flex items-center justify-center">
+                    <div className="aspect-square mb-3 flex items-center justify-center relative">
+                      {isAccessible && user && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            toggleFavorite(luminaireId)
+                          }}
+                          className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
+                        >
+                          <span className={`text-lg ${isFavorite ? "text-red-500" : "text-gray-400"}`}>♥</span>
+                        </button>
+                      )}
                       <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-gray-200 shadow-md">
                         <Image
                           src={
@@ -383,7 +621,6 @@ export default function LuminairesPage() {
                       </div>
                     </div>
 
-                    {/* Luminaire info */}
                     <h3 className="font-serif text-base font-medium text-gray-900 mb-1 leading-tight">
                       {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
                     </h3>
@@ -422,44 +659,27 @@ export default function LuminairesPage() {
         )}
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-        <div className="flex items-center justify-around h-16">
-          <Link
-            href="/"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/" ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-xs">Home</span>
-          </Link>
-          <Link
-            href="/designers"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname.startsWith("/designers") ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <Users className="w-5 h-5" />
-            <span className="text-xs">Designers</span>
-          </Link>
-          <Link
-            href="/luminaires"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname.startsWith("/luminaires") ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <Grid3x3 className="w-5 h-5" />
-            <span className="text-xs">Collection</span>
-          </Link>
-          <Link
-            href="/recherche"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/recherche" ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <Mail className="w-5 h-5" />
-            <span className="text-xs">Inquire</span>
-          </Link>
-          <Link
-            href="/pricing"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/pricing" ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs">Account</span>
-          </Link>
-        </div>
+      <nav className="bottom-nav">
+        <Link href="/" className={`bottom-nav-item ${pathname === "/" ? "active" : ""}`}>
+          <Home className="w-5 h-5" />
+          <span>Home</span>
+        </Link>
+        <Link href="/designers" className={`bottom-nav-item ${pathname.startsWith("/designers") ? "active" : ""}`}>
+          <Users className="w-5 h-5" />
+          <span>Designers</span>
+        </Link>
+        <Link href="/luminaires" className={`bottom-nav-item ${pathname.startsWith("/luminaires") ? "active" : ""}`}>
+          <Grid3x3 className="w-5 h-5" />
+          <span>Collection</span>
+        </Link>
+        <Link href="/recherche" className={`bottom-nav-item ${pathname === "/recherche" ? "active" : ""}`}>
+          <Mail className="w-5 h-5" />
+          <span>Inquire</span>
+        </Link>
+        <Link href="/pricing" className={`bottom-nav-item ${pathname === "/pricing" ? "active" : ""}`}>
+          <User className="w-5 h-5" />
+          <span>Account</span>
+        </Link>
       </nav>
     </div>
   )

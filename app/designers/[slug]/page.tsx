@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, Plus, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
@@ -290,22 +290,36 @@ export default function DesignerDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 md:hidden">
+        <div className="flex items-center justify-between px-4 py-4">
+          <Link href="/designers" className="p-2">
+            <ArrowLeft className="w-6 h-6 text-gray-900" />
+          </Link>
+          <h1 className="text-lg font-serif text-gray-900 font-medium">{designer?.nom}</h1>
+          <button className="p-2">
+            <Search className="w-6 h-6 text-gray-900" />
+          </button>
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
+          {/* Desktop back button */}
+          <div className="hidden md:block mb-8">
             <Link href="/designers">
-              <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+              <Button variant="outline" className="flex items-center gap-2 bg-white">
                 <ArrowLeft className="w-4 h-4" />
                 Retour aux designers
               </Button>
             </Link>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-              {/* Photo portrait du designer */}
-              <div className="w-40 h-40 relative flex-shrink-0">
-                <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 mb-8">
+            {/* Portrait and info in horizontal layout on mobile */}
+            <div className="flex items-start gap-6 mb-6">
+              {/* Portrait image */}
+              <div className="w-20 h-20 relative flex-shrink-0">
+                <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg overflow-hidden">
                   {designer.imagedesigner ? (
                     <Image
                       src={`/api/images/filename/${designer.imagedesigner}`}
@@ -322,75 +336,74 @@ export default function DesignerDetailPage() {
                     />
                   ) : null}
                   <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
-                    <div className="text-5xl text-gray-400 mb-2">👤</div>
+                    <div className="text-4xl text-gray-400">👤</div>
                   </div>
                 </div>
               </div>
 
-              {/* Informations du designer */}
-              <div className="flex-1 text-center md:text-left">
+              {/* Designer info */}
+              <div className="flex-1">
                 <EditableField
                   value={designer.nom}
                   onSave={(newName) => {
                     if (!canEdit) return
                     updateDesignerName(newName)
                   }}
-                  className="text-3xl font-serif text-gray-900 mb-2"
+                  className="text-xl md:text-2xl font-serif text-gray-900 mb-1"
                   placeholder="Nom du designer"
                   disabled={!canEdit}
                 />
-
-                <p className="text-base text-gray-600 mb-6 font-serif">
-                  {designer.count} luminaire{designer.count > 1 ? "s" : ""} & Furniture Pieces
+                <p className="text-sm text-gray-600 mb-2">
+                  {description?.match(/\d{4}/g)?.join("-") || "Period unknown"}
                 </p>
-
-                {/* Bouton Share Profile */}
-                <button className="px-6 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors mb-6">
-                  Share Profile
-                </button>
-
-                {/* Biography section */}
-                {description && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-serif font-medium text-gray-900 mb-2">Biography</h3>
-                    <EditableField
-                      value={description}
-                      onSave={updateDesignerSpecialty}
-                      multiline
-                      disabled={!canEdit}
-                      className="text-sm text-gray-700 leading-relaxed"
-                    />
-                  </div>
-                )}
-
-                {/* Philosophy section */}
-                {collaboration && (
-                  <div>
-                    <h3 className="text-lg font-serif font-medium text-gray-900 mb-2">Philosophy</h3>
-                    <EditableField
-                      value={collaboration}
-                      onSave={updateDesignerCollaboration}
-                      multiline
-                      disabled={!canEdit}
-                      className="text-sm text-gray-700 leading-relaxed italic"
-                    />
-                  </div>
-                )}
+                <p className="text-xs text-gray-500">{designer.count} Luminaires & Furniture Pieces</p>
               </div>
             </div>
+
+            {/* Share Profile button */}
+            <button className="w-full flex items-center justify-between px-4 py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors mb-6">
+              <span>Share Profile</span>
+              <span>🔗</span>
+            </button>
+
+            {/* Biography section */}
+            {description && (
+              <div className="mb-6 pt-6 border-t border-gray-100">
+                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Biography</h3>
+                <EditableField
+                  value={description}
+                  onSave={updateDesignerSpecialty}
+                  multiline
+                  disabled={!canEdit}
+                  className="text-sm text-gray-700 leading-relaxed"
+                />
+              </div>
+            )}
+
+            {/* Philosophy section */}
+            {collaboration && (
+              <div className="pt-6 border-t border-gray-100">
+                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Philosophy</h3>
+                <EditableField
+                  value={collaboration}
+                  onSave={updateDesignerCollaboration}
+                  multiline
+                  disabled={!canEdit}
+                  className="text-sm text-gray-700 leading-relaxed italic"
+                />
+              </div>
+            )}
           </div>
 
-          {/* Pièces iconiques */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          {/* Iconic Pieces section */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-serif text-gray-900">Iconic Pieces</h2>
-              <Link href={`/designers/${designer.slug}`} className="text-sm text-gray-600 hover:text-gray-900">
-                View All ({designer.count})
-              </Link>
+              <h2 className="text-xl font-serif font-medium text-gray-900">Iconic Pieces</h2>
+              <button className="text-sm text-gray-600 hover:text-gray-900">View All ({designer.count})</button>
             </div>
 
             {designerLuminaires.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {designerLuminaires.slice(0, 4).map((luminaire) => (
                   <Link key={luminaire.id} href={`/luminaires/${luminaire.id}`} className="block">
                     <div className="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
@@ -409,12 +422,10 @@ export default function DesignerDetailPage() {
                           </div>
                         )}
                       </div>
-                      <div className="p-3">
-                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
-                          {luminaire.name}
-                        </h3>
+                      <div className="p-3 text-center">
+                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1">{luminaire.name}</h3>
                         <p className="text-xs text-gray-600">
-                          {luminaire.artist}
+                          {luminaire.editeur || "Artisan"}
                           {luminaire.year && `, ${luminaire.year}`}
                         </p>
                       </div>
@@ -428,12 +439,10 @@ export default function DesignerDetailPage() {
               </div>
             )}
 
-            {/* Bouton View Full Collection */}
-            {designerLuminaires.length > 4 && (
-              <button className="w-full mt-6 py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
-                View Full Collection
-              </button>
-            )}
+            {/* View Full Collection button */}
+            <button className="w-full py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+              View Full Collection
+            </button>
           </div>
 
           {canEdit && (

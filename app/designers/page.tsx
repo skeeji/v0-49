@@ -7,7 +7,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
-import { Loader2, Home, Users, Grid3x3, Mail, User } from "lucide-react"
+import { Loader2, ArrowLeft, Search, SlidersHorizontal, Home, Users, Grid3x3, Mail, User } from "lucide-react"
 
 export default function DesignersPage() {
   const [allDesigners, setAllDesigners] = useState([])
@@ -19,9 +19,9 @@ export default function DesignersPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
-  const [periodFilter, setPeriodFilter] = useState("")
   const { user, userData } = useAuth()
   const pathname = usePathname()
+  const [filterMode, setFilterMode] = useState<"period" | "az">("period")
 
   const ITEMS_PER_PAGE = 50
 
@@ -30,6 +30,7 @@ export default function DesignersPage() {
     rootMargin: "100px",
   })
 
+  // Calculer la limite pour les comptes gratuits
   const freeUserLimit =
     !user || userData?.role === "free" ? Math.ceil(filteredDesigners.length * 0.1) : filteredDesigners.length
 
@@ -37,10 +38,14 @@ export default function DesignersPage() {
     async function fetchData() {
       setIsLoading(true)
       try {
+        // Charger tous les luminaires pour extraire TOUS les designers
         const luminairesResponse = await fetch("/api/luminaires?limit=10000")
         const luminairesData = await luminairesResponse.json()
 
         if (luminairesData.success) {
+          console.log(`👨‍🎨 Extraction des designers depuis ${luminairesData.luminaires.length} luminaires`)
+
+          // Grouper les luminaires par designer et récupérer l'image du designer
           const designerGroups = luminairesData.luminaires.reduce((acc: any, luminaire: any) => {
             const designerName = luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"
 
@@ -59,15 +64,20 @@ export default function DesignersPage() {
 
             if (luminaire.designerImageFilename && !acc[designerName].image) {
               acc[designerName].image = `/api/images/filename/${luminaire.designerImageFilename}`
+              console.log(`🖼️ Image designer trouvée pour ${designerName}: ${luminaire.designerImageFilename}`)
             }
 
+            // Construction de l'URL de l'image du luminaire
             let luminaireImageUrl = "/placeholder.svg"
             if (luminaire.imageId) {
               luminaireImageUrl = `/api/images/${luminaire.imageId}`
+              console.log(`🖼️ Image luminaire via imageId pour ${designerName}: ${luminaire.imageId}`)
             } else if (luminaire.filename) {
               luminaireImageUrl = `/api/images/filename/${luminaire.filename}`
+              console.log(`🖼️ Image luminaire via filename pour ${designerName}: ${luminaire.filename}`)
             } else if (luminaire["Nom du fichier"]) {
               luminaireImageUrl = `/api/images/filename/${luminaire["Nom du fichier"]}`
+              console.log(`🖼️ Image luminaire via Nom du fichier pour ${designerName}: ${luminaire["Nom du fichier"]}`)
             }
 
             acc[designerName].luminaires.push({
@@ -76,6 +86,7 @@ export default function DesignersPage() {
               name: luminaire["Nom luminaire"] || luminaire.nom || "Sans nom",
             })
 
+            // Extraire les années du champ "Artiste / Dates"
             const artistDates = luminaire["Artiste / Dates"] || luminaire.designer || ""
             const yearMatches = artistDates.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g)
             if (yearMatches) {
@@ -87,11 +98,17 @@ export default function DesignersPage() {
             return acc
           }, {})
 
+          console.log(`👨‍🎨 ${Object.keys(designerGroups).length} designers uniques trouvés`)
+
+          // Essayer aussi l'ancienne méthode en fallback
           try {
             const designersResponse = await fetch("/api/designers-data")
             const designersResult = await designersResponse.json()
 
             if (designersResult.success && designersResult.designers) {
+              console.log(`🖼️ ${designersResult.designers.length} images de designers disponibles (fallback)`)
+
+              // Associer les images aux designers qui n'en ont pas encore
               Object.keys(designerGroups).forEach((designerName) => {
                 if (!designerGroups[designerName].image) {
                   const designerInfo = designersResult.designers.find(
@@ -100,6 +117,7 @@ export default function DesignersPage() {
 
                   if (designerInfo && designerInfo.imagedesigner) {
                     designerGroups[designerName].image = `/api/images/filename/${designerInfo.imagedesigner}`
+                    console.log(`🖼️ Image fallback trouvée pour ${designerName}: ${designerInfo.imagedesigner}`)
                   }
                 }
               })
@@ -110,6 +128,9 @@ export default function DesignersPage() {
 
           const designersArray = Object.values(designerGroups).sort((a: any, b: any) => a.name.localeCompare(b.name))
 
+          console.log(`✅ ${designersArray.length} designers finaux`)
+
+          // Stocker TOUS les designers
           setAllDesigners(designersArray)
           setFilteredDesigners(designersArray)
         }
@@ -123,6 +144,7 @@ export default function DesignersPage() {
     fetchData()
   }, [])
 
+  // Filtrer et trier
   useEffect(() => {
     let filtered = [...allDesigners]
 
@@ -130,13 +152,7 @@ export default function DesignersPage() {
       filtered = filtered.filter((designer) => designer.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
 
-    if (periodFilter) {
-      filtered = filtered.filter((designer) => {
-        // Filtrer par période si nécessaire
-        return true
-      })
-    }
-
+    // Supprimer les doublons
     const uniqueDesigners = filtered.filter(
       (designer, index, self) => index === self.findIndex((d) => d.name === designer.name),
     )
@@ -164,8 +180,9 @@ export default function DesignersPage() {
     setPage(0)
     setHasMore(true)
     setDisplayedDesigners([])
-  }, [allDesigners, searchTerm, sortBy, periodFilter])
+  }, [allDesigners, searchTerm, sortBy])
 
+  // Charger plus d'éléments - maintenant charge TOUS les designers
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore) return
 
@@ -188,12 +205,14 @@ export default function DesignersPage() {
     }, 300)
   }, [page, filteredDesigners, isLoadingMore, hasMore])
 
+  // Charger plus quand on arrive en bas
   useEffect(() => {
     if (inView && !isLoadingMore && hasMore) {
       loadMore()
     }
   }, [inView, loadMore, isLoadingMore, hasMore])
 
+  // Charger la première page
   useEffect(() => {
     if (filteredDesigners.length > 0 && displayedDesigners.length === 0) {
       loadMore()
@@ -213,44 +232,78 @@ export default function DesignersPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-4 py-4">
-          <h1 className="text-3xl font-serif text-gray-900 mb-1">
-            Designers ({displayedDesigners.length}/{filteredDesigners.length})
-          </h1>
-          <p className="text-sm text-gray-600 mb-4">Rechercher un designer...</p>
+      <div className="bg-transparent border-b border-gray-200 sticky top-0 z-40">
+        <div className="flex items-center justify-between px-4 py-4">
+          <Link href="/" className="p-2">
+            <ArrowLeft className="w-6 h-6 text-gray-900" />
+          </Link>
+          <h1 className="text-xl font-serif text-gray-900 font-medium">Designers - Liste V3</h1>
+          <button className="p-2">
+            <Search className="w-6 h-6 text-gray-900" />
+          </button>
+        </div>
 
-          <div className="space-y-3">
-            <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un designer..." />
+        {/* Search and filter bar */}
+        <div className="px-4 pb-4 space-y-3">
+          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search designers or periods..." />
 
-            <div className="grid grid-cols-2 gap-3">
-              <select
-                value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-              >
-                <option value="">Toutes les périodes</option>
-                <option value="mid-century">Mid-Century</option>
-                <option value="art-deco">Art Déco</option>
-                <option value="modernist">Modernist</option>
-              </select>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setFilterMode(filterMode === "period" ? "az" : "period")}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Filter & Sort
+            </button>
 
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-              >
-                <option value="name-asc">Nom A → Z</option>
-                <option value="name-desc">Nom Z → A</option>
-                <option value="year-asc">Année (croissant)</option>
-                <option value="year-desc">Année (décroissant)</option>
-              </select>
-            </div>
+            {filterMode === "period" && (
+              <div className="text-sm text-gray-600">
+                <div>Chronological Period</div>
+                <div className="text-xs text-gray-400">(e.g., Mid-Century, Art Deco, Modernist)</div>
+              </div>
+            )}
+            {filterMode === "az" && <div className="text-sm text-gray-600">A-Z</div>}
           </div>
         </div>
       </div>
 
       <div className="px-4 py-4">
+        <h2 className="text-2xl font-serif text-gray-900 mb-4">
+          Designers{" "}
+          <span className="text-gray-500">
+            ({displayedDesigners.length}/{filteredDesigners.length})
+          </span>
+        </h2>
+
+        {/* Search bar without white background */}
+        <div className="mb-4">
+          <SearchBar
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Rechercher un designer..."
+            className="bg-white"
+          />
+        </div>
+
+        {/* Filter row */}
+        <div className="flex items-center gap-3 mb-6">
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm">
+            <SlidersHorizontal className="w-4 h-4" />
+            Filter & Sort
+          </button>
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm flex-1"
+          >
+            <option value="name-asc">Nom A → Z</option>
+            <option value="name-desc">Nom Z → A</option>
+            <option value="year-asc">Année croissante</option>
+            <option value="year-desc">Année décroissante</option>
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {displayedDesigners.map((designer, index) => {
             const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
@@ -267,9 +320,10 @@ export default function DesignersPage() {
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                   }`}
                 >
-                  <div className="p-4">
-                    <div className="flex justify-center mb-3">
-                      <div className="w-24 h-24 relative rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200">
+                  <div className="p-3">
+                    <div className="flex gap-2 mb-3">
+                      {/* Large portrait */}
+                      <div className="w-1/2 aspect-square relative flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
                         {designer.image ? (
                           <Image
                             src={designer.image || "/placeholder.svg"}
@@ -287,31 +341,45 @@ export default function DesignersPage() {
                           </div>
                         )}
                       </div>
+
+                      {/* 4 miniatures en grille 2x2 */}
+                      <div className="w-1/2 grid grid-cols-2 gap-1.5">
+                        {designer.luminaires.slice(0, 4).map((luminaire: any, idx: number) => (
+                          <div key={idx} className="aspect-square relative bg-gray-100 rounded-md overflow-hidden">
+                            <Image
+                              src={luminaire.image || "/placeholder.svg"}
+                              alt={luminaire.name}
+                              fill
+                              unoptimized
+                              className="object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.svg"
+                              }}
+                            />
+                          </div>
+                        ))}
+                        {/* Compléter la grille 2x2 si moins de 4 items */}
+                        {Array.from({ length: Math.max(0, 4 - designer.luminaires.length) }).map((_, idx) => (
+                          <div key={`empty-${idx}`} className="aspect-square bg-gray-50 rounded-md" />
+                        ))}
+                      </div>
                     </div>
 
-                    <h3 className="font-serif text-base font-medium text-gray-900 mb-1 text-center leading-tight">
+                    {/* Designer info */}
+                    <h3 className="font-serif text-base font-medium text-gray-900 mb-1 leading-tight">
                       {designer.name}
                     </h3>
-                    <p className="text-xs text-gray-600 mb-2 text-center">{designer.count} luminaire(s)</p>
-
-                    {designer.luminaires.length > 0 && (
-                      <div className="aspect-square relative bg-gray-50 rounded-lg overflow-hidden border border-gray-200 mb-3">
-                        <Image
-                          src={designer.luminaires[0].image || "/placeholder.svg"}
-                          alt={designer.luminaires[0].name}
-                          fill
-                          unoptimized
-                          className="object-contain p-2"
-                          onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg"
-                          }}
-                        />
-                      </div>
-                    )}
+                    <p className="text-xs text-gray-600 mb-2">
+                      {designer.years.length > 0
+                        ? `${Math.min(...designer.years)}-${Math.max(...designer.years)}`
+                        : "Period unknown"}
+                    </p>
+                    <p className="text-xs text-gray-500 mb-3">{designer.count} Luminaires & Furniture Pieces</p>
 
                     {isAccessible ? (
-                      <button className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-[#f2d895] hover:bg-gray-50 transition-colors">
-                        Voir le designer →
+                      <button className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                        <span>View Profile</span>
+                        <span>→</span>
                       </button>
                     ) : (
                       <div className="text-center text-xs text-gray-400">Premium requis</div>
@@ -323,6 +391,7 @@ export default function DesignersPage() {
           })}
         </div>
 
+        {/* Loading indicator */}
         {hasMore && (
           <div ref={ref} className="text-center py-8">
             {isLoadingMore && (
@@ -335,44 +404,27 @@ export default function DesignersPage() {
         )}
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-        <div className="flex items-center justify-around h-16">
-          <Link
-            href="/"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/" ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-xs">Home</span>
-          </Link>
-          <Link
-            href="/designers"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname.startsWith("/designers") ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <Users className="w-5 h-5" />
-            <span className="text-xs">Designers</span>
-          </Link>
-          <Link
-            href="/luminaires"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname.startsWith("/luminaires") ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <Grid3x3 className="w-5 h-5" />
-            <span className="text-xs">Collection</span>
-          </Link>
-          <Link
-            href="/recherche"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/recherche" ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <Mail className="w-5 h-5" />
-            <span className="text-xs">Inquire</span>
-          </Link>
-          <Link
-            href="/pricing"
-            className={`flex flex-col items-center gap-1 px-3 ${pathname === "/pricing" ? "text-[#f2d895]" : "text-gray-600"}`}
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs">Account</span>
-          </Link>
-        </div>
+      <nav className="bottom-nav">
+        <Link href="/" className={`bottom-nav-item ${pathname === "/" ? "active" : ""}`}>
+          <Home className="w-5 h-5" />
+          <span>Home</span>
+        </Link>
+        <Link href="/designers" className={`bottom-nav-item ${pathname.startsWith("/designers") ? "active" : ""}`}>
+          <Users className="w-5 h-5" />
+          <span>Designers</span>
+        </Link>
+        <Link href="/luminaires" className={`bottom-nav-item ${pathname.startsWith("/luminaires") ? "active" : ""}`}>
+          <Grid3x3 className="w-5 h-5" />
+          <span>Collection</span>
+        </Link>
+        <Link href="/recherche" className={`bottom-nav-item ${pathname === "/recherche" ? "active" : ""}`}>
+          <Mail className="w-5 h-5" />
+          <span>Inquire</span>
+        </Link>
+        <Link href="/pricing" className={`bottom-nav-item ${pathname === "/pricing" ? "active" : ""}`}>
+          <User className="w-5 h-5" />
+          <span>Account</span>
+        </Link>
       </nav>
     </div>
   )

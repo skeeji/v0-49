@@ -4,10 +4,9 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Download } from "lucide-react"
+import { ArrowLeft, Download, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
-import { FavoriteToggleButton } from "@/components/FavoriteToggleButton"
 import { useAuth } from "@/contexts/AuthContext"
 import jsPDF from "jspdf"
 import { DeleteLuminaireButton } from "@/components/DeleteLuminaireButton"
@@ -460,11 +459,26 @@ export default function LuminaireDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 md:hidden">
+        <div className="flex items-center justify-between px-4 py-4">
+          <Link href="/luminaires" className="p-2">
+            <ArrowLeft className="w-6 h-6 text-gray-900" />
+          </Link>
+          <h1 className="text-lg font-serif text-gray-900 font-medium line-clamp-1 flex-1 mx-2">
+            {luminaire?.artist} - {luminaire?.name}
+          </h1>
+          <button className="p-2">
+            <Search className="w-6 h-6 text-gray-900" />
+          </button>
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
+          {/* Desktop back button */}
+          <div className="hidden md:flex items-center justify-between mb-6">
             <Link href="/luminaires">
-              <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+              <Button variant="outline" className="flex items-center gap-2 bg-white">
                 <ArrowLeft className="w-4 h-4" />
                 Retour
               </Button>
@@ -488,12 +502,19 @@ export default function LuminaireDetailPage() {
                   {generatingPDF ? "Génération..." : "PDF"}
                 </Button>
               )}
-              <FavoriteToggleButton isActive={isFavorite} onClick={toggleFavorite} />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
+            {/* Large image with carousel dots and favorite button */}
             <div className="aspect-square relative bg-gray-50">
+              <button
+                onClick={toggleFavorite}
+                className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
+              >
+                <span className={`text-xl ${isFavorite ? "text-red-500" : "text-gray-400"}`}>♥</span>
+              </button>
+
               {luminaire.image ? (
                 <Image
                   src={luminaire.image || "/placeholder.svg"}
@@ -513,133 +534,127 @@ export default function LuminaireDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* Carousel dots */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#f2d895]" />
+                <div className="w-2 h-2 rounded-full bg-gray-300" />
+                <div className="w-2 h-2 rounded-full bg-gray-300" />
+              </div>
             </div>
 
-            <div className="p-6 border-t border-gray-100">
+            {/* Content section */}
+            <div className="p-6">
+              {/* Title and price row */}
               <div className="flex items-start justify-between mb-4">
-                <EditableField
-                  value={luminaire.name || ""}
-                  onSave={(v) => handleUpdate("name", v)}
-                  className="text-2xl font-serif text-gray-900"
-                  placeholder="Nom du luminaire"
-                  disabled={!canEdit}
-                />
+                <div className="flex-1">
+                  <EditableField
+                    value={luminaire.name || ""}
+                    onSave={(v) => handleUpdate("name", v)}
+                    className="text-2xl font-serif text-gray-900 mb-2"
+                    placeholder="Nom du luminaire"
+                    disabled={!canEdit}
+                  />
+                  <p className="text-sm text-gray-600">
+                    {luminaire.editeur}
+                    {luminaire.year && `, ${luminaire.year}`}
+                  </p>
+                </div>
+
                 {canSeeEstimation && luminaire.estimation && (
                   <div className="text-right">
                     <div className="text-2xl font-bold text-gray-900">{luminaire.estimation}</div>
-                    <div className="text-xs text-gray-500">AVAILABLE</div>
+                    <div className="text-xs text-green-600 font-medium">AVAILABLE</div>
                   </div>
                 )}
               </div>
 
-              <div className="text-sm text-gray-600 mb-4">
-                {luminaire.artist && (
-                  <Link
-                    href={`/designers/${encodeURIComponent(luminaire.artist)}`}
-                    className="hover:underline font-medium"
-                  >
-                    {luminaire.artist}
-                  </Link>
-                )}
-                {luminaire.year && <span>, {luminaire.year}</span>}
-              </div>
-
-              <div className="space-y-3 border-t border-gray-100 pt-4">
-                {luminaire.categorie && (
-                  <div className="flex">
-                    <span className="text-sm font-medium text-gray-700 w-32">Catégorie</span>
-                    <EditableField
-                      value={luminaire.categorie || ""}
-                      onSave={(v) => handleUpdate("categorie", v)}
-                      className="text-sm text-gray-900 flex-1"
-                      disabled={!canEdit}
-                    />
+              {/* Designer card with avatar */}
+              {luminaire.artist && (
+                <Link
+                  href={`/designers/${encodeURIComponent(luminaire.artist)}`}
+                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl mb-6 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <span className="text-gray-600 text-xl">👤</span>
                   </div>
-                )}
+                  <div className="flex-1">
+                    <h3 className="font-serif font-medium text-gray-900">{luminaire.artist}</h3>
+                    <p className="text-sm text-gray-600">{luminaire.specialty || "Designer"}</p>
+                  </div>
+                  <span className="text-gray-400">→</span>
+                </Link>
+              )}
+
+              {/* Specifications grid */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
                 {luminaire.materials && (
-                  <div className="flex">
-                    <span className="text-sm font-medium text-gray-700 w-32">Matériaux</span>
-                    <EditableField
-                      value={luminaire.materials || ""}
-                      onSave={(v) => handleUpdate("materials", v)}
-                      className="text-sm text-gray-900 flex-1"
-                      disabled={!canEdit}
-                    />
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Material</div>
+                    <div className="text-sm text-gray-900">{luminaire.materials}</div>
                   </div>
                 )}
                 {luminaire.dimensions && (
-                  <div className="flex">
-                    <span className="text-sm font-medium text-gray-700 w-32">Dimensions</span>
-                    <EditableField
-                      value={luminaire.dimensions || ""}
-                      onSave={(v) => handleUpdate("dimensions", v)}
-                      className="text-sm text-gray-900 flex-1"
-                      disabled={!canEdit}
-                    />
-                  </div>
-                )}
-                {luminaire.editeur && (
-                  <div className="flex">
-                    <span className="text-sm font-medium text-gray-700 w-32">Éditeur</span>
-                    <EditableField
-                      value={luminaire.editeur || ""}
-                      onSave={(v) => handleUpdate("editeur", v)}
-                      className="text-sm text-gray-900 flex-1"
-                      disabled={!canEdit}
-                    />
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Dimensions</div>
+                    <div className="text-sm text-gray-900">{luminaire.dimensions}</div>
                   </div>
                 )}
                 {luminaire.signed && (
-                  <div className="flex">
-                    <span className="text-sm font-medium text-gray-700 w-32">Signé</span>
-                    <EditableField
-                      value={luminaire.signed || ""}
-                      onSave={(v) => handleUpdate("signed", v)}
-                      className="text-sm text-gray-900 flex-1"
-                      disabled={!canEdit}
-                    />
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Condition</div>
+                    <div className="text-sm text-gray-900">{luminaire.signed}</div>
+                  </div>
+                )}
+                {luminaire.etiquette && canEdit && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Reference</div>
+                    <div className="text-sm text-gray-900">{luminaire.etiquette}</div>
                   </div>
                 )}
               </div>
 
+              {/* History section */}
               {luminaire.description && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Description</h3>
+                <div className="mb-6">
+                  <h3 className="font-serif text-lg font-medium text-gray-900 mb-2">History</h3>
                   <EditableField
-                    value={luminaire.description || ""}
+                    value={luminaire.description}
                     onSave={(v) => handleUpdate("description", v)}
-                    className="text-sm text-gray-600"
                     multiline
                     disabled={!canEdit}
+                    className="text-sm text-gray-700 leading-relaxed"
                   />
                 </div>
               )}
 
-              <button className="w-full mt-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+              {/* Request Information button */}
+              <button className="w-full flex items-center justify-center gap-2 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
                 <span>Request Information</span>
                 <span>→</span>
               </button>
             </div>
           </div>
 
+          {/* More from designer section */}
           {similarLuminaires.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-white rounded-2xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif text-gray-900">More from {luminaire.artist || "this designer"}</h2>
-                <Link href="/luminaires" className="text-sm text-gray-600 hover:text-gray-900">
-                  View All
-                </Link>
+                <h2 className="text-xl font-serif text-gray-900">
+                  More from {luminaire.artist?.split(",")[0] || "Designer"}
+                </h2>
+                <button className="text-sm text-gray-600 hover:text-gray-900">View All</button>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {similarLuminaires.slice(0, 6).map((similar) => (
-                  <Link key={similar.id} href={`/luminaires/${similar.id}`} className="block">
+                {similarLuminaires.slice(0, 2).map((item) => (
+                  <Link key={item.id} href={`/luminaires/${item.id}`} className="block">
                     <div className="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
                       <div className="aspect-square relative">
-                        {similar.image ? (
+                        {item.image ? (
                           <Image
-                            src={similar.image || "/placeholder.svg"}
-                            alt={similar.name}
+                            src={item.image || "/placeholder.svg"}
+                            alt={item.name}
                             fill
                             className="object-contain p-4"
                             unoptimized
@@ -651,8 +666,8 @@ export default function LuminaireDetailPage() {
                         )}
                       </div>
                       <div className="p-3">
-                        <h3 className="font-serif text-sm text-gray-900 mb-1 line-clamp-2">{similar.name}</h3>
-                        <p className="text-xs text-gray-600">{similar.year}</p>
+                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">{item.name}</h3>
+                        <p className="text-xs text-gray-600">{item.year || "Year unknown"}</p>
                       </div>
                     </div>
                   </Link>
