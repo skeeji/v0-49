@@ -6,7 +6,6 @@ import Link from "next/link"
 import { ArrowLeft, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
-import { GalleryGrid } from "@/components/GalleryGrid"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
@@ -290,98 +289,161 @@ export default function DesignerDetailPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <Link href="/designers">
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent font-serif">
-              <ArrowLeft className="w-4 h-4" />
-              Retour aux designers
-            </Button>
-          </Link>
-        </div>
+    <div className="min-h-screen bg-[#f5f1e8] pb-20">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <Link href="/designers">
+              <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+                <ArrowLeft className="w-4 h-4" />
+                Retour aux designers
+              </Button>
+            </Link>
+          </div>
 
-        <div className="bg-white rounded-xl p-8 shadow-lg mb-8">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-            <div className="w-48 h-48 relative flex-shrink-0">
-              <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 overflow-hidden">
-                {designer.imagedesigner ? (
-                  <Image
-                    src={`/api/images/filename/${designer.imagedesigner}`}
-                    alt={designer.nom}
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      console.log("❌ Erreur chargement image designer:", designer.imagedesigner)
-                      e.currentTarget.style.display = "none"
-                      const nextElement = e.currentTarget.nextElementSibling as HTMLElement
-                      if (nextElement) {
-                        nextElement.classList.remove("hidden")
-                      }
-                    }}
-                  />
-                ) : null}
-                <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
-                  <div className="text-6xl text-gray-400 mb-2">👤</div>
-                  <span className="text-sm text-gray-500 font-serif">Image non disponible</span>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
+              {/* Photo portrait du designer */}
+              <div className="w-40 h-40 relative flex-shrink-0">
+                <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-full border-2 border-gray-200 overflow-hidden">
+                  {designer.imagedesigner ? (
+                    <Image
+                      src={`/api/images/filename/${designer.imagedesigner}`}
+                      alt={designer.nom}
+                      fill
+                      className="object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none"
+                        const nextElement = e.currentTarget.nextElementSibling as HTMLElement
+                        if (nextElement) {
+                          nextElement.classList.remove("hidden")
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
+                    <div className="text-5xl text-gray-400 mb-2">👤</div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex-1 text-center md:text-left">
-              <EditableField
-                value={designer.nom}
-                onSave={(newName) => {
-                  if (!canEdit) return
-                  updateDesignerName(newName)
-                }}
-                className="text-4xl font-serif text-gray-900 mb-4"
-                placeholder="Nom du designer"
-                disabled={!canEdit}
-              />
-              <p className="text-lg text-gray-600 mb-6 font-serif">
-                {designer.count} luminaire{designer.count > 1 ? "s" : ""} dans la collection
-              </p>
-
-              <div className="bg-white rounded-lg p-4 border border-gray-200 mb-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Spécialité</h3>
-                <EditableField value={description} onSave={updateDesignerSpecialty} multiline disabled={!canEdit} />
-              </div>
-
-              <div className="bg-white rounded-lg p-4 border border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900 mb-2 font-serif">Collaboration / Œuvre / Éditeur</h3>
+              {/* Informations du designer */}
+              <div className="flex-1 text-center md:text-left">
                 <EditableField
-                  value={collaboration}
-                  onSave={updateDesignerCollaboration}
-                  multiline
+                  value={designer.nom}
+                  onSave={(newName) => {
+                    if (!canEdit) return
+                    updateDesignerName(newName)
+                  }}
+                  className="text-3xl font-serif text-gray-900 mb-2"
+                  placeholder="Nom du designer"
                   disabled={!canEdit}
                 />
+
+                <p className="text-base text-gray-600 mb-6 font-serif">
+                  {designer.count} luminaire{designer.count > 1 ? "s" : ""} & Furniture Pieces
+                </p>
+
+                {/* Bouton Share Profile */}
+                <button className="px-6 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors mb-6">
+                  Share Profile
+                </button>
+
+                {/* Biography section */}
+                {description && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-serif font-medium text-gray-900 mb-2">Biography</h3>
+                    <EditableField
+                      value={description}
+                      onSave={updateDesignerSpecialty}
+                      multiline
+                      disabled={!canEdit}
+                      className="text-sm text-gray-700 leading-relaxed"
+                    />
+                  </div>
+                )}
+
+                {/* Philosophy section */}
+                {collaboration && (
+                  <div>
+                    <h3 className="text-lg font-serif font-medium text-gray-900 mb-2">Philosophy</h3>
+                    <EditableField
+                      value={collaboration}
+                      onSave={updateDesignerCollaboration}
+                      multiline
+                      disabled={!canEdit}
+                      className="text-sm text-gray-700 leading-relaxed italic"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white rounded-xl p-8 shadow-lg">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-serif text-gray-900">Luminaires de {designer.nom}</h2>
-            {canEdit && (
-              <Button
-                onClick={() => setIsModalOpen(true)}
-                style={{ backgroundColor: "#f2d895", color: "#000" }}
-                className="hover:opacity-90 flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Nouveau luminaire
-              </Button>
+          {/* Pièces iconiques */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-serif text-gray-900">Iconic Pieces</h2>
+              <Link href={`/designers/${designer.slug}`} className="text-sm text-gray-600 hover:text-gray-900">
+                View All ({designer.count})
+              </Link>
+            </div>
+
+            {designerLuminaires.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {designerLuminaires.slice(0, 4).map((luminaire) => (
+                  <Link key={luminaire.id} href={`/luminaires/${luminaire.id}`} className="block">
+                    <div className="bg-gray-50 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="aspect-square relative">
+                        {luminaire.image ? (
+                          <Image
+                            src={luminaire.image || "/placeholder.svg"}
+                            alt={luminaire.name}
+                            fill
+                            className="object-contain p-4"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <div className="text-4xl">🏮</div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
+                          {luminaire.name}
+                        </h3>
+                        <p className="text-xs text-gray-600">
+                          {luminaire.artist}
+                          {luminaire.year && `, ${luminaire.year}`}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="font-serif text-gray-500">Aucun luminaire trouvé.</p>
+              </div>
+            )}
+
+            {/* Bouton View Full Collection */}
+            {designerLuminaires.length > 4 && (
+              <button className="w-full mt-6 py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                View Full Collection
+              </button>
             )}
           </div>
 
-          {designerLuminaires.length > 0 ? (
-            <GalleryGrid items={designerLuminaires} viewMode="grid" onItemUpdate={updateLuminaire} />
-          ) : (
-            <div className="text-center py-12">
-              <p className="font-serif">Aucun luminaire trouvé.</p>
-            </div>
+          {canEdit && (
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              className="mt-6 bg-gray-900 text-white hover:bg-gray-800 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Nouveau luminaire
+            </Button>
           )}
         </div>
       </div>

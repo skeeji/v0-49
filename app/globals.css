@@ -24,9 +24,6 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
-
-    /* Ajout couleur crème du design reference */
-    --cream: 38 45% 95%;
   }
 
   .dark {
@@ -57,45 +54,23 @@
     @apply border-border;
   }
   body {
-    /* Fond principal crème #f5f1e8 selon images de référence */
+    /* Fond crème selon images de référence */
     background-color: #f5f1e8;
     color: #333333;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 }
 
-/* Classes utilitaires pour le design system des images de référence */
-.container-responsive {
-  @apply container mx-auto px-4;
+/* Classes utilitaires pour le design system des images */
+.card-reference {
+  @apply bg-white rounded-2xl shadow-sm border border-gray-100;
 }
 
-.font-playfair {
+.font-serif {
   font-family: "Playfair Display", serif;
 }
 
-.text-primary-dark {
-  color: #333333;
-}
-
-.text-secondary-dark {
-  color: #666666;
-}
-
-/* Navigation inférieure mobile selon Lumianire.png et Designer.png */
-.bottom-nav {
-  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50;
-  @apply flex items-center justify-around py-3 px-4;
-}
-
-.bottom-nav-item {
-  @apply flex flex-col items-center gap-1 text-xs text-gray-600;
-  @apply hover:text-gray-900 transition-colors;
-}
-
-.bottom-nav-item.active {
-  @apply text-gray-900 font-medium;
-}
-
-/* Animation pour la chronologie */
+/* Animation chronologie */
 .scroll-reveal {
   opacity: 0;
   transform: translateY(50px);
@@ -107,14 +82,9 @@
   transform: translateY(0);
 }
 
-/* Styles pour les images */
-.aspect-square {
-  aspect-ratio: 1 / 1;
-}
-
-/* Responsive design */
+/* Responsive */
 @media (max-width: 768px) {
-  .container-responsive {
-    @apply px-2;
+  body {
+    padding-bottom: 80px;
   }
 }

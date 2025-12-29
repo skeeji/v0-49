@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { TimelineBlock } from "@/components/TimelineBlock"
 import { useAuth } from "@/contexts/AuthContext"
+import Image from "next/image"
+import Link from "next/link"
+import { EditableField } from "@/components/EditableField"
 
 const periods = [
   {
@@ -234,24 +236,97 @@ export default function ChronologiePage() {
   const totalLuminaires = timelineData.reduce((sum, period) => sum + period.luminaires.length, 0)
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-serif text-gray-900 mb-4 text-center">Chronologie des Périodes Artistiques</h1>
-        <p className="text-center text-gray-600 mb-12 font-serif">
-          {totalLuminaires} luminaires classés par période historique
-        </p>
+    <div className="min-h-screen bg-[#f5f1e8] pb-20">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl md:text-4xl font-serif text-gray-900 mb-2 text-center">
+            Chronologie des Périodes Artistiques
+          </h1>
+          <p className="text-center text-gray-600 mb-12 font-serif">
+            {totalLuminaires} luminaires classés par période historique
+          </p>
 
-        <div className="space-y-16">
-          {timelineData.map((period, index) => (
-            <TimelineBlock
-              key={period.name}
-              period={period}
-              isLeft={index % 2 === 0}
-              className="scroll-reveal"
-              onDescriptionUpdate={updateDescription}
-              canEdit={canEdit}
-            />
-          ))}
+          <div className="space-y-6">
+            {timelineData.map((period, index) => (
+              <div
+                key={period.name}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden scroll-reveal"
+              >
+                <div className="md:flex">
+                  {/* Image de la période */}
+                  <div className="md:w-2/5 aspect-[4/3] md:aspect-auto relative bg-gray-100">
+                    {period.imageUrl ? (
+                      <Image
+                        src={period.imageUrl || "/placeholder.svg"}
+                        alt={period.name}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <div className="text-6xl">🎨</div>
+                      </div>
+                    )}
+                    {/* Badge de la période */}
+                    <div className="absolute bottom-4 left-4 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide">
+                      {period.name}
+                    </div>
+                  </div>
+
+                  {/* Contenu de la carte */}
+                  <div className="md:w-3/5 p-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm text-gray-600">
+                        📅 {period.start} - {period.end}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900">{period.luminaires.length} luminaires</span>
+                    </div>
+
+                    <h2 className="text-2xl font-serif text-gray-900 mb-3">{period.name}</h2>
+
+                    <EditableField
+                      value={period.description}
+                      onSave={(newDesc) => updateDescription(period.name, newDesc)}
+                      multiline
+                      disabled={!canEdit}
+                      className="text-sm text-gray-700 leading-relaxed mb-4"
+                    />
+
+                    {/* Miniatures des luminaires de la période */}
+                    {period.luminaires.length > 0 && (
+                      <div className="flex gap-2 mb-4">
+                        {period.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
+                          <Link
+                            key={idx}
+                            href={`/luminaires/${luminaire.id}`}
+                            className="w-16 h-16 relative bg-gray-100 rounded-lg overflow-hidden hover:ring-2 hover:ring-gray-900 transition-all"
+                          >
+                            {luminaire.image && (
+                              <Image
+                                src={luminaire.image || "/placeholder.svg"}
+                                alt={luminaire.name}
+                                fill
+                                className="object-contain p-2"
+                                unoptimized
+                              />
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Bouton voir tous les luminaires */}
+                    <Link href={`/luminaires?period=${encodeURIComponent(period.name)}`}>
+                      <button className="w-full py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                        Voir les {period.luminaires.length} luminaires
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
