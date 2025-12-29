@@ -533,7 +533,7 @@ export default function LuminaireDetailPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
-            <div className="aspect-[4/3] max-w-2xl mx-auto relative bg-transparent p-4 flex items-center justify-center">
+            <div className="aspect-[4/3] max-w-2xl mx-auto relative bg-transparent flex items-center justify-center">
               <button
                 onClick={toggleFavorite}
                 className="absolute top-6 right-6 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
@@ -542,12 +542,12 @@ export default function LuminaireDetailPage() {
               </button>
 
               {luminaire.image ? (
-                <div className="relative w-full h-full max-w-md max-h-[400px]">
+                <div className="relative w-full h-full">
                   <Image
                     src={luminaire.image || "/placeholder.svg"}
                     alt={String(luminaire.name || "Luminaire")}
                     fill
-                    className="object-contain rounded-2xl"
+                    className="object-contain"
                     unoptimized
                     onError={(e) => {
                       e.currentTarget.src = "/placeholder.svg"
@@ -575,19 +575,10 @@ export default function LuminaireDetailPage() {
                     placeholder="Nom du luminaire"
                     disabled={!canEdit}
                   />
-                  <EditableField
-                    value={`${luminaire.artist || ""}, ca ${luminaire.year || ""}`}
-                    onSave={(val) => {
-                      const match = val.match(/^(.*?),\s*ca\s*(\d+)/)
-                      if (match) {
-                        handleUpdate("artist", match[1].trim())
-                        handleUpdate("year", match[2])
-                      }
-                    }}
-                    className="text-sm text-gray-600"
-                    placeholder="Artiste, ca année"
-                    disabled={!canEdit}
-                  />
+                  <div className="text-sm text-gray-600">
+                    {luminaire.artist || ""}
+                    {luminaire.year ? `, ca ${luminaire.year}` : ""}
+                  </div>
                 </div>
 
                 {canSeeEstimation && luminaire.estimation && (
@@ -619,21 +610,29 @@ export default function LuminaireDetailPage() {
                         unoptimized
                         onError={(e) => {
                           console.error("[v0] Failed to load designer image:", luminaire.designerImage)
-                          e.currentTarget.style.display = "none"
+                          const parent = e.currentTarget.parentElement
+                          if (parent) {
+                            parent.innerHTML =
+                              '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="w-6 h-6 text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
+                          }
                         }}
                       />
-                    ) : null}
-                    {!luminaire.designerImage && <User className="w-6 h-6 text-gray-400" />}
+                    ) : (
+                      <User className="w-6 h-6 text-gray-400" />
+                    )}
                   </div>
                   <div>
-                    <EditableField
-                      value={luminaire.artist}
-                      onSave={(value) => handleUpdate("artist", value)}
-                      canEdit={canEdit}
-                      className="font-semibold text-gray-900"
-                      style={{ whiteSpace: "pre-wrap" }}
-                    />
-                    <p className="text-sm text-gray-600">Designer</p>
+                    {canEdit ? (
+                      <EditableField
+                        value={luminaire.artist}
+                        onSave={(value) => handleUpdate("artist", value)}
+                        canEdit={canEdit}
+                        className="font-semibold text-gray-900"
+                        style={{ whiteSpace: "pre-wrap" }}
+                      />
+                    ) : (
+                      <div className="font-semibold text-gray-900">{luminaire.artist}</div>
+                    )}
                   </div>
                 </Link>
                 <ArrowRight className="w-5 h-5 text-gray-400" />
@@ -787,11 +786,11 @@ export default function LuminaireDetailPage() {
                             src={`/api/images/filename/${similar.filename}`}
                             alt={similar["Nom luminaire"] || "Luminaire"}
                             fill
-                            className="object-contain rounded-xl"
+                            className="object-cover rounded-xl"
                             unoptimized
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 rounded-xl">
                             <div className="text-4xl">🏮</div>
                           </div>
                         )}

@@ -319,7 +319,7 @@ export default function DesignerDetailPage() {
             {/* Portrait and info in horizontal layout on mobile */}
             <div className="flex items-start gap-6 mb-6">
               {/* Portrait image */}
-              <div className="w-32 h-32 relative flex-shrink-0">
+              <div className="w-48 h-48 relative flex-shrink-0">
                 <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg overflow-hidden">
                   {designer.imagedesigner ? (
                     <Image
@@ -404,17 +404,17 @@ export default function DesignerDetailPage() {
                 {designerLuminaires.slice(0, 4).map((luminaire) => (
                   <Link key={luminaire.id} href={`/luminaires/${luminaire.id}`} className="block">
                     <div className="bg-transparent rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="aspect-square relative bg-transparent">
+                      <div className="aspect-square relative bg-transparent overflow-hidden rounded-xl">
                         {luminaire.image ? (
                           <Image
                             src={luminaire.image || "/placeholder.svg"}
                             alt={luminaire.name}
                             fill
-                            className="object-contain rounded-xl"
+                            className="object-cover rounded-xl"
                             unoptimized
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 rounded-xl">
                             <div className="text-4xl">🏮</div>
                           </div>
                         )}

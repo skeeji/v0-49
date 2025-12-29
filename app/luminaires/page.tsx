@@ -514,6 +514,7 @@ export default function LuminairesPage() {
                 height: 2px;
                 background: transparent;
                 outline: none;
+                pointer-events: all;
               }
               input[type="range"]::-webkit-slider-thumb {
                 -webkit-appearance: none;
@@ -526,7 +527,8 @@ export default function LuminairesPage() {
                 border: 2px solid white;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                 position: relative;
-                z-index: 10;
+                z-index: 100;
+                pointer-events: all;
               }
               input[type="range"]::-moz-range-thumb {
                 width: 20px;
@@ -536,47 +538,54 @@ export default function LuminairesPage() {
                 border-radius: 50%;
                 border: 2px solid white;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                pointer-events: all;
+              }
+              .range-container {
+                position: relative;
+                height: 40px;
+                display: flex;
+                align-items: center;
               }
             `}</style>
 
-            <input
-              type="range"
-              min={yearBounds.min}
-              max={yearBounds.max}
-              value={yearRange[0]}
-              onChange={(e) => {
-                const newMin = Number.parseInt(e.target.value)
-                if (newMin <= yearRange[1]) {
-                  handleYearRangeChange([newMin, yearRange[1]])
-                }
-              }}
-              className="absolute w-full h-2 bg-transparent appearance-none pointer-events-auto"
-              style={{
-                zIndex: yearRange[0] > yearBounds.min + (yearBounds.max - yearBounds.min) / 2 ? 5 : 3,
-              }}
-            />
-            <input
-              type="range"
-              min={yearBounds.min}
-              max={yearBounds.max}
-              value={yearRange[1]}
-              onChange={(e) => {
-                const newMax = Number.parseInt(e.target.value)
-                if (newMax >= yearRange[0]) {
-                  handleYearRangeChange([yearRange[0], newMax])
-                }
-              }}
-              className="absolute w-full h-2 bg-transparent appearance-none pointer-events-auto"
-              style={{ zIndex: 4 }}
-            />
-            <div className="relative h-2 bg-gray-200 rounded-full">
-              <div
-                className="absolute h-full bg-[#8b7355] rounded-full"
-                style={{
-                  left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
-                  right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+            <div className="range-container">
+              <input
+                type="range"
+                min={yearBounds.min}
+                max={yearBounds.max}
+                value={yearRange[0]}
+                onChange={(e) => {
+                  const newMin = Number.parseInt(e.target.value)
+                  if (newMin <= yearRange[1]) {
+                    handleYearRangeChange([newMin, yearRange[1]])
+                  }
                 }}
+                className="absolute w-full"
+                style={{ zIndex: 5 }}
               />
+              <input
+                type="range"
+                min={yearBounds.min}
+                max={yearBounds.max}
+                value={yearRange[1]}
+                onChange={(e) => {
+                  const newMax = Number.parseInt(e.target.value)
+                  if (newMax >= yearRange[0]) {
+                    handleYearRangeChange([yearRange[0], newMax])
+                  }
+                }}
+                className="absolute w-full"
+                style={{ zIndex: 4 }}
+              />
+              <div className="absolute w-full h-2 bg-gray-200 rounded-full">
+                <div
+                  className="absolute h-full bg-[#8b7355] rounded-full"
+                  style={{
+                    left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+                    right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+                  }}
+                />
+              </div>
             </div>
           </div>
 
@@ -616,20 +625,22 @@ export default function LuminairesPage() {
         )}
 
         {/* Grid or List view */}
-        <div className={`grid ${viewMode === "grid" ? `grid-cols-2 md:grid-cols-${columns}` : "grid-cols-1"} gap-4`}>
+        <div
+          className={`grid ${viewMode === "grid" ? `grid-cols-2 ${columns === 3 ? "md:grid-cols-3" : columns === 4 ? "md:grid-cols-4" : columns === 6 ? "md:grid-cols-6" : "md:grid-cols-2"}` : "grid-cols-1"} gap-4`}
+        >
           {displayedLuminaires.map((luminaire) => {
             const itemId = String(luminaire._id || luminaire.id || "")
 
             return (
               <Link key={itemId} href={`/luminaires/${itemId}`} className="block">
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                  <div className="aspect-square relative bg-transparent">
+                  <div className="aspect-square relative bg-transparent overflow-hidden">
                     {luminaire.filename ? (
                       <Image
                         src={`/api/images/filename/${luminaire.filename}`}
                         alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
                         fill
-                        className="object-contain rounded-xl p-2"
+                        className="object-cover"
                         unoptimized
                         onError={(e) => {
                           e.currentTarget.style.display = "none"
@@ -641,7 +652,7 @@ export default function LuminairesPage() {
                       />
                     ) : null}
                     <div
-                      className={`w-full h-full flex items-center justify-center text-gray-400 ${
+                      className={`w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 ${
                         luminaire.filename ? "hidden" : ""
                       }`}
                     >
