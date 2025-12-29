@@ -577,7 +577,7 @@ export default function LuminaireDetailPage() {
                   />
                   <div className="text-sm text-gray-600">
                     {luminaire.artist || ""}
-                    {luminaire.year ? `, ca ${luminaire.year}` : ""}
+                    {luminaire.year ? `, ${luminaire.year}` : ""}
                   </div>
                 </div>
 

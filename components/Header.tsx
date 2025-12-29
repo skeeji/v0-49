@@ -66,9 +66,12 @@ export function Header() {
         }}
       >
         <div className="container mx-auto px-4 h-full">
-          <div className="flex items-center justify-between h-full">
-            {/* Logo - Taille encore plus grande */}
-            <Link href="/" className="flex items-center">
+          <div className="flex items-center justify-center md:justify-between h-full relative">
+            {/* Logo - Centré absolument sur mobile, à gauche sur desktop */}
+            <Link
+              href="/"
+              className="flex items-center absolute md:relative left-1/2 md:left-0 transform -translate-x-1/2 md:translate-x-0"
+            >
               <div className="w-32 h-32 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
@@ -88,32 +91,32 @@ export function Header() {
                 <div key={item.href} className="relative">
                   <Link
                     href={item.href}
-                    className="text-[#666666] hover:text-[#333333] font-normal transition-colors py-4 block"
+                    className="text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block"
                     style={{ fontSize: "16px" }}
                   >
                     {item.label}
                   </Link>
                   {isActivePage(item.href) && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#9A8C7F]"></div>
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#8b7355]"></div>
                   )}
                 </div>
               ))}
             </nav>
 
             {/* Actions utilisateur */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 ml-auto md:ml-0">
               {user ? (
                 <UserMenu />
               ) : (
                 <Button
                   onClick={signInWithGoogle}
-                  className="text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#9A8C7F]"
+                  className="text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#8b7355]"
                   style={{
-                    backgroundColor: "#9A8C7F",
+                    backgroundColor: "#8b7355",
                     fontSize: "16px",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#8A7C6F")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#9A8C7F")}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#75614a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                 >
                   Connexion
                 </Button>

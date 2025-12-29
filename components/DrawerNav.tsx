@@ -47,8 +47,8 @@ export function DrawerNav({ isOpen, onClose, navItems }: DrawerNavProps) {
                   onClick={onClose}
                   className={`block px-4 py-3 rounded-lg font-medium transition-colors ${
                     isActivePage(item.href)
-                      ? "bg-orange-50 text-orange-600 border-l-4 border-orange-500"
-                      : "text-gray-700 hover:bg-gray-50"
+                      ? "bg-[#8b7355] bg-opacity-10 text-[#8b7355] border-l-4 border-[#8b7355]"
+                      : "text-gray-700 hover:bg-[#8b7355] hover:bg-opacity-5 hover:text-[#8b7355]"
                   }`}
                 >
                   {item.label}
@@ -92,7 +92,7 @@ export function DrawerNav({ isOpen, onClose, navItems }: DrawerNavProps) {
                   onClose()
                 }}
                 className="w-full text-white font-medium"
-                style={{ backgroundColor: "#f2d895" }}
+                style={{ backgroundColor: "#8b7355" }}
               >
                 Connexion
               </Button>
