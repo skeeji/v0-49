@@ -59,12 +59,7 @@ export function Header() {
 
   return (
     <>
-      <header
-        className="bg-[#F8F8F8] shadow-sm border-b border-gray-200 sticky top-0 z-40 h-20"
-        style={{
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
-        }}
-      >
+      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 h-20">
         <div className="container mx-auto px-4 h-full">
           <div className="flex items-center justify-between h-full">
             {/* Logo - Taille encore plus grande */}
@@ -83,18 +78,17 @@ export function Header() {
             </Link>
 
             {/* Navigation desktop */}
-            <nav className="hidden md:flex items-center space-x-12">
+            <nav className="hidden md:flex items-center space-x-8">
               {navItems.map((item) => (
                 <div key={item.href} className="relative">
                   <Link
                     href={item.href}
-                    className="text-[#666666] hover:text-[#333333] font-normal transition-colors py-4 block"
-                    style={{ fontSize: "16px" }}
+                    className="text-gray-700 hover:text-gray-900 font-medium transition-colors font-serif py-4 block"
                   >
                     {item.label}
                   </Link>
                   {isActivePage(item.href) && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#9A8C7F]"></div>
+                    <div className="absolute bottom-0 left-0 right-0 h-px" style={{ backgroundColor: "#f2d895" }}></div>
                   )}
                 </div>
               ))}
@@ -107,13 +101,10 @@ export function Header() {
               ) : (
                 <Button
                   onClick={signInWithGoogle}
-                  className="text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#9A8C7F]"
-                  style={{
-                    backgroundColor: "#9A8C7F",
-                    fontSize: "16px",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#8A7C6F")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#9A8C7F")}
+                  className="text-white font-medium px-6 py-2 rounded-lg transition-all duration-200 hover:shadow-lg"
+                  style={{ backgroundColor: "#f2d895" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
                 >
                   Connexion
                 </Button>
@@ -123,7 +114,7 @@ export function Header() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="md:hidden text-[#666666]"
+                className="md:hidden"
                 onClick={() => setIsDrawerOpen(true)}
                 aria-label="Ouvrir le menu"
               >

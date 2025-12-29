@@ -24,8 +24,6 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
-
-    --cream: 38 45% 95%;
   }
 
   .dark {
@@ -56,13 +54,11 @@
     @apply border-border;
   }
   body {
-    /* Fond principal du site en #F8F8F8 selon le design system */
-    background-color: #f8f8f8;
-    color: #333333;
+    @apply bg-[#F8F8F8] text-[#333333];
   }
 }
 
-/* Ajout des classes utilitaires du design system luxe */
+/* Styles personnalisés */
 .container-responsive {
   @apply container mx-auto px-4;
 }
@@ -71,47 +67,36 @@
   font-family: "Playfair Display", serif;
 }
 
-.text-primary-dark {
-  color: #333333;
+.text-dark {
+  @apply text-gray-900;
 }
 
-.text-secondary-dark {
-  color: #666666;
+.text-accent {
+  @apply text-[#9A8C7F];
 }
 
-.text-accent-beige {
-  color: #9a8c7f;
+.text-secondary {
+  @apply text-[#666666];
 }
 
-.bg-accent-beige {
-  background-color: #9a8c7f;
+.border-accent {
+  @apply border-[#9A8C7F];
 }
 
-.bg-light-beige {
-  background-color: #b0a298;
+.hover-accent:hover {
+  @apply bg-[#EAEAEA];
 }
 
-.bg-hover-light {
-  background-color: #eaeaea;
+.bg-orange {
+  @apply bg-orange-500;
 }
 
-.border-accent-beige {
-  border-color: #9a8c7f;
+.bg-cream {
+  @apply bg-orange-50;
 }
 
-/* Navigation inférieure mobile */
-.bottom-nav {
-  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50;
-  @apply flex items-center justify-around py-3 px-4;
-}
-
-.bottom-nav-item {
-  @apply flex flex-col items-center gap-1 text-xs text-gray-600;
-  @apply hover:text-gray-900 transition-colors;
-}
-
-.bottom-nav-item.active {
-  @apply text-gray-900 font-medium;
+.bg-gold {
+  @apply bg-yellow-500;
 }
 
 /* Animation pour la chronologie */

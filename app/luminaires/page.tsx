@@ -1,13 +1,16 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { GalleryGrid } from "@/components/GalleryGrid"
 import { SearchBar } from "@/components/SearchBar"
+import { DropdownFilter } from "@/components/DropdownFilter"
+import { RangeSlider } from "@/components/RangeSlider"
+import { Button } from "@/components/ui/button"
+import { Grid, List, Plus } from "lucide-react"
+import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, ArrowLeft, Search, SlidersHorizontal, Home, Users, Grid3x3, Mail, User } from "lucide-react"
+import Link from "next/link"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -348,14 +351,12 @@ export default function LuminairesPage() {
     return luminaires
   }, [luminaires, allLuminaires, showFavorites, favorites])
 
-  const pathname = usePathname()
-
   if (loading && luminaires.length === 0) {
     return (
-      <div className="min-h-screen bg-white pb-20">
+      <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <Loader2 className="w-12 h-12 mx-auto animate-spin text-gray-400 mb-4" />
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
             <p className="text-gray-600">Chargement des luminaires...</p>
           </div>
         </div>
@@ -363,135 +364,193 @@ export default function LuminairesPage() {
     )
   }
 
+  if (error && luminaires.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Erreur: {error}</p>
+          <Button onClick={() => loadLuminaires(1, false)}>Réessayer</Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="flex items-center justify-between px-4 py-4">
-          <Link href="/" className="p-2">
-            <ArrowLeft className="w-6 h-6 text-gray-900" />
-          </Link>
-          <h1 className="text-xl font-serif text-gray-900 font-medium">Luminaires - Collection</h1>
-          <button className="p-2">
-            <Search className="w-6 h-6 text-gray-900" />
-          </button>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-serif text-gray-900 mb-2">Luminaires</h1>
+          <p className="text-gray-600">
+            {totalItems > 0 ? `${displayedLuminaires.length}/${totalItems} luminaires` : "Aucun luminaire trouvé"}
+          </p>
         </div>
 
-        {/* Search and filter bar */}
-        <div className="px-4 pb-4 space-y-3">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search luminaires or designers..." />
+        <div className="flex items-center gap-4 mt-4 lg:mt-0">
+          {isAdmin && (
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              style={{ backgroundColor: "#f2d895", color: "#000" }}
+              className="hover:opacity-90"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Ajouter
+            </Button>
+          )}
 
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm w-full justify-center">
-            <SlidersHorizontal className="w-4 h-4" />
-            Filter & Sort
-          </button>
+          {user && userData?.role !== "free" && (
+            <Button
+              onClick={() => setShowFavorites(!showFavorites)}
+              variant={showFavorites ? "default" : "outline"}
+              style={showFavorites ? { backgroundColor: "#f2d895", color: "#000" } : {}}
+              className="hover:opacity-90"
+            >
+              ❤️ Favoris ({favorites.length})
+            </Button>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
+              <Grid className="w-4 h-4" />
+            </Button>
+            <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {viewMode === "grid" && (
+            <select
+              value={columns}
+              onChange={(e) => setColumns(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value={3}>3 colonnes</option>
+              <option value={4}>4 colonnes</option>
+              <option value={5}>5 colonnes</option>
+              <option value={6}>6 colonnes</option>
+              <option value={8}>8 colonnes</option>
+            </select>
+          )}
         </div>
       </div>
 
-      <div className="px-4 py-4">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {displayedLuminaires.map((luminaire, index) => {
-            const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
-            const luminaireId = String(luminaire._id || luminaire.id || "")
-            const isFavorite = favorites.includes(luminaireId)
-
-            const LuminaireCard = isAccessible ? Link : "div"
-
-            return (
-              <LuminaireCard
-                key={luminaireId || index}
-                {...(isAccessible ? { href: `/luminaires/${luminaireId}` } : {})}
-                className="block"
-              >
-                <div
-                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow ${
-                    isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
-                  }`}
-                >
-                  <div className="p-4">
-                    <div className="aspect-square mb-3 flex items-center justify-center">
-                      <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-gray-300 shadow-md">
-                        <Image
-                          src={
-                            luminaire.imageId
-                              ? `/api/images/${luminaire.imageId}`
-                              : luminaire.filename
-                                ? `/api/images/filename/${luminaire.filename}`
-                                : luminaire["Nom du fichier"]
-                                  ? `/api/images/filename/${luminaire["Nom du fichier"]}`
-                                  : "/placeholder.svg"
-                          }
-                          alt={luminaire["Nom luminaire"] || luminaire.nom || "Luminaire"}
-                          fill
-                          unoptimized
-                          className="object-contain"
-                          onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg"
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Luminaire info */}
-                    <h3 className="font-serif text-base font-medium text-gray-900 mb-1 leading-tight">
-                      {luminaire["Nom luminaire"] || luminaire.nom || "Sans nom"}
-                    </h3>
-                    <p className="text-xs text-gray-600 mb-1">
-                      {luminaire["Artiste / Dates"] || luminaire.designer || "Designer inconnu"}
-                      {(luminaire.annee || luminaire.year) && `, ${luminaire.annee || luminaire.year}`}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {luminaire["Matériaux"] ||
-                        (Array.isArray(luminaire.materiaux) ? luminaire.materiaux.join(", ") : luminaire.materiaux) ||
-                        luminaire.categorie ||
-                        luminaire["Catégorie"] ||
-                        "Material description"}
-                    </p>
-                  </div>
-                </div>
-              </LuminaireCard>
-            )
-          })}
+      {(!user || userData?.role === "free") && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 text-sm" style={{ color: "#d4a574" }}>
+          <p className="flex items-center font-serif">
+            <span className="mr-2">ℹ️</span>
+            <span>
+              {!user ? "Connectez-vous" : "Vous utilisez un compte gratuit"}. Seuls 10% des luminaires sont accessibles
+              ({freeUserLimit} luminaires).
+              <Link href="/pricing" className="ml-1 underline font-medium">
+                Passez à Premium
+              </Link>{" "}
+              pour accéder à toute la collection.
+            </span>
+          </p>
         </div>
+      )}
 
-        {/* Loading indicator */}
-        {loadingMore && !showFavorites && (
-          <div className="text-center mt-8">
-            <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-lg">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin text-gray-600" />
-              <span className="text-gray-600 text-sm">Chargement...</span>
-            </div>
-          </div>
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
-        {displayedLuminaires.length === 0 && !loading && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">{showFavorites ? "Aucun favori trouvé" : "Aucun luminaire trouvé"}</p>
+        <DropdownFilter
+          label="Toutes les catégories"
+          value={selectedCategorie}
+          onChange={setSelectedCategorie}
+          options={filterOptions.categories}
+        />
+
+        <DropdownFilter
+          label="Tous les matériaux"
+          value={selectedMateriau}
+          onChange={setSelectedMateriau}
+          options={filterOptions.materiaux}
+        />
+
+        <select
+          value={`${sortField}-${sortDirection}`}
+          onChange={(e) => {
+            const [field, direction] = e.target.value.split("-")
+            setSortField(field)
+            setSortDirection(direction as "asc" | "desc")
+          }}
+          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+        >
+          <option value="nom-asc">Nom A-Z</option>
+          <option value="nom-desc">Nom Z-A</option>
+          <option value="designer-asc">Designer A-Z</option>
+          <option value="designer-desc">Designer Z-A</option>
+          <option value="annee-asc">Année croissante</option>
+          <option value="annee-desc">Année décroissante</option>
+        </select>
+      </div>
+
+      <div className="mb-8">
+        <RangeSlider
+          min={yearBounds.min}
+          max={yearBounds.max}
+          value={yearRange}
+          onValueCommit={handleYearRangeChange}
+        />
+        {sliderModified && (
+          <div className="mt-2 text-sm" style={{ color: "#d4a574" }}>
+            Filtre actif: {yearRange[0]} - {yearRange[1]}
+            <button
+              onClick={() => {
+                setYearRange([yearBounds.min, yearBounds.max])
+                setSliderModified(false)
+              }}
+              className="ml-2 underline hover:no-underline"
+            >
+              Réinitialiser
+            </button>
           </div>
         )}
       </div>
 
-      <nav className="bottom-nav">
-        <Link href="/" className={`bottom-nav-item ${pathname === "/" ? "active" : ""}`}>
-          <Home className="w-5 h-5" />
-          <span>Home</span>
-        </Link>
-        <Link href="/designers" className={`bottom-nav-item ${pathname.startsWith("/designers") ? "active" : ""}`}>
-          <Users className="w-5 h-5" />
-          <span>Designers</span>
-        </Link>
-        <Link href="/luminaires" className={`bottom-nav-item ${pathname.startsWith("/luminaires") ? "active" : ""}`}>
-          <Grid3x3 className="w-5 h-5" />
-          <span>Collection</span>
-        </Link>
-        <Link href="/recherche" className={`bottom-nav-item ${pathname === "/recherche" ? "active" : ""}`}>
-          <Mail className="w-5 h-5" />
-          <span>Inquire</span>
-        </Link>
-        <Link href="/pricing" className={`bottom-nav-item ${pathname === "/pricing" ? "active" : ""}`}>
-          <User className="w-5 h-5" />
-          <span>Account</span>
-        </Link>
-      </nav>
+      <GalleryGrid
+        items={displayedLuminaires}
+        viewMode={viewMode}
+        onItemUpdate={handleItemUpdate}
+        columns={columns}
+        freeUserLimit={freeUserLimit}
+        isUserFree={!user || userData?.role === "free"}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
+      />
+
+      {loadingMore && !showFavorites && (
+        <div className="text-center mt-8">
+          <div className="inline-flex items-center px-4 py-2 bg-orange-100 rounded-lg">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
+            <span className="text-orange-500">Chargement de plus de luminaires...</span>
+          </div>
+        </div>
+      )}
+
+      {!hasMore && luminaires.length > 0 && !showFavorites && (
+        <div className="text-center mt-8 py-4">
+          <p className="text-gray-500">
+            ✅ Tous les luminaires ont été chargés ({luminaires.length} sur {totalItems} total)
+          </p>
+        </div>
+      )}
+
+      {displayedLuminaires.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">{showFavorites ? "Aucun favori trouvé" : "Aucun luminaire trouvé"}</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {showFavorites ? "Ajoutez des luminaires à vos favoris" : "Essayez de modifier vos critères de recherche"}
+          </p>
+        </div>
+      )}
+
+      {isAdmin && (
+        <LuminaireFormModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleCreateLuminaire}
+        />
+      )}
     </div>
   )
 }
