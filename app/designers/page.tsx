@@ -287,7 +287,7 @@ export default function DesignersPage() {
                   <div className="p-3">
                     <div className="flex gap-2 mb-3">
                       {/* Large portrait */}
-                      <div className="w-24 h-24 relative flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
+                      <div className="w-32 h-32 relative flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
                         {designer.image ? (
                           <Image
                             src={designer.image || "/placeholder.svg"}
@@ -307,7 +307,7 @@ export default function DesignersPage() {
                       </div>
 
                       {/* 3 small thumbnails in 2x2 grid (3 items) */}
-                      <div className="flex-1 grid grid-cols-2 gap-1.5">
+                      <div className="flex-1 grid grid-cols-2 gap-2">
                         {designer.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
                           <div key={idx} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
                             <Image
@@ -322,6 +322,7 @@ export default function DesignersPage() {
                             />
                           </div>
                         ))}
+                        {/* Ajouter une case vide si moins de 4 items pour compléter la grille 2x2 */}
                         {designer.luminaires.length < 3 && <div className="aspect-square bg-gray-50 rounded-lg" />}
                       </div>
                     </div>

@@ -409,7 +409,7 @@ export default function LuminairesPage() {
                 >
                   <div className="p-3">
                     {/* Centered product image on cream background */}
-                    <div className="bg-cream rounded-xl aspect-square mb-3 p-4 flex items-center justify-center">
+                    <div className="bg-cream rounded-xl aspect-square mb-3 p-6 flex items-center justify-center">
                       <div className="relative w-full h-full">
                         <Image
                           src={
