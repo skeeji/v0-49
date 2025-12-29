@@ -16,29 +16,45 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const client = await clientPromise
     const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
+    const luminairesCollection = db.collection("luminaires")
+    const designersCollection = db.collection("designers")
 
-    const luminaire = await collection.findOne({ _id: new ObjectId(id) })
+    const luminaire = await luminairesCollection.findOne({ _id: new ObjectId(id) })
 
     if (!luminaire) {
       console.log("❌ Luminaire non trouvé:", id)
       return NextResponse.json({ success: false, error: "Luminaire non trouvé" }, { status: 404 })
     }
 
-    // CORRECTION: Construire correctement l'URL de l'image
     let imageUrl = null
 
-    // Priorité 1: Utiliser l'imageId si disponible
     if (luminaire.imageId) {
       imageUrl = `/api/images/${luminaire.imageId}`
-      console.log(`✅ Image trouvée par ID: ${imageUrl}`)
-    }
-    // Priorité 2: Utiliser le filename
-    else if (luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"]) {
+      console.log(`✅ Image luminaire trouvée par ID: ${imageUrl}`)
+    } else if (luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"]) {
       const filename =
         luminaire.filename || luminaire["Nom du fichier"] || luminaire["Image luminaire (Nom du fichier)"]
       imageUrl = `/api/images/filename/${filename}`
-      console.log(`✅ Image trouvée par filename: ${imageUrl}`)
+      console.log(`✅ Image luminaire trouvée par filename: ${imageUrl}`)
+    }
+
+    let designerImageFilename = null
+    const designerName = luminaire.designer || luminaire["Artiste / Dates"] || luminaire["Artiste, ca année"] || null
+
+    if (designerName) {
+      console.log(`[v0] Searching for designer: ${designerName}`)
+
+      // Chercher le designer dans la collection designers
+      const designerDoc = await designersCollection.findOne({
+        $or: [{ nom: designerName }, { Nom: designerName }, { nom: { $regex: `^${designerName}`, $options: "i" } }],
+      })
+
+      if (designerDoc && designerDoc.imagedesigner) {
+        designerImageFilename = designerDoc.imagedesigner
+        console.log(`✅ Image designer trouvée: ${designerImageFilename}`)
+      } else {
+        console.log(`⚠️ Aucune image designer trouvée pour: ${designerName}`)
+      }
     }
 
     console.log("✅ Luminaire trouvé:", luminaire.nom || luminaire["Nom luminaire"])
@@ -49,6 +65,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         ...luminaire,
         _id: luminaire._id.toString(),
         image: imageUrl,
+        designerImageFilename: designerImageFilename, // Ajouter l'image du designer
       },
     })
   } catch (error: any) {

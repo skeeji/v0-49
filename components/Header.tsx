@@ -56,8 +56,8 @@ export function Header() {
     return pathname === href || pathname.startsWith(href + "/")
   }
 
-  const leftNavItems = navItems.slice(0, 3) // Recherche, Luminaires, Designers
-  const rightNavItems = navItems.slice(3) // Chronologie, Tarifs, Import (if admin)
+  const leftNavItems = navItems.slice(0, 3)
+  const rightNavItems = navItems.slice(3)
 
   return (
     <>
@@ -85,9 +85,8 @@ export function Header() {
               ))}
             </nav>
 
-            {/* Logo centré - larger and more visible */}
             <Link href="/" className="flex items-center justify-center no-underline">
-              <div className="w-48 h-20 md:w-56 md:h-24 relative">
+              <div className="w-40 h-16 md:w-48 md:h-20 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
                   alt="Logo"
@@ -136,7 +135,7 @@ export function Header() {
               )}
             </div>
 
-            {/* Actions mobile - à droite */}
+            {/* Actions mobile */}
             <div className="flex items-center space-x-4 md:hidden">
               {user && <UserMenu />}
 
