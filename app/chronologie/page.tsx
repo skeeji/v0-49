@@ -254,13 +254,13 @@ export default function ChronologiePage() {
               >
                 <div className="md:flex">
                   {/* Image de la période */}
-                  <div className="md:w-2/5 aspect-[4/3] md:aspect-auto relative bg-gray-100 rounded-l-2xl overflow-hidden">
+                  <div className="md:w-2/5 aspect-[4/3] md:aspect-auto relative bg-gray-100 overflow-hidden">
                     {period.imageUrl ? (
                       <Image
                         src={period.imageUrl || "/placeholder.svg"}
                         alt={period.name}
                         fill
-                        className="object-cover"
+                        className="object-cover rounded-l-2xl"
                         unoptimized
                       />
                     ) : (
@@ -269,7 +269,10 @@ export default function ChronologiePage() {
                       </div>
                     )}
                     {/* Badge de la période */}
-                    <div className="absolute bottom-4 left-4 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide">
+                    <div
+                      className="absolute bottom-4 left-4 px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide text-white"
+                      style={{ backgroundColor: "#8b7355" }}
+                    >
                       {period.name}
                     </div>
                   </div>
@@ -299,7 +302,7 @@ export default function ChronologiePage() {
                           <Link
                             key={idx}
                             href={`/luminaires/${luminaire.id}`}
-                            className="w-16 h-16 relative bg-gray-100 rounded-lg overflow-hidden hover:ring-2 hover:ring-gray-900 transition-all"
+                            className="w-16 h-16 relative bg-gray-100 rounded-lg overflow-hidden hover:ring-2 hover:ring-[#f2d895] transition-all"
                           >
                             {luminaire.image && (
                               <Image

@@ -541,7 +541,7 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit, defaultValues, o
               {formData.couleurs.map((color) => (
                 <Badge key={color} variant="secondary" className="flex items-center gap-1">
                   {color}
-                  <X className="w-3 h-3 cursor-pointer" onClick={() => removeColor(color)} />
+                  <X className="w-4 h-4 cursor-pointer" onClick={() => removeColor(color)} />
                 </Badge>
               ))}
             </div>
@@ -644,3 +644,5 @@ export function LuminaireFormModal({ isOpen, onClose, onSubmit, defaultValues, o
     </Dialog>
   )
 }
+
+export default LuminaireFormModal

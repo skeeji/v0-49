@@ -632,26 +632,15 @@ export default function HomePage() {
     <div className="relative min-h-screen overflow-hidden">
       {/* Vidéo de fond */}
       {welcomeVideo ? (
-        <video
-          autoPlay
-          muted
-          loop
-          className="absolute inset-0 w-full h-full object-cover"
-          onError={(e) => {
-            console.error("❌ Erreur lecture vidéo:", e)
-          }}
-          onLoadStart={() => console.log("🎥 Début chargement vidéo")}
-          onLoadedData={() => console.log("✅ Vidéo chargée avec succès")}
-        >
-          <source src={welcomeVideo} type="video/mp4" />
-          Votre navigateur ne supporte pas la lecture vidéo.
-        </video>
-      ) : (
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50" />
-      )}
+        <div className="absolute inset-0 z-0">
+          <video autoPlay loop muted playsInline className="w-full h-full object-cover">
+            <source src={welcomeVideo} type="video/mp4" />
+          </video>
+        </div>
+      ) : null}
 
       {/* Overlay plus clair */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-amber-50/60 to-orange-50/40" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-orange-50/60 to-yellow-50/40" />
 
       {/* Contenu principal */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">

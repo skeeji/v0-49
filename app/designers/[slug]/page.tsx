@@ -250,6 +250,7 @@ export default function DesignerDetailPage() {
             name: lum["Nom luminaire"] || lum.nom || "Sans nom",
             specialty: lum["Spécialité"] || lum.periode || "",
             collaboration: lum["Collaboration / Œuvre"] || lum.collaboration || "",
+            editeur: lum.editeur || lum.Editeur || "",
           }))
           setDesignerLuminaires(adaptedLuminaires)
           setDesigner((prev) => ({ ...prev, count: adaptedLuminaires.length }))
@@ -393,7 +394,9 @@ export default function DesignerDetailPage() {
           <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-serif font-medium text-gray-900">Luminaires</h2>
-              <button className="text-sm text-gray-600 hover:text-gray-900">Voir tout ({designer.count})</button>
+              <Link href={`/luminaires?designer=${encodeURIComponent(designer.nom)}`}>
+                <button className="text-sm text-gray-600 hover:text-gray-900">Voir tout ({designer.count})</button>
+              </Link>
             </div>
 
             {designerLuminaires.length > 0 ? (
@@ -434,9 +437,11 @@ export default function DesignerDetailPage() {
             )}
 
             {/* View Full Collection button */}
-            <button className="w-full py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
-              Voir la collection complète
-            </button>
+            <Link href={`/luminaires?designer=${encodeURIComponent(designer.nom)}`}>
+              <button className="w-full py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                Voir la collection complète
+              </button>
+            </Link>
           </div>
 
           {canEdit && (

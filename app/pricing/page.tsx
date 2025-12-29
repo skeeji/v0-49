@@ -83,7 +83,7 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f1e8]">
+    <div className="min-h-screen bg-[#your-site-theme-color]">
       <div className="container mx-auto px-4 py-16">
         {/* Titre principal */}
         <div className="text-center mb-12">

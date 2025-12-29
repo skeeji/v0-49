@@ -506,11 +506,10 @@ export default function LuminaireDetailPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
-            {/* Large image with carousel dots and favorite button */}
-            <div className="aspect-square max-w-md mx-auto relative bg-transparent">
+            <div className="aspect-[4/3] max-w-2xl mx-auto relative bg-transparent p-8">
               <button
                 onClick={toggleFavorite}
-                className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
+                className="absolute top-12 right-12 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
               >
                 <span className={`text-xl ${isFavorite ? "text-red-500" : "text-gray-400"}`}>♥</span>
               </button>
@@ -520,7 +519,7 @@ export default function LuminaireDetailPage() {
                   src={luminaire.image || "/placeholder.svg"}
                   alt={String(luminaire.name || "Luminaire")}
                   fill
-                  className="object-contain rounded-2xl"
+                  className="object-contain"
                   unoptimized
                   onError={(e) => {
                     e.currentTarget.src = "/placeholder.svg"
@@ -534,18 +533,10 @@ export default function LuminaireDetailPage() {
                   </div>
                 </div>
               )}
-
-              {/* Carousel dots */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#f2d895]" />
-                <div className="w-2 h-2 rounded-full bg-gray-300" />
-                <div className="w-2 h-2 rounded-full bg-gray-300" />
-              </div>
             </div>
 
             {/* Content section */}
             <div className="p-6">
-              {/* Title and price row */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <EditableField
@@ -556,7 +547,7 @@ export default function LuminaireDetailPage() {
                     disabled={!canEdit}
                   />
                   <p className="text-sm text-gray-600">
-                    {luminaire.editeur}
+                    {luminaire.artist}
                     {luminaire.year && `, ${luminaire.year}`}
                   </p>
                 </div>
@@ -614,7 +605,6 @@ export default function LuminaireDetailPage() {
                 )}
               </div>
 
-              {/* History section */}
               {luminaire.description && (
                 <div className="mb-6">
                   <h3 className="font-serif text-lg font-medium text-gray-900 mb-2">Histoire</h3>

@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 import { Loader2, SlidersHorizontal, Home, Users, Grid3x3, Mail, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import LuminaireFormModal from "@/components/LuminaireFormModal"
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -17,7 +18,7 @@ export default function LuminairesPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [columns, setColumns] = useState(4)
+  const [columns, setColumns] = useState(6)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -367,11 +368,12 @@ export default function LuminairesPage() {
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
       <div className="px-4 py-4">
-        {/* Title with counter */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-serif text-gray-900">
             Luminaires
-            <span className="text-gray-500 ml-2">(50/{totalItems})</span>
+            <span className="text-gray-500 ml-2">
+              ({displayedLuminaires.length}/{totalItems})
+            </span>
           </h2>
 
           <div className="flex items-center gap-2">
@@ -402,7 +404,6 @@ export default function LuminairesPage() {
               <SlidersHorizontal className="w-5 h-5 text-gray-700" />
             </button>
 
-            {/* Column selector */}
             <select
               value={columns}
               onChange={(e) => setColumns(Number.parseInt(e.target.value))}
@@ -412,6 +413,7 @@ export default function LuminairesPage() {
               <option value="3">3 colonnes</option>
               <option value="4">4 colonnes</option>
               <option value="5">5 colonnes</option>
+              <option value="6">6 colonnes</option>
             </select>
           </div>
         </div>
@@ -476,10 +478,10 @@ export default function LuminairesPage() {
           </select>
         </div>
 
-        <div className="rounded-xl p-6 mb-6">
+        <div className="rounded-xl p-6 mb-6 bg-transparent">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-medium text-gray-900">Période chronologique</h3>
-            <div className="text-sm text-[#f2d895] font-medium">
+            <div className="text-sm text-gray-900 font-medium">
               {yearRange[0]} - {yearRange[1]}
             </div>
           </div>
@@ -555,7 +557,7 @@ export default function LuminairesPage() {
 
           {sliderModified && (
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm text-[#f2d895]">
+              <span className="text-sm text-gray-900">
                 Filtre actif: {yearRange[0]} - {yearRange[1]}
               </span>
               <button
@@ -565,7 +567,7 @@ export default function LuminairesPage() {
                   setCurrentPage(1)
                   loadLuminaires(1, false)
                 }}
-                className="text-sm text-[#f2d895] hover:underline"
+                className="text-sm text-gray-900 hover:underline"
               >
                 Réinitialiser
               </button>
@@ -611,13 +613,13 @@ export default function LuminairesPage() {
                       isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                     }`}
                   >
-                    <div className="aspect-square relative bg-gray-50 rounded-2xl overflow-hidden">
+                    <div className="aspect-square relative bg-transparent p-4">
                       {luminaire.filename || luminaire["Nom du fichier"] ? (
                         <Image
                           src={`/api/images/filename/${luminaire.filename || luminaire["Nom du fichier"]}`}
                           alt={String(luminaire["Nom luminaire"] || luminaire.nom || "Luminaire")}
                           fill
-                          className="object-cover rounded-2xl"
+                          className="object-contain rounded-2xl"
                           unoptimized
                           onError={(e) => {
                             e.currentTarget.src = "/placeholder.svg"
@@ -636,7 +638,7 @@ export default function LuminairesPage() {
                             e.stopPropagation()
                             toggleFavorite(luminaireId)
                           }}
-                          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
+                          className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
                         >
                           <span className={`text-lg ${isFavorite ? "text-red-500" : "text-gray-400"}`}>♥</span>
                         </button>
@@ -747,6 +749,8 @@ export default function LuminairesPage() {
           </div>
         )}
       </div>
+
+      <LuminaireFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleCreateLuminaire} />
 
       <nav className="bottom-nav">
         <Link href="/" className={`bottom-nav-item ${pathname === "/" ? "active" : ""}`}>
