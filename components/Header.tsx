@@ -66,26 +66,26 @@ export function Header() {
         }}
       >
         <div className="container mx-auto px-4 h-full">
-          <div className="flex items-center justify-between h-full md:grid md:grid-cols-3 md:gap-4">
+          <div className="flex items-center justify-between h-full md:grid md:grid-cols-[1fr_auto_1fr] md:gap-8">
             {/* Navigation gauche - desktop only */}
-            <nav className="hidden md:flex items-center space-x-6">
+            <nav className="hidden md:flex items-center justify-start space-x-6">
               {navItems.slice(0, Math.ceil(navItems.length / 2)).map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block ${
+                  className={`text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block no-underline ${
                     isActivePage(item.href) ? "text-[#8b7355]" : ""
                   }`}
-                  style={{ fontSize: "16px" }}
+                  style={{ fontSize: "16px", textDecoration: "none" }}
                 >
                   {item.label}
                 </Link>
               ))}
             </nav>
 
-            {/* Logo centré */}
+            {/* Logo centré - larger on mobile */}
             <Link href="/" className="flex items-center justify-center">
-              <div className="w-32 h-32 relative">
+              <div className="w-40 h-16 md:w-32 md:h-32 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
                   alt="Logo"
@@ -104,10 +104,10 @@ export function Header() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block ${
+                  className={`text-[#666666] hover:text-[#8b7355] font-normal transition-colors py-4 block no-underline ${
                     isActivePage(item.href) ? "text-[#8b7355]" : ""
                   }`}
-                  style={{ fontSize: "16px" }}
+                  style={{ fontSize: "16px", textDecoration: "none" }}
                 >
                   {item.label}
                 </Link>
@@ -118,7 +118,7 @@ export function Header() {
               ) : (
                 <Button
                   onClick={signInWithGoogle}
-                  className="text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#8b7355]"
+                  className="text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#8b7355] no-underline"
                   style={{
                     backgroundColor: "#8b7355",
                     fontSize: "16px",
@@ -132,7 +132,7 @@ export function Header() {
             </div>
 
             {/* Actions mobile - à droite */}
-            <div className="flex items-center space-x-4 ml-auto md:hidden">
+            <div className="flex items-center space-x-4 md:hidden">
               {user && <UserMenu />}
 
               <Button

@@ -511,113 +511,130 @@ export default function LuminairesPage() {
             </div>
           </div>
 
-          <div className="relative px-2">
+          <div className="relative px-2 py-4">
             <style jsx>{`
-              input[type="range"] {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 100%;
-                height: 2px;
-                background: transparent;
-                outline: none;
-                pointer-events: all;
-                position: absolute;
-              }
-              input[type="range"]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 20px;
-                height: 20px;
-                background: #8b7355;
-                cursor: pointer;
-                border-radius: 50%;
-                border: 2px solid white;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                position: relative;
-                z-index: 100;
-                pointer-events: all;
-              }
-              input[type="range"]::-moz-range-thumb {
-                width: 20px;
-                height: 20px;
-                background: #8b7355;
-                cursor: pointer;
-                border-radius: 50%;
-                border: 2px solid white;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                pointer-events: all;
-              }
-              .range-container {
+              .dual-range-slider {
                 position: relative;
                 height: 40px;
-                display: flex;
-                align-items: center;
-              }
-              .range-track {
-                position: absolute;
                 width: 100%;
-                height: 2px;
+              }
+              
+              .slider-track {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 100%;
+                height: 4px;
                 background: #e5e7eb;
                 border-radius: 9999px;
               }
-              .range-progress {
+              
+              .slider-range {
                 position: absolute;
-                height: 2px;
+                top: 50%;
+                transform: translateY(-50%);
+                height: 4px;
                 background: #8b7355;
                 border-radius: 9999px;
               }
+              
+              .slider-input {
+                position: absolute;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+                outline: none;
+              }
+              
+              .slider-input::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 24px;
+                height: 24px;
+                background: #8b7355;
+                cursor: pointer;
+                border-radius: 50%;
+                border: 3px solid white;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+                pointer-events: all;
+                position: relative;
+                z-index: 4;
+              }
+              
+              .slider-input::-moz-range-thumb {
+                width: 24px;
+                height: 24px;
+                background: #8b7355;
+                cursor: pointer;
+                border-radius: 50%;
+                border: 3px solid white;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+                pointer-events: all;
+              }
+              
+              .slider-input:active::-webkit-slider-thumb {
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+                transform: scale(1.1);
+              }
+              
+              .slider-input.min-slider {
+                z-index: 3;
+              }
+              
+              .slider-input.max-slider {
+                z-index: 4;
+              }
             `}</style>
 
-            <div className="range-container">
-              {/* Background track */}
-              <div className="range-track" />
-
-              {/* Active progress */}
+            <div className="dual-range-slider">
+              <div className="slider-track" />
               <div
-                className="range-progress"
+                className="slider-range"
                 style={{
                   left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
                   right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
                 }}
               />
 
-              {/* Min slider */}
               <input
                 type="range"
+                className="slider-input min-slider"
                 min={yearBounds.min}
                 max={yearBounds.max}
                 value={yearRange[0]}
                 onChange={(e) => {
-                  const newMin = Number.parseInt(e.target.value)
+                  const newMin = Number(e.target.value)
                   if (newMin <= yearRange[1]) {
                     setYearRange([newMin, yearRange[1]])
                   }
                 }}
                 onMouseUp={() => setSliderModified(true)}
                 onTouchEnd={() => setSliderModified(true)}
-                style={{ zIndex: 5 }}
               />
 
-              {/* Max slider */}
               <input
                 type="range"
+                className="slider-input max-slider"
                 min={yearBounds.min}
                 max={yearBounds.max}
                 value={yearRange[1]}
                 onChange={(e) => {
-                  const newMax = Number.parseInt(e.target.value)
+                  const newMax = Number(e.target.value)
                   if (newMax >= yearRange[0]) {
                     setYearRange([yearRange[0], newMax])
                   }
                 }}
                 onMouseUp={() => setSliderModified(true)}
                 onTouchEnd={() => setSliderModified(true)}
-                style={{ zIndex: 3 }}
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+          <div className="flex items-center justify-between mt-2 text-sm text-gray-600">
             <span>{yearBounds.min}</span>
             <span>{yearBounds.max}</span>
           </div>
