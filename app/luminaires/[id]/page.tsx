@@ -51,6 +51,7 @@ export default function LuminaireDetailPage() {
             estimation: result.data.estimation || result.data["Estimation"] || "",
             editeur: result.data.editeur || result.data["Editeur"] || "",
             categorie: result.data.categorie || result.data["Catégorie"] || "",
+            designerImage: result.data.designerImage || result.data["Image du designer"] || "",
 
             specialty: (() => {
               if (result.data.periode && String(result.data.periode).trim() !== "") {
@@ -554,8 +555,8 @@ export default function LuminaireDetailPage() {
 
                 {canSeeEstimation && luminaire.estimation && (
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-gray-900">{luminaire.estimation}</div>
-                    <div className="text-xs text-green-600 font-medium">DISPONIBLE</div>
+                    <div className="text-xs text-gray-500 mb-1">Estimation</div>
+                    <div className="text-xl font-semibold text-gray-900">{luminaire.estimation}</div>
                   </div>
                 )}
               </div>
@@ -566,8 +567,19 @@ export default function LuminaireDetailPage() {
                   href={`/designers/${encodeURIComponent(luminaire.artist)}`}
                   className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl mb-6 hover:bg-gray-100 transition-colors"
                 >
-                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                    <span className="text-gray-600 text-xl">👤</span>
+                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {luminaire.designerImage ? (
+                      <Image
+                        src={luminaire.designerImage || "/placeholder.svg"}
+                        alt={luminaire.artist}
+                        width={48}
+                        height={48}
+                        className="object-cover w-full h-full"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="text-gray-600 text-xl">👤</span>
+                    )}
                   </div>
                   <div className="flex-1">
                     <h3 className="font-serif font-medium text-gray-900">{luminaire.artist}</h3>
@@ -582,32 +594,75 @@ export default function LuminaireDetailPage() {
                 {luminaire.materials && (
                   <div>
                     <div className="text-xs text-gray-500 mb-1">Matériau</div>
-                    <div className="text-sm text-gray-900">{luminaire.materials}</div>
+                    <EditableField
+                      value={luminaire.materials}
+                      onSave={(v) => handleUpdate("materials", v)}
+                      disabled={!canEdit}
+                      className="text-sm text-gray-900"
+                    />
                   </div>
                 )}
                 {luminaire.dimensions && (
                   <div>
                     <div className="text-xs text-gray-500 mb-1">Dimensions</div>
-                    <div className="text-sm text-gray-900">{luminaire.dimensions}</div>
+                    <EditableField
+                      value={luminaire.dimensions}
+                      onSave={(v) => handleUpdate("dimensions", v)}
+                      disabled={!canEdit}
+                      className="text-sm text-gray-900"
+                    />
                   </div>
                 )}
-                {luminaire.signed && (
+                {canSeeEstimation && luminaire.estimation && (
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Condition</div>
-                    <div className="text-sm text-gray-900">{luminaire.signed}</div>
+                    <div className="text-xs text-gray-500 mb-1">Estimation</div>
+                    <EditableField
+                      value={luminaire.estimation}
+                      onSave={(v) => handleUpdate("estimation", v)}
+                      disabled={!canEdit}
+                      className="text-sm text-gray-900"
+                    />
+                  </div>
+                )}
+                {luminaire.lienSiteMarchand && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Lien site web</div>
+                    <EditableField
+                      value={luminaire.lienSiteMarchand}
+                      onSave={(v) => handleUpdate("lienSiteMarchand", v)}
+                      disabled={!canEdit}
+                      className="text-sm text-blue-600 underline break-all"
+                    />
                   </div>
                 )}
                 {luminaire.etiquette && canEdit && (
                   <div>
                     <div className="text-xs text-gray-500 mb-1">Référence</div>
-                    <div className="text-sm text-gray-900">{luminaire.etiquette}</div>
+                    <EditableField
+                      value={luminaire.etiquette}
+                      onSave={(v) => handleUpdate("etiquette", v)}
+                      disabled={!canEdit}
+                      className="text-sm text-gray-900"
+                    />
+                  </div>
+                )}
+                {luminaire.bibliographie && (
+                  <div className="col-span-2">
+                    <div className="text-xs text-gray-500 mb-1">Bibliographie</div>
+                    <EditableField
+                      value={luminaire.bibliographie}
+                      onSave={(v) => handleUpdate("bibliographie", v)}
+                      disabled={!canEdit}
+                      className="text-sm text-gray-900"
+                    />
                   </div>
                 )}
               </div>
 
+              {/* Description section */}
               {luminaire.description && (
                 <div className="mb-6">
-                  <h3 className="font-serif text-lg font-medium text-gray-900 mb-2">Histoire</h3>
+                  <h3 className="font-serif text-lg font-medium text-gray-900 mb-2">Description</h3>
                   <EditableField
                     value={luminaire.description}
                     onSave={(v) => handleUpdate("description", v)}
@@ -618,11 +673,12 @@ export default function LuminaireDetailPage() {
                 </div>
               )}
 
+              {/* PDF button */}
               {(userData?.role === "admin" || userData?.role === "premium") && (
                 <Button
                   onClick={generatePDF}
-                  className="w-full mt-4 text-gray-900 hover:bg-[#e6c77a]"
-                  style={{ backgroundColor: "#f2d895" }}
+                  className="w-full mt-4 text-white hover:bg-[#7a6449]"
+                  style={{ backgroundColor: "#8b7355" }}
                   disabled={generatingPDF}
                 >
                   <Download className="w-4 h-4 mr-2" />
