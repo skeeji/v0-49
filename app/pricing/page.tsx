@@ -83,7 +83,7 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#your-site-theme-color]">
+    <div className="min-h-screen bg-[#f5f1e8]">
       <div className="container mx-auto px-4 py-16">
         {/* Titre principal */}
         <div className="text-center mb-12">
@@ -101,7 +101,7 @@ export default function PricingPage() {
             <span className={`px-4 py-2 text-sm font-medium ${!isAnnual ? "text-gray-900" : "text-gray-500"}`}>
               Mensuel
             </span>
-            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} className="data-[state=checked]:bg-[#f2d895]" />
+            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} className="data-[state=checked]:bg-[#8b7355]" />
             <span className={`px-4 py-2 text-sm font-medium ${isAnnual ? "text-gray-900" : "text-gray-500"}`}>
               Annuel (2 mois offerts)
             </span>
@@ -159,9 +159,9 @@ export default function PricingPage() {
           </Card>
 
           {/* Carte Premium */}
-          <Card className="relative border-2 border-[#f2d895] shadow-lg">
+          <Card className="relative border-2 border-[#8b7355] shadow-lg">
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <span className="bg-[#f2d895] text-gray-900 px-4 py-1 rounded-full text-sm font-medium">Recommandé</span>
+              <span className="bg-[#8b7355] text-white px-4 py-1 rounded-full text-sm font-medium">Recommandé</span>
             </div>
             <CardHeader className="text-center pb-8">
               <CardTitle className="text-2xl font-serif">Premium</CardTitle>
@@ -177,9 +177,9 @@ export default function PricingPage() {
                 <DialogTrigger asChild>
                   <Button
                     className="w-full text-white"
-                    style={{ backgroundColor: "#f2d895" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e6c77a")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f2d895")}
+                    style={{ backgroundColor: "#8b7355" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#6d5c44")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                   >
                     Passer à Premium
                   </Button>
@@ -256,9 +256,9 @@ export default function PricingPage() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full text-gray-900 hover:bg-[#e6c77a]"
+                      className="w-full text-white hover:bg-[#6d5c44]"
                       disabled={isSubmitting}
-                      style={{ backgroundColor: "#f2d895" }}
+                      style={{ backgroundColor: "#8b7355" }}
                     >
                       {isSubmitting ? "Envoi en cours..." : "Envoyer la demande"}
                     </Button>
