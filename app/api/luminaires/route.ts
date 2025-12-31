@@ -187,6 +187,8 @@ export async function GET(request: NextRequest) {
       const skip = (page - 1) * limit
       const luminaires = await collection.find(filter).sort(sortObject).skip(skip).limit(limit).toArray()
 
+      const totalDatabase = await collection.countDocuments({})
+
       return NextResponse.json({
         success: true,
         luminaires: luminaires,
@@ -194,6 +196,7 @@ export async function GET(request: NextRequest) {
           page: page,
           limit: limit,
           total: total,
+          totalDatabase: totalDatabase,
           hasMore: skip + luminaires.length < total,
         },
       })
