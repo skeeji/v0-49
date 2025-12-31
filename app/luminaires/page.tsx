@@ -332,6 +332,7 @@ export default function LuminairesPage() {
           const min = result.data.yearRange.min
           const max = result.data.yearRange.max
           setYearBounds({ min, max })
+          setYearRange([min, max])
           console.log("[v0] Year bounds set:", { min, max })
         }
 

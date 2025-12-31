@@ -9,6 +9,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
+import MobileFooter from "@/components/MobileFooter" // Import MobileFooter
 
 // URL correcte de l'API
 const apiUrl = "https://image-similarity-api-590690354412.us-central1.run.app/api/search"
@@ -629,7 +630,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="min-h-screen bg-[#f5f1e8]">
       {/* Vidéo de fond */}
       {welcomeVideo && (
         <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
@@ -1099,6 +1100,8 @@ export default function HomePage() {
 
       {/* Modal de connexion */}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+
+      <MobileFooter />
     </div>
   )
 }
