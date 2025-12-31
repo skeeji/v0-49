@@ -34,9 +34,9 @@ export default function LuminairesPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
+  const [totalDatabase, setTotalDatabase] = useState(9007)
   const [hasMore, setHasMore] = useState(true)
   const [showFavorites, setShowFavorites] = useState(false)
-  const [totalDatabaseCount, setTotalDatabaseCount] = useState(0)
 
   const yearRangeRef = useRef(yearRange)
   const sliderModifiedRef = useRef(sliderModified)
@@ -125,48 +125,59 @@ export default function LuminairesPage() {
 
   const loadLuminaires = useCallback(
     async (page = 1, append = false) => {
-      if (loading) return
-
       try {
-        setLoading(true)
-        console.log("[v0] Loading luminaires, page:", page)
+        if (page === 1) {
+          setLoading(true)
+          setError(null)
+        } else {
+          setLoadingMore(true)
+        }
 
         const params = new URLSearchParams({
           page: page.toString(),
           limit: "50",
           search: searchTerm,
-          categorie: selectedCategorie || "",
-          materiau: selectedMateriau || "",
-          sortField: sortField,
-          sortDirection: sortDirection,
+          sortField,
+          sortDirection,
         })
 
-        if (sliderModifiedRef.current) {
-          params.set("yearMin", yearRangeRef.current[0].toString())
-          params.set("yearMax", yearRangeRef.current[1].toString())
+        if (sliderModifiedRef.current && yearRangeRef.current.length === 2) {
+          params.append("yearMin", yearRangeRef.current[0].toString())
+          params.append("yearMax", yearRangeRef.current[1].toString())
+        }
+
+        if (selectedCategorie && selectedCategorie !== "all") {
+          params.append("categorie", selectedCategorie)
+        }
+
+        if (selectedMateriau && selectedMateriau !== "all") {
+          params.append("materiau", selectedMateriau)
         }
 
         const response = await fetch(`/api/luminaires?${params}`)
-        const result = await response.json()
+        const data = await response.json()
 
-        if (result.success) {
-          const newLuminaires = result.luminaires || []
+        if (data.success) {
+          if (append && page > 1) {
+            const existingIds = new Set(luminaires.map((l) => l._id))
+            const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
 
-          if (append) {
-            setLuminaires((prev) => [...prev, ...newLuminaires])
+            if (newLuminaires.length > 0) {
+              setLuminaires((prev) => [...prev, ...newLuminaires])
+            }
           } else {
-            setLuminaires(newLuminaires)
+            setLuminaires(data.luminaires)
           }
 
-          setTotalItems(result.pagination.total)
-          setHasMore(result.pagination.hasMore)
-          setCurrentPage(page)
-          if (result.pagination.totalDatabase) {
-            setTotalDatabaseCount(result.pagination.totalDatabase)
-          }
+          setHasMore(data.pagination?.hasMore || false)
+          setTotalItems(data.pagination?.total || 0)
+        } else {
+          throw new Error(data.error || "Erreur lors du chargement")
         }
-      } catch (error) {
-        console.error("[v0] Error loading luminaires:", error)
+      } catch (err: any) {
+        console.error("❌ Erreur chargement:", err)
+        setError(err.message)
+        toast.error("Erreur lors du chargement des luminaires")
       } finally {
         setLoading(false)
         setLoadingMore(false)
@@ -323,6 +334,10 @@ export default function LuminairesPage() {
           setYearBounds({ min, max })
           console.log("[v0] Year bounds set:", { min, max })
         }
+
+        if (result.data.totalCount) {
+          setTotalDatabase(result.data.totalCount)
+        }
       } catch (error) {
         console.error("[v0] Error fetching year bounds:", error)
       }
@@ -377,7 +392,8 @@ export default function LuminairesPage() {
     return result
   }, [luminaires, yearRange, sliderModified])
 
-  const freeUserLimit = !user || (user && !isAdmin) ? Math.floor(totalDatabaseCount * 0.1) : Number.POSITIVE_INFINITY
+  const isPremium = userData?.role === "admin" || userData?.isPremium
+  const freeUserLimit = isPremium ? luminaires.length : Math.floor(totalDatabase * 0.1)
 
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
@@ -523,27 +539,26 @@ export default function LuminairesPage() {
 
         {/* Slider section */}
         <div className="rounded-xl p-6 mb-6 bg-transparent">
-          <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-gray-700">Période chronologique</label>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">Période chronologique</h2>
             {sliderModified && (
               <button
                 onClick={() => {
                   setYearRange([yearBounds.min, yearBounds.max])
                   setSliderModified(false)
                   setCurrentPage(1)
-                  loadLuminaires(1, false)
                 }}
-                className="text-xs text-[#8b7355] hover:underline"
+                className="text-sm text-[#8b7355] hover:underline"
               >
-                Réinitialiser
+                -
               </button>
             )}
           </div>
 
-          <div className="flex items-center justify-between mb-2 text-sm text-gray-700">
-            <span className="font-medium">{yearRange[0]}</span>
-            <span className="text-gray-500">{yearRange[1] - yearRange[0] + 1} années</span>
-            <span className="font-medium">{yearRange[1]}</span>
+          <div className="flex items-center justify-between mb-4 text-sm text-gray-600">
+            <span>Min: {yearRange[0]}</span>
+            <span className="font-semibold">Intervalle: {yearRange[1] - yearRange[0]} ans</span>
+            <span>Max: {yearRange[1]}</span>
           </div>
 
           <style jsx>{`
@@ -703,7 +718,7 @@ export default function LuminairesPage() {
                         src={`/api/images/filename/${luminaire.filename}`}
                         alt={luminaire["Nom luminaire"] || "Luminaire"}
                         fill
-                        className="object-contain"
+                        className="object-cover"
                         sizes={columns === 6 ? "16vw" : columns === 4 ? "25vw" : columns === 3 ? "33vw" : "50vw"}
                         unoptimized
                       />
