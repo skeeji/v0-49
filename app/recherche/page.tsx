@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 import Link from "next/link"
 import Image from "next/image"
+import { MobileFooter } from "@/components/MobileFooter"
 
 const API_BASE_URL_TEXT = "https://chatbot-984654216979.europe-west1.run.app"
 const API_BASE_URL_IMAGE = "https://image-similarity-api-590690354412.us-central1.run.app"
@@ -413,7 +414,7 @@ export default function RecherchePage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#f5f1e8" }}>
+    <div className="min-h-screen bg-[#f5f1e8] pb-20">
       {user && userData && userData.role !== "premium" && userData.role !== "admin" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <Card className="max-w-md mx-4 p-8 text-center">
@@ -691,6 +692,7 @@ export default function RecherchePage() {
       </div>
 
       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+      <MobileFooter />
     </div>
   )
 }

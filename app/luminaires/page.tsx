@@ -13,6 +13,7 @@ import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, Heart, List } from "lu
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
 import { LayoutGrid } from "lucide-react"
+import MobileFooter from "@/components/MobileFooter" // Import MobileFooter component
 
 export default function LuminairesPage() {
   const [luminaires, setLuminaires] = useState<any[]>([])
@@ -27,7 +28,7 @@ export default function LuminairesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategorie, setSelectedCategorie] = useState("")
   const [selectedMateriau, setSelectedMateriau] = useState("")
-  const [yearRange, setYearRange] = useState<number[]>([])
+  const [yearRange, setYearRange] = useState<number[]>([1900, 2024]) // Initialize yearRange with full range (no filter by default)
   const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -330,12 +331,10 @@ export default function LuminairesPage() {
           const min = result.data.yearRange.min
           const max = result.data.yearRange.max
           setYearBounds({ min, max })
-          setYearRange([min, max])
           console.log("[v0] Year bounds set:", { min, max })
         }
       } catch (error) {
         console.error("[v0] Error fetching year bounds:", error)
-        setYearRange([yearBounds.min, yearBounds.max])
       }
     }
 
@@ -368,12 +367,28 @@ export default function LuminairesPage() {
     }
   }, [sliderModified, yearRange])
 
-  const freeUserLimit = useMemo(() => {
-    if (!user || userData?.role === "free") {
-      return Math.ceil(totalItems * 0.1)
+  const filteredLuminaires = useMemo(() => {
+    let result = [...luminaires]
+
+    if (sliderModified && yearRange.length === 2) {
+      console.log("[v0] Filtering by year range:", yearRange)
+      result = result.filter((luminaire) => {
+        const yearField = luminaire.annee || luminaire["Année"] || ""
+        const yearMatch = yearField.match(/\b(1[0-9]{3}|20[0-9]{2})\b/)
+        if (yearMatch) {
+          const year = Number.parseInt(yearMatch[0])
+          return year >= yearRange[0] && year <= yearRange[1]
+        }
+        return false
+      })
+      console.log("[v0] Filtered luminaires count:", result.length)
     }
-    return totalItems
-  }, [user, userData, totalItems])
+
+    return result
+  }, [luminaires, yearRange, sliderModified])
+
+  const isPremium = userData?.role === "premium" || userData?.role === "admin"
+  const freeUserLimit = isPremium ? filteredLuminaires.length : Math.ceil(filteredLuminaires.length * 0.1)
 
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
@@ -383,8 +398,8 @@ export default function LuminairesPage() {
       })
       return favoriteItems
     }
-    return luminaires
-  }, [luminaires, allLuminaires, showFavorites, favorites])
+    return filteredLuminaires
+  }, [filteredLuminaires, allLuminaires, showFavorites, favorites])
 
   const pathname = usePathname()
 
@@ -675,37 +690,50 @@ export default function LuminairesPage() {
                   : "grid-cols-2 md:grid-cols-6"
           }`}
         >
-          {displayedLuminaires.map((luminaire) => (
-            <Link key={luminaire._id} href={`/luminaires/${luminaire._id}`}>
-              <div className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
-                <div className="aspect-square relative bg-gray-100 overflow-hidden">
-                  {luminaire.filename ? (
-                    <Image
-                      src={`/api/images/filename/${luminaire.filename}`}
-                      alt={luminaire["Nom luminaire"] || "Luminaire"}
-                      fill
-                      className="object-cover"
-                      sizes={columns === 6 ? "16vw" : columns === 4 ? "25vw" : columns === 3 ? "33vw" : "50vw"}
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <div className="text-4xl">🏮</div>
-                    </div>
-                  )}
+          {displayedLuminaires.map((luminaire, index) => {
+            const isAccessible = index < freeUserLimit
+            const LuminaireCard = isAccessible ? Link : "div"
+
+            return (
+              <LuminaireCard key={luminaire._id} {...(isAccessible ? { href: `/luminaires/${luminaire._id}` } : {})}>
+                <div
+                  className={`bg-white rounded-xl overflow-hidden transition-shadow border border-gray-200 ${
+                    isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
+                  }`}
+                >
+                  <div className="aspect-square relative bg-gray-100 overflow-hidden">
+                    {luminaire.filename ? (
+                      <Image
+                        src={`/api/images/filename/${luminaire.filename}`}
+                        alt={luminaire["Nom luminaire"] || "Luminaire"}
+                        fill
+                        className="object-contain p-2"
+                        sizes={columns === 6 ? "16vw" : columns === 4 ? "25vw" : columns === 3 ? "33vw" : "50vw"}
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <div className="text-4xl">🏮</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
+                      {luminaire["Nom luminaire"] || "Sans nom"}
+                    </h3>
+                    <p className="text-xs text-gray-600">
+                      {luminaire["Artiste / Dates"]?.split(",")[0] || "Artiste inconnu"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">{luminaire.annee || luminaire["Année"] || ""}</p>
+
+                    {!isAccessible && (
+                      <div className="mt-2 text-center text-xs text-gray-400 font-medium">Premium requis</div>
+                    )}
+                  </div>
                 </div>
-                <div className="p-3">
-                  <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
-                    {luminaire["Nom luminaire"] || "Sans nom"}
-                  </h3>
-                  <p className="text-xs text-gray-600">
-                    {luminaire["Artiste / Dates"]?.split(",")[0] || "Artiste inconnu"}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">{luminaire.annee || luminaire["Année"] || ""}</p>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </LuminaireCard>
+            )
+          })}
         </div>
 
         {/* Loading indicator */}
@@ -749,6 +777,8 @@ export default function LuminairesPage() {
           <span>Account</span>
         </Link>
       </nav>
+
+      <MobileFooter />
     </div>
   )
 }

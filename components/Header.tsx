@@ -67,7 +67,7 @@ export function Header() {
           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
         }}
       >
-        <div className="container mx-auto px-6 py-6">
+        <div className="container mx-auto px-6 py-4 md:py-6">
           <div className="flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] md:gap-12">
             {/* Navigation gauche - desktop only */}
             <nav className="hidden md:flex items-center justify-end space-x-8">
@@ -78,7 +78,7 @@ export function Header() {
                   className={`hover:text-[#8b7355] font-normal transition-colors no-underline ${
                     isActivePage(item.href) ? "text-[#8b7355]" : "text-[#666666]"
                   }`}
-                  style={{ fontSize: "18px", textDecoration: "none" }}
+                  style={{ fontSize: "16px", textDecoration: "none" }}
                 >
                   {item.label}
                 </Link>
@@ -86,7 +86,7 @@ export function Header() {
             </nav>
 
             <Link href="/" className="flex items-center justify-center no-underline">
-              <div className="w-40 h-16 md:w-48 md:h-20 relative">
+              <div className="w-28 h-12 md:w-40 md:h-16 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
                   alt="Logo"
@@ -110,7 +110,7 @@ export function Header() {
                   className={`hover:text-[#8b7355] font-normal transition-colors no-underline ${
                     isActivePage(item.href) ? "text-[#8b7355]" : "text-[#666666]"
                   }`}
-                  style={{ fontSize: "18px", textDecoration: "none" }}
+                  style={{ fontSize: "16px", textDecoration: "none" }}
                 >
                   {item.label}
                 </Link>
@@ -121,10 +121,10 @@ export function Header() {
               ) : (
                 <Button
                   onClick={signInWithGoogle}
-                  className="text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#8b7355] no-underline"
+                  className="text-white font-semibold px-5 py-2 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#8b7355] no-underline"
                   style={{
                     backgroundColor: "#8b7355",
-                    fontSize: "18px",
+                    fontSize: "16px",
                     textDecoration: "none",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#75614a")}

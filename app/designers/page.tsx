@@ -7,7 +7,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
-import { Loader2, Home, Users, Grid3x3, Mail, User } from "lucide-react"
+import { Loader2, Users } from "lucide-react"
+import { MobileFooter } from "@/components/MobileFooter"
 
 export default function DesignersPage() {
   const [allDesigners, setAllDesigners] = useState([])
@@ -387,28 +388,7 @@ export default function DesignersPage() {
         )}
       </div>
 
-      <nav className="bottom-nav">
-        <Link href="/" className={`bottom-nav-item ${pathname === "/" ? "active" : ""}`}>
-          <Home className="w-5 h-5" />
-          <span>Home</span>
-        </Link>
-        <Link href="/designers" className={`bottom-nav-item ${pathname.startsWith("/designers") ? "active" : ""}`}>
-          <Users className="w-5 h-5" />
-          <span>Designers</span>
-        </Link>
-        <Link href="/luminaires" className={`bottom-nav-item ${pathname.startsWith("/luminaires") ? "active" : ""}`}>
-          <Grid3x3 className="w-5 h-5" />
-          <span>Collection</span>
-        </Link>
-        <Link href="/recherche" className={`bottom-nav-item ${pathname === "/recherche" ? "active" : ""}`}>
-          <Mail className="w-5 h-5" />
-          <span>Inquire</span>
-        </Link>
-        <Link href="/pricing" className={`bottom-nav-item ${pathname === "/pricing" ? "active" : ""}`}>
-          <User className="w-5 h-5" />
-          <span>Account</span>
-        </Link>
-      </nav>
+      <MobileFooter />
     </div>
   )
 }

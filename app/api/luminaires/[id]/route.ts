@@ -9,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const id = params.id
     console.log("🔍 API /api/luminaires/[id] GET - ID:", id)
 
-    if (!ObjectId.isValid(id)) {
+    if (!id || id.length !== 24 || !ObjectId.isValid(id)) {
       console.log("❌ ID invalide:", id)
       return NextResponse.json({ success: false, error: "ID invalide" }, { status: 400 })
     }
@@ -19,7 +19,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const luminairesCollection = db.collection("luminaires")
     const designersCollection = db.collection("designers")
 
-    const luminaire = await luminairesCollection.findOne({ _id: new ObjectId(id) })
+    let luminaire
+    try {
+      luminaire = await luminairesCollection.findOne({ _id: new ObjectId(id) })
+    } catch (dbError: any) {
+      console.error("❌ Erreur MongoDB findOne:", dbError)
+      return NextResponse.json(
+        { success: false, error: "Erreur base de données", details: dbError.message },
+        { status: 500 },
+      )
+    }
 
     if (!luminaire) {
       console.log("❌ Luminaire non trouvé:", id)
