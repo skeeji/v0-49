@@ -479,7 +479,7 @@ export default function LuminairesPage() {
         </div>
 
         {/* Search bar */}
-        <div className="mb-4 max-w-2xl">
+        <div className="mb-4">
           <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}

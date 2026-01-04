@@ -53,7 +53,7 @@ export default function HomePage() {
       formData.append("image", file)
       formData.append("top_k", "10")
 
-      console.log("eleSp FormData créé, envoi vers:", apiUrl)
+      console.log("📤 FormData créé, envoi vers:", apiUrl)
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -921,8 +921,8 @@ export default function HomePage() {
 
               <div className="space-y-6">
                 {/* Checkbox pour supprimer l'arrière-plan */}
-                {showBackgroundOptions && selectedImageForSearch && user && userData?.role !== "free" && (
-                  <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-slate-200 mt-3">
+                {showBackgroundOptions && selectedImageForSearch && (
+                  <div className="flex items-center gap-2 mb-3 mt-3">
                     <input
                       type="checkbox"
                       id="removeBackground"
@@ -932,9 +932,10 @@ export default function HomePage() {
                         if (e.target.checked) {
                           if (selectedImageForSearch && !isRemovingBackground) {
                             const processedFile = await removeBackground(selectedImageForSearch)
-                            if (processedFile && backgroundRemovedImage) {
+                            if (processedFile) {
+                              // Mettre à jour avec le fichier traité
                               setSelectedImageForSearch(processedFile)
-                              setCapturedImage(backgroundRemovedImage)
+                              console.log("[v0] Image mise à jour avec arrière-plan supprimé:", processedFile.name)
                             }
                           }
                         } else {
@@ -942,6 +943,48 @@ export default function HomePage() {
                             const originalUrl = URL.createObjectURL(selectedFile)
                             setCapturedImage(originalUrl)
                             setSelectedImageForSearch(selectedFile)
+                            console.log("[v0] Image remise à l'originale:", selectedFile.name)
+                            // Nettoyer l'ancienne URL de l'image sans arrière-plan
+                            if (backgroundRemovedImage) {
+                              URL.revokeObjectURL(backgroundRemovedImage)
+                              setBackgroundRemovedImage(null)
+                            }
+                          }
+                        }
+                      }}
+                      disabled={isRemovingBackground}
+                    />
+                    <label htmlFor="removeBackground" className="text-sm font-medium text-slate-700 cursor-pointer">
+                      Supprimer l'arrière-plan avant la recherche
+                    </label>
+                  </div>
+                )}
+
+                {/* Afficher la checkbox seulement pour les utilisateurs premium/admin */}
+                {user && userData?.role !== "free" && (
+                  <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <input
+                      type="checkbox"
+                      id="removeBackground"
+                      className="w-5 h-5 bg-white border-slate-300 rounded focus:ring-2"
+                      style={{ accentColor: "#8b7355" }}
+                      onChange={async (e) => {
+                        if (e.target.checked) {
+                          // Supprimer l'arrière-plan et mettre à jour l'affichage
+                          if (selectedImageForSearch && !isRemovingBackground) {
+                            const processedFile = await removeBackground(selectedImageForSearch)
+                            if (processedFile && backgroundRemovedImage) {
+                              setSelectedImageForSearch(processedFile)
+                              setCapturedImage(backgroundRemovedImage)
+                            }
+                          }
+                        } else {
+                          // Remettre l'image originale
+                          if (selectedFile) {
+                            const originalUrl = URL.createObjectURL(selectedFile)
+                            setCapturedImage(originalUrl)
+                            setSelectedImageForSearch(selectedFile)
+                            // Nettoyer l'ancienne URL de l'image sans arrière-plan
                             if (backgroundRemovedImage) {
                               URL.revokeObjectURL(backgroundRemovedImage)
                               setBackgroundRemovedImage(null)
