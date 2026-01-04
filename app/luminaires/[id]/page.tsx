@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Download, Search, User, ArrowRight } from "lucide-react"
+import { ArrowLeft, Download, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { useAuth } from "@/contexts/AuthContext"
@@ -591,150 +591,121 @@ export default function LuminaireDetailPage() {
                 )}
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 mb-6 flex items-center justify-between hover:bg-gray-100 transition-colors cursor-pointer">
-                <Link
-                  href={`/designers/${encodeURIComponent(luminaire.artist)}`}
-                  className="flex items-center gap-3 flex-1"
-                >
-                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
-                    {luminaire.designerImageFilename ? (
-                      <Image
-                        src={`/api/images/filename/${luminaire.designerImageFilename}`}
-                        alt={luminaire.artist}
-                        width={48}
-                        height={48}
-                        className="object-cover w-full h-full"
-                        unoptimized
-                        onError={(e) => {
-                          console.error("[v0] Failed to load designer image:", luminaire.designerImageFilename)
-                          const target = e.currentTarget
-                          target.style.display = "none"
-                          const parent = target.parentElement
-                          if (parent) {
-                            parent.innerHTML =
-                              '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="lucide lucide-user w-6 h-6 text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
-                          }
-                        }}
-                      />
-                    ) : (
-                      <User className="w-6 h-6 text-gray-400" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-gray-900">{luminaire.artist}</div>
-                    <p className="text-sm text-gray-600">Designer</p>
-                  </div>
-                </Link>
-                <ArrowRight className="w-5 h-5 text-gray-400" />
-              </div>
-
               <div className="grid grid-cols-2 gap-4 mb-6">
-                {luminaire.signed && luminaire.signed.trim() && (
+                {(canEdit || (luminaire.signed && luminaire.signed.trim())) && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Signé</p>
                     <EditableField
-                      value={luminaire.signed}
+                      value={luminaire.signed || ""}
                       onSave={(value) => handleUpdate("signed", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
+                      placeholder={canEdit ? "Ajouter signé" : ""}
                     />
                   </div>
                 )}
 
-                {luminaire.year && luminaire.year.trim() && (
+                {(canEdit || (luminaire.year && luminaire.year.trim())) && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Année</p>
                     <EditableField
-                      value={luminaire.year}
+                      value={luminaire.year || ""}
                       onSave={(value) => handleUpdate("year", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
+                      placeholder={canEdit ? "Ajouter année" : ""}
                     />
                   </div>
                 )}
 
-                {luminaire.categorie && luminaire.categorie.trim() && (
+                {(canEdit || (luminaire.categorie && luminaire.categorie.trim())) && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Catégorie</p>
                     <EditableField
-                      value={luminaire.categorie}
+                      value={luminaire.categorie || ""}
                       onSave={(value) => handleUpdate("categorie", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
+                      placeholder={canEdit ? "Ajouter catégorie" : ""}
                     />
                   </div>
                 )}
 
-                {luminaire.editeur && luminaire.editeur.trim() && (
+                {(canEdit || (luminaire.editeur && luminaire.editeur.trim())) && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Éditeur</p>
                     <EditableField
-                      value={luminaire.editeur}
+                      value={luminaire.editeur || ""}
                       onSave={(value) => handleUpdate("editeur", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
+                      placeholder={canEdit ? "Ajouter éditeur" : ""}
                     />
                   </div>
                 )}
 
-                {luminaire.bibliographie && luminaire.bibliographie.trim() && (
+                {(canEdit || (luminaire.bibliographie && luminaire.bibliographie.trim())) && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
                     <EditableField
-                      value={luminaire.bibliographie}
+                      value={luminaire.bibliographie || ""}
                       onSave={(value) => handleUpdate("bibliographie", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
+                      placeholder={canEdit ? "Ajouter bibliographie" : ""}
                     />
                   </div>
                 )}
 
-                {luminaire.materials && luminaire.materials.trim() && (
+                {(canEdit || (luminaire.materials && luminaire.materials.trim())) && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Matériaux</p>
                     <EditableField
-                      value={luminaire.materials}
+                      value={luminaire.materials || ""}
                       onSave={(value) => handleUpdate("materials", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
+                      placeholder={canEdit ? "Ajouter matériaux" : ""}
                     />
                   </div>
                 )}
 
-                {luminaire.dimensions && luminaire.dimensions.trim() && (
+                {(canEdit || (luminaire.dimensions && luminaire.dimensions.trim())) && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Dimensions</p>
                     <EditableField
-                      value={luminaire.dimensions}
+                      value={luminaire.dimensions || ""}
                       onSave={(value) => handleUpdate("dimensions", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
+                      placeholder={canEdit ? "Ajouter dimensions" : ""}
                     />
                   </div>
                 )}
 
-                {luminaire.lienSiteMarchand && luminaire.lienSiteMarchand.trim() && (
+                {(canEdit || (luminaire.lienSiteMarchand && luminaire.lienSiteMarchand.trim())) && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Lien site marchand</p>
                     <EditableField
-                      value={luminaire.lienSiteMarchand}
+                      value={luminaire.lienSiteMarchand || ""}
                       onSave={(value) => handleUpdate("lienSiteMarchand", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
+                      placeholder={canEdit ? "Ajouter lien" : ""}
                     />
                   </div>
                 )}
               </div>
 
-              {luminaire.description && (
+              {(canEdit || luminaire.description) && (
                 <div className="mb-6">
                   <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Description</h3>
                   <EditableField
-                    value={luminaire.description}
+                    value={luminaire.description || ""}
                     onSave={(val) => handleUpdate("description", val)}
                     multiline
                     className="text-sm text-gray-700 leading-relaxed"
-                    placeholder="Description du luminaire"
+                    placeholder={canEdit ? "Ajouter une description" : "Aucune description"}
                     disabled={!canEdit}
                   />
                 </div>

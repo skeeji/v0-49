@@ -249,7 +249,7 @@ export default function DesignersPage() {
           </h2>
 
           {/* Search bar without white background */}
-          <div className="mb-4">
+          <div className="mb-4 max-w-2xl">
             <SearchBar
               value={searchTerm}
               onChange={setSearchTerm}
