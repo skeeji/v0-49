@@ -56,14 +56,24 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
         // Chercher le designer dans la collection designers
         const designerDoc = await designersCollection.findOne({
-          $or: [{ nom: designerName }, { Nom: designerName }, { nom: { $regex: `^${designerName}`, $options: "i" } }],
+          $or: [
+            { nom: designerName },
+            { Nom: designerName },
+            { nom: { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, $options: "i" } },
+            { Nom: { $regex: `^${designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, $options: "i" } },
+          ],
         })
 
-        if (designerDoc && designerDoc.imagedesigner) {
-          designerImageFilename = designerDoc.imagedesigner
-          console.log(`✅ Image designer trouvée: ${designerImageFilename}`)
+        if (designerDoc) {
+          designerImageFilename =
+            designerDoc.imagedesigner || designerDoc.imageDesigner || designerDoc["Image du designer"] || null
+          if (designerImageFilename) {
+            console.log(`✅ Image designer trouvée: ${designerImageFilename}`)
+          } else {
+            console.log(`⚠️ Designer trouvé mais sans image pour: ${designerName}`)
+          }
         } else {
-          console.log(`⚠️ Aucune image designer trouvée pour: ${designerName}`)
+          console.log(`⚠️ Aucun designer trouvé pour: ${designerName}`)
         }
       } catch (designerError: any) {
         console.error(`⚠️ Erreur lors de la recherche du designer ${designerName}:`, designerError)
