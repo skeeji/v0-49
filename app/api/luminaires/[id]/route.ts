@@ -51,18 +51,23 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const designerName = luminaire.designer || luminaire["Artiste / Dates"] || luminaire["Artiste, ca année"] || null
 
     if (designerName) {
-      console.log(`[v0] Searching for designer: ${designerName}`)
+      try {
+        console.log(`[v0] Searching for designer: ${designerName}`)
 
-      // Chercher le designer dans la collection designers
-      const designerDoc = await designersCollection.findOne({
-        $or: [{ nom: designerName }, { Nom: designerName }, { nom: { $regex: `^${designerName}`, $options: "i" } }],
-      })
+        // Chercher le designer dans la collection designers
+        const designerDoc = await designersCollection.findOne({
+          $or: [{ nom: designerName }, { Nom: designerName }, { nom: { $regex: `^${designerName}`, $options: "i" } }],
+        })
 
-      if (designerDoc && designerDoc.imagedesigner) {
-        designerImageFilename = designerDoc.imagedesigner
-        console.log(`✅ Image designer trouvée: ${designerImageFilename}`)
-      } else {
-        console.log(`⚠️ Aucune image designer trouvée pour: ${designerName}`)
+        if (designerDoc && designerDoc.imagedesigner) {
+          designerImageFilename = designerDoc.imagedesigner
+          console.log(`✅ Image designer trouvée: ${designerImageFilename}`)
+        } else {
+          console.log(`⚠️ Aucune image designer trouvée pour: ${designerName}`)
+        }
+      } catch (designerError: any) {
+        console.error(`⚠️ Erreur lors de la recherche du designer ${designerName}:`, designerError)
+        // Ne pas faire échouer toute la requête si la recherche du designer échoue
       }
     }
 

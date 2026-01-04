@@ -526,8 +526,13 @@ export default function HomePage() {
 
   const searchWithOriginal = () => {
     if (selectedImageForSearch) {
+      console.log("[v0] Recherche avec image (possiblement traitée):", selectedImageForSearch.name)
       setShowBackgroundOptions(false)
       handleImageSearch(selectedImageForSearch)
+    } else if (selectedFile) {
+      console.log("[v0] Recherche avec image originale:", selectedFile.name)
+      setShowBackgroundOptions(false)
+      handleImageSearch(selectedFile)
     }
   }
 
