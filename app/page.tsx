@@ -961,44 +961,7 @@ export default function HomePage() {
                 )}
 
                 {/* Afficher la checkbox seulement pour les utilisateurs premium/admin */}
-                {user && userData?.role !== "free" && (
-                  <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <input
-                      type="checkbox"
-                      id="removeBackground"
-                      className="w-5 h-5 bg-white border-slate-300 rounded focus:ring-2"
-                      style={{ accentColor: "#8b7355" }}
-                      onChange={async (e) => {
-                        if (e.target.checked) {
-                          // Supprimer l'arrière-plan et mettre à jour l'affichage
-                          if (selectedImageForSearch && !isRemovingBackground) {
-                            const processedFile = await removeBackground(selectedImageForSearch)
-                            if (processedFile && backgroundRemovedImage) {
-                              setSelectedImageForSearch(processedFile)
-                              setCapturedImage(backgroundRemovedImage)
-                            }
-                          }
-                        } else {
-                          // Remettre l'image originale
-                          if (selectedFile) {
-                            const originalUrl = URL.createObjectURL(selectedFile)
-                            setCapturedImage(originalUrl)
-                            setSelectedImageForSearch(selectedFile)
-                            // Nettoyer l'ancienne URL de l'image sans arrière-plan
-                            if (backgroundRemovedImage) {
-                              URL.revokeObjectURL(backgroundRemovedImage)
-                              setBackgroundRemovedImage(null)
-                            }
-                          }
-                        }
-                      }}
-                      disabled={isRemovingBackground}
-                    />
-                    <label htmlFor="removeBackground" className="text-sm font-medium text-slate-700 cursor-pointer">
-                      Supprimer l'arrière-plan avant la recherche
-                    </label>
-                  </div>
-                )}
+                
 
                 {/* Message pour les utilisateurs gratuits */}
                 {(!user || userData?.role === "free") && (
