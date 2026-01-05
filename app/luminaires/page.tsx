@@ -9,10 +9,9 @@ import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, Heart, List } from "lucide-react"
+import { Loader2, Plus, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
-import { LayoutGrid } from "lucide-react"
 import MobileFooter from "@/components/MobileFooter" // Import MobileFooter component
 
 export default function LuminairesPage() {
@@ -393,21 +392,38 @@ export default function LuminairesPage() {
     return result
   }, [luminaires, yearRange, sliderModified])
 
-  const isPremium = userData?.role === "admin" || userData?.isPremium
-  const freeUserLimit = isPremium ? luminaires.length : Math.floor(totalDatabase * 0.1)
-
-  const displayedLuminaires = useMemo(() => {
-    if (showFavorites) {
-      const favoriteItems = allLuminaires.filter((item) => {
-        const itemId = String(item._id || item.id || "")
-        return favorites.includes(itemId)
-      })
-      return favoriteItems
-    }
-    return filteredLuminaires
-  }, [filteredLuminaires, allLuminaires, showFavorites, favorites])
-
   const pathname = usePathname()
+  const [initialFiltersSet, setInitialFiltersSet] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && !initialFiltersSet) {
+      const params = new URLSearchParams(window.location.search)
+      const designerParam = params.get("designer")
+      const periodParam = params.get("period")
+      const yearMinParam = params.get("yearMin")
+      const yearMaxParam = params.get("yearMax")
+
+      if (designerParam) {
+        setSearchTerm(designerParam)
+      }
+
+      if (yearMinParam && yearMaxParam) {
+        const min = Number.parseInt(yearMinParam)
+        const max = Number.parseInt(yearMaxParam)
+        if (!isNaN(min) && !isNaN(max)) {
+          setYearRange([min, max])
+          setSliderModified(true)
+        }
+      }
+
+      setInitialFiltersSet(true)
+    }
+  }, [initialFiltersSet])
+
+  const isPremium = userData?.role === "premium" || userData?.role === "admin"
+  const freeUserLimit = Math.ceil(totalDatabase * 0.1) // 10% of total database
+
+  const displayedLuminaires = showFavorites ? luminaires.filter((lum) => favorites.includes(lum._id)) : luminaires
 
   if (loading && luminaires.length === 0) {
     return (
@@ -424,106 +440,58 @@ export default function LuminairesPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-serif text-gray-900">
-            Luminaires
-            <span className="text-gray-500 ml-2">
-              ({displayedLuminaires.length}/{totalItems})
-            </span>
-          </h2>
-        </div>
+      <div className="container mx-auto px-4 py-6">
+        <h1 className="text-2xl md:text-3xl font-serif text-gray-900 mb-1 text-center md:text-left">
+          Luminaires{" "}
+          <span className="text-gray-500">
+            ({totalItems}/{totalDatabase})
+          </span>
+        </h1>
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4 flex-wrap">
-            <button
-              onClick={() => setShowFavorites(!showFavorites)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-            >
-              <Heart className={`w-4 h-4 ${showFavorites ? "fill-red-500 text-red-500" : ""}`} />
-              <span className="text-sm">Favoris ({favorites.length})</span>
-            </button>
-          </div>
-
-          <div className="hidden md:flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 rounded ${viewMode === "grid" ? "bg-gray-200" : "bg-gray-100"}`}
-                aria-label="Vue grille"
-              >
-                <LayoutGrid className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 rounded ${viewMode === "list" ? "bg-gray-200" : "bg-gray-100"}`}
-                aria-label="Vue liste"
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div>
-
-            {viewMode === "grid" && (
-              <select
-                value={columns}
-                onChange={(e) => setColumns(Number(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              >
-                <option value={2}>2 colonnes</option>
-                <option value={3}>3 colonnes</option>
-                <option value={4}>4 colonnes</option>
-                <option value={6}>6 colonnes</option>
-              </select>
-            )}
-          </div>
-        </div>
-
-        {/* Premium message for non-premium users */}
-        {!user || (userData?.role !== "premium" && userData?.role !== "admin") ? (
-          <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-xl">✨</span>
-              </div>
+        {!isPremium && (
+          <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 text-2xl">✨</div>
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1">Accès limité - Vous voyez 10% de la collection</h3>
-                <p className="text-sm text-gray-700 mb-2">
-                  Passez à Premium pour voir tous les luminaires sans restriction !
+                <h3 className="font-serif text-base font-medium text-gray-900 mb-1">
+                  Accès limité - Collection découverte
+                </h3>
+                <p className="text-sm text-gray-700 mb-3">
+                  Vous voyez <span className="font-semibold">{freeUserLimit} luminaires</span> sur{" "}
+                  <span className="font-semibold">{totalDatabase}</span> disponibles. Passez à Premium pour explorer
+                  toute notre collection sans restriction.
                 </p>
                 <Link href="/pricing">
-                  <button
-                    className="text-sm font-medium px-4 py-2 rounded-lg text-white hover:bg-[#75614a] transition-colors"
-                    style={{ backgroundColor: "#8b7355" }}
-                  >
+                  <button className="px-4 py-2 bg-[#8b7355] text-white text-sm font-medium rounded-lg hover:bg-[#75614a] transition-colors">
                     Découvrir Premium →
                   </button>
                 </Link>
               </div>
             </div>
           </div>
-        ) : null}
+        )}
 
-        {/* Search bar */}
-        <div className="mb-4">
-          <SearchBar
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Rechercher un luminaire..."
-            className="bg-white"
-          />
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => setShowFavorites(!showFavorites)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+          >
+            <Heart className={`w-4 h-4 ${showFavorites ? "fill-red-500 text-red-500" : ""}`} />
+            <span className="text-sm">Favoris ({favorites.length})</span>
+          </button>
         </div>
 
-        {/* Filter dropdowns */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <div className="hidden md:flex items-center gap-4 mb-6">
+          <div className="flex-1">
+            <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
+          </div>
+
           <select
-            value={selectedCategorie}
-            onChange={(e) => {
-              setSelectedCategorie(e.target.value)
-              setCurrentPage(1)
-            }}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            value={selectedCategorie || "all"}
+            onChange={(e) => setSelectedCategorie(e.target.value === "all" ? "" : e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
           >
-            <option value="">Toutes les catégories</option>
+            <option value="all">Toutes les catégories</option>
             {filterOptions.categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
@@ -532,14 +500,11 @@ export default function LuminairesPage() {
           </select>
 
           <select
-            value={selectedMateriau}
-            onChange={(e) => {
-              setSelectedMateriau(e.target.value)
-              setCurrentPage(1)
-            }}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            value={selectedMateriau || "all"}
+            onChange={(e) => setSelectedMateriau(e.target.value === "all" ? "" : e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
           >
-            <option value="">Tous les matériaux</option>
+            <option value="all">Tous les matériaux</option>
             {filterOptions.materiaux.map((mat) => (
               <option key={mat} value={mat}>
                 {mat}
@@ -554,7 +519,7 @@ export default function LuminairesPage() {
               setSortField(field)
               setSortDirection(dir as "asc" | "desc")
             }}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
           >
             <option value="nom-asc">Nom A-Z</option>
             <option value="nom-desc">Nom Z-A</option>
@@ -563,145 +528,48 @@ export default function LuminairesPage() {
           </select>
         </div>
 
-        {/* Slider section */}
-        <div className="rounded-xl p-6 mb-6 bg-transparent">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold">Période chronologique</h2>
-            {sliderModified && (
-              <button
-                onClick={() => {
-                  setYearRange([yearBounds.min, yearBounds.max])
-                  setSliderModified(false)
-                  setCurrentPage(1)
-                }}
-                className="text-sm text-[#8b7355] hover:underline"
-              >
-                -
-              </button>
-            )}
-          </div>
+        <div className="md:hidden mb-6 space-y-4">
+          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
 
-          <div className="flex items-center justify-between mb-4 text-sm text-gray-600">
-            <span>Min: {yearRange[0]}</span>
-            <span className="font-semibold">Intervalle: {yearRange[1] - yearRange[0]} ans</span>
-            <span>Max: {yearRange[1]}</span>
-          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <select
+              value={selectedCategorie || "all"}
+              onChange={(e) => setSelectedCategorie(e.target.value === "all" ? "" : e.target.value)}
+              className="px-2 py-2 border border-gray-300 rounded-lg text-xs bg-white"
+            >
+              <option value="all">Catégories</option>
+              {filterOptions.categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
 
-          <style jsx>{`
-            .dual-range-slider {
-              position: relative;
-              width: 100%;
-              height: 40px;
-            }
+            <select
+              value={selectedMateriau || "all"}
+              onChange={(e) => setSelectedMateriau(e.target.value === "all" ? "" : e.target.value)}
+              className="px-2 py-2 border border-gray-300 rounded-lg text-xs bg-white"
+            >
+              <option value="all">Matériaux</option>
+              {filterOptions.materiaux.map((mat) => (
+                <option key={mat} value={mat}>
+                  {mat}
+                </option>
+              ))}
+            </select>
 
-            .slider-track {
-              position: absolute;
-              top: 50%;
-              transform: translateY(-50%);
-              width: 100%;
-              height: 4px;
-              background: #e5e7eb;
-              border-radius: 2px;
-            }
-
-            .slider-range {
-              position: absolute;
-              top: 50%;
-              transform: translateY(-50%);
-              height: 4px;
-              background: #8b7355;
-              border-radius: 2px;
-              pointer-events: none;
-            }
-
-            .slider-input {
-              position: absolute;
-              top: 50%;
-              transform: translateY(-50%);
-              width: 100%;
-              height: 4px;
-              -webkit-appearance: none;
-              appearance: none;
-              background: transparent;
-              pointer-events: none;
-              margin: 0;
-            }
-
-            .slider-input::-webkit-slider-thumb {
-              -webkit-appearance: none;
-              appearance: none;
-              width: 20px;
-              height: 20px;
-              border-radius: 50%;
-              background: #8b7355;
-              cursor: pointer;
-              pointer-events: auto;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-              position: relative;
-              z-index: 3;
-            }
-
-            .slider-input::-moz-range-thumb {
-              width: 20px;
-              height: 20px;
-              border-radius: 50%;
-              background: #8b7355;
-              cursor: pointer;
-              pointer-events: auto;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-              border: none;
-              position: relative;
-              z-index: 3;
-            }
-
-            .slider-input::-webkit-slider-thumb:hover {
-              background: #75614a;
-            }
-
-            .slider-input::-moz-range-thumb:hover {
-              background: #75614a;
-            }
-
-            .min-slider {
-              z-index: 2;
-            }
-
-            .max-slider {
-              z-index: 4;
-            }
-          `}</style>
-
-          <div className="dual-range-slider">
-            <div className="slider-track" />
-            <div
-              className="slider-range"
-              style={{
-                left: `${((yearRange[0] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
-                right: `${100 - ((yearRange[1] - yearBounds.min) / (yearBounds.max - yearBounds.min)) * 100}%`,
+            <select
+              value={`${sortField}-${sortDirection}`}
+              onChange={(e) => {
+                const [field, dir] = e.target.value.split("-")
+                setSortField(field)
+                setSortDirection(dir as "asc" | "desc")
               }}
-            />
-
-            <input
-              type="range"
-              className="slider-input min-slider"
-              min={yearBounds.min}
-              max={yearBounds.max}
-              value={yearRange[0]}
-              onChange={handleMinChange}
-              onMouseUp={handleSliderRelease}
-              onTouchEnd={handleSliderRelease}
-            />
-
-            <input
-              type="range"
-              className="slider-input max-slider"
-              min={yearBounds.min}
-              max={yearBounds.max}
-              value={yearRange[1]}
-              onChange={handleMaxChange}
-              onMouseUp={handleSliderRelease}
-              onTouchEnd={handleSliderRelease}
-            />
+              className="px-2 py-2 border border-gray-300 rounded-lg text-xs bg-white"
+            >
+              <option value="nom-asc">A-Z</option>
+              <option value="nom-desc">Z-A</option>
+            </select>
           </div>
         </div>
 
@@ -715,28 +583,27 @@ export default function LuminairesPage() {
           </Button>
         )}
 
-        {/* Grid or List view */}
-        <div
-          className={`grid gap-4 ${
-            columns === 2
-              ? "grid-cols-2"
-              : columns === 3
-                ? "grid-cols-2 md:grid-cols-3"
-                : columns === 4
-                  ? "grid-cols-2 md:grid-cols-4"
-                  : "grid-cols-2 md:grid-cols-6"
-          }`}
-        >
-          {displayedLuminaires.map((luminaire, index) => {
-            const isAccessible = index < freeUserLimit
-            const LuminaireCard = isAccessible ? Link : "div"
+        {viewMode === "grid" ? (
+          <div
+            className={`grid gap-4 ${
+              columns === 2
+                ? "grid-cols-2"
+                : columns === 3
+                  ? "grid-cols-2 md:grid-cols-3"
+                  : columns === 4
+                    ? "grid-cols-2 md:grid-cols-4"
+                    : "grid-cols-2 md:grid-cols-6"
+            }`}
+          >
+            {displayedLuminaires.map((luminaire, index) => {
+              const isAccessible = index < freeUserLimit || isPremium
+              const LuminaireCard = isAccessible ? Link : "div"
 
-            return (
-              <LuminaireCard key={luminaire._id} {...(isAccessible ? { href: `/luminaires/${luminaire._id}` } : {})}>
-                <div
-                  className={`bg-white rounded-xl overflow-hidden transition-shadow border border-gray-200 flex flex-col h-full ${
-                    isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
-                  }`}
+              return (
+                <LuminaireCard
+                  key={luminaire._id}
+                  href={isAccessible ? `/luminaires/${luminaire._id}` : undefined}
+                  className={`flex flex-col h-full ${isAccessible ? "" : "opacity-40 cursor-not-allowed"}`}
                 >
                   <div className="aspect-square relative bg-white overflow-hidden flex-shrink-0">
                     {luminaire.filename ? (
@@ -767,13 +634,54 @@ export default function LuminairesPage() {
                       <div className="mt-2 text-center text-xs text-gray-400 font-medium">Premium requis</div>
                     )}
                   </div>
-                </div>
-              </LuminaireCard>
-            )
-          })}
-        </div>
+                </LuminaireCard>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {displayedLuminaires.map((luminaire, index) => {
+              const isAccessible = index < freeUserLimit || isPremium
+              const LuminaireCard = isAccessible ? Link : "div"
 
-        {/* Loading indicator */}
+              return (
+                <LuminaireCard
+                  key={luminaire._id}
+                  href={isAccessible ? `/luminaires/${luminaire._id}` : undefined}
+                  className={`flex items-center gap-4 bg-white rounded-lg p-4 hover:shadow-md transition-shadow ${isAccessible ? "" : "opacity-40 cursor-not-allowed"}`}
+                >
+                  <div className="w-24 h-24 relative bg-white rounded-lg overflow-hidden flex-shrink-0">
+                    {luminaire.filename ? (
+                      <Image
+                        src={`/api/images/filename/${luminaire.filename}`}
+                        alt={luminaire["Nom luminaire"] || "Luminaire"}
+                        fill
+                        className="object-contain"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50">
+                        <div className="text-3xl">🏮</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-serif text-base font-medium text-gray-900 mb-1 truncate">
+                      {luminaire["Nom luminaire"] || "Sans nom"}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-1">{luminaire["Artiste / Dates"] || "Artisan"}</p>
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      {luminaire.annee && <span>{luminaire.annee}</span>}
+                      {luminaire.Catégorie && <span>• {luminaire.Catégorie}</span>}
+                    </div>
+                  </div>
+                </LuminaireCard>
+              )
+            })}
+          </div>
+        )}
+
         {loadingMore && !showFavorites && (
           <div className="text-center mt-8">
             <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-lg">
@@ -790,30 +698,13 @@ export default function LuminairesPage() {
         )}
       </div>
 
-      <LuminaireFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleCreateLuminaire} />
-
-      <nav className="bottom-nav">
-        <Link href="/" className={`bottom-nav-item ${pathname === "/" ? "active" : ""}`}>
-          <Home className="w-5 h-5" />
-          <span>Home</span>
-        </Link>
-        <Link href="/designers" className={`bottom-nav-item ${pathname.startsWith("/designers") ? "active" : ""}`}>
-          <Users className="w-5 h-5" />
-          <span>Designers</span>
-        </Link>
-        <Link href="/luminaires" className={`bottom-nav-item ${pathname.startsWith("/luminaires") ? "active" : ""}`}>
-          <Grid3x3 className="w-5 h-5" />
-          <span>Collection</span>
-        </Link>
-        <Link href="/recherche" className={`bottom-nav-item ${pathname === "/recherche" ? "active" : ""}`}>
-          <Mail className="w-5 h-5" />
-          <span>Inquire</span>
-        </Link>
-        <Link href="/pricing" className={`bottom-nav-item ${pathname === "/pricing" ? "active" : ""}`}>
-          <User className="w-5 h-5" />
-          <span>Account</span>
-        </Link>
-      </nav>
+      {isModalOpen && (
+        <LuminaireFormModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleCreateLuminaire}
+        />
+      )}
 
       <MobileFooter />
     </div>

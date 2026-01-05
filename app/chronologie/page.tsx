@@ -285,25 +285,39 @@ export default function ChronologiePage() {
             {totalLuminaires} luminaires classés par période historique
           </p>
 
-          <div className="mb-12 overflow-x-auto">
-            <div className="min-w-max px-4">
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
+          <div className="mb-16 relative">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200 p-8 overflow-x-auto">
+              <div className="min-w-max">
+                <div className="relative">
+                  {/* Decorative gradient line */}
+                  <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-[#8b7355]/30 via-[#8b7355] to-[#8b7355]/30 transform -translate-y-1/2" />
 
-                {/* Period markers */}
-                <div className="relative flex gap-8 items-center">
-                  {timelineData.map((period, index) => (
-                    <a key={index} href={`#${period.name}`} className="flex flex-col items-center group cursor-pointer">
-                      <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
-                      <span className="text-xs text-gray-600 text-center max-w-[80px] whitespace-nowrap group-hover:text-[#8b7355] transition-colors">
-                        {period.name}
-                      </span>
-                      <span className="text-xs text-gray-400 mt-1">
-                        {period.start}-{period.end}
-                      </span>
-                    </a>
-                  ))}
+                  {/* Period markers with elegant styling */}
+                  <div className="relative flex gap-12 items-center px-4">
+                    {timelineData.map((period, index) => (
+                      <a
+                        key={index}
+                        href={`#${period.name}`}
+                        className="flex flex-col items-center group cursor-pointer transition-all duration-300"
+                      >
+                        {/* Animated dot */}
+                        <div className="relative mb-3">
+                          <div className="w-3 h-3 rounded-full bg-[#8b7355] group-hover:scale-150 transition-all duration-300 relative z-10" />
+                          <div className="absolute inset-0 w-3 h-3 rounded-full bg-[#8b7355] opacity-0 group-hover:opacity-30 group-hover:scale-[2] transition-all duration-300" />
+                        </div>
+
+                        {/* Period name with elegant typography */}
+                        <span className="text-xs font-serif text-gray-700 text-center max-w-[100px] whitespace-nowrap group-hover:text-[#8b7355] group-hover:font-medium transition-all duration-200">
+                          {period.name}
+                        </span>
+
+                        {/* Years with subtle styling */}
+                        <span className="text-[10px] text-gray-400 mt-1.5 font-light tracking-wide">
+                          {period.start}–{period.end}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -382,8 +396,7 @@ export default function ChronologiePage() {
                       </div>
                     )}
 
-                    {/* Bouton voir tous les luminaires */}
-                    <Link href={`/luminaires?period=${encodeURIComponent(period.name)}`}>
+                    <Link href={`/luminaires?yearMin=${period.start}&yearMax=${period.end}`}>
                       <button className="w-full py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
                         Voir les {period.luminaires.length} luminaires
                       </button>
