@@ -291,15 +291,18 @@ export default function ChronologiePage() {
                 {/* Timeline line */}
                 <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
 
-                {/* Period markers */}
-                <div className="relative flex gap-8 items-center">
+                <div className="relative flex gap-12 items-center">
                   {timelineData.map((period, index) => (
-                    <a key={index} href={`#${period.name}`} className="flex flex-col items-center group cursor-pointer">
+                    <a
+                      key={index}
+                      href={`#${period.name}`}
+                      className="flex flex-col items-center group cursor-pointer min-w-[100px]"
+                    >
                       <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
-                      <span className="text-xs text-gray-600 text-center max-w-[80px] whitespace-nowrap group-hover:text-[#8b7355] transition-colors">
+                      <span className="text-xs text-gray-600 text-center whitespace-nowrap group-hover:text-[#8b7355] transition-colors">
                         {period.name}
                       </span>
-                      <span className="text-xs text-gray-400 mt-1">
+                      <span className="text-xs text-gray-400 mt-1 whitespace-nowrap">
                         {period.start}-{period.end}
                       </span>
                     </a>

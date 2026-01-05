@@ -482,9 +482,6 @@ export default function LuminairesPage() {
         {!user || (userData?.role !== "premium" && userData?.role !== "admin") ? (
           <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-xl">✨</span>
-              </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 mb-1">Accès limité - Vous voyez 10% de la collection</h3>
                 <p className="text-sm text-gray-700 mb-2">
@@ -503,64 +500,66 @@ export default function LuminairesPage() {
           </div>
         ) : null}
 
-        {/* Search bar */}
-        <div className="mb-4">
-          <SearchBar
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Rechercher un luminaire..."
-            className="bg-white"
-          />
-        </div>
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
+          {/* Search bar */}
+          <div className="md:flex-1 md:max-w-md">
+            <SearchBar
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Rechercher un luminaire..."
+              className="bg-white"
+            />
+          </div>
 
-        {/* Filter dropdowns */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-          <select
-            value={selectedCategorie}
-            onChange={(e) => {
-              setSelectedCategorie(e.target.value)
-              setCurrentPage(1)
-            }}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-          >
-            <option value="">Toutes les catégories</option>
-            {filterOptions.categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+          {/* Filter dropdowns */}
+          <div className="flex gap-3">
+            <select
+              value={selectedCategorie}
+              onChange={(e) => {
+                setSelectedCategorie(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">Toutes les catégories</option>
+              {filterOptions.categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
 
-          <select
-            value={selectedMateriau}
-            onChange={(e) => {
-              setSelectedMateriau(e.target.value)
-              setCurrentPage(1)
-            }}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-          >
-            <option value="">Tous les matériaux</option>
-            {filterOptions.materiaux.map((mat) => (
-              <option key={mat} value={mat}>
-                {mat}
-              </option>
-            ))}
-          </select>
+            <select
+              value={selectedMateriau}
+              onChange={(e) => {
+                setSelectedMateriau(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">Tous les matériaux</option>
+              {filterOptions.materiaux.map((mat) => (
+                <option key={mat} value={mat}>
+                  {mat}
+                </option>
+              ))}
+            </select>
 
-          <select
-            value={`${sortField}-${sortDirection}`}
-            onChange={(e) => {
-              const [field, dir] = e.target.value.split("-")
-              setSortField(field)
-              setSortDirection(dir as "asc" | "desc")
-            }}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-          >
-            <option value="nom-asc">Nom A-Z</option>
-            <option value="nom-desc">Nom Z-A</option>
-            <option value="annee-asc">Année croissante</option>
-            <option value="annee-desc">Année décroissante</option>
-          </select>
+            <select
+              value={`${sortField}-${sortDirection}`}
+              onChange={(e) => {
+                const [field, dir] = e.target.value.split("-")
+                setSortField(field)
+                setSortDirection(dir as "asc" | "desc")
+              }}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="nom-asc">Nom A-Z</option>
+              <option value="nom-desc">Nom Z-A</option>
+              <option value="annee-asc">Année croissante</option>
+              <option value="annee-desc">Année décroissante</option>
+            </select>
+          </div>
         </div>
 
         {/* Slider section */}
