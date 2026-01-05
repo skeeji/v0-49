@@ -434,7 +434,7 @@ export default function RecherchePage() {
                     }
                   }}
                   placeholder="Décrivez le luminaire..."
-                  className="w-full h-24 md:h-32 p-4 pr-12 rounded-xl border border-gray-300 text-sm md:text-base resize-none focus:ring-2 focus:ring-[#8b7355] focus:border-transparent"
+                  className="w-full h-20 p-4 pr-12 rounded-xl border border-gray-300 text-sm md:text-base resize-none focus:ring-2 focus:ring-[#8b7355] focus:border-transparent"
                   disabled={isSearching}
                 />
                 <button

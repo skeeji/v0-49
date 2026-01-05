@@ -203,8 +203,6 @@ export default function LuminairesPage() {
   }, [loadingMore, hasMore, loading, currentPage, loadLuminaires, showFavorites])
 
   useEffect(() => {
-    if (showFavorites) return
-
     const handleScroll = () => {
       const scrollTop = document.documentElement.scrollTop
       const scrollHeight = document.documentElement.scrollHeight
@@ -451,7 +449,6 @@ export default function LuminairesPage() {
         {!isPremium && (
           <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 text-2xl">✨</div>
               <div className="flex-1">
                 <h3 className="font-serif text-base font-medium text-gray-900 mb-1">
                   Accès limité - Collection découverte
@@ -459,7 +456,7 @@ export default function LuminairesPage() {
                 <p className="text-sm text-gray-700 mb-3">
                   Vous voyez <span className="font-semibold">{freeUserLimit} luminaires</span> sur{" "}
                   <span className="font-semibold">{totalDatabase}</span> disponibles. Passez à Premium pour explorer
-                  toute notre collection sans restriction.
+                  toute notre collection sans restriction !
                 </p>
                 <Link href="/pricing">
                   <button className="px-4 py-2 bg-[#8b7355] text-white text-sm font-medium rounded-lg hover:bg-[#75614a] transition-colors">
@@ -482,7 +479,7 @@ export default function LuminairesPage() {
         </div>
 
         <div className="hidden md:flex items-center gap-4 mb-6">
-          <div className="flex-1">
+          <div className="flex-1 max-w-xl">
             <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Rechercher un luminaire..." />
           </div>
 
@@ -603,43 +600,57 @@ export default function LuminairesPage() {
                 <LuminaireCard
                   key={luminaire._id}
                   href={isAccessible ? `/luminaires/${luminaire._id}` : undefined}
-                  className={`flex flex-col h-full ${isAccessible ? "" : "opacity-40 cursor-not-allowed"}`}
+                  className={`bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow border border-gray-200 flex flex-col h-full ${
+                    !isAccessible ? "opacity-40 cursor-not-allowed" : ""
+                  }`}
                 >
-                  <div className="aspect-square relative bg-white overflow-hidden flex-shrink-0">
-                    {luminaire.filename ? (
-                      <Image
-                        src={`/api/images/filename/${luminaire.filename}`}
-                        alt={luminaire["Nom luminaire"] || "Luminaire"}
-                        fill
-                        className="object-cover"
-                        sizes={columns === 6 ? "16vw" : columns === 4 ? "25vw" : columns === 3 ? "33vw" : "50vw"}
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <div className="text-4xl">🏮</div>
+                  {isAccessible ? (
+                    <Link href={`/luminaires/${luminaire._id}`} className="flex flex-col h-full">
+                      <div className="aspect-square relative bg-white overflow-hidden">
+                        <Image
+                          src={luminaire.filename ? `/api/images/filename/${luminaire.filename}` : "/placeholder.svg"}
+                          alt={luminaire["Nom luminaire"] || "Luminaire"}
+                          fill
+                          className="object-contain p-2"
+                          unoptimized
+                        />
                       </div>
-                    )}
-                  </div>
-                  <div className="p-3 flex-1 flex flex-col">
-                    <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2 flex-1">
-                      {luminaire["Nom luminaire"] || "Sans nom"}
-                    </h3>
-                    <p className="text-xs text-gray-600">
-                      {luminaire["Artiste / Dates"]?.split(",")[0] || "Artiste inconnu"}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">{luminaire.annee || luminaire["Année"] || ""}</p>
-
-                    {!isAccessible && (
-                      <div className="mt-2 text-center text-xs text-gray-400 font-medium">Premium requis</div>
-                    )}
-                  </div>
+                      <div className="p-3 flex flex-col flex-1">
+                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2 flex-1">
+                          {luminaire["Nom luminaire"] || "Sans nom"}
+                        </h3>
+                        <p className="text-xs text-gray-600 line-clamp-1">
+                          {luminaire["Artiste / Dates"] || "Designer inconnu"}
+                        </p>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="flex flex-col h-full">
+                      <div className="aspect-square relative bg-white overflow-hidden">
+                        <Image
+                          src={luminaire.filename ? `/api/images/filename/${luminaire.filename}` : "/placeholder.svg"}
+                          alt={luminaire["Nom luminaire"] || "Luminaire"}
+                          fill
+                          className="object-contain p-2"
+                          unoptimized
+                        />
+                      </div>
+                      <div className="p-3 flex flex-col flex-1">
+                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2 flex-1">
+                          {luminaire["Nom luminaire"] || "Sans nom"}
+                        </h3>
+                        <p className="text-xs text-gray-600 line-clamp-1">
+                          {luminaire["Artiste / Dates"] || "Designer inconnu"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </LuminaireCard>
               )
             })}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {displayedLuminaires.map((luminaire, index) => {
               const isAccessible = index < freeUserLimit || isPremium
               const LuminaireCard = isAccessible ? Link : "div"
@@ -648,34 +659,49 @@ export default function LuminairesPage() {
                 <LuminaireCard
                   key={luminaire._id}
                   href={isAccessible ? `/luminaires/${luminaire._id}` : undefined}
-                  className={`flex items-center gap-4 bg-white rounded-lg p-4 hover:shadow-md transition-shadow ${isAccessible ? "" : "opacity-40 cursor-not-allowed"}`}
+                  className={`bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow border border-gray-200 ${
+                    !isAccessible ? "opacity-40 cursor-not-allowed" : ""
+                  }`}
                 >
-                  <div className="w-24 h-24 relative bg-white rounded-lg overflow-hidden flex-shrink-0">
-                    {luminaire.filename ? (
-                      <Image
-                        src={`/api/images/filename/${luminaire.filename}`}
-                        alt={luminaire["Nom luminaire"] || "Luminaire"}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50">
-                        <div className="text-3xl">🏮</div>
+                  {isAccessible ? (
+                    <Link href={`/luminaires/${luminaire._id}`} className="flex flex-row h-32">
+                      <div className="w-32 h-32 relative bg-white flex-shrink-0">
+                        <Image
+                          src={luminaire.filename ? `/api/images/filename/${luminaire.filename}` : "/placeholder.svg"}
+                          alt={luminaire["Nom luminaire"] || "Luminaire"}
+                          fill
+                          className="object-contain p-2"
+                          unoptimized
+                        />
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-serif text-base font-medium text-gray-900 mb-1 truncate">
-                      {luminaire["Nom luminaire"] || "Sans nom"}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-1">{luminaire["Artiste / Dates"] || "Artisan"}</p>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      {luminaire.annee && <span>{luminaire.annee}</span>}
-                      {luminaire.Catégorie && <span>• {luminaire.Catégorie}</span>}
+                      <div className="flex-1 p-4 flex flex-col justify-center">
+                        <h3 className="font-serif text-base font-medium text-gray-900 mb-2">
+                          {luminaire["Nom luminaire"] || "Sans nom"}
+                        </h3>
+                        <p className="text-sm text-gray-600">{luminaire["Artiste / Dates"] || "Designer inconnu"}</p>
+                        {luminaire.annee && <p className="text-xs text-gray-500 mt-1">{luminaire.annee}</p>}
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="flex flex-row h-32">
+                      <div className="w-32 h-32 relative bg-white flex-shrink-0">
+                        <Image
+                          src={luminaire.filename ? `/api/images/filename/${luminaire.filename}` : "/placeholder.svg"}
+                          alt={luminaire["Nom luminaire"] || "Luminaire"}
+                          fill
+                          className="object-contain p-2"
+                          unoptimized
+                        />
+                      </div>
+                      <div className="flex-1 p-4 flex flex-col justify-center">
+                        <h3 className="font-serif text-base font-medium text-gray-900 mb-2">
+                          {luminaire["Nom luminaire"] || "Sans nom"}
+                        </h3>
+                        <p className="text-sm text-gray-600">{luminaire["Artiste / Dates"] || "Designer inconnu"}</p>
+                        {luminaire.annee && <p className="text-xs text-gray-500 mt-1">{luminaire.annee}</p>}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </LuminaireCard>
               )
             })}

@@ -168,7 +168,6 @@ export default function DesignersPage() {
         {!isPremium && (
           <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 text-2xl">✨</div>
               <div className="flex-1">
                 <h3 className="font-serif text-base font-medium text-gray-900 mb-1">
                   Accès limité - Collection découverte
@@ -176,7 +175,7 @@ export default function DesignersPage() {
                 <p className="text-sm text-gray-700 mb-3">
                   Vous voyez <span className="font-semibold">{freeUserLimit} designers</span> sur{" "}
                   <span className="font-semibold">{totalDesigners}</span> disponibles. Passez à Premium pour explorer
-                  tous les designers sans restriction.
+                  tous les designers sans restriction !
                 </p>
                 <Link href="/pricing">
                   <button className="px-4 py-2 bg-[#8b7355] text-white text-sm font-medium rounded-lg hover:bg-[#75614a] transition-colors">
@@ -189,7 +188,7 @@ export default function DesignersPage() {
         )}
 
         <div className="hidden md:flex items-center gap-4 mb-6">
-          <div className="flex-1">
+          <div className="flex-1 max-w-xl">
             <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Rechercher un designer..." />
           </div>
 
