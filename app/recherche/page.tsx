@@ -2,8 +2,9 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { Upload, Send, Loader2, Trash2 } from "lucide-react"
+import { Upload, Send, ImageIcon, Loader2, Trash2, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -413,55 +414,53 @@ export default function RecherchePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-20">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-serif text-gray-900 mb-3 text-center">Recherche AI par Image</h1>
-          <p className="text-center text-gray-600 mb-8">
-            Trouvez des luminaires similaires en décrivant ou en chargeant une photo
-          </p>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleTextSearch()
-                    }
-                  }}
-                  placeholder="Décrivez le luminaire..."
-                  className="w-full h-20 p-4 pr-12 rounded-xl border border-gray-300 text-sm md:text-base resize-none focus:ring-2 focus:ring-[#8b7355] focus:border-transparent"
-                  disabled={isSearching}
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute right-2 bottom-2 p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                  disabled={isSearching}
-                >
-                  <Upload className="w-5 h-5 text-slate-600" />
-                </button>
-              </div>
-
-              <Button
-                onClick={handleTextSearch}
-                disabled={!inputValue.trim() || isSearching}
-                className="h-12 md:h-auto px-6 rounded-xl text-white self-end"
-                style={{ backgroundColor: "#8b7355" }}
-              >
-                {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-              </Button>
+    <div className="min-h-screen bg-[#f5f1e8] pb-20">
+      {user && userData && userData.role !== "premium" && userData.role !== "admin" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <Card className="max-w-md mx-4 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+              <ImageIcon className="w-8 h-8" style={{ color: "#8b7355" }} />
             </div>
+            <h2 className="text-2xl font-serif text-slate-800 mb-3">Fonctionnalité Premium</h2>
+            <p className="text-slate-600 mb-6">
+              La recherche avancée est réservée aux membres Premium. Passez à Premium pour accéder à toutes les
+              fonctionnalités.
+            </p>
+            <Link href="/pricing">
+              <Button className="w-full text-white" style={{ backgroundColor: "#8b7355" }}>
+                Voir les tarifs
+              </Button>
+            </Link>
+          </Card>
+        </div>
+      )}
 
+      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
+        <div
+          className={`${
+            showHistory ? "h-48 md:h-auto md:w-80" : "h-0 md:w-0"
+          } transition-all duration-300 bg-white border-b md:border-b-0 md:border-r border-slate-200 overflow-hidden flex flex-col`}
+        >
+          <div className="p-2 md:p-4 border-b border-slate-200">
+            <Button
+              onClick={createNewConversation}
+              className="w-full text-sm md:text-base text-white"
+              style={{ backgroundColor: "#8b7355" }}
+            >
+              <Plus className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+              Nouvelle conversation
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-1 md:p-2">
             {!user ? (
-              <div className="text-center text-gray-500 text-sm mt-4 md:mt-8 px-2 md:px-4">
+              <div className="text-center text-slate-500 text-xs md:text-sm mt-4 md:mt-8 px-2 md:px-4">
                 Connectez-vous pour sauvegarder vos conversations
               </div>
             ) : conversations.length === 0 ? (
-              <div className="text-center text-gray-500 text-sm mt-4 md:mt-8 px-2 md:px-4">Aucune conversation</div>
+              <div className="text-center text-slate-500 text-xs md:text-sm mt-4 md:mt-8 px-2 md:px-4">
+                Aucune conversation
+              </div>
             ) : (
               <div className="space-y-1 md:space-y-2">
                 {conversations.map((conv) => (
@@ -476,8 +475,8 @@ export default function RecherchePage() {
                   >
                     <div className="flex items-start gap-1 md:gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm md:text-base text-gray-800 truncate font-medium">{conv.title}</p>
-                        <p className="text-xs md:text-sm text-gray-500">
+                        <p className="text-xs md:text-sm text-slate-800 truncate font-medium">{conv.title}</p>
+                        <p className="text-[10px] md:text-xs text-slate-500">
                           {conv.messages.length} message(s) •{" "}
                           {conv.updatedAt.toLocaleDateString("fr-FR", {
                             day: "numeric",
@@ -500,107 +499,195 @@ export default function RecherchePage() {
               </div>
             )}
           </div>
+        </div>
 
-          {currentConversation && (
-            <div className="space-y-4 md:space-y-6">
-              {currentConversation.messages.map((message) => (
-                <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[85%] md:max-w-[80%] ${message.role === "user" ? "bg-amber-100" : "bg-white border border-gray-200"} rounded-2xl p-3 md:p-4`}
-                  >
-                    {message.role === "user" && (
-                      <>
-                        {message.imageUrl ? (
-                          <div className="space-y-2">
-                            <p className="text-sm md:text-base text-gray-600">Image uploadée :</p>
-                            <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden">
-                              <Image
-                                src={message.imageUrl || "/placeholder.svg"}
-                                alt="Uploaded"
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-sm md:text-base text-gray-800">{message.content}</p>
-                        )}
-                        <p className="text-xs md:text-sm text-gray-500 mt-2">
-                          {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </>
-                    )}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="p-3 md:p-6 bg-white border-b border-slate-200">
+            <div className="max-w-4xl mx-auto">
+              <h1 className="text-xl md:text-3xl font-serif text-slate-800 mb-1 md:mb-2" style={{ color: "#8b7355" }}>
+                Recherche de Luminaires
+              </h1>
+              <p className="text-xs md:text-base text-slate-600">
+                {currentConversation
+                  ? "Continuez votre recherche ou affinez les résultats"
+                  : "Commencez une nouvelle recherche par texte ou par image"}
+              </p>
+            </div>
+          </div>
 
-                    {message.role === "assistant" && (
-                      <>
-                        <p className="text-sm md:text-base text-gray-800 mb-3 md:mb-4">{message.content}</p>
-
-                        {message.results && message.results.length > 0 && (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
-                            {message.results.slice(0, 3).map((result, index) => {
-                              if (!result.luminaireId) return null
-
-                              return (
-                                <Link key={index} href={`/luminaires/${result.luminaireId}`} className="block group">
-                                  <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
-                                    <div className="relative w-full h-48 md:h-64 bg-slate-100">
-                                      <Image
-                                        src={result.imageUrl || "/placeholder.svg"}
-                                        alt={result.nom || result.imageId || "Luminaire"}
-                                        fill
-                                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                        unoptimized
-                                      />
-                                    </div>
-                                    <div className="p-3 md:p-4 space-y-1 md:space-y-2">
-                                      <h4 className="font-semibold text-gray-900 text-sm md:text-lg line-clamp-2">
-                                        {result.nom || result.imageId || "Luminaire"}
-                                      </h4>
-                                      {result.artiste && (
-                                        <p className="text-sm md:text-base text-gray-600">
-                                          {result.artiste}
-                                          {result.annee && ` • ${result.annee}`}
-                                        </p>
-                                      )}
-                                      {result.similarity && (
-                                        <p className="text-sm md:text-base font-medium" style={{ color: "#8b7355" }}>
-                                          {Math.round(result.similarity * 100)}% similaire
-                                        </p>
-                                      )}
-                                    </div>
-                                  </Card>
-                                </Link>
-                              )
-                            })}
-                          </div>
-                        )}
-
-                        <p className="text-xs md:text-sm text-gray-500 mt-2">
-                          {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </>
-                    )}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto p-3 md:p-6">
+              {!currentConversation && !isSearching && (
+                <div className="text-center mt-10 md:mt-20">
+                  <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                    <ImageIcon className="w-7 h-7 md:w-10 md:h-10" style={{ color: "#8b7355" }} />
                   </div>
-                </div>
-              ))}
-
-              {isSearching && (
-                <div className="flex justify-start">
-                  <div className="bg-white border border-gray-200 rounded-2xl p-3 md:p-4">
-                    <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#8b7355" }} />
-                  </div>
+                  <h2 className="text-xl md:text-2xl font-serif text-slate-800 mb-2 md:mb-3">
+                    Comment puis-je vous aider ?
+                  </h2>
+                  <p className="text-sm md:text-base text-slate-600 mb-4 md:mb-8 px-4">
+                    Décrivez le luminaire que vous recherchez ou téléversez une image
+                  </p>
                 </div>
               )}
 
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+              {currentConversation && (
+                <div className="space-y-4 md:space-y-6">
+                  {currentConversation.messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] md:max-w-[80%] ${message.role === "user" ? "bg-amber-100" : "bg-white border border-slate-200"} rounded-2xl p-3 md:p-4`}
+                      >
+                        {message.role === "user" && (
+                          <>
+                            {message.imageUrl ? (
+                              <div className="space-y-2">
+                                <p className="text-xs md:text-sm text-slate-600">Image uploadée :</p>
+                                <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden">
+                                  <Image
+                                    src={message.imageUrl || "/placeholder.svg"}
+                                    alt="Uploaded"
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm md:text-base text-slate-800">{message.content}</p>
+                            )}
+                            <p className="text-[10px] md:text-xs text-slate-500 mt-2">
+                              {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </>
+                        )}
 
-          {!user && (
-            <p className="text-sm md:text-base text-gray-500 mt-2 text-center">
-              Connectez-vous pour utiliser la recherche
-            </p>
-          )}
+                        {message.role === "assistant" && (
+                          <>
+                            <p className="text-sm md:text-base text-slate-800 mb-3 md:mb-4">{message.content}</p>
+
+                            {message.results && message.results.length > 0 && (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
+                                {message.results.slice(0, 3).map((result, index) => {
+                                  if (!result.luminaireId) return null
+
+                                  return (
+                                    <Link
+                                      key={index}
+                                      href={`/luminaires/${result.luminaireId}`}
+                                      className="block group"
+                                    >
+                                      <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
+                                        <div className="relative w-full h-48 md:h-64 bg-slate-100">
+                                          <Image
+                                            src={result.imageUrl || "/placeholder.svg"}
+                                            alt={result.nom || result.imageId || "Luminaire"}
+                                            fill
+                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                            unoptimized
+                                          />
+                                        </div>
+                                        <div className="p-3 md:p-4 space-y-1 md:space-y-2">
+                                          <h4 className="font-semibold text-slate-900 text-sm md:text-lg line-clamp-2">
+                                            {result.nom || result.imageId || "Luminaire"}
+                                          </h4>
+                                          {result.artiste && (
+                                            <p className="text-xs md:text-sm text-slate-600">
+                                              {result.artiste}
+                                              {result.annee && ` • ${result.annee}`}
+                                            </p>
+                                          )}
+                                          {result.similarity && (
+                                            <p className="text-xs md:text-sm font-medium" style={{ color: "#8b7355" }}>
+                                              {Math.round(result.similarity * 100)}% similaire
+                                            </p>
+                                          )}
+                                        </div>
+                                      </Card>
+                                    </Link>
+                                  )
+                                })}
+                              </div>
+                            )}
+
+                            <p className="text-[10px] md:text-xs text-slate-500 mt-2">
+                              {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {isSearching && (
+                    <div className="flex justify-start">
+                      <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4">
+                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#8b7355" }} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 bg-white p-2 md:p-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex gap-2 md:gap-3 items-end">
+                {imagePreview && (
+                  <div className="relative w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden flex-shrink-0">
+                    <Image src={imagePreview || "/placeholder.svg"} alt="Preview" fill className="object-cover" />
+                  </div>
+                )}
+
+                <div className="flex-1 relative">
+                  <Input
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleTextSearch()
+                      }
+                    }}
+                    placeholder="Décrivez le luminaire..."
+                    className="pr-10 md:pr-12 h-10 md:h-12 rounded-xl text-sm md:text-base"
+                    disabled={isSearching}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                    disabled={isSearching}
+                  >
+                    <Upload className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+                  </button>
+                </div>
+
+                <Button
+                  onClick={handleTextSearch}
+                  disabled={!inputValue.trim() || isSearching}
+                  className="h-10 md:h-12 px-4 md:px-6 rounded-xl text-white"
+                  style={{ backgroundColor: "#8b7355" }}
+                >
+                  {isSearching ? (
+                    <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 md:w-5 md:h-5" />
+                  )}
+                </Button>
+              </div>
+
+              {!user && (
+                <p className="text-[10px] md:text-xs text-slate-500 mt-2 text-center">
+                  Connectez-vous pour utiliser la recherche
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
