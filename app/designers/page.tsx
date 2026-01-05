@@ -270,19 +270,19 @@ export default function DesignersPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 w-full">
             {/* Search bar */}
-            <div className="md:flex-1 md:max-w-md">
+            <div className="md:flex-1">
               <SearchBar
                 value={searchTerm}
                 onChange={setSearchTerm}
                 placeholder="Rechercher un designer..."
-                className="bg-transparent border border-gray-300"
+                className="bg-transparent border border-gray-300 w-full"
               />
             </div>
 
             {/* Filters */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 md:flex-shrink-0">
               <select
                 value={periodFilter}
                 onChange={(e) => setPeriodFilter(e.target.value)}

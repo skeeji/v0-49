@@ -285,19 +285,15 @@ export default function ChronologiePage() {
             {totalLuminaires} luminaires classés par période historique
           </p>
 
-          <div className="mb-12 overflow-x-auto">
-            <div className="min-w-max px-4">
+          <div className="mb-12">
+            <div className="max-w-7xl mx-auto px-4">
               <div className="relative">
                 {/* Timeline line */}
                 <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
 
-                <div className="relative flex gap-12 items-center">
+                <div className="relative flex flex-wrap justify-center items-center gap-6 md:gap-8 lg:gap-12">
                   {timelineData.map((period, index) => (
-                    <a
-                      key={index}
-                      href={`#${period.name}`}
-                      className="flex flex-col items-center group cursor-pointer min-w-[100px]"
-                    >
+                    <a key={index} href={`#${period.name}`} className="flex flex-col items-center group cursor-pointer">
                       <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
                       <span className="text-xs text-gray-600 text-center whitespace-nowrap group-hover:text-[#8b7355] transition-colors">
                         {period.name}

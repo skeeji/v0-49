@@ -9,10 +9,9 @@ import { usePathname } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, Heart, List } from "lucide-react"
+import { Loader2, Home, Users, Grid3x3, Mail, User, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
-import { LayoutGrid } from "lucide-react"
 import MobileFooter from "@/components/MobileFooter" // Import MobileFooter component
 
 export default function LuminairesPage() {
@@ -434,47 +433,65 @@ export default function LuminairesPage() {
           </h2>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4 flex-wrap">
-            <button
-              onClick={() => setShowFavorites(!showFavorites)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-            >
-              <Heart className={`w-4 h-4 ${showFavorites ? "fill-red-500 text-red-500" : ""}`} />
-              <span className="text-sm">Favoris ({favorites.length})</span>
-            </button>
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
+          {/* Search bar - wider on desktop */}
+          <div className="md:flex-1 md:max-w-xl">
+            <SearchBar
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Rechercher un luminaire..."
+              className="bg-white"
+            />
           </div>
 
-          <div className="hidden md:flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 rounded ${viewMode === "grid" ? "bg-gray-200" : "bg-gray-100"}`}
-                aria-label="Vue grille"
-              >
-                <LayoutGrid className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 rounded ${viewMode === "list" ? "bg-gray-200" : "bg-gray-100"}`}
-                aria-label="Vue liste"
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div>
+          {/* Filter dropdowns */}
+          <div className="flex gap-3">
+            <select
+              value={selectedCategorie}
+              onChange={(e) => {
+                setSelectedCategorie(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">Toutes les catégories</option>
+              {filterOptions.categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
 
-            {viewMode === "grid" && (
-              <select
-                value={columns}
-                onChange={(e) => setColumns(Number(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              >
-                <option value={2}>2 colonnes</option>
-                <option value={3}>3 colonnes</option>
-                <option value={4}>4 colonnes</option>
-                <option value={6}>6 colonnes</option>
-              </select>
-            )}
+            <select
+              value={selectedMateriau}
+              onChange={(e) => {
+                setSelectedMateriau(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">Tous les matériaux</option>
+              {filterOptions.materiaux.map((mat) => (
+                <option key={mat} value={mat}>
+                  {mat}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={`${sortField}-${sortDirection}`}
+              onChange={(e) => {
+                const [field, dir] = e.target.value.split("-")
+                setSortField(field)
+                setSortDirection(dir as "asc" | "desc")
+              }}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="nom-asc">Nom A-Z</option>
+              <option value="nom-desc">Nom Z-A</option>
+              <option value="annee-asc">Année croissante</option>
+              <option value="annee-desc">Année décroissante</option>
+            </select>
           </div>
         </div>
 
@@ -754,10 +771,10 @@ export default function LuminairesPage() {
                     )}
                   </div>
                   <div className="p-3 flex-1 flex flex-col">
-                    <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2 flex-1">
+                    <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
                       {luminaire["Nom luminaire"] || "Sans nom"}
                     </h3>
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs text-gray-600 line-clamp-1">
                       {luminaire["Artiste / Dates"]?.split(",")[0] || "Artiste inconnu"}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">{luminaire.annee || luminaire["Année"] || ""}</p>
