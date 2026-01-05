@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
 import Link from "next/link"
 import { EditableField } from "@/components/EditableField"
+import { MobileFooter } from "@/components/MobileFooter"
 
 const periods = [
   {
@@ -224,11 +225,49 @@ export default function ChronologiePage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="font-serif">Chargement de la chronologie...</p>
+      <div className="min-h-screen bg-[#f5f1e8] pb-20">
+        <div className="container mx-auto px-4 py-16">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl font-serif text-gray-900 mb-4">Chronologie des Périodes Artistiques</h1>
+            <p className="text-gray-600 mb-8">Explorez les luminaires à travers le temps</p>
+          </div>
+
+          <div className="max-w-6xl mx-auto mb-12">
+            <div className="relative">
+              {/* Timeline line */}
+              <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
+
+              {/* Period markers */}
+              <div className="relative flex justify-between items-center">
+                {[
+                  { name: "Moyen-âge", start: 1000 },
+                  { name: "Renaissance", start: 1500 },
+                  { name: "Baroque", start: 1600 },
+                  { name: "Classique", start: 1700 },
+                  { name: "Romantique", start: 1800 },
+                  { name: "Art Nouveau", start: 1890 },
+                  { name: "Art Déco", start: 1920 },
+                  { name: "Moderne", start: 1950 },
+                  { name: "Contemporain", start: 2000 },
+                ].map((period, index) => (
+                  <div key={index} className="flex flex-col items-center group cursor-pointer">
+                    <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
+                    <span className="text-xs text-gray-600 text-center max-w-[80px] group-hover:text-[#8b7355] transition-colors">
+                      {period.name}
+                    </span>
+                    <span className="text-xs text-gray-400 mt-1">{period.start}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8b7355] mx-auto mb-4" />
+            <p className="font-serif text-gray-700">Chargement de la chronologie...</p>
+          </div>
         </div>
+        <MobileFooter />
       </div>
     )
   }
@@ -246,10 +285,35 @@ export default function ChronologiePage() {
             {totalLuminaires} luminaires classés par période historique
           </p>
 
+          <div className="mb-12 overflow-x-auto">
+            <div className="min-w-max px-4">
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
+
+                {/* Period markers */}
+                <div className="relative flex gap-8 items-center">
+                  {timelineData.map((period, index) => (
+                    <a key={index} href={`#${period.name}`} className="flex flex-col items-center group cursor-pointer">
+                      <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
+                      <span className="text-xs text-gray-600 text-center max-w-[80px] whitespace-nowrap group-hover:text-[#8b7355] transition-colors">
+                        {period.name}
+                      </span>
+                      <span className="text-xs text-gray-400 mt-1">
+                        {period.start}-{period.end}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-6">
             {timelineData.map((period, index) => (
               <div
                 key={period.name}
+                id={period.name}
                 className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden scroll-reveal"
               >
                 <div className="md:flex">
@@ -331,6 +395,8 @@ export default function ChronologiePage() {
           </div>
         </div>
       </div>
+
+      <MobileFooter />
     </div>
   )
 }

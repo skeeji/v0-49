@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import MobileFooter from "@/components/MobileFooter"
 
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false)
@@ -305,6 +306,7 @@ export default function PricingPage() {
           <p className="text-gray-600">Questions ? Contactez-nous pour plus d'informations sur nos forfaits.</p>
         </div>
       </div>
+      <MobileFooter />
     </div>
   )
 }

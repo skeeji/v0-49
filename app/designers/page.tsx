@@ -285,6 +285,30 @@ export default function DesignersPage() {
       </div>
 
       <div className="px-4 py-4">
+        {!user || (userData?.role !== "premium" && userData?.role !== "admin") ? (
+          <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">✨</span>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-1">Accès limité - Vous voyez 10% des designers</h3>
+                <p className="text-sm text-gray-700 mb-2">
+                  Passez à Premium pour voir tous les designers sans restriction !
+                </p>
+                <Link href="/pricing">
+                  <button
+                    className="text-sm font-medium px-4 py-2 rounded-lg text-white hover:bg-[#75614a] transition-colors"
+                    style={{ backgroundColor: "#8b7355" }}
+                  >
+                    Découvrir Premium →
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {displayedDesigners.map((designer, index) => {
             const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
@@ -297,11 +321,11 @@ export default function DesignersPage() {
                 className="block"
               >
                 <div
-                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow ${
+                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                   }`}
                 >
-                  <div className="p-3">
+                  <div className="p-3 flex flex-col flex-1">
                     <div className="flex gap-2 mb-3">
                       {/* Large portrait */}
                       <div className="w-1/2 aspect-square relative flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
@@ -347,7 +371,7 @@ export default function DesignersPage() {
                     </div>
 
                     {/* Designer info */}
-                    <h3 className="font-serif text-base font-medium text-gray-900 mb-1 leading-tight">
+                    <h3 className="font-serif text-base font-medium text-gray-900 mb-1 leading-tight flex-1">
                       {designer.name}
                     </h3>
                     <p className="text-xs text-gray-600 mb-2">

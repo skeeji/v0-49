@@ -27,7 +27,7 @@ export function DrawerNav({ isOpen, onClose, navItems }: DrawerNavProps) {
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 md:hidden" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg z-50 md:hidden transform transition-transform duration-300">
+      <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg z-50 md:hidden transform transition-transform duration-300 pb-20">
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">

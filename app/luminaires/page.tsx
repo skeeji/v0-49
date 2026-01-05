@@ -478,6 +478,31 @@ export default function LuminairesPage() {
           </div>
         </div>
 
+        {/* Premium message for non-premium users */}
+        {!user || (userData?.role !== "premium" && userData?.role !== "admin") ? (
+          <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">✨</span>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-1">Accès limité - Vous voyez 10% de la collection</h3>
+                <p className="text-sm text-gray-700 mb-2">
+                  Passez à Premium pour voir tous les luminaires sans restriction !
+                </p>
+                <Link href="/pricing">
+                  <button
+                    className="text-sm font-medium px-4 py-2 rounded-lg text-white hover:bg-[#75614a] transition-colors"
+                    style={{ backgroundColor: "#8b7355" }}
+                  >
+                    Découvrir Premium →
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {/* Search bar */}
         <div className="mb-4">
           <SearchBar
@@ -709,11 +734,11 @@ export default function LuminairesPage() {
             return (
               <LuminaireCard key={luminaire._id} {...(isAccessible ? { href: `/luminaires/${luminaire._id}` } : {})}>
                 <div
-                  className={`bg-white rounded-xl overflow-hidden transition-shadow border border-gray-200 ${
+                  className={`bg-white rounded-xl overflow-hidden transition-shadow border border-gray-200 flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
                   }`}
                 >
-                  <div className="aspect-square relative bg-white overflow-hidden">
+                  <div className="aspect-square relative bg-white overflow-hidden flex-shrink-0">
                     {luminaire.filename ? (
                       <Image
                         src={`/api/images/filename/${luminaire.filename}`}
@@ -729,8 +754,8 @@ export default function LuminairesPage() {
                       </div>
                     )}
                   </div>
-                  <div className="p-3">
-                    <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
+                  <div className="p-3 flex-1 flex flex-col">
+                    <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2 flex-1">
                       {luminaire["Nom luminaire"] || "Sans nom"}
                     </h3>
                     <p className="text-xs text-gray-600">
