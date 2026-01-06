@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -15,6 +15,8 @@ import LuminaireFormModal from "@/components/LuminaireFormModal"
 import MobileFooter from "@/components/MobileFooter" // Import MobileFooter component
 
 export default function LuminairesPage() {
+  const searchParams = useSearchParams()
+
   const [luminaires, setLuminaires] = useState<any[]>([])
   const [allLuminaires, setAllLuminaires] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +39,8 @@ export default function LuminairesPage() {
   const [hasMore, setHasMore] = useState(true)
   const [showFavorites, setShowFavorites] = useState(false)
 
+  const [selectedDesigner, setSelectedDesigner] = useState("")
+
   const yearRangeRef = useRef(yearRange)
   const sliderModifiedRef = useRef(sliderModified)
 
@@ -44,6 +48,26 @@ export default function LuminairesPage() {
     yearRangeRef.current = yearRange
     sliderModifiedRef.current = sliderModified
   })
+
+  useEffect(() => {
+    const designer = searchParams.get("designer")
+    const yearMin = searchParams.get("yearMin")
+    const yearMax = searchParams.get("yearMax")
+
+    if (designer) {
+      setSelectedDesigner(designer)
+      setSearchTerm(designer)
+    }
+
+    if (yearMin && yearMax) {
+      const min = Number.parseInt(yearMin)
+      const max = Number.parseInt(yearMax)
+      if (!isNaN(min) && !isNaN(max)) {
+        setYearRange([min, max])
+        setSliderModified(true)
+      }
+    }
+  }, [searchParams])
 
   const { user, userData } = useAuth()
   const isAdmin = userData?.role === "admin"
@@ -192,7 +216,7 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     loadLuminaires(1, false)
-  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified])
+  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified, selectedDesigner])
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && !showFavorites) {

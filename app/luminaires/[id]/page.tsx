@@ -963,17 +963,9 @@ export default function LuminaireDetailPage() {
           {/* Similar luminaires section */}
           {similarLuminaires.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 mt-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-serif font-medium text-gray-900">
-                  Plus de {luminaire.artist?.split("(")[0]?.trim()}
-                </h2>
-                <Link
-                  href={`/luminaires?designer=${encodeURIComponent(luminaire.artist || "")}`}
-                  className="text-sm text-gray-600 hover:text-gray-900"
-                >
-                  Voir tout
-                </Link>
-              </div>
+              <h2 className="text-xl font-serif font-medium text-gray-900 mb-6">
+                Plus de {luminaire.artist?.split("(")[0]?.trim()}
+              </h2>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {similarLuminaires.slice(0, 4).map((similar) => (

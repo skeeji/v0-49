@@ -381,8 +381,7 @@ export default function ChronologiePage() {
                       </div>
                     )}
 
-                    {/* Bouton voir tous les luminaires */}
-                    <Link href={`/luminaires?period=${encodeURIComponent(period.name)}`}>
+                    <Link href={`/luminaires?yearMin=${period.start}&yearMax=${period.end}`}>
                       <button className="w-full py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
                         Voir les {period.luminaires.length} luminaires
                       </button>
