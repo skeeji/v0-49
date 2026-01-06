@@ -56,7 +56,7 @@ export default function LuminairesPage() {
 
     if (designer) {
       setSelectedDesigner(designer)
-      setSearchTerm(designer)
+      // Don't set searchTerm, keep designer separate
     }
 
     if (yearMin && yearMax) {
@@ -146,7 +146,7 @@ export default function LuminairesPage() {
     }
   }, [])
 
-  const loadLuminaires = useCallback(
+  const fetchLuminaires = useCallback(
     async (page = 1, append = false) => {
       try {
         if (page === 1) {
@@ -164,17 +164,13 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
+        if (selectedDesigner) {
+          params.append("designer", selectedDesigner)
+        }
+
         if (sliderModifiedRef.current && yearRangeRef.current.length === 2) {
           params.append("yearMin", yearRangeRef.current[0].toString())
           params.append("yearMax", yearRangeRef.current[1].toString())
-        }
-
-        if (selectedCategorie && selectedCategorie !== "all") {
-          params.append("categorie", selectedCategorie)
-        }
-
-        if (selectedMateriau && selectedMateriau !== "all") {
-          params.append("materiau", selectedMateriau)
         }
 
         const response = await fetch(`/api/luminaires?${params}`)
@@ -215,16 +211,16 @@ export default function LuminairesPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-    loadLuminaires(1, false)
+    fetchLuminaires(1, false)
   }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified, selectedDesigner])
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading && !showFavorites) {
       const nextPage = currentPage + 1
       setCurrentPage(nextPage)
-      loadLuminaires(nextPage, true)
+      fetchLuminaires(nextPage, true)
     }
-  }, [loadingMore, hasMore, loading, currentPage, loadLuminaires, showFavorites])
+  }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites])
 
   useEffect(() => {
     if (showFavorites) return
@@ -304,7 +300,7 @@ export default function LuminairesPage() {
         if (data.success) {
           toast.success("Luminaire créé avec succès")
           setIsModalOpen(false)
-          loadLuminaires(1, false)
+          fetchLuminaires(1, false)
           loadAllLuminaires()
         } else {
           throw new Error(data.error)
@@ -317,7 +313,7 @@ export default function LuminairesPage() {
         return { success: false, error: err.message }
       }
     },
-    [loadLuminaires, loadAllLuminaires],
+    [fetchLuminaires, loadAllLuminaires],
   )
 
   const filterOptions = useMemo(() => {
@@ -392,7 +388,7 @@ export default function LuminairesPage() {
   useEffect(() => {
     if (sliderModified) {
       setCurrentPage(1)
-      loadLuminaires(1, false)
+      fetchLuminaires(1, false)
     }
   }, [sliderModified, yearRange])
 
