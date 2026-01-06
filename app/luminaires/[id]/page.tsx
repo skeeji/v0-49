@@ -725,6 +725,120 @@ export default function LuminaireDetailPage() {
                     />
                   </div>
                 )}
+
+                {canEdit && luminaire.specialty && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Spécialité / Période</p>
+                    <EditableField
+                      value={luminaire.specialty}
+                      onSave={(value) => handleUpdate("specialty", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                    />
+                  </div>
+                )}
+
+                {canEdit && luminaire.collaboration && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Collaboration / Œuvre</p>
+                    <EditableField
+                      value={luminaire.collaboration}
+                      onSave={(value) => handleUpdate("collaboration", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                    />
+                  </div>
+                )}
+
+                {canEdit && luminaire.etiquette && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Étiquette</p>
+                    <EditableField
+                      value={luminaire.etiquette}
+                      onSave={(value) => handleUpdate("etiquette", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                    />
+                  </div>
+                )}
+
+                {canEdit && !luminaire.signed && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Signé</p>
+                    <EditableField
+                      value=""
+                      onSave={(value) => handleUpdate("signed", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter signature..."
+                    />
+                  </div>
+                )}
+
+                {canEdit && !luminaire.bibliographie && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
+                    <EditableField
+                      value=""
+                      onSave={(value) => handleUpdate("bibliographie", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter bibliographie..."
+                    />
+                  </div>
+                )}
+
+                {canEdit && !luminaire.etiquette && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Étiquette</p>
+                    <EditableField
+                      value=""
+                      onSave={(value) => handleUpdate("etiquette", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter étiquette..."
+                    />
+                  </div>
+                )}
+
+                {canEdit && !luminaire.lienSiteMarchand && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Lien site marchand</p>
+                    <EditableField
+                      value=""
+                      onSave={(value) => handleUpdate("lienSiteMarchand", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter lien..."
+                    />
+                  </div>
+                )}
+
+                {canEdit && !luminaire.specialty && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Spécialité / Période</p>
+                    <EditableField
+                      value=""
+                      onSave={(value) => handleUpdate("specialty", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter période..."
+                    />
+                  </div>
+                )}
+
+                {canEdit && !luminaire.collaboration && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Collaboration / Œuvre</p>
+                    <EditableField
+                      value=""
+                      onSave={(value) => handleUpdate("collaboration", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter collaboration..."
+                    />
+                  </div>
+                )}
               </div>
 
               {luminaire.description && (

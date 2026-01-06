@@ -433,68 +433,6 @@ export default function LuminairesPage() {
           </h2>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
-          {/* Search bar - wider on desktop */}
-          <div className="md:flex-1 md:max-w-xl">
-            <SearchBar
-              value={searchTerm}
-              onChange={setSearchTerm}
-              placeholder="Rechercher un luminaire..."
-              className="bg-white"
-            />
-          </div>
-
-          {/* Filter dropdowns */}
-          <div className="flex gap-3">
-            <select
-              value={selectedCategorie}
-              onChange={(e) => {
-                setSelectedCategorie(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">Toutes les catégories</option>
-              {filterOptions.categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={selectedMateriau}
-              onChange={(e) => {
-                setSelectedMateriau(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">Tous les matériaux</option>
-              {filterOptions.materiaux.map((mat) => (
-                <option key={mat} value={mat}>
-                  {mat}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={`${sortField}-${sortDirection}`}
-              onChange={(e) => {
-                const [field, dir] = e.target.value.split("-")
-                setSortField(field)
-                setSortDirection(dir as "asc" | "desc")
-              }}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="nom-asc">Nom A-Z</option>
-              <option value="nom-desc">Nom Z-A</option>
-              <option value="annee-asc">Année croissante</option>
-              <option value="annee-desc">Année décroissante</option>
-            </select>
-          </div>
-        </div>
-
         {/* Premium message for non-premium users */}
         {!user || (userData?.role !== "premium" && userData?.role !== "admin") ? (
           <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
@@ -518,25 +456,25 @@ export default function LuminairesPage() {
         ) : null}
 
         <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
-          {/* Search bar */}
-          <div className="md:flex-1 md:max-w-md">
+          {/* Search bar - takes more space on desktop with flex-[2] */}
+          <div className="md:flex-[2]">
             <SearchBar
               value={searchTerm}
               onChange={setSearchTerm}
               placeholder="Rechercher un luminaire..."
-              className="bg-white"
+              className="bg-white w-full"
             />
           </div>
 
-          {/* Filter dropdowns */}
-          <div className="flex gap-3">
+          {/* Filter dropdowns - takes less space with flex-[3] and wraps in a flex container */}
+          <div className="flex gap-3 md:flex-[3] flex-wrap">
             <select
               value={selectedCategorie}
               onChange={(e) => {
                 setSelectedCategorie(e.target.value)
                 setCurrentPage(1)
               }}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm flex-1 min-w-[150px]"
             >
               <option value="">Toutes les catégories</option>
               {filterOptions.categories.map((cat) => (
@@ -552,7 +490,7 @@ export default function LuminairesPage() {
                 setSelectedMateriau(e.target.value)
                 setCurrentPage(1)
               }}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm flex-1 min-w-[150px]"
             >
               <option value="">Tous les matériaux</option>
               {filterOptions.materiaux.map((mat) => (
@@ -569,7 +507,7 @@ export default function LuminairesPage() {
                 setSortField(field)
                 setSortDirection(dir as "asc" | "desc")
               }}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm flex-1 min-w-[150px]"
             >
               <option value="nom-asc">Nom A-Z</option>
               <option value="nom-desc">Nom Z-A</option>
