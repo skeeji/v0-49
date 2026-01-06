@@ -56,7 +56,6 @@ export default function LuminairesPage() {
 
     if (designer) {
       setSelectedDesigner(designer)
-      // Don't set searchTerm, keep designer separate
     }
 
     if (yearMin && yearMax) {
@@ -164,15 +163,6 @@ export default function LuminairesPage() {
           sortDirection,
         })
 
-        if (selectedDesigner) {
-          params.append("designer", selectedDesigner)
-        }
-
-        if (sliderModifiedRef.current && yearRangeRef.current.length === 2) {
-          params.append("yearMin", yearRangeRef.current[0].toString())
-          params.append("yearMax", yearRangeRef.current[1].toString())
-        }
-
         const response = await fetch(`/api/luminaires?${params}`)
         const data = await response.json()
 
@@ -202,7 +192,7 @@ export default function LuminairesPage() {
         setLoadingMore(false)
       }
     },
-    [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, luminaires],
+    [searchTerm, sortField, sortDirection],
   )
 
   useEffect(() => {
@@ -395,6 +385,15 @@ export default function LuminairesPage() {
   const filteredLuminaires = useMemo(() => {
     let result = [...luminaires]
 
+    if (selectedDesigner) {
+      console.log("[v0] Filtering by designer:", selectedDesigner)
+      result = result.filter((luminaire) => {
+        const designerField = luminaire["Artiste / Dates"] || luminaire.designer || ""
+        return designerField.includes(selectedDesigner)
+      })
+      console.log("[v0] Filtered by designer count:", result.length)
+    }
+
     if (sliderModified && yearRange.length === 2) {
       console.log("[v0] Filtering by year range:", yearRange)
       result = result.filter((luminaire) => {
@@ -410,7 +409,7 @@ export default function LuminairesPage() {
     }
 
     return result
-  }, [luminaires, yearRange, sliderModified])
+  }, [luminaires, yearRange, sliderModified, selectedDesigner])
 
   const isPremium = userData?.role === "admin" || userData?.isPremium
   const freeUserLimit = isPremium ? luminaires.length : Math.floor(totalDatabase * 0.1)
