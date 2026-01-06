@@ -629,7 +629,111 @@ export default function LuminaireDetailPage() {
                 <ArrowRight className="w-5 h-5 text-gray-400" />
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="space-y-4">
+                {((luminaire.year && luminaire.year.trim()) || canEdit) && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Année</p>
+                    <EditableField
+                      value={luminaire.year || ""}
+                      onSave={(value) => handleUpdate("year", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter année..."
+                    />
+                  </div>
+                )}
+
+                {((luminaire.categorie && luminaire.categorie.trim()) || canEdit) && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Catégorie</p>
+                    <EditableField
+                      value={luminaire.categorie || ""}
+                      onSave={(value) => handleUpdate("categorie", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter catégorie..."
+                    />
+                  </div>
+                )}
+
+                {((luminaire.materials && luminaire.materials.trim()) || canEdit) && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Matériaux</p>
+                    <EditableField
+                      value={luminaire.materials || ""}
+                      onSave={(value) => handleUpdate("materials", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter matériaux..."
+                    />
+                  </div>
+                )}
+
+                {((luminaire.dimensions && luminaire.dimensions.trim()) || canEdit) && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Dimensions</p>
+                    <EditableField
+                      value={luminaire.dimensions || ""}
+                      onSave={(value) => handleUpdate("dimensions", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter dimensions..."
+                    />
+                  </div>
+                )}
+
+                {((luminaire.editeur && luminaire.editeur.trim()) || canEdit) && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Éditeur</p>
+                    <EditableField
+                      value={luminaire.editeur || ""}
+                      onSave={(value) => handleUpdate("editeur", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter éditeur..."
+                    />
+                  </div>
+                )}
+
+                {((luminaire.estimation && luminaire.estimation.trim()) || canEdit) && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Estimation</p>
+                    <EditableField
+                      value={luminaire.estimation || ""}
+                      onSave={(value) => handleUpdate("estimation", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter estimation..."
+                    />
+                  </div>
+                )}
+
+                {((luminaire.bibliographie && luminaire.bibliographie.trim()) || canEdit) && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
+                    <EditableField
+                      value={luminaire.bibliographie || ""}
+                      onSave={(value) => handleUpdate("bibliographie", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter bibliographie..."
+                    />
+                  </div>
+                )}
+
+                {((luminaire.lienSiteMarchand && luminaire.lienSiteMarchand.trim()) || canEdit) && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Lien site marchand</p>
+                    <EditableField
+                      value={luminaire.lienSiteMarchand || ""}
+                      onSave={(value) => handleUpdate("lienSiteMarchand", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                      placeholder="Ajouter lien..."
+                    />
+                  </div>
+                )}
+
                 {luminaire.signed && luminaire.signed.trim() && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Signé</p>
@@ -642,48 +746,12 @@ export default function LuminaireDetailPage() {
                   </div>
                 )}
 
-                {luminaire.year && luminaire.year.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Année</p>
-                    <EditableField
-                      value={luminaire.year}
-                      onSave={(value) => handleUpdate("year", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
                 {luminaire.categorie && luminaire.categorie.trim() && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Catégorie</p>
                     <EditableField
                       value={luminaire.categorie}
                       onSave={(value) => handleUpdate("categorie", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
-                {luminaire.editeur && luminaire.editeur.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Éditeur</p>
-                    <EditableField
-                      value={luminaire.editeur}
-                      onSave={(value) => handleUpdate("editeur", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
-                {luminaire.bibliographie && luminaire.bibliographie.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
-                    <EditableField
-                      value={luminaire.bibliographie}
-                      onSave={(value) => handleUpdate("bibliographie", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
                     />
@@ -708,6 +776,30 @@ export default function LuminaireDetailPage() {
                     <EditableField
                       value={luminaire.dimensions}
                       onSave={(value) => handleUpdate("dimensions", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                    />
+                  </div>
+                )}
+
+                {luminaire.editeur && luminaire.editeur.trim() && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Éditeur</p>
+                    <EditableField
+                      value={luminaire.editeur}
+                      onSave={(value) => handleUpdate("editeur", value)}
+                      canEdit={canEdit}
+                      className="text-gray-900"
+                    />
+                  </div>
+                )}
+
+                {luminaire.bibliographie && luminaire.bibliographie.trim() && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
+                    <EditableField
+                      value={luminaire.bibliographie}
+                      onSave={(value) => handleUpdate("bibliographie", value)}
                       canEdit={canEdit}
                       className="text-gray-900"
                     />
