@@ -389,7 +389,6 @@ export default function LuminairesPage() {
     if (selectedDesigner) {
       console.log("[v0] Filtering by designer:", selectedDesigner)
 
-      // Try exact match first in "Artiste / Dates" field
       result = result.filter((lum) => {
         const artistField = lum["Artiste / Dates"] || ""
         return artistField === selectedDesigner
@@ -406,10 +405,10 @@ export default function LuminairesPage() {
 
         if (!anneeValue) return false
 
-        // Exact logic from chronologie page
         const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(String(anneeValue))
 
-        if (isNaN(numYear) || numYear <= 1000 || numYear >= 2100) {
+        // Must match chronologie validation: > 1000 && < 2100 (not <= 1000 || >= 2100)
+        if (isNaN(numYear) || !(numYear > 1000 && numYear < 2100)) {
           return false
         }
 
