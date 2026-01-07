@@ -384,7 +384,7 @@ export default function LuminairesPage() {
   }, [sliderModified, yearRange])
 
   const filteredLuminaires = useMemo(() => {
-    let filtered = luminaires
+    let filtered = allLuminaires
 
     if (selectedDesigner) {
       console.log(`[v0] Filtering by designer: ${selectedDesigner}`)
@@ -405,6 +405,7 @@ export default function LuminairesPage() {
         if (index < 5) {
           console.log(`[v0] Luminaire ${index}:`, {
             anneeValue,
+            type: typeof anneeValue,
             allYearFields: {
               annee: lum.annee,
               Année: lum.Année,
@@ -431,7 +432,7 @@ export default function LuminairesPage() {
           })
         }
 
-        if (isNaN(numYear) || !(numYear > 1000 && numYear < 2100)) {
+        if (isNaN(numYear) || numYear <= 1000 || numYear >= 2100) {
           if (index < 5) {
             console.log(`[v0] Luminaire ${index}: Year validation failed`)
           }
@@ -449,7 +450,7 @@ export default function LuminairesPage() {
     }
 
     return filtered
-  }, [luminaires, yearRange, sliderModified, selectedDesigner])
+  }, [allLuminaires, yearRange, sliderModified, selectedDesigner])
 
   const isPremium = userData?.role === "admin" || userData?.isPremium
   const freeUserLimit = isPremium ? luminaires.length : Math.floor(totalDatabase * 0.1)
