@@ -389,7 +389,23 @@ export default function LuminairesPage() {
       console.log("[v0] Filtering by designer:", selectedDesigner)
       result = result.filter((luminaire) => {
         const designerField = luminaire["Artiste / Dates"] || luminaire.designer || ""
-        return designerField.includes(selectedDesigner)
+
+        // Multiple flexible patterns like the API uses
+        const patterns = [
+          selectedDesigner,
+          selectedDesigner
+            .replace(/\s*$$[^)]*$$\s*/g, "")
+            .trim(), // Remove parentheses and dates
+          selectedDesigner.split(/\s+/)[0], // First word (last name)
+          selectedDesigner.replace(/\./g, ""), // Remove dots
+        ]
+
+        // Check if any pattern matches
+        return patterns.some((pattern) => {
+          if (!pattern) return false
+          // Case insensitive partial match
+          return designerField.toLowerCase().includes(pattern.toLowerCase())
+        })
       })
       console.log("[v0] Filtered by designer count:", result.length)
     }
@@ -398,11 +414,32 @@ export default function LuminairesPage() {
       console.log("[v0] Filtering by year range:", yearRange)
       result = result.filter((luminaire) => {
         const yearField = luminaire.annee || luminaire["Année"] || ""
-        const yearMatch = yearField.match(/\b(1[0-9]{3}|20[0-9]{2})\b/)
-        if (yearMatch) {
-          const year = Number.parseInt(yearMatch[0])
+
+        // Try multiple year extraction patterns
+        // Pattern 1: Simple 4-digit year (1970, 2024)
+        const simpleYear = yearField.match(/\b(1[0-9]{3}|20[0-9]{2})\b/)
+        if (simpleYear) {
+          const year = Number.parseInt(simpleYear[0])
           return year >= yearRange[0] && year <= yearRange[1]
         }
+
+        // Pattern 2: "Ca 1970" or "ca 1970"
+        const caYear = yearField.match(/[Cc]a\s*(\d{4})/)
+        if (caYear) {
+          const year = Number.parseInt(caYear[1])
+          return year >= yearRange[0] && year <= yearRange[1]
+        }
+
+        // Pattern 3: Year range like "1940-1949"
+        const rangeMatch = yearField.match(/(\d{4})\s*-\s*(\d{4})/)
+        if (rangeMatch) {
+          const startYear = Number.parseInt(rangeMatch[1])
+          const endYear = Number.parseInt(rangeMatch[2])
+          // Check if range overlaps with filter range
+          return !(endYear < yearRange[0] || startYear > yearRange[1])
+        }
+
+        // If no year found, exclude it when filtering
         return false
       })
       console.log("[v0] Filtered luminaires count:", result.length)
