@@ -384,68 +384,71 @@ export default function LuminairesPage() {
   }, [sliderModified, yearRange])
 
   const filteredLuminaires = useMemo(() => {
-    let result = [...luminaires]
+    let filtered = luminaires
 
     if (selectedDesigner) {
-      console.log("[v0] Filtering by designer:", selectedDesigner)
-
-      result = result.filter((lum) => {
-        const artistField = lum["Artiste / Dates"] || ""
-        return artistField === selectedDesigner
+      console.log(`[v0] Filtering by designer: ${selectedDesigner}`)
+      filtered = filtered.filter((lum) => {
+        const artistField = lum["Artiste / Dates"] || lum.designer || ""
+        return artistField.includes(selectedDesigner)
       })
-
-      console.log("[v0] Filtered by designer count:", result.length)
+      console.log(`[v0] Filtered by designer count: ${filtered.length}`)
     }
 
-    if (sliderModified && yearRange.length === 2) {
-      console.log("[v0] Filtering by year range:", yearRange)
-      console.log("[v0] Total luminaires before year filter:", result.length)
+    if (sliderModified) {
+      console.log(`[v0] Filtering by year range: ${yearRange}`)
+      console.log(`[v0] Total luminaires before year filter: ${filtered.length}`)
 
-      result = result.filter((luminaire, index) => {
-        const anneeValue = luminaire.annee || luminaire["Année"] || luminaire.year
+      filtered = filtered.filter((lum, index) => {
+        const anneeValue = lum.annee || lum.Année || lum.year
 
-        // Log first 5 luminaires to see what data looks like
         if (index < 5) {
           console.log(`[v0] Luminaire ${index}:`, {
             anneeValue,
             allYearFields: {
-              annee: luminaire.annee,
-              Année: luminaire["Année"],
-              year: luminaire.year,
+              annee: lum.annee,
+              Année: lum.Année,
+              year: lum.year,
+              "Artiste / Dates": lum["Artiste / Dates"],
             },
           })
         }
 
         if (!anneeValue) {
-          if (index < 5) console.log(`[v0] Luminaire ${index}: No year value found`)
+          if (index < 5) {
+            console.log(`[v0] Luminaire ${index}: No year value found`)
+          }
           return false
         }
 
-        const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(String(anneeValue))
+        const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(anneeValue)
 
         if (index < 5) {
-          console.log(
-            `[v0] Luminaire ${index}: numYear=${numYear}, isNaN=${isNaN(numYear)}, valid=${numYear > 1000 && numYear < 2100}`,
-          )
+          console.log(`[v0] Luminaire ${index}:`, {
+            numYear,
+            isValid: !isNaN(numYear) && numYear > 1000 && numYear < 2100,
+            inRange: numYear >= yearRange[0] && numYear <= yearRange[1],
+          })
         }
 
-        // Must match chronologie validation: > 1000 && < 2100 (not <= 1000 || >= 2100)
         if (isNaN(numYear) || !(numYear > 1000 && numYear < 2100)) {
+          if (index < 5) {
+            console.log(`[v0] Luminaire ${index}: Year validation failed`)
+          }
           return false
         }
 
-        // Same comparison as chronologie: year >= start && year <= end
         const matches = numYear >= yearRange[0] && numYear <= yearRange[1]
         if (index < 5) {
-          console.log(`[v0] Luminaire ${index}: matches range [${yearRange[0]}, ${yearRange[1]}] = ${matches}`)
+          console.log(`[v0] Luminaire ${index}: Matches range: ${matches}`)
         }
         return matches
       })
 
-      console.log("[v0] Filtered luminaires count:", result.length)
+      console.log(`[v0] Filtered luminaires count: ${filtered.length}`)
     }
 
-    return result
+    return filtered
   }, [luminaires, yearRange, sliderModified, selectedDesigner])
 
   const isPremium = userData?.role === "admin" || userData?.isPremium
