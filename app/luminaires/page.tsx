@@ -388,61 +388,98 @@ export default function LuminairesPage() {
 
     if (selectedDesigner) {
       console.log("[v0] Filtering by designer:", selectedDesigner)
-      result = result.filter((luminaire) => {
-        const designerField = luminaire["Artiste / Dates"] || luminaire.designer || ""
 
-        // Multiple flexible patterns like the API uses
-        const patterns = [
-          selectedDesigner,
-          selectedDesigner
-            .replace(/\s*$$[^)]*$$\s*/g, "")
-            .trim(), // Remove parentheses and dates
-          selectedDesigner.split(/\s+/)[0], // First word (last name)
-          selectedDesigner.replace(/\./g, ""), // Remove dots
-        ]
+      // Create search patterns like the API does
+      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      const escapedDesigner = escapeRegex(selectedDesigner)
 
-        // Check if any pattern matches
-        return patterns.some((pattern) => {
-          if (!pattern) return false
-          // Case insensitive partial match
-          return designerField.toLowerCase().includes(pattern.toLowerCase())
+      const searchPatterns = [
+        // Pattern 1: Exact match in "Artiste / Dates"
+        (lum: any) => lum["Artiste / Dates"] === selectedDesigner,
+        // Pattern 2: Exact match in "designer"
+        (lum: any) => lum.designer === selectedDesigner,
+        // Pattern 3: Case insensitive exact match in "Artiste / Dates"
+        (lum: any) => {
+          const field = lum["Artiste / Dates"] || ""
+          return field.toLowerCase() === selectedDesigner.toLowerCase()
+        },
+        // Pattern 4: Case insensitive exact match in "designer"
+        (lum: any) => {
+          const field = lum.designer || ""
+          return field.toLowerCase() === selectedDesigner.toLowerCase()
+        },
+        // Pattern 5: Partial match in "Artiste / Dates"
+        (lum: any) => {
+          const field = lum["Artiste / Dates"] || ""
+          return field.toLowerCase().includes(selectedDesigner.toLowerCase())
+        },
+        // Pattern 6: Partial match in "designer"
+        (lum: any) => {
+          const field = lum.designer || ""
+          return field.toLowerCase().includes(selectedDesigner.toLowerCase())
+        },
+      ]
+
+      // Try each pattern and stop at first that finds results (like API does)
+      let filtered: any[] = []
+      for (let i = 0; i < searchPatterns.length; i++) {
+        filtered = result.filter(searchPatterns[i])
+        if (filtered.length > 0) {
+          console.log(`[v0] Designer match found with pattern ${i + 1}:`, filtered.length)
+          result = filtered
+          break
+        }
+      }
+
+      // If still no results, try first word only
+      if (filtered.length === 0) {
+        const firstWord = selectedDesigner.split(" ")[0]
+        result = result.filter((lum) => {
+          const field1 = lum["Artiste / Dates"] || ""
+          const field2 = lum.designer || ""
+          return (
+            field1.toLowerCase().includes(firstWord.toLowerCase()) ||
+            field2.toLowerCase().includes(firstWord.toLowerCase())
+          )
         })
-      })
+        console.log(`[v0] Designer match with first word "${firstWord}":`, result.length)
+      }
+
       console.log("[v0] Filtered by designer count:", result.length)
     }
 
     if (sliderModified && yearRange.length === 2) {
       console.log("[v0] Filtering by year range:", yearRange)
+
+      // Exact extractYear function from API
+      const extractYear = (yearString: string | number): number | null => {
+        if (typeof yearString === "number") {
+          return yearString
+        }
+        if (!yearString) return null
+
+        const str = String(yearString).trim()
+        // Extract first 4-digit number (1000-2099)
+        const matches = str.match(/\b(1[0-9]{3}|20[0-9]{2})\b/g)
+
+        if (matches && matches.length > 0) {
+          return Number.parseInt(matches[0], 10)
+        }
+
+        return null
+      }
+
       result = result.filter((luminaire) => {
-        const yearField = luminaire.annee || luminaire["Année"] || ""
+        const yearField = luminaire.annee || luminaire["Année"] || luminaire.year || ""
+        const extractedYear = extractYear(yearField)
 
-        // Try multiple year extraction patterns
-        // Pattern 1: Simple 4-digit year (1970, 2024)
-        const simpleYear = yearField.match(/\b(1[0-9]{3}|20[0-9]{2})\b/)
-        if (simpleYear) {
-          const year = Number.parseInt(simpleYear[0])
-          return year >= yearRange[0] && year <= yearRange[1]
+        if (extractedYear === null) {
+          return false
         }
 
-        // Pattern 2: "Ca 1970" or "ca 1970"
-        const caYear = yearField.match(/[Cc]a\s*(\d{4})/)
-        if (caYear) {
-          const year = Number.parseInt(caYear[1])
-          return year >= yearRange[0] && year <= yearRange[1]
-        }
-
-        // Pattern 3: Year range like "1940-1949"
-        const rangeMatch = yearField.match(/(\d{4})\s*-\s*(\d{4})/)
-        if (rangeMatch) {
-          const startYear = Number.parseInt(rangeMatch[1])
-          const endYear = Number.parseInt(rangeMatch[2])
-          // Check if range overlaps with filter range
-          return !(endYear < yearRange[0] || startYear > yearRange[1])
-        }
-
-        // If no year found, exclude it when filtering
-        return false
+        return extractedYear >= yearRange[0] && extractedYear <= yearRange[1]
       })
+
       console.log("[v0] Filtered luminaires count:", result.length)
     }
 
