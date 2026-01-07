@@ -205,12 +205,13 @@ export default function LuminairesPage() {
   }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified, selectedDesigner])
 
   const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading && !showFavorites) {
+    const hasUrlFilters = selectedDesigner || (searchParams.get("yearMin") && searchParams.get("yearMax"))
+    if (!loadingMore && hasMore && !loading && !showFavorites && !hasUrlFilters) {
       const nextPage = currentPage + 1
       setCurrentPage(nextPage)
       fetchLuminaires(nextPage, true)
     }
-  }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites])
+  }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites, selectedDesigner, searchParams])
 
   useEffect(() => {
     if (showFavorites) return
