@@ -399,13 +399,35 @@ export default function LuminairesPage() {
 
     if (sliderModified && yearRange.length === 2) {
       console.log("[v0] Filtering by year range:", yearRange)
+      console.log("[v0] Total luminaires before year filter:", result.length)
 
-      result = result.filter((luminaire) => {
+      result = result.filter((luminaire, index) => {
         const anneeValue = luminaire.annee || luminaire["Année"] || luminaire.year
 
-        if (!anneeValue) return false
+        // Log first 5 luminaires to see what data looks like
+        if (index < 5) {
+          console.log(`[v0] Luminaire ${index}:`, {
+            anneeValue,
+            allYearFields: {
+              annee: luminaire.annee,
+              Année: luminaire["Année"],
+              year: luminaire.year,
+            },
+          })
+        }
+
+        if (!anneeValue) {
+          if (index < 5) console.log(`[v0] Luminaire ${index}: No year value found`)
+          return false
+        }
 
         const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(String(anneeValue))
+
+        if (index < 5) {
+          console.log(
+            `[v0] Luminaire ${index}: numYear=${numYear}, isNaN=${isNaN(numYear)}, valid=${numYear > 1000 && numYear < 2100}`,
+          )
+        }
 
         // Must match chronologie validation: > 1000 && < 2100 (not <= 1000 || >= 2100)
         if (isNaN(numYear) || !(numYear > 1000 && numYear < 2100)) {
@@ -413,7 +435,11 @@ export default function LuminairesPage() {
         }
 
         // Same comparison as chronologie: year >= start && year <= end
-        return numYear >= yearRange[0] && numYear <= yearRange[1]
+        const matches = numYear >= yearRange[0] && numYear <= yearRange[1]
+        if (index < 5) {
+          console.log(`[v0] Luminaire ${index}: matches range [${yearRange[0]}, ${yearRange[1]}] = ${matches}`)
+        }
+        return matches
       })
 
       console.log("[v0] Filtered luminaires count:", result.length)
