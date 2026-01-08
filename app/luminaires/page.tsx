@@ -208,9 +208,8 @@ export default function LuminairesPage() {
     const hasUrlFilters = selectedDesigner || sliderModified
 
     if (hasUrlFilters) {
-      if (displayOffset < filteredLuminaires.length) {
-        setDisplayOffset((prev) => prev + 50)
-      }
+      // For filtered results, increase display offset
+      setDisplayOffset((prev) => prev + 50)
     } else {
       // Normal API pagination
       if (!loadingMore && hasMore && !loading && !showFavorites) {
@@ -219,17 +218,7 @@ export default function LuminairesPage() {
         fetchLuminaires(nextPage, true)
       }
     }
-  }, [
-    loadingMore,
-    hasMore,
-    loading,
-    currentPage,
-    fetchLuminaires,
-    showFavorites,
-    selectedDesigner,
-    sliderModified,
-    displayOffset,
-  ])
+  }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites, selectedDesigner, sliderModified])
 
   useEffect(() => {
     if (showFavorites) return
