@@ -12,24 +12,25 @@ import { toast } from "sonner"
 import { Loader2, Home, Users, Grid3x3, Mail, User, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
-import MobileFooter from "@/components/MobileFooter" // Import MobileFooter component
+import MobileFooter from "@/components/MobileFooter"
 
 export default function LuminairesPage() {
   const searchParams = useSearchParams()
 
   const [luminaires, setLuminaires] = useState<any[]>([])
   const [allLuminaires, setAllLuminaires] = useState<any[]>([])
+  const [allLuminairesLoaded, setAllLuminairesLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [columns, setColumns] = useState(6) // Default columns
+  const [columns, setColumns] = useState(6)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategorie, setSelectedCategorie] = useState("")
   const [selectedMateriau, setSelectedMateriau] = useState("")
-  const [yearRange, setYearRange] = useState<number[]>([1900, 2024]) // Initialize yearRange with full range (no filter by default)
+  const [yearRange, setYearRange] = useState<number[]>([1900, 2024])
   const [sliderModified, setSliderModified] = useState(false)
   const [sortField, setSortField] = useState("nom")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -40,6 +41,7 @@ export default function LuminairesPage() {
   const [showFavorites, setShowFavorites] = useState(false)
 
   const [selectedDesigner, setSelectedDesigner] = useState("")
+  const [displayOffset, setDisplayOffset] = useState(50)
 
   const yearRangeRef = useRef(yearRange)
   const sliderModifiedRef = useRef(sliderModified)
@@ -82,7 +84,7 @@ export default function LuminairesPage() {
             setFavorites(data.favorites || [])
           }
         } catch (error) {
-          console.error("❌ Erreur chargement favoris:", error)
+          console.error("Erreur chargement favoris:", error)
         }
       } else {
         setFavorites([])
@@ -102,7 +104,6 @@ export default function LuminairesPage() {
       const isFavorite = favorites.includes(luminaireId)
       const action = isFavorite ? "remove" : "add"
 
-      // Mise à jour optimiste de l'UI
       setFavorites((prev) => (isFavorite ? prev.filter((id) => id !== luminaireId) : [...prev, luminaireId]))
 
       try {
@@ -119,13 +120,11 @@ export default function LuminairesPage() {
         const data = await response.json()
 
         if (!data.success) {
-          // Rollback en cas d'erreur
           setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
           toast.error("Erreur lors de la mise à jour des favoris")
         }
       } catch (error) {
-        console.error("❌ Erreur toggle favori:", error)
-        // Rollback en cas d'erreur
+        console.error("Erreur toggle favori:", error)
         setFavorites((prev) => (isFavorite ? [...prev, luminaireId] : prev.filter((id) => id !== luminaireId)))
         toast.error("Erreur lors de la mise à jour des favoris")
       }
@@ -139,9 +138,10 @@ export default function LuminairesPage() {
       const data = await response.json()
       if (data.success) {
         setAllLuminaires(data.luminaires)
+        setAllLuminairesLoaded(true)
       }
     } catch (err) {
-      console.error("❌ Erreur chargement données globales:", err)
+      console.error("Erreur chargement données globales:", err)
     }
   }, [])
 
@@ -184,7 +184,7 @@ export default function LuminairesPage() {
           throw new Error(data.error || "Erreur lors du chargement")
         }
       } catch (err: any) {
-        console.error("❌ Erreur chargement:", err)
+        console.error("Erreur chargement:", err)
         setError(err.message)
         toast.error("Erreur lors du chargement des luminaires")
       } finally {
@@ -202,16 +202,23 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     fetchLuminaires(1, false)
-  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified, selectedDesigner])
+  }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection])
 
   const loadMore = useCallback(() => {
-    const hasUrlFilters = selectedDesigner || (searchParams.get("yearMin") && searchParams.get("yearMax"))
-    if (!loadingMore && hasMore && !loading && !showFavorites && !hasUrlFilters) {
-      const nextPage = currentPage + 1
-      setCurrentPage(nextPage)
-      fetchLuminaires(nextPage, true)
+    const hasUrlFilters = selectedDesigner || sliderModified
+
+    if (hasUrlFilters) {
+      // For filtered results, increase display offset
+      setDisplayOffset((prev) => prev + 50)
+    } else {
+      // Normal API pagination
+      if (!loadingMore && hasMore && !loading && !showFavorites) {
+        const nextPage = currentPage + 1
+        setCurrentPage(nextPage)
+        fetchLuminaires(nextPage, true)
+      }
     }
-  }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites, selectedDesigner, searchParams])
+  }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites, selectedDesigner, sliderModified])
 
   useEffect(() => {
     if (showFavorites) return
@@ -272,7 +279,7 @@ export default function LuminairesPage() {
         throw new Error(data.error)
       }
     } catch (err: any) {
-      console.error("❌ Erreur mise à jour:", err)
+      console.error("Erreur mise à jour:", err)
       toast.error("Erreur lors de la mise à jour")
     }
   }, [])
@@ -299,7 +306,7 @@ export default function LuminairesPage() {
 
         return data
       } catch (err: any) {
-        console.error("❌ Erreur création:", err)
+        console.error("Erreur création:", err)
         toast.error("Erreur lors de la création")
         return { success: false, error: err.message }
       }
@@ -342,20 +349,24 @@ export default function LuminairesPage() {
           const min = result.data.yearRange.min
           const max = result.data.yearRange.max
           setYearBounds({ min, max })
-          setYearRange([min, max])
-          console.log("[v0] Year bounds set:", { min, max })
+
+          const yearMin = searchParams.get("yearMin")
+          const yearMax = searchParams.get("yearMax")
+          if (!yearMin && !yearMax) {
+            setYearRange([min, max])
+          }
         }
 
         if (result.data.totalCount) {
           setTotalDatabase(result.data.totalCount)
         }
       } catch (error) {
-        console.error("[v0] Error fetching year bounds:", error)
+        console.error("Error fetching year bounds:", error)
       }
     }
 
     fetchYearBounds()
-  }, [])
+  }, [searchParams])
 
   const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newMin = Number(e.target.value)
@@ -373,87 +384,51 @@ export default function LuminairesPage() {
 
   const handleSliderRelease = () => {
     setSliderModified(true)
-    setCurrentPage(1)
+    setDisplayOffset(50)
   }
 
-  useEffect(() => {
-    if (sliderModified) {
-      setCurrentPage(1)
-      fetchLuminaires(1, false)
-    }
-  }, [sliderModified, yearRange])
-
   const filteredLuminaires = useMemo(() => {
+    // Don't filter until allLuminaires is loaded
+    if (!allLuminairesLoaded || allLuminaires.length === 0) {
+      return []
+    }
+
     let filtered = allLuminaires
 
+    // Filter by designer
     if (selectedDesigner) {
-      console.log(`[v0] Filtering by designer: ${selectedDesigner}`)
       filtered = filtered.filter((lum) => {
         const artistField = lum["Artiste / Dates"] || lum.designer || ""
         return artistField.includes(selectedDesigner)
       })
-      console.log(`[v0] Filtered by designer count: ${filtered.length}`)
     }
 
+    // Filter by year using 'Année' column with improved extraction
     if (sliderModified) {
-      console.log(`[v0] Filtering by year range: ${yearRange}`)
-      console.log(`[v0] Total luminaires before year filter: ${filtered.length}`)
+      filtered = filtered.filter((lum) => {
+        // Use 'Année' column as specified
+        const anneeValue = lum["Année"] || lum.annee || lum.year
 
-      filtered = filtered.filter((lum, index) => {
-        const anneeValue = lum.annee || lum.Année || lum.year
+        if (!anneeValue) return false
 
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}:`, {
-            anneeValue,
-            type: typeof anneeValue,
-            allYearFields: {
-              annee: lum.annee,
-              Année: lum.Année,
-              year: lum.year,
-              "Artiste / Dates": lum["Artiste / Dates"],
-            },
-          })
-        }
+        // Extract 4-digit year from text (e.g., "Vers 1750" -> 1750)
+        const yearMatch = String(anneeValue).match(/\b(1[0-9]{3}|20[0-9]{2})\b/)
 
-        if (!anneeValue) {
-          if (index < 5) {
-            console.log(`[v0] Luminaire ${index}: No year value found`)
-          }
-          return false
-        }
+        if (!yearMatch) return false
 
-        const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(anneeValue)
+        const numYear = Number.parseInt(yearMatch[0])
 
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}:`, {
-            numYear,
-            isValid: !isNaN(numYear) && numYear > 1000 && numYear < 2100,
-            inRange: numYear >= yearRange[0] && numYear <= yearRange[1],
-          })
-        }
+        if (isNaN(numYear) || numYear < 1000 || numYear > 2100) return false
 
-        if (isNaN(numYear) || numYear <= 1000 || numYear >= 2100) {
-          if (index < 5) {
-            console.log(`[v0] Luminaire ${index}: Year validation failed`)
-          }
-          return false
-        }
-
-        const matches = numYear >= yearRange[0] && numYear <= yearRange[1]
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}: Matches range: ${matches}`)
-        }
-        return matches
+        return numYear >= yearRange[0] && numYear <= yearRange[1]
       })
-
-      console.log(`[v0] Filtered luminaires count: ${filtered.length}`)
     }
 
     return filtered
-  }, [allLuminaires, yearRange, sliderModified, selectedDesigner])
+  }, [allLuminaires, allLuminairesLoaded, yearRange, sliderModified, selectedDesigner])
 
   const isPremium = userData?.role === "admin" || userData?.isPremium
-  const freeUserLimit = isPremium ? luminaires.length : Math.floor(totalDatabase * 0.1)
+  const freeUserLimit = isPremium ? filteredLuminaires.length : Math.floor(totalDatabase * 0.1)
 
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
@@ -463,8 +438,29 @@ export default function LuminairesPage() {
       })
       return favoriteItems
     }
-    return filteredLuminaires
-  }, [filteredLuminaires, allLuminaires, showFavorites, favorites])
+
+    // If filters are active, slice filtered results for pagination
+    const hasFilters = selectedDesigner || sliderModified
+    if (hasFilters) {
+      return filteredLuminaires.slice(0, displayOffset)
+    }
+
+    // Otherwise use normal luminaires from API
+    return luminaires
+  }, [
+    filteredLuminaires,
+    luminaires,
+    showFavorites,
+    favorites,
+    allLuminaires,
+    selectedDesigner,
+    sliderModified,
+    displayOffset,
+  ])
+
+  useEffect(() => {
+    setDisplayOffset(50)
+  }, [selectedDesigner, sliderModified, yearRange])
 
   const pathname = usePathname()
 
@@ -481,6 +477,20 @@ export default function LuminairesPage() {
     )
   }
 
+  const hasUrlFilters = searchParams.get("designer") || searchParams.get("yearMin")
+  if (hasUrlFilters && !allLuminairesLoaded) {
+    return (
+      <div className="min-h-screen bg-[#f5f1e8] pb-20">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 mx-auto animate-spin text-gray-400 mb-4" />
+            <p className="text-gray-600">Chargement des filtres...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
       <div className="px-4 py-4">
@@ -488,12 +498,12 @@ export default function LuminairesPage() {
           <h2 className="text-2xl font-serif text-gray-900">
             Luminaires
             <span className="text-gray-500 ml-2">
-              ({displayedLuminaires.length}/{totalItems})
+              ({displayedLuminaires.length}/
+              {selectedDesigner || sliderModified ? filteredLuminaires.length : totalItems})
             </span>
           </h2>
         </div>
 
-        {/* Premium message for non-premium users */}
         {!user || (userData?.role !== "premium" && userData?.role !== "admin") ? (
           <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-center gap-3">
@@ -516,7 +526,6 @@ export default function LuminairesPage() {
         ) : null}
 
         <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
-          {/* Search bar - takes more space on desktop with flex-[2] */}
           <div className="md:flex-[2]">
             <SearchBar
               value={searchTerm}
@@ -526,7 +535,6 @@ export default function LuminairesPage() {
             />
           </div>
 
-          {/* Filter dropdowns - takes less space with flex-[3] and wraps in a flex container */}
           <div className="flex gap-3 md:flex-[3] flex-wrap">
             <select
               value={selectedCategorie}
@@ -577,7 +585,6 @@ export default function LuminairesPage() {
           </div>
         </div>
 
-        {/* Slider section */}
         <div className="rounded-xl p-6 mb-6 bg-transparent">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-semibold">Période chronologique</h2>
@@ -729,7 +736,6 @@ export default function LuminairesPage() {
           </Button>
         )}
 
-        {/* Grid or List view */}
         <div
           className={`grid gap-4 ${
             columns === 2
@@ -760,6 +766,7 @@ export default function LuminairesPage() {
                         fill
                         className="object-cover"
                         sizes={columns === 6 ? "16vw" : columns === 4 ? "25vw" : columns === 3 ? "33vw" : "50vw"}
+                        loading="lazy"
                         unoptimized
                       />
                     ) : (
@@ -775,7 +782,9 @@ export default function LuminairesPage() {
                     <p className="text-xs text-gray-600 line-clamp-1">
                       {luminaire["Artiste / Dates"]?.split(",")[0] || "Artiste inconnu"}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">{luminaire.annee || luminaire["Année"] || ""}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {luminaire["Année"] || luminaire.annee || luminaire.year || ""}
+                    </p>
 
                     {!isAccessible && (
                       <div className="mt-2 text-center text-xs text-gray-400 font-medium">Premium requis</div>
@@ -787,8 +796,7 @@ export default function LuminairesPage() {
           })}
         </div>
 
-        {/* Loading indicator */}
-        {loadingMore && !showFavorites && (
+        {(selectedDesigner || sliderModified) && displayOffset < filteredLuminaires.length && (
           <div className="text-center mt-8">
             <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-lg">
               <Loader2 className="w-4 h-4 mr-2 animate-spin text-gray-600" />
@@ -797,7 +805,16 @@ export default function LuminairesPage() {
           </div>
         )}
 
-        {displayedLuminaires.length === 0 && !loading && (
+        {loadingMore && !showFavorites && !(selectedDesigner || sliderModified) && (
+          <div className="text-center mt-8">
+            <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-lg">
+              <Loader2 className="w-4 h-4 mr-2 animate-spin text-gray-600" />
+              <span className="text-gray-600 text-sm">Chargement...</span>
+            </div>
+          </div>
+        )}
+
+        {displayedLuminaires.length === 0 && !loading && allLuminairesLoaded && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">{showFavorites ? "Aucun favori trouvé" : "Aucun luminaire trouvé"}</p>
           </div>
