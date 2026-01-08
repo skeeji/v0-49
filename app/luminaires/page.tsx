@@ -40,7 +40,6 @@ export default function LuminairesPage() {
   const [showFavorites, setShowFavorites] = useState(false)
 
   const [selectedDesigner, setSelectedDesigner] = useState("")
-  const [displayedCount, setDisplayedCount] = useState(50)
 
   const yearRangeRef = useRef(yearRange)
   const sliderModifiedRef = useRef(sliderModified)
@@ -136,13 +135,6 @@ export default function LuminairesPage() {
 
   const loadAllLuminaires = useCallback(async () => {
     try {
-      const hasActiveFilters = selectedDesigner || sliderModified
-
-      if (!hasActiveFilters) {
-        // No filters active, no need to load all luminaires
-        return
-      }
-
       const response = await fetch(`/api/luminaires?limit=10000&page=1`)
       const data = await response.json()
       if (data.success) {
@@ -151,7 +143,7 @@ export default function LuminairesPage() {
     } catch (err) {
       console.error("❌ Erreur chargement données globales:", err)
     }
-  }, [selectedDesigner, sliderModified])
+  }, [])
 
   const fetchLuminaires = useCallback(
     async (page = 1, append = false) => {
@@ -214,31 +206,54 @@ export default function LuminairesPage() {
 
   const loadMore = useCallback(() => {
     const hasUrlFilters = selectedDesigner || (searchParams.get("yearMin") && searchParams.get("yearMax"))
-
-    if (hasUrlFilters || sliderModified) {
-      if (displayedCount < filteredLuminaires.length) {
-        setDisplayedCount((prev) => prev + 50)
-      }
-      return
-    }
-
-    if (!loadingMore && hasMore && !loading && !showFavorites) {
+    if (!loadingMore && hasMore && !loading && !showFavorites && !hasUrlFilters) {
       const nextPage = currentPage + 1
       setCurrentPage(nextPage)
       fetchLuminaires(nextPage, true)
     }
-  }, [
-    loadingMore,
-    hasMore,
-    loading,
-    currentPage,
-    fetchLuminaires,
-    showFavorites,
-    selectedDesigner,
-    searchParams,
-    sliderModified,
-    displayedCount,
-  ])
+  }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites, selectedDesigner, searchParams])
+
+  useEffect(() => {
+    if (showFavorites) return
+
+    const handleScroll = () => {
+      const scrollTop = document.documentElement.scrollTop
+      const scrollHeight = document.documentElement.scrollHeight
+      const clientHeight = document.documentElement.clientHeight
+
+      if (scrollTop + clientHeight >= scrollHeight - 1000) {
+        loadMore()
+      }
+    }
+
+    let timeoutId: NodeJS.Timeout
+
+    const throttledHandleScroll = () => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(handleScroll, 200)
+    }
+
+    window.addEventListener("scroll", throttledHandleScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener("scroll", throttledHandleScroll)
+      clearTimeout(timeoutId)
+    }
+  }, [loadMore, showFavorites])
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setColumns(2)
+      } else if (window.innerWidth >= 768 && columns === 2) {
+        setColumns(6)
+      }
+    }
+
+    handleResize()
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [columns])
 
   const handleItemUpdate = useCallback(async (id: string, updates: any) => {
     try {
@@ -369,7 +384,7 @@ export default function LuminairesPage() {
   }, [sliderModified, yearRange])
 
   const filteredLuminaires = useMemo(() => {
-    let filtered = selectedDesigner || sliderModified ? allLuminaires : luminaires
+    let filtered = allLuminaires
 
     if (selectedDesigner) {
       console.log(`[v0] Filtering by designer: ${selectedDesigner}`)
@@ -382,28 +397,60 @@ export default function LuminairesPage() {
 
     if (sliderModified) {
       console.log(`[v0] Filtering by year range: ${yearRange}`)
+      console.log(`[v0] Total luminaires before year filter: ${filtered.length}`)
 
-      filtered = filtered.filter((lum) => {
-        const anneeValue = lum.annee || lum["Année"] || lum.year
+      filtered = filtered.filter((lum, index) => {
+        const anneeValue = lum.annee || lum.Année || lum.year
+
+        if (index < 5) {
+          console.log(`[v0] Luminaire ${index}:`, {
+            anneeValue,
+            type: typeof anneeValue,
+            allYearFields: {
+              annee: lum.annee,
+              Année: lum.Année,
+              year: lum.year,
+              "Artiste / Dates": lum["Artiste / Dates"],
+            },
+          })
+        }
 
         if (!anneeValue) {
+          if (index < 5) {
+            console.log(`[v0] Luminaire ${index}: No year value found`)
+          }
           return false
         }
 
         const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(anneeValue)
 
+        if (index < 5) {
+          console.log(`[v0] Luminaire ${index}:`, {
+            numYear,
+            isValid: !isNaN(numYear) && numYear > 1000 && numYear < 2100,
+            inRange: numYear >= yearRange[0] && numYear <= yearRange[1],
+          })
+        }
+
         if (isNaN(numYear) || numYear <= 1000 || numYear >= 2100) {
+          if (index < 5) {
+            console.log(`[v0] Luminaire ${index}: Year validation failed`)
+          }
           return false
         }
 
-        return numYear >= yearRange[0] && numYear <= yearRange[1]
+        const matches = numYear >= yearRange[0] && numYear <= yearRange[1]
+        if (index < 5) {
+          console.log(`[v0] Luminaire ${index}: Matches range: ${matches}`)
+        }
+        return matches
       })
 
       console.log(`[v0] Filtered luminaires count: ${filtered.length}`)
     }
 
     return filtered
-  }, [allLuminaires, luminaires, yearRange, sliderModified, selectedDesigner])
+  }, [allLuminaires, yearRange, sliderModified, selectedDesigner])
 
   const isPremium = userData?.role === "admin" || userData?.isPremium
   const freeUserLimit = isPremium ? luminaires.length : Math.floor(totalDatabase * 0.1)
@@ -416,14 +463,8 @@ export default function LuminairesPage() {
       })
       return favoriteItems
     }
-
-    const hasActiveFilters = selectedDesigner || sliderModified
-    if (hasActiveFilters) {
-      return filteredLuminaires.slice(0, displayedCount)
-    }
-
     return filteredLuminaires
-  }, [filteredLuminaires, allLuminaires, showFavorites, favorites, selectedDesigner, sliderModified, displayedCount])
+  }, [filteredLuminaires, allLuminaires, showFavorites, favorites])
 
   const pathname = usePathname()
 
