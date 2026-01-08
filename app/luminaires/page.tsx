@@ -49,25 +49,6 @@ export default function LuminairesPage() {
     sliderModifiedRef.current = sliderModified
   })
 
-  useEffect(() => {
-    const designer = searchParams.get("designer")
-    const yearMin = searchParams.get("yearMin")
-    const yearMax = searchParams.get("yearMax")
-
-    if (designer) {
-      setSelectedDesigner(designer)
-    }
-
-    if (yearMin && yearMax) {
-      const min = Number.parseInt(yearMin)
-      const max = Number.parseInt(yearMax)
-      if (!isNaN(min) && !isNaN(max)) {
-        setYearRange([min, max])
-        setSliderModified(true)
-      }
-    }
-  }, [searchParams])
-
   const { user, userData } = useAuth()
   const isAdmin = userData?.role === "admin"
   const [favorites, setFavorites] = useState<string[]>([])
@@ -91,6 +72,44 @@ export default function LuminairesPage() {
 
     loadFavorites()
   }, [user?.email])
+
+  const loadAllLuminaires = useCallback(async () => {
+    const hasUrlFilters = searchParams.get("designer") || (searchParams.get("yearMin") && searchParams.get("yearMax"))
+    if (!hasUrlFilters && !sliderModifiedRef.current && !selectedDesigner) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/luminaires?limit=10000&page=1`)
+      const data = await response.json()
+      if (data.success) {
+        setAllLuminaires(data.luminaires)
+      }
+    } catch (err) {
+      console.error("❌ Erreur chargement données globales:", err)
+    }
+  }, [searchParams, selectedDesigner])
+
+  useEffect(() => {
+    const designer = searchParams.get("designer")
+    const yearMin = searchParams.get("yearMin")
+    const yearMax = searchParams.get("yearMax")
+
+    if (designer) {
+      setSelectedDesigner(designer)
+      loadAllLuminaires()
+    }
+
+    if (yearMin && yearMax) {
+      const min = Number.parseInt(yearMin)
+      const max = Number.parseInt(yearMax)
+      if (!isNaN(min) && !isNaN(max)) {
+        setYearRange([min, max])
+        setSliderModified(true)
+        loadAllLuminaires()
+      }
+    }
+  }, [searchParams, loadAllLuminaires])
 
   const toggleFavorite = useCallback(
     async (luminaireId: string) => {
@@ -132,18 +151,6 @@ export default function LuminairesPage() {
     },
     [user?.email, favorites],
   )
-
-  const loadAllLuminaires = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/luminaires?limit=10000&page=1`)
-      const data = await response.json()
-      if (data.success) {
-        setAllLuminaires(data.luminaires)
-      }
-    } catch (err) {
-      console.error("❌ Erreur chargement données globales:", err)
-    }
-  }, [])
 
   const fetchLuminaires = useCallback(
     async (page = 1, append = false) => {
@@ -379,9 +386,10 @@ export default function LuminairesPage() {
   useEffect(() => {
     if (sliderModified) {
       setCurrentPage(1)
+      loadAllLuminaires()
       fetchLuminaires(1, false)
     }
-  }, [sliderModified, yearRange])
+  }, [sliderModified, yearRange, loadAllLuminaires, fetchLuminaires])
 
   const filteredLuminaires = useMemo(() => {
     let filtered = allLuminaires
@@ -396,54 +404,23 @@ export default function LuminairesPage() {
     }
 
     if (sliderModified) {
-      console.log(`[v0] Filtering by year range: ${yearRange}`)
+      console.log(`[v0] Filtering by year range: ${yearRange[0]},${yearRange[1]}`)
       console.log(`[v0] Total luminaires before year filter: ${filtered.length}`)
 
-      filtered = filtered.filter((lum, index) => {
-        const anneeValue = lum.annee || lum.Année || lum.year
-
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}:`, {
-            anneeValue,
-            type: typeof anneeValue,
-            allYearFields: {
-              annee: lum.annee,
-              Année: lum.Année,
-              year: lum.year,
-              "Artiste / Dates": lum["Artiste / Dates"],
-            },
-          })
-        }
+      filtered = filtered.filter((lum) => {
+        const anneeValue = lum.annee || lum["Année"] || lum.year
 
         if (!anneeValue) {
-          if (index < 5) {
-            console.log(`[v0] Luminaire ${index}: No year value found`)
-          }
           return false
         }
 
         const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(anneeValue)
 
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}:`, {
-            numYear,
-            isValid: !isNaN(numYear) && numYear > 1000 && numYear < 2100,
-            inRange: numYear >= yearRange[0] && numYear <= yearRange[1],
-          })
-        }
-
         if (isNaN(numYear) || numYear <= 1000 || numYear >= 2100) {
-          if (index < 5) {
-            console.log(`[v0] Luminaire ${index}: Year validation failed`)
-          }
           return false
         }
 
-        const matches = numYear >= yearRange[0] && numYear <= yearRange[1]
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}: Matches range: ${matches}`)
-        }
-        return matches
+        return numYear >= yearRange[0] && numYear <= yearRange[1]
       })
 
       console.log(`[v0] Filtered luminaires count: ${filtered.length}`)

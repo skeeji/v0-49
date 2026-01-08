@@ -274,13 +274,11 @@ export default function ChronologiePage() {
           </p>
 
           <div className="mb-12">
-            <div className="max-w-7xl mx-auto px-8">
-              <div className="relative">
+            <div className="max-w-7xl mx-auto px-4 md:px-8 overflow-x-auto">
+              <div className="relative min-w-[800px] md:min-w-0">
                 <svg viewBox="0 0 1200 140" className="w-full" preserveAspectRatio="xMidYMid meet">
-                  {/* Timeline line */}
                   <line x1="20" y1="30" x2="1180" y2="30" stroke="#8b7355" strokeWidth="2" />
 
-                  {/* Period dots and labels */}
                   {timelineData.map((period, index) => {
                     const x = 20 + (index * 1160) / (timelineData.length - 1)
                     const isSelected = selectedPeriod?.name === period.name
@@ -298,7 +296,6 @@ export default function ChronologiePage() {
                           }
                         }}
                       >
-                        {/* Dot */}
                         <circle
                           cx={x}
                           cy="30"
@@ -309,7 +306,6 @@ export default function ChronologiePage() {
                           className="transition-all duration-200"
                         />
 
-                        {/* Period label */}
                         <text
                           x={x}
                           y="60"
@@ -325,7 +321,6 @@ export default function ChronologiePage() {
                   })}
                 </svg>
 
-                {/* Tooltip for selected period */}
                 {selectedPeriod && (
                   <div className="absolute left-1/2 top-24 transform -translate-x-1/2 bg-white px-6 py-3 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap z-10">
                     <div className="text-sm font-medium text-gray-900">
