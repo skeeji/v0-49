@@ -113,7 +113,6 @@ export default function ChronologiePage() {
   const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
   const [periodImages, setPeriodImages] = useState<{ [key: string]: string }>({})
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedPeriod, setSelectedPeriod] = useState<any>(null)
   const { userData } = useAuth()
 
   const canEdit = userData?.role === "admin"
@@ -233,21 +232,34 @@ export default function ChronologiePage() {
             <p className="text-gray-600 mb-8">Explorez les luminaires à travers le temps</p>
           </div>
 
-          <div className="max-w-7xl mx-auto mb-12 px-8">
-            <svg viewBox="0 0 1200 120" className="w-full" preserveAspectRatio="xMidYMid meet">
-              <line x1="20" y1="30" x2="1180" y2="30" stroke="#8b7355" strokeWidth="2" />
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((_, i) => {
-                const x = 20 + (i * 1160) / 13
-                return (
-                  <g key={i}>
-                    <circle cx={x} cy="30" r="6" fill="#8b7355" />
-                    <text x={x} y="70" textAnchor="middle" fontSize="11" fill="#6b5d4f" className="font-sans">
-                      Période {i + 1}
-                    </text>
-                  </g>
-                )
-              })}
-            </svg>
+          <div className="max-w-6xl mx-auto mb-12">
+            <div className="relative">
+              {/* Timeline line */}
+              <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
+
+              {/* Period markers */}
+              <div className="relative flex justify-between items-center">
+                {[
+                  { name: "Moyen-âge", start: 1000 },
+                  { name: "Renaissance", start: 1500 },
+                  { name: "Baroque", start: 1600 },
+                  { name: "Classique", start: 1700 },
+                  { name: "Romantique", start: 1800 },
+                  { name: "Art Nouveau", start: 1890 },
+                  { name: "Art Déco", start: 1920 },
+                  { name: "Moderne", start: 1950 },
+                  { name: "Contemporain", start: 2000 },
+                ].map((period, index) => (
+                  <div key={index} className="flex flex-col items-center group cursor-pointer">
+                    <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
+                    <span className="text-xs text-gray-600 text-center max-w-[80px] group-hover:text-[#8b7355] transition-colors">
+                      {period.name}
+                    </span>
+                    <span className="text-xs text-gray-400 mt-1">{period.start}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="text-center">
@@ -274,61 +286,24 @@ export default function ChronologiePage() {
           </p>
 
           <div className="mb-12">
-            <div className="max-w-7xl mx-auto px-4 md:px-8 overflow-x-auto">
-              <div className="relative min-w-[800px] md:min-w-0">
-                <svg viewBox="0 0 1200 140" className="w-full" preserveAspectRatio="xMidYMid meet">
-                  <line x1="20" y1="30" x2="1180" y2="30" stroke="#8b7355" strokeWidth="2" />
+            <div className="max-w-7xl mx-auto px-4">
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
 
-                  {timelineData.map((period, index) => {
-                    const x = 20 + (index * 1160) / (timelineData.length - 1)
-                    const isSelected = selectedPeriod?.name === period.name
-
-                    return (
-                      <g
-                        key={period.name}
-                        onMouseEnter={() => setSelectedPeriod(period)}
-                        onMouseLeave={() => setSelectedPeriod(null)}
-                        className="cursor-pointer"
-                        onClick={() => {
-                          const element = document.getElementById(period.name)
-                          if (element) {
-                            element.scrollIntoView({ behavior: "smooth", block: "center" })
-                          }
-                        }}
-                      >
-                        <circle
-                          cx={x}
-                          cy="30"
-                          r={isSelected ? "8" : "6"}
-                          fill={isSelected ? "#f5f1e8" : "#8b7355"}
-                          stroke={isSelected ? "#8b7355" : "none"}
-                          strokeWidth="2"
-                          className="transition-all duration-200"
-                        />
-
-                        <text
-                          x={x}
-                          y="60"
-                          textAnchor="middle"
-                          fontSize="11"
-                          fill="#6b5d4f"
-                          className="font-sans select-none"
-                        >
-                          {period.name}
-                        </text>
-                      </g>
-                    )
-                  })}
-                </svg>
-
-                {selectedPeriod && (
-                  <div className="absolute left-1/2 top-24 transform -translate-x-1/2 bg-white px-6 py-3 rounded-lg shadow-lg border border-gray-200 whitespace-nowrap z-10">
-                    <div className="text-sm font-medium text-gray-900">
-                      {selectedPeriod.start} - {selectedPeriod.end}
-                    </div>
-                    <div className="text-lg font-serif text-gray-800">{selectedPeriod.name}</div>
-                  </div>
-                )}
+                <div className="relative flex flex-wrap justify-center items-center gap-6 md:gap-8 lg:gap-12">
+                  {timelineData.map((period, index) => (
+                    <a key={index} href={`#${period.name}`} className="flex flex-col items-center group cursor-pointer">
+                      <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
+                      <span className="text-xs text-gray-600 text-center whitespace-nowrap group-hover:text-[#8b7355] transition-colors">
+                        {period.name}
+                      </span>
+                      <span className="text-xs text-gray-400 mt-1 whitespace-nowrap">
+                        {period.start}-{period.end}
+                      </span>
+                    </a>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
