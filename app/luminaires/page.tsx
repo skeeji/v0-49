@@ -40,6 +40,7 @@ export default function LuminairesPage() {
   const [showFavorites, setShowFavorites] = useState(false)
 
   const [selectedDesigner, setSelectedDesigner] = useState("")
+  const [displayedCount, setDisplayedCount] = useState(50)
 
   const yearRangeRef = useRef(yearRange)
   const sliderModifiedRef = useRef(sliderModified)
@@ -66,6 +67,7 @@ export default function LuminairesPage() {
         setSliderModified(true)
       }
     }
+    setDisplayedCount(50)
   }, [searchParams])
 
   const { user, userData } = useAuth()
@@ -202,16 +204,33 @@ export default function LuminairesPage() {
   useEffect(() => {
     setCurrentPage(1)
     fetchLuminaires(1, false)
+    setDisplayedCount(50)
   }, [searchTerm, selectedCategorie, selectedMateriau, sortField, sortDirection, sliderModified, selectedDesigner])
 
   const loadMore = useCallback(() => {
-    const hasUrlFilters = selectedDesigner || (searchParams.get("yearMin") && searchParams.get("yearMax"))
-    if (!loadingMore && hasMore && !loading && !showFavorites && !hasUrlFilters) {
-      const nextPage = currentPage + 1
-      setCurrentPage(nextPage)
-      fetchLuminaires(nextPage, true)
+    const hasFilters = selectedDesigner || sliderModified
+    const hasMoreFiltered = hasFilters && displayedCount < filteredLuminaires.length
+
+    if (!loadingMore && !loading && !showFavorites) {
+      if (hasFilters && hasMoreFiltered) {
+        setDisplayedCount((prev) => prev + 50)
+      } else if (!hasFilters && hasMore) {
+        const nextPage = currentPage + 1
+        setCurrentPage(nextPage)
+        fetchLuminaires(nextPage, true)
+      }
     }
-  }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites, selectedDesigner, searchParams])
+  }, [
+    loadingMore,
+    hasMore,
+    loading,
+    currentPage,
+    fetchLuminaires,
+    showFavorites,
+    selectedDesigner,
+    sliderModified,
+    displayedCount,
+  ])
 
   useEffect(() => {
     if (showFavorites) return
@@ -380,6 +399,7 @@ export default function LuminairesPage() {
     if (sliderModified) {
       setCurrentPage(1)
       fetchLuminaires(1, false)
+      setDisplayedCount(50)
     }
   }, [sliderModified, yearRange])
 
@@ -387,73 +407,35 @@ export default function LuminairesPage() {
     let filtered = allLuminaires
 
     if (selectedDesigner) {
-      console.log(`[v0] Filtering by designer: ${selectedDesigner}`)
       filtered = filtered.filter((lum) => {
         const artistField = lum["Artiste / Dates"] || lum.designer || ""
         return artistField.includes(selectedDesigner)
       })
-      console.log(`[v0] Filtered by designer count: ${filtered.length}`)
     }
 
     if (sliderModified) {
-      console.log(`[v0] Filtering by year range: ${yearRange}`)
-      console.log(`[v0] Total luminaires before year filter: ${filtered.length}`)
-
-      filtered = filtered.filter((lum, index) => {
-        const anneeValue = lum.annee || lum.Année || lum.year
-
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}:`, {
-            anneeValue,
-            type: typeof anneeValue,
-            allYearFields: {
-              annee: lum.annee,
-              Année: lum.Année,
-              year: lum.year,
-              "Artiste / Dates": lum["Artiste / Dates"],
-            },
-          })
-        }
+      filtered = filtered.filter((lum) => {
+        const anneeValue = lum.annee || lum["Année"] || lum.year
 
         if (!anneeValue) {
-          if (index < 5) {
-            console.log(`[v0] Luminaire ${index}: No year value found`)
-          }
           return false
         }
 
         const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(anneeValue)
 
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}:`, {
-            numYear,
-            isValid: !isNaN(numYear) && numYear > 1000 && numYear < 2100,
-            inRange: numYear >= yearRange[0] && numYear <= yearRange[1],
-          })
-        }
-
         if (isNaN(numYear) || numYear <= 1000 || numYear >= 2100) {
-          if (index < 5) {
-            console.log(`[v0] Luminaire ${index}: Year validation failed`)
-          }
           return false
         }
 
-        const matches = numYear >= yearRange[0] && numYear <= yearRange[1]
-        if (index < 5) {
-          console.log(`[v0] Luminaire ${index}: Matches range: ${matches}`)
-        }
-        return matches
+        return numYear >= yearRange[0] && numYear <= yearRange[1]
       })
-
-      console.log(`[v0] Filtered luminaires count: ${filtered.length}`)
     }
 
     return filtered
   }, [allLuminaires, yearRange, sliderModified, selectedDesigner])
 
   const isPremium = userData?.role === "admin" || userData?.isPremium
-  const freeUserLimit = isPremium ? luminaires.length : Math.floor(totalDatabase * 0.1)
+  const freeUserLimit = Math.floor(totalDatabase * 0.1)
 
   const displayedLuminaires = useMemo(() => {
     if (showFavorites) {
@@ -463,8 +445,8 @@ export default function LuminairesPage() {
       })
       return favoriteItems
     }
-    return filteredLuminaires
-  }, [filteredLuminaires, allLuminaires, showFavorites, favorites])
+    return filteredLuminaires.slice(0, displayedCount)
+  }, [filteredLuminaires, allLuminaires, showFavorites, favorites, displayedCount])
 
   const pathname = usePathname()
 
@@ -488,13 +470,14 @@ export default function LuminairesPage() {
           <h2 className="text-2xl font-serif text-gray-900">
             Luminaires
             <span className="text-gray-500 ml-2">
-              ({displayedLuminaires.length}/{totalItems})
+              {selectedDesigner || sliderModified
+                ? `(${displayedLuminaires.length}/${filteredLuminaires.length})`
+                : `(${displayedLuminaires.length}/${totalItems})`}
             </span>
           </h2>
         </div>
 
-        {/* Premium message for non-premium users */}
-        {!user || (userData?.role !== "premium" && userData?.role !== "admin") ? (
+        {!isPremium ? (
           <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <div className="flex-1">
@@ -516,7 +499,6 @@ export default function LuminairesPage() {
         ) : null}
 
         <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
-          {/* Search bar - takes more space on desktop with flex-[2] */}
           <div className="md:flex-[2]">
             <SearchBar
               value={searchTerm}
@@ -526,7 +508,6 @@ export default function LuminairesPage() {
             />
           </div>
 
-          {/* Filter dropdowns - takes less space with flex-[3] and wraps in a flex container */}
           <div className="flex gap-3 md:flex-[3] flex-wrap">
             <select
               value={selectedCategorie}
@@ -577,7 +558,6 @@ export default function LuminairesPage() {
           </div>
         </div>
 
-        {/* Slider section */}
         <div className="rounded-xl p-6 mb-6 bg-transparent">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-semibold">Période chronologique</h2>
@@ -729,7 +709,6 @@ export default function LuminairesPage() {
           </Button>
         )}
 
-        {/* Grid or List view */}
         <div
           className={`grid gap-4 ${
             columns === 2
@@ -787,7 +766,6 @@ export default function LuminairesPage() {
           })}
         </div>
 
-        {/* Loading indicator */}
         {loadingMore && !showFavorites && (
           <div className="text-center mt-8">
             <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-lg">
