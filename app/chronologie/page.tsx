@@ -292,16 +292,16 @@ export default function ChronologiePage() {
 
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl md:text-4xl font-serif text-gray-900 mb-2 text-center">
             Chronologie des Périodes Artistiques
           </h1>
-          <p className="text-center text-gray-600 mb-12 font-serif">
+          <p className="text-center text-gray-600 mb-8 font-serif">
             {totalLuminaires} luminaires classés par période historique
           </p>
 
-          <div className="mb-16 relative">
+          <div className="mb-10 relative">
             {/* Left arrow button */}
             <button
               onClick={() => scrollTimeline("left")}
@@ -356,92 +356,145 @@ export default function ChronologiePage() {
                 <div className="min-w-[1600px]">
                   <svg viewBox="0 0 1600 200" className="w-full h-auto">
                     <defs>
+                      {/* Central line with elegant gradient */}
                       <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
+                        <stop offset="0%" style={{ stopColor: "#6b5644", stopOpacity: 1 }} />
                         <stop offset="25%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
                         <stop offset="50%" style={{ stopColor: "#a0826d", stopOpacity: 1 }} />
-                        <stop offset="75%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
+                        <stop offset="75%" style={{ stopColor: "#b8a08a", stopOpacity: 1 }} />
                         <stop offset="100%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
                       </linearGradient>
                       <filter id="shadow">
                         <feDropShadow dx="0" dy="3" stdDeviation="4" floodOpacity="0.25" />
                       </filter>
                       <filter id="glow">
-                        <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
                         <feMerge>
                           <feMergeNode in="coloredBlur" />
                           <feMergeNode in="SourceGraphic" />
                         </feMerge>
                       </filter>
-                      <radialGradient id="circleGradient" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" style={{ stopColor: "#ffffff", stopOpacity: 1 }} />
-                        <stop offset="70%" style={{ stopColor: "#faf8f5", stopOpacity: 1 }} />
-                        <stop offset="100%" style={{ stopColor: "#f5f1e8", stopOpacity: 1 }} />
+
+                      {/* Gradient definitions for each period */}
+                      <radialGradient id="periodGradient0" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#4a3f35", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#6b5644", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient1" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#5a4a3d", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#7a6551", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient2" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#6a5544", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient3" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#75604e", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#957e68", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient4" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#806b58", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#a0826d", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient5" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#8a7562", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#aa8e78", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient6" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#95806c", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#b59a82", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient7" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#9f8a76", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#bfa58c", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient8" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#a99580", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#c9b096", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient9" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#b3a08a", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#d3bba0", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient10" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#bdaa94", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#ddc6aa", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient11" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#c7b59e", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#e7d1b4", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient12" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#d1c0a8", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#f1dcbe", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient13" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#dbcbb2", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#fbe7c8", stopOpacity: 1 }} />
                       </radialGradient>
                     </defs>
 
-                    {/* Main timeline line */}
+                    {/* Central elegant line through all periods */}
                     <line
                       x1="100"
                       y1="100"
                       x2="1500"
                       y2="100"
                       stroke="url(#lineGradient)"
-                      strokeWidth="6"
+                      strokeWidth="3"
                       strokeLinecap="round"
+                      opacity="0.8"
                     />
 
-                    {/* Period markers */}
+                    {/* Period markers with gradient from dark to light */}
                     {timelineData.map((period, index) => {
                       const x = 100 + (index * 1400) / (timelineData.length - 1)
                       return (
                         <g key={period.name} className="cursor-pointer group">
                           <a href={`#${period.name}`}>
-                            {/* Outer subtle glow */}
+                            {/* Outer glow that intensifies on hover */}
                             <circle
                               cx={x}
                               cy="100"
-                              r="35"
-                              fill="#8b7355"
-                              opacity="0.05"
-                              className="group-hover:opacity-15 transition-all duration-300"
+                              r="28"
+                              fill={`url(#periodGradient${index})`}
+                              opacity="0.15"
+                              className="group-hover:opacity-30 group-hover:r-32 transition-all duration-300"
                             />
 
-                            {/* Outer decorative ring */}
+                            {/* Main circle with period-specific gradient */}
                             <circle
                               cx={x}
                               cy="100"
-                              r="24"
-                              fill="none"
-                              stroke="#d4c5b0"
-                              strokeWidth="2"
-                              opacity="0.4"
-                              className="group-hover:opacity-70 group-hover:r-26 transition-all duration-300"
-                            />
-
-                            {/* Main circle with gradient effect */}
-                            <circle
-                              cx={x}
-                              cy="100"
-                              r="18"
-                              fill="url(#circleGradient)"
-                              stroke="#8b7355"
+                              r="20"
+                              fill={`url(#periodGradient${index})`}
+                              stroke="white"
                               strokeWidth="3"
                               filter="url(#shadow)"
-                              className="group-hover:stroke-[#a0826d] group-hover:stroke-[4] transition-all duration-300"
+                              className="group-hover:r-22 group-hover:stroke-[4] transition-all duration-300"
                             />
 
-                            {/* Inner ring for depth */}
-                            <circle cx={x} cy="100" r="12" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5" />
+                            {/* Inner highlight ring */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="14"
+                              fill="none"
+                              stroke="white"
+                              strokeWidth="1.5"
+                              opacity="0.4"
+                              className="group-hover:opacity-70 transition-opacity duration-300"
+                            />
 
-                            {/* Center dot with subtle glow */}
+                            {/* Center dot with glow effect */}
                             <circle
                               cx={x}
                               cy="100"
                               r="6"
-                              fill="#8b7355"
-                              className="group-hover:r-8 group-hover:fill-[#a0826d] transition-all duration-300"
+                              fill="white"
+                              className="group-hover:r-8 transition-all duration-300"
                               filter="url(#glow)"
+                              opacity="0.9"
                             />
 
                             {/* Period name */}
@@ -474,7 +527,7 @@ export default function ChronologiePage() {
                                 height="55"
                                 rx="12"
                                 fill="white"
-                                stroke="#8b7355"
+                                stroke={`url(#periodGradient${index})`}
                                 strokeWidth="2"
                                 filter="url(#shadow)"
                               />
