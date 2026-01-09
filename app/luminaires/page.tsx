@@ -168,12 +168,15 @@ export default function LuminairesPage() {
 
         if (data.success) {
           if (append && page > 1) {
-            const existingIds = new Set(luminaires.map((l) => l._id))
-            const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
+            setLuminaires((prev) => {
+              const existingIds = new Set(prev.map((l) => l._id))
+              const newLuminaires = data.luminaires.filter((l: any) => !existingIds.has(l._id))
 
-            if (newLuminaires.length > 0) {
-              setLuminaires((prev) => [...prev, ...newLuminaires])
-            }
+              if (newLuminaires.length > 0) {
+                return [...prev, ...newLuminaires]
+              }
+              return prev
+            })
           } else {
             setLuminaires(data.luminaires)
           }
