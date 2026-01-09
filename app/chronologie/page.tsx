@@ -285,25 +285,117 @@ export default function ChronologiePage() {
             {totalLuminaires} luminaires classés par période historique
           </p>
 
-          <div className="mb-12">
-            <div className="max-w-7xl mx-auto px-4">
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
+          <div className="mb-16">
+            <div className="max-w-7xl mx-auto px-4 overflow-x-auto">
+              <div className="min-w-[800px] py-8">
+                <svg viewBox="0 0 1400 120" className="w-full h-auto">
+                  {/* Gradient definitions */}
+                  <defs>
+                    <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
+                      <stop offset="50%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
+                      <stop offset="100%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
+                    </linearGradient>
+                    <filter id="shadow">
+                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.2" />
+                    </filter>
+                  </defs>
 
-                <div className="relative flex flex-wrap justify-center items-center gap-6 md:gap-8 lg:gap-12">
-                  {timelineData.map((period, index) => (
-                    <a key={index} href={`#${period.name}`} className="flex flex-col items-center group cursor-pointer">
-                      <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
-                      <span className="text-xs text-gray-600 text-center whitespace-nowrap group-hover:text-[#8b7355] transition-colors">
-                        {period.name}
-                      </span>
-                      <span className="text-xs text-gray-400 mt-1 whitespace-nowrap">
-                        {period.start}-{period.end}
-                      </span>
-                    </a>
-                  ))}
-                </div>
+                  {/* Main timeline line with gradient */}
+                  <line
+                    x1="50"
+                    y1="60"
+                    x2="1350"
+                    y2="60"
+                    stroke="url(#lineGradient)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+
+                  {/* Period markers */}
+                  {timelineData.map((period, index) => {
+                    const x = 50 + (index * 1300) / (timelineData.length - 1)
+                    return (
+                      <g key={period.name} className="cursor-pointer group">
+                        <a href={`#${period.name}`}>
+                          {/* Outer circle glow */}
+                          <circle
+                            cx={x}
+                            cy="60"
+                            r="14"
+                            fill="#8b7355"
+                            opacity="0.2"
+                            className="group-hover:r-16 transition-all"
+                          />
+
+                          {/* Main circle */}
+                          <circle
+                            cx={x}
+                            cy="60"
+                            r="10"
+                            fill="white"
+                            stroke="#8b7355"
+                            strokeWidth="3"
+                            filter="url(#shadow)"
+                            className="group-hover:r-12 transition-all"
+                          />
+
+                          {/* Inner dot */}
+                          <circle cx={x} cy="60" r="4" fill="#8b7355" className="group-hover:r-6 transition-all" />
+
+                          {/* Period name */}
+                          <text
+                            x={x}
+                            y="95"
+                            textAnchor="middle"
+                            className="text-[11px] fill-gray-700 font-medium group-hover:fill-[#8b7355] transition-colors"
+                          >
+                            {period.name}
+                          </text>
+
+                          {/* Period date range */}
+                          <text
+                            x={x}
+                            y="110"
+                            textAnchor="middle"
+                            className="text-[9px] fill-gray-400 group-hover:fill-[#8b7355] transition-colors"
+                          >
+                            {period.start}-{period.end}
+                          </text>
+
+                          {/* Tooltip on hover */}
+                          <rect
+                            x={x - 60}
+                            y="10"
+                            width="120"
+                            height="35"
+                            rx="8"
+                            fill="#8b7355"
+                            opacity="0"
+                            className="group-hover:opacity-100 transition-opacity"
+                            filter="url(#shadow)"
+                          />
+                          <text
+                            x={x}
+                            y="25"
+                            textAnchor="middle"
+                            className="text-[11px] fill-white font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            {period.name}
+                          </text>
+                          <text
+                            x={x}
+                            y="38"
+                            textAnchor="middle"
+                            className="text-[9px] fill-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            {period.luminaires.length} luminaires
+                          </text>
+                        </a>
+                      </g>
+                    )
+                  })}
+                </svg>
               </div>
             </div>
           </div>
