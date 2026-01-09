@@ -287,8 +287,8 @@ export default function ChronologiePage() {
 
           <div className="mb-16">
             <div className="max-w-7xl mx-auto px-4 overflow-x-auto">
-              <div className="min-w-[800px] py-8">
-                <svg viewBox="0 0 1400 120" className="w-full h-auto">
+              <div className="min-w-[1200px] py-12">
+                <svg viewBox="0 0 1400 180" className="w-full h-auto">
                   {/* Gradient definitions */}
                   <defs>
                     <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -304,11 +304,11 @@ export default function ChronologiePage() {
                   {/* Main timeline line with gradient */}
                   <line
                     x1="50"
-                    y1="60"
+                    y1="90"
                     x2="1350"
-                    y2="60"
+                    y2="90"
                     stroke="url(#lineGradient)"
-                    strokeWidth="3"
+                    strokeWidth="4"
                     strokeLinecap="round"
                   />
 
@@ -321,34 +321,33 @@ export default function ChronologiePage() {
                           {/* Outer circle glow */}
                           <circle
                             cx={x}
-                            cy="60"
-                            r="14"
+                            cy="90"
+                            r="20"
                             fill="#8b7355"
-                            opacity="0.2"
+                            opacity="0.15"
+                            className="group-hover:r-24 transition-all"
+                          />
+
+                          <circle
+                            cx={x}
+                            cy="90"
+                            r="14"
+                            fill="white"
+                            stroke="#8b7355"
+                            strokeWidth="4"
+                            filter="url(#shadow)"
                             className="group-hover:r-16 transition-all"
                           />
 
-                          {/* Main circle */}
-                          <circle
-                            cx={x}
-                            cy="60"
-                            r="10"
-                            fill="white"
-                            stroke="#8b7355"
-                            strokeWidth="3"
-                            filter="url(#shadow)"
-                            className="group-hover:r-12 transition-all"
-                          />
-
                           {/* Inner dot */}
-                          <circle cx={x} cy="60" r="4" fill="#8b7355" className="group-hover:r-6 transition-all" />
+                          <circle cx={x} cy="90" r="6" fill="#8b7355" className="group-hover:r-8 transition-all" />
 
                           {/* Period name */}
                           <text
                             x={x}
-                            y="95"
+                            y="135"
                             textAnchor="middle"
-                            className="text-[11px] fill-gray-700 font-medium group-hover:fill-[#8b7355] transition-colors"
+                            className="text-[14px] fill-gray-800 font-semibold group-hover:fill-[#8b7355] transition-colors"
                           >
                             {period.name}
                           </text>
@@ -356,20 +355,20 @@ export default function ChronologiePage() {
                           {/* Period date range */}
                           <text
                             x={x}
-                            y="110"
+                            y="152"
                             textAnchor="middle"
-                            className="text-[9px] fill-gray-400 group-hover:fill-[#8b7355] transition-colors"
+                            className="text-[12px] fill-gray-500 group-hover:fill-[#8b7355] transition-colors"
                           >
                             {period.start}-{period.end}
                           </text>
 
                           {/* Tooltip on hover */}
                           <rect
-                            x={x - 60}
-                            y="10"
-                            width="120"
-                            height="35"
-                            rx="8"
+                            x={x - 70}
+                            y="15"
+                            width="140"
+                            height="45"
+                            rx="10"
                             fill="#8b7355"
                             opacity="0"
                             className="group-hover:opacity-100 transition-opacity"
@@ -377,17 +376,17 @@ export default function ChronologiePage() {
                           />
                           <text
                             x={x}
-                            y="25"
+                            y="35"
                             textAnchor="middle"
-                            className="text-[11px] fill-white font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-[13px] fill-white font-bold opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             {period.name}
                           </text>
                           <text
                             x={x}
-                            y="38"
+                            y="50"
                             textAnchor="middle"
-                            className="text-[9px] fill-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-[11px] fill-white opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             {period.luminaires.length} luminaires
                           </text>
