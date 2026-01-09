@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
 import Link from "next/link"
@@ -114,6 +114,8 @@ export default function ChronologiePage() {
   const [periodImages, setPeriodImages] = useState<{ [key: string]: string }>({})
   const [isLoading, setIsLoading] = useState(true)
   const { userData } = useAuth()
+  const [scrollPosition, setScrollPosition] = useState(0)
+  const timelineRef = useRef<HTMLDivElement>(null)
 
   const canEdit = userData?.role === "admin"
 
@@ -223,6 +225,20 @@ export default function ChronologiePage() {
     )
   }
 
+  const scrollTimeline = (direction: "left" | "right") => {
+    if (timelineRef.current) {
+      const scrollAmount = 400
+      const newPosition =
+        direction === "left" ? Math.max(0, scrollPosition - scrollAmount) : scrollPosition + scrollAmount
+
+      timelineRef.current.scrollTo({
+        left: newPosition,
+        behavior: "smooth",
+      })
+      setScrollPosition(newPosition)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#f5f1e8] pb-20">
@@ -285,116 +301,182 @@ export default function ChronologiePage() {
             {totalLuminaires} luminaires classés par période historique
           </p>
 
-          <div className="mb-16">
-            <div className="max-w-7xl mx-auto px-4 overflow-x-auto">
-              <div className="min-w-[1200px] py-12">
-                <svg viewBox="0 0 1400 180" className="w-full h-auto">
-                  {/* Gradient definitions */}
-                  <defs>
-                    <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
-                      <stop offset="50%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
-                      <stop offset="100%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
-                    </linearGradient>
-                    <filter id="shadow">
-                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.2" />
-                    </filter>
-                  </defs>
+          <div className="mb-16 relative">
+            {/* Left arrow button */}
+            <button
+              onClick={() => scrollTimeline("left")}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-[#8b7355] hover:text-white hover:border-[#8b7355] transition-all group disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Précédent"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2.5}
+                stroke="currentColor"
+                className="w-6 h-6"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
 
-                  {/* Main timeline line with gradient */}
-                  <line
-                    x1="50"
-                    y1="90"
-                    x2="1350"
-                    y2="90"
-                    stroke="url(#lineGradient)"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                  />
+            {/* Right arrow button */}
+            <button
+              onClick={() => scrollTimeline("right")}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-[#8b7355] hover:text-white hover:border-[#8b7355] transition-all group disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Suivant"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2.5}
+                stroke="currentColor"
+                className="w-6 h-6"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
 
-                  {/* Period markers */}
-                  {timelineData.map((period, index) => {
-                    const x = 50 + (index * 1300) / (timelineData.length - 1)
-                    return (
-                      <g key={period.name} className="cursor-pointer group">
-                        <a href={`#${period.name}`}>
-                          {/* Outer circle glow */}
-                          <circle
-                            cx={x}
-                            cy="90"
-                            r="20"
-                            fill="#8b7355"
-                            opacity="0.15"
-                            className="group-hover:r-24 transition-all"
-                          />
+            {/* Timeline container without scrollbar */}
+            <div className="max-w-6xl mx-auto px-16">
+              <div
+                ref={timelineRef}
+                className="overflow-x-auto scrollbar-hide py-12"
+                style={{
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                }}
+              >
+                <style jsx>{`
+                  div::-webkit-scrollbar {
+                    display: none;
+                  }
+                `}</style>
+                <div className="min-w-[1600px]">
+                  <svg viewBox="0 0 1600 200" className="w-full h-auto">
+                    <defs>
+                      <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
+                        <stop offset="25%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
+                        <stop offset="50%" style={{ stopColor: "#a0826d", stopOpacity: 1 }} />
+                        <stop offset="75%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
+                      </linearGradient>
+                      <filter id="shadow">
+                        <feDropShadow dx="0" dy="3" stdDeviation="4" floodOpacity="0.25" />
+                      </filter>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                        <feMerge>
+                          <feMergeNode in="coloredBlur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                    </defs>
 
-                          <circle
-                            cx={x}
-                            cy="90"
-                            r="14"
-                            fill="white"
-                            stroke="#8b7355"
-                            strokeWidth="4"
-                            filter="url(#shadow)"
-                            className="group-hover:r-16 transition-all"
-                          />
+                    {/* Main timeline line */}
+                    <line
+                      x1="100"
+                      y1="100"
+                      x2="1500"
+                      y2="100"
+                      stroke="url(#lineGradient)"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                    />
 
-                          {/* Inner dot */}
-                          <circle cx={x} cy="90" r="6" fill="#8b7355" className="group-hover:r-8 transition-all" />
+                    {/* Period markers */}
+                    {timelineData.map((period, index) => {
+                      const x = 100 + (index * 1400) / (timelineData.length - 1)
+                      return (
+                        <g key={period.name} className="cursor-pointer group">
+                          <a href={`#${period.name}`}>
+                            {/* Outer glow circle */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="28"
+                              fill="#8b7355"
+                              opacity="0.1"
+                              className="group-hover:opacity-25 transition-opacity"
+                            />
 
-                          {/* Period name */}
-                          <text
-                            x={x}
-                            y="135"
-                            textAnchor="middle"
-                            className="text-[14px] fill-gray-800 font-semibold group-hover:fill-[#8b7355] transition-colors"
-                          >
-                            {period.name}
-                          </text>
+                            {/* Main circle */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="18"
+                              fill="white"
+                              stroke="#8b7355"
+                              strokeWidth="5"
+                              filter="url(#shadow)"
+                              className="group-hover:r-20 group-hover:stroke-[#a0826d] transition-all"
+                            />
 
-                          {/* Period date range */}
-                          <text
-                            x={x}
-                            y="152"
-                            textAnchor="middle"
-                            className="text-[12px] fill-gray-500 group-hover:fill-[#8b7355] transition-colors"
-                          >
-                            {period.start}-{period.end}
-                          </text>
+                            {/* Inner dot */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="8"
+                              fill="#8b7355"
+                              className="group-hover:r-10 group-hover:fill-[#a0826d] transition-all"
+                              filter="url(#glow)"
+                            />
 
-                          {/* Tooltip on hover */}
-                          <rect
-                            x={x - 70}
-                            y="15"
-                            width="140"
-                            height="45"
-                            rx="10"
-                            fill="#8b7355"
-                            opacity="0"
-                            className="group-hover:opacity-100 transition-opacity"
-                            filter="url(#shadow)"
-                          />
-                          <text
-                            x={x}
-                            y="35"
-                            textAnchor="middle"
-                            className="text-[13px] fill-white font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            {period.name}
-                          </text>
-                          <text
-                            x={x}
-                            y="50"
-                            textAnchor="middle"
-                            className="text-[11px] fill-white opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            {period.luminaires.length} luminaires
-                          </text>
-                        </a>
-                      </g>
-                    )
-                  })}
-                </svg>
+                            {/* Period name */}
+                            <text
+                              x={x}
+                              y="150"
+                              textAnchor="middle"
+                              className="text-[15px] font-semibold fill-gray-800 group-hover:fill-[#8b7355] group-hover:text-[16px] transition-all"
+                              style={{ fontFamily: "serif" }}
+                            >
+                              {period.name}
+                            </text>
+
+                            {/* Period date range */}
+                            <text
+                              x={x}
+                              y="170"
+                              textAnchor="middle"
+                              className="text-[13px] fill-gray-500 group-hover:fill-[#8b7355] transition-colors"
+                            >
+                              {period.start}-{period.end}
+                            </text>
+
+                            {/* Elegant tooltip on hover */}
+                            <g className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <rect
+                                x={x - 80}
+                                y="20"
+                                width="160"
+                                height="55"
+                                rx="12"
+                                fill="white"
+                                stroke="#8b7355"
+                                strokeWidth="2"
+                                filter="url(#shadow)"
+                              />
+                              <text
+                                x={x}
+                                y="42"
+                                textAnchor="middle"
+                                className="text-[14px] font-bold fill-[#8b7355]"
+                                style={{ fontFamily: "serif" }}
+                              >
+                                {period.name}
+                              </text>
+                              <text x={x} y="60" textAnchor="middle" className="text-[12px] fill-gray-600">
+                                {period.luminaires.length} luminaires
+                              </text>
+                            </g>
+                          </a>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
