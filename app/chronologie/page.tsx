@@ -373,6 +373,11 @@ export default function ChronologiePage() {
                           <feMergeNode in="SourceGraphic" />
                         </feMerge>
                       </filter>
+                      <radialGradient id="circleGradient" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#ffffff", stopOpacity: 1 }} />
+                        <stop offset="70%" style={{ stopColor: "#faf8f5", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#f5f1e8", stopOpacity: 1 }} />
+                      </radialGradient>
                     </defs>
 
                     {/* Main timeline line */}
@@ -392,35 +397,50 @@ export default function ChronologiePage() {
                       return (
                         <g key={period.name} className="cursor-pointer group">
                           <a href={`#${period.name}`}>
-                            {/* Outer glow circle */}
+                            {/* Outer subtle glow */}
                             <circle
                               cx={x}
                               cy="100"
-                              r="28"
+                              r="35"
                               fill="#8b7355"
-                              opacity="0.1"
-                              className="group-hover:opacity-25 transition-opacity"
+                              opacity="0.05"
+                              className="group-hover:opacity-15 transition-all duration-300"
                             />
 
-                            {/* Main circle */}
+                            {/* Outer decorative ring */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="24"
+                              fill="none"
+                              stroke="#d4c5b0"
+                              strokeWidth="2"
+                              opacity="0.4"
+                              className="group-hover:opacity-70 group-hover:r-26 transition-all duration-300"
+                            />
+
+                            {/* Main circle with gradient effect */}
                             <circle
                               cx={x}
                               cy="100"
                               r="18"
-                              fill="white"
+                              fill="url(#circleGradient)"
                               stroke="#8b7355"
-                              strokeWidth="5"
+                              strokeWidth="3"
                               filter="url(#shadow)"
-                              className="group-hover:r-20 group-hover:stroke-[#a0826d] transition-all"
+                              className="group-hover:stroke-[#a0826d] group-hover:stroke-[4] transition-all duration-300"
                             />
 
-                            {/* Inner dot */}
+                            {/* Inner ring for depth */}
+                            <circle cx={x} cy="100" r="12" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5" />
+
+                            {/* Center dot with subtle glow */}
                             <circle
                               cx={x}
                               cy="100"
-                              r="8"
+                              r="6"
                               fill="#8b7355"
-                              className="group-hover:r-10 group-hover:fill-[#a0826d] transition-all"
+                              className="group-hover:r-8 group-hover:fill-[#a0826d] transition-all duration-300"
                               filter="url(#glow)"
                             />
 
