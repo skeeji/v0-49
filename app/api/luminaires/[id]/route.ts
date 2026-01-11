@@ -47,12 +47,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       console.log(`✅ Image luminaire trouvée par filename: ${imageUrl}`)
     }
 
-    let designerImageFilename = null
+    let designerImageFilename = luminaire.designerImageFilename || luminaire["Image designer (imagedesigner)"] || null
+
     const designerName = luminaire.designer || luminaire["Artiste / Dates"] || luminaire["Artiste, ca année"] || null
 
-    if (designerName) {
+    // Si pas d'image designer directement sur le luminaire, chercher dans la collection designers
+    if (!designerImageFilename && designerName) {
       try {
-        console.log(`[v0] Searching for designer: ${designerName}`)
+        console.log(`[v0] Searching for designer image in designers collection: ${designerName}`)
 
         // Chercher le designer dans la collection designers
         const designerDoc = await designersCollection.findOne({
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           designerImageFilename =
             designerDoc.imagedesigner || designerDoc.imageDesigner || designerDoc["Image du designer"] || null
           if (designerImageFilename) {
-            console.log(`✅ Image designer trouvée: ${designerImageFilename}`)
+            console.log(`✅ Image designer trouvée dans collection designers: ${designerImageFilename}`)
           } else {
             console.log(`⚠️ Designer trouvé mais sans image pour: ${designerName}`)
           }
@@ -79,6 +81,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         console.error(`⚠️ Erreur lors de la recherche du designer ${designerName}:`, designerError)
         // Ne pas faire échouer toute la requête si la recherche du designer échoue
       }
+    } else if (designerImageFilename) {
+      console.log(`✅ Image designer trouvée directement sur le luminaire: ${designerImageFilename}`)
     }
 
     console.log("✅ Luminaire trouvé:", luminaire.nom || luminaire["Nom luminaire"])

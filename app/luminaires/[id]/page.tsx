@@ -630,15 +630,16 @@ export default function LuminaireDetailPage() {
                 <ArrowRight className="w-5 h-5 text-gray-400" />
               </div>
 
-              {luminaire.description && (
+              {/* Description visible for all, editable only for admin */}
+              {(luminaire.description || canEdit) && (
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Description</h3>
                   <EditableField
-                    value={luminaire.description}
+                    value={luminaire.description || ""}
                     onSave={(val) => handleUpdate("description", val)}
                     multiline
                     className="text-sm text-gray-700 leading-relaxed"
-                    placeholder="Description du luminaire"
+                    placeholder={canEdit ? "Ajouter une description..." : "—"}
                     disabled={!canEdit}
                   />
                 </div>
