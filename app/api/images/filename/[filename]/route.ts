@@ -1,54 +1,60 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getBucket } from "@/lib/gridfs"
+import clientPromise from "@/lib/mongodb"
+import { GridFSBucket, type ObjectId } from "mongodb"
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function GET(request: NextRequest, { params }: { params: { filename: string } }) {
   try {
-    console.log("🖼️ API /api/images/filename/[filename] GET - Filename:", params.filename)
+    const filename = decodeURIComponent(params.filename)
+    console.log(`[v0] Fetching image: ${filename}`)
 
-    const bucket = await getBucket()
+    const client = await clientPromise
+    const db = client.db(DBNAME)
 
-    // Chercher le fichier par nom de fichier
-    const files = await bucket.find({ filename: params.filename }).toArray()
+    const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    if (files.length === 0) {
-      console.log("❌ Fichier non trouvé:", params.filename)
-      return NextResponse.json({ error: "Fichier non trouvé" }, { status: 404 })
+    const searchVariants = [
+      filename,
+      filename.toLowerCase(),
+      filename.toUpperCase(),
+      // Essayer sans extension si elle existe
+      filename.replace(/\.[^/.]+$/, ""),
+      // Essayer avec des extensions communes
+      `${filename.replace(/\.[^/.]+$/, "")}.jpg`,
+      `${filename.replace(/\.[^/.]+$/, "")}.jpeg`,
+      `${filename.replace(/\.[^/.]+$/, "")}.png`,
+    ]
+
+    console.log(`[v0] Searching with variants:`, searchVariants)
+
+    const files = await db
+      .collection("uploads.files")
+      .find({
+        $or: searchVariants.map((variant) => ({ filename: variant })),
+      })
+      .toArray()
+
+    if (!files || files.length === 0) {
+      console.error(`[v0] Image not found: ${filename}`)
+      console.log(`[v0] Searched variants:`, searchVariants)
+      return new NextResponse("Image not found", { status: 404 })
     }
 
     const file = files[0]
-    const downloadStream = bucket.openDownloadStreamByName(params.filename)
+    console.log(`[v0] Image found: ${file.filename}`)
 
-    // Convertir le stream en buffer
-    const chunks: Buffer[] = []
+    const downloadStream = bucket.openDownloadStream(file._id as ObjectId)
 
-    return new Promise<NextResponse>((resolve, reject) => {
-      downloadStream.on("data", (chunk) => {
-        chunks.push(chunk)
-      })
-
-      downloadStream.on("end", () => {
-        const buffer = Buffer.concat(chunks)
-        const contentType = file.contentType || "image/jpeg"
-
-        console.log("✅ Image servie par nom:", params.filename)
-
-        resolve(
-          new NextResponse(buffer, {
-            headers: {
-              "Content-Type": contentType,
-              "Cache-Control": "public, max-age=31536000, immutable",
-            },
-          }),
-        )
-      })
-
-      downloadStream.on("error", (error) => {
-        console.error("❌ Erreur stream:", error)
-        reject(new NextResponse("Erreur lors de la lecture du fichier", { status: 500 }))
-      })
+    // Stream the image
+    return new NextResponse(downloadStream as any, {
+      headers: {
+        "Content-Type": file.contentType || "image/jpeg",
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
     })
-  } catch (error) {
-    console.error("❌ Erreur API /api/images/filename/[filename]:", error)
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
+  } catch (error: any) {
+    console.error(`[v0] Error fetching image ${params.filename}:`, error)
+    return new NextResponse("Error fetching image", { status: 500 })
   }
 }

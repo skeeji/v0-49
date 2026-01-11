@@ -1,20 +1,55 @@
-// Fichier : lib/gridfs.ts
-import clientPromise from "./mongodb";
-import { GridFSBucket } from "mongodb";
+import { GridFSBucket, ObjectId } from "mongodb"
+import clientPromise from "./mongodb"
 
-let bucket: GridFSBucket;
+let bucket: GridFSBucket | null = null
 
-// Cette fonction prépare et retourne le "seau" de stockage
-export async function getBucket() {
-  if (bucket) {
-    return bucket;
+export async function getBucket(): Promise<GridFSBucket> {
+  if (!bucket) {
+    const client = await clientPromise
+    const db = client.db(process.env.MONGO_INITDB_DATABASE || "luminaires")
+    bucket = new GridFSBucket(db, { bucketName: "uploads" })
   }
+  return bucket
+}
 
-  const client = await clientPromise;
-  
-  // Important : client.db() utilise la base de données définie dans votre MONGODB_URI
-  const db = client.db(); 
-  
-  bucket = new GridFSBucket(db, { bucketName: 'images' });
-  return bucket;
+export async function uploadFile(filename: string, buffer: Buffer, contentType?: string): Promise<string> {
+  const bucket = await getBucket()
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = bucket.openUploadStream(filename, {
+      contentType: contentType || "application/octet-stream",
+    })
+
+    uploadStream.on("error", reject)
+    uploadStream.on("finish", () => {
+      resolve(uploadStream.id.toString())
+    })
+
+    uploadStream.end(buffer)
+  })
+}
+
+export async function getFile(fileId: string): Promise<Buffer> {
+  const bucket = await getBucket()
+
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+
+    const downloadStream = bucket.openDownloadStream(new ObjectId(fileId))
+
+    downloadStream.on("data", (chunk) => {
+      chunks.push(chunk)
+    })
+
+    downloadStream.on("end", () => {
+      resolve(Buffer.concat(chunks))
+    })
+
+    downloadStream.on("error", reject)
+  })
+}
+
+export async function deleteFile(fileId: string): Promise<void> {
+  const bucket = await getBucket()
+  await bucket.delete(new ObjectId(fileId))
 }

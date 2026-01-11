@@ -18,13 +18,10 @@ export function useAPI<T>(url: string, options?: RequestInit): APIResponse<T> {
     try {
       setLoading(true)
       setError(null)
-
       const response = await fetch(url, options)
-
       if (!response.ok) {
         throw new Error(`Erreur ${response.status}: ${response.statusText}`)
       }
-
       const result = await response.json()
       setData(result)
     } catch (err) {
@@ -48,7 +45,6 @@ export function useAPI<T>(url: string, options?: RequestInit): APIResponse<T> {
 
 export function useLuminaires(filters?: Record<string, any>) {
   const queryParams = new URLSearchParams()
-
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== "") {
@@ -62,7 +58,6 @@ export function useLuminaires(filters?: Record<string, any>) {
   }
 
   const url = `/api/luminaires${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
-
   return useAPI<{
     luminaires: any[]
     pagination: {

@@ -61,6 +61,7 @@ if (isFirebaseConfigured) {
 }
 
 export { auth, db, storage, googleProvider, isFirebaseConfigured }
+
 export type UserRole = "admin" | "premium" | "free"
 
 export interface UserData {

@@ -2,7 +2,6 @@
 function getEnvVar(key: string, fallback?: string): string {
   // Essayer d'abord process.env (variables système ou .env.local)
   const value = process.env[key]
-
   if (value) {
     return value
   }
@@ -22,7 +21,7 @@ function getEnvVar(key: string, fallback?: string): string {
 
 export const env = {
   // Variables MongoDB
-  MONGODB_URI: getEnvVar("MONGODB_URI", "mongodb://admin:admin123@localhost:27017/luminaires?authSource=admin"),
+  MONGODB_URI: process.env.MONGODB_URI || "mongodb://admin:admin123@localhost:27017/luminaires?authSource=admin",
 
   // Variables Firebase (critiques - pas de fallback)
   NEXT_PUBLIC_FIREBASE_API_KEY: getEnvVar("NEXT_PUBLIC_FIREBASE_API_KEY"),
@@ -33,11 +32,11 @@ export const env = {
   NEXT_PUBLIC_FIREBASE_APP_ID: getEnvVar("NEXT_PUBLIC_FIREBASE_APP_ID"),
 
   // Variables NextAuth
-  NEXTAUTH_URL: getEnvVar("NEXTAUTH_URL", "http://localhost:3000"),
-  NEXTAUTH_SECRET: getEnvVar("NEXTAUTH_SECRET", "development-secret-change-in-production"),
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
+  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || "dev-secret",
 
   // Variables application
-  NODE_ENV: getEnvVar("NODE_ENV", "development"),
+  NODE_ENV: process.env.NODE_ENV || "development",
   PORT: getEnvVar("PORT", "3000"),
   MAX_FILE_SIZE: getEnvVar("MAX_FILE_SIZE", "10485760"), // 10MB
   UPLOAD_DIR: getEnvVar("UPLOAD_DIR", "./uploads"),
@@ -50,8 +49,8 @@ export const env = {
   // Variables Mongo Express
   ME_CONFIG_MONGODB_ADMINUSERNAME: getEnvVar("ME_CONFIG_MONGODB_ADMINUSERNAME", "admin"),
   ME_CONFIG_MONGODB_ADMINPASSWORD: getEnvVar("ME_CONFIG_MONGODB_ADMINPASSWORD", "admin123"),
-  ME_CONFIG_BASICAUTH_USERNAME: getEnvVar("ME_CONFIG_BASICAUTH_USERNAME", "admin"),
-  ME_CONFIG_BASICAUTH_PASSWORD: getEnvVar("ME_CONFIG_BASICAUTH_PASSWORD", "admin123"),
+  ME_CONFIG_BASICAUTH_USERNAME: getEnvVar("ME_CONFIG_MONGODB_ADMINUSERNAME", "admin"),
+  ME_CONFIG_BASICAUTH_PASSWORD: getEnvVar("ME_CONFIG_MONGODB_ADMINPASSWORD", "admin123"),
 } as const
 
 // Validation simple au démarrage (côté serveur uniquement)

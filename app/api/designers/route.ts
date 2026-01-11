@@ -3,122 +3,70 @@ import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
-// Fonction pour extraire le nom du designer
-const getDesignerNameOnly = (str = ""): string => {
-  if (!str) return ""
-  return str.split("(")[0].trim()
-}
-
-// Fonction pour créer un slug à partir d'un nom
-const createSlug = (name: string): string => {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Supprimer les accents
-    .replace(/[^a-z0-9\s-]/g, "") // Garder seulement lettres, chiffres, espaces et tirets
-    .replace(/\s+/g, "-") // Remplacer espaces par tirets
-    .replace(/-+/g, "-") // Éviter les tirets multiples
-    .trim()
-}
-
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔍 API GET /api/designers appelée")
+    console.log("👨‍🎨 API /api/designers - Récupération des designers")
+
+    const { searchParams } = new URL(request.url)
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "50")
+    const search = searchParams.get("search") || ""
+
+    console.log(`📊 Paramètres designers: page=${page}, limit=${limit}, search="${search}"`)
 
     const client = await clientPromise
     const db = client.db(DBNAME)
+    const collection = db.collection("designers")
 
-    // Récupérer tous les luminaires pour extraire les designers
-    const luminaires = await db.collection("luminaires").find({}).toArray()
-    console.log(`📊 ${luminaires.length} luminaires trouvés`)
+    // Construire le filtre de recherche
+    const filter: any = {}
 
-    // Extraire et compter les designers
-    const designerCounts: { [key: string]: { name: string; count: number; slug: string } } = {}
-
-    luminaires.forEach((luminaire) => {
-      if (luminaire.designer) {
-        const designerName = getDesignerNameOnly(luminaire.designer)
-        const slug = createSlug(designerName)
-
-        if (designerCounts[designerName]) {
-          designerCounts[designerName].count++
-        } else {
-          designerCounts[designerName] = {
-            name: designerName,
-            count: 1,
-            slug: slug,
-          }
-        }
-      }
-    })
-
-    // Convertir en tableau et trier
-    const designers = Object.values(designerCounts).sort((a, b) => a.name.localeCompare(b.name))
-
-    console.log(`✅ ${designers.length} designers uniques trouvés`)
-
-    return NextResponse.json({
-      success: true,
-      designers: designers,
-      total: designers.length,
-    })
-  } catch (error: any) {
-    console.error("❌ Erreur dans GET /api/designers:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erreur serveur",
-        details: error.message,
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    console.log("➕ API POST /api/designers appelée")
-
-    const body = await request.json()
-    console.log("📥 Données reçues:", JSON.stringify(body, null, 2))
-
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-
-    // Préparer les données du designer
-    const designer = {
-      nom: body.nom || "",
-      slug: body.slug || createSlug(body.nom || ""),
-      biographie: body.biographie || "",
-      dateNaissance: body.dateNaissance || "",
-      dateDeces: body.dateDeces || "",
-      nationalite: body.nationalite || "",
-      image: body.image || "",
-      luminairesCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    if (search) {
+      filter.$or = [
+        { nom: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { biographie: { $regex: search, $options: "i" } },
+      ]
     }
 
-    console.log("💾 Designer à insérer:", JSON.stringify(designer, null, 2))
+    console.log("🔍 Filtre MongoDB designers:", JSON.stringify(filter))
 
-    const result = await db.collection("designers").insertOne(designer)
-    console.log(`✅ Designer inséré avec l'ID: ${result.insertedId}`)
+    // Compter le total
+    const total = await collection.countDocuments(filter)
+    console.log(`📊 Total designers trouvés: ${total}`)
 
-    return NextResponse.json({
+    // Récupérer les designers avec pagination
+    const skip = (page - 1) * limit
+    const designers = await collection.find(filter).sort({ nom: 1 }).skip(skip).limit(limit).toArray()
+
+    console.log(`📊 ${designers.length} designers récupérés pour la page ${page}`)
+
+    // Formater les designers pour l'affichage
+    const formattedDesigners = designers.map((designer) => ({
+      ...designer,
+      id: designer._id.toString(),
+      image: designer.imagedesigner ? `/api/images/filename/${designer.imagedesigner}` : null,
+    }))
+
+    const response = {
       success: true,
-      message: "Designer créé avec succès",
-      id: result.insertedId.toString(),
-      designer: {
-        ...designer,
-        _id: result.insertedId.toString(),
+      designers: formattedDesigners,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasMore: page * limit < total,
       },
-    })
+    }
+
+    return NextResponse.json(response)
   } catch (error: any) {
-    console.error("❌ Erreur dans POST /api/designers:", error)
+    console.error("❌ Erreur API /api/designers:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de la création du designer",
+        error: "Erreur lors de la récupération des designers",
         details: error.message,
       },
       { status: 500 },

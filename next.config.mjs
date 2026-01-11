@@ -1,12 +1,39 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   experimental: {
-    outputFileTracingRoot: process.cwd(),
+    serverComponentsExternalPackages: ['mongodb']
   },
-  images: {
-    domains: ['localhost'],
-    unoptimized: true,
+  // Configuration pour les uploads de fichiers volumineux
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb', // Limite à 50MB
+    },
+  },
+  // Configuration pour les requêtes
+  serverRuntimeConfig: {
+    maxDuration: 300, // 5 minutes timeout
+  },
+  // Headers pour les uploads
+  async headers() {
+    return [
+      {
+        source: '/api/upload/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
+          },
+        ],
+      },
+    ]
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -14,8 +41,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  images: {
+    unoptimized: true,
   },
 }
 

@@ -3,135 +3,157 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Menu, X, Search, User } from "lucide-react"
+import { usePathname } from "next/navigation"
+import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DrawerNav } from "@/components/DrawerNav"
-import { LoginModal } from "@/components/LoginModal"
-import { UserMenu } from "@/components/UserMenu"
 import { useAuth } from "@/contexts/AuthContext"
+import { UserMenu } from "@/components/UserMenu"
 
 export function Header() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
-  const { user, logout } = useAuth()
+  const [logoUrl, setLogoUrl] = useState("/placeholder-logo.svg")
+  const { user, userData, signInWithGoogle } = useAuth()
+  const pathname = usePathname()
 
-  // Charger le logo personnalisé
   useEffect(() => {
-    async function loadLogo() {
+    const loadLogo = async () => {
       try {
         const response = await fetch("/api/logo")
         if (response.ok) {
-          const logoBlob = await response.blob()
-          const logoObjectUrl = URL.createObjectURL(logoBlob)
-          setLogoUrl(logoObjectUrl)
+          const contentType = response.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const data = await response.json()
+            if (data.success && data.logo && data.logo._id) {
+              setLogoUrl(`/api/images/${data.logo._id}`)
+            }
+          } else {
+            setLogoUrl("/api/logo")
+          }
         }
       } catch (error) {
-        console.log("Aucun logo personnalisé trouvé, utilisation du logo par défaut")
+        console.error("Erreur lors du chargement du logo:", error)
+        setLogoUrl("/placeholder-logo.svg")
       }
     }
 
     loadLogo()
-
-    // Nettoyer l'URL d'objet lors du démontage
-    return () => {
-      if (logoUrl) {
-        URL.revokeObjectURL(logoUrl)
-      }
-    }
   }, [])
 
-  const toggleDrawer = () => {
-    setIsDrawerOpen(!isDrawerOpen)
+  const navItems = [
+    { href: "/recherche", label: "Recherche" },
+    { href: "/luminaires", label: "Luminaires" },
+    { href: "/designers", label: "Designers" },
+    { href: "/chronologie", label: "Chronologie" },
+    { href: "/pricing", label: "Tarifs" },
+  ]
+
+  if (userData?.role === "admin") {
+    navItems.push({ href: "/import", label: "Import" })
   }
 
-  const handleLoginClick = () => {
-    setIsLoginModalOpen(true)
+  const isActivePage = (href: string) => {
+    return pathname === href || pathname.startsWith(href + "/")
   }
 
-  const handleLogout = () => {
-    logout()
-  }
+  const leftNavItems = navItems.slice(0, 3)
+  const rightNavItems = navItems.slice(3)
 
   return (
     <>
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="container-responsive">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center">
-              {logoUrl ? (
+      <header
+        className="bg-[#F8F8F8] shadow-sm border-b border-gray-200 sticky top-0 z-40"
+        style={{
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+        }}
+      >
+        <div className="container mx-auto px-6 py-4 md:py-6">
+          <div className="flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] md:gap-12">
+            {/* Navigation gauche - desktop only */}
+            <nav className="hidden md:flex items-center justify-end space-x-8">
+              {leftNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`hover:text-[#8b7355] font-normal transition-colors no-underline ${
+                    isActivePage(item.href) ? "text-[#8b7355]" : "text-[#666666]"
+                  }`}
+                  style={{ fontSize: "16px", textDecoration: "none" }}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            <Link href="/" className="flex items-center justify-center no-underline">
+              <div className="w-28 h-12 md:w-40 md:h-16 relative">
                 <Image
                   src={logoUrl || "/placeholder.svg"}
                   alt="Logo"
-                  width={120}
-                  height={40}
-                  className="h-8 w-auto object-contain"
-                  onError={() => {
-                    console.log("Erreur chargement logo personnalisé, fallback vers le texte")
-                    setLogoUrl(null)
+                  fill
+                  className="object-contain"
+                  priority
+                  unoptimized
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder-logo.svg"
                   }}
                 />
-              ) : (
-                <span className="text-2xl font-playfair text-dark">GERSAINT PARIS</span>
-              )}
+              </div>
             </Link>
 
-            {/* Navigation Desktop */}
-            <nav className="hidden md:flex items-center space-x-8">
-              <Link href="/luminaires" className="text-gray-700 hover:text-orange-500 transition-colors">
-                Luminaires
-              </Link>
-              <Link href="/designers" className="text-gray-700 hover:text-orange-500 transition-colors">
-                Designers
-              </Link>
-              <Link href="/chronologie" className="text-gray-700 hover:text-orange-500 transition-colors">
-                Chronologie
-              </Link>
-            </nav>
-
-            {/* Actions Desktop */}
-            <div className="hidden md:flex items-center space-x-4">
-              <Link href="/luminaires">
-                <Button variant="ghost" size="sm" className="text-gray-700 hover:text-orange-500">
-                  <Search className="w-4 h-4" />
-                </Button>
-              </Link>
+            {/* Navigation droite et actions - desktop */}
+            <div className="hidden md:flex items-center justify-start space-x-8">
+              {rightNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`hover:text-[#8b7355] font-normal transition-colors no-underline ${
+                    isActivePage(item.href) ? "text-[#8b7355]" : "text-[#666666]"
+                  }`}
+                  style={{ fontSize: "16px", textDecoration: "none" }}
+                >
+                  {item.label}
+                </Link>
+              ))}
 
               {user ? (
-                <UserMenu user={user} onLogout={handleLogout} />
+                <UserMenu />
               ) : (
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLoginClick}
-                  className="text-gray-700 hover:text-orange-500"
+                  onClick={signInWithGoogle}
+                  className="text-white font-semibold px-5 py-2 rounded-lg transition-all duration-200 hover:shadow-lg border border-[#8b7355] no-underline"
+                  style={{
+                    backgroundColor: "#8b7355",
+                    fontSize: "16px",
+                    textDecoration: "none",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#75614a")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
                 >
-                  <User className="w-4 h-4 mr-2" />
                   Connexion
                 </Button>
               )}
             </div>
 
-            {/* Menu Mobile */}
-            <Button variant="ghost" size="sm" className="md:hidden" onClick={toggleDrawer}>
-              {isDrawerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
+            {/* Actions mobile */}
+            <div className="flex items-center space-x-4 md:hidden">
+              {user && <UserMenu />}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[#666666]"
+                onClick={() => setIsDrawerOpen(true)}
+                aria-label="Ouvrir le menu"
+              >
+                <Menu className="w-6 h-6" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Drawer Navigation Mobile */}
-      <DrawerNav
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        user={user}
-        onLoginClick={handleLoginClick}
-        onLogout={handleLogout}
-      />
-
-      {/* Login Modal */}
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      <DrawerNav isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} navItems={navItems} />
     </>
   )
 }

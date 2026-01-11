@@ -1,89 +1,68 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { getBucket } from "@/lib/gridfs"
+import { getDatabase } from "@/lib/mongodb"
+import { uploadFile } from "@/lib/gridfs"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("🏷️ Début de l'upload du logo...")
+    console.log("🖼️ API upload/logo: Début upload logo")
 
     const formData = await request.formData()
-    const logoFile = formData.get("logo") as File
+    const file = formData.get("logo") as File
 
-    if (!logoFile) {
-      return NextResponse.json({ success: false, error: "Aucun fichier logo fourni" }, { status: 400 })
+    if (!file) {
+      return NextResponse.json({ success: false, error: "Aucun fichier logo fourni" })
     }
 
-    console.log(`📁 Fichier logo reçu: ${logoFile.name}, taille: ${logoFile.size} bytes`)
+    console.log(`📁 Fichier logo reçu: ${file.name}, taille: ${file.size} bytes, type: ${file.type}`)
 
-    // Vérifier que c'est une image
-    if (!logoFile.type.startsWith("image/")) {
-      return NextResponse.json({ success: false, error: "Le fichier doit être une image" }, { status: 400 })
+    // Vérifier le type de fichier
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ success: false, error: "Le fichier doit être une image" })
     }
 
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const bucket = await getBucket()
+    const db = await getDatabase()
 
-    // Supprimer l'ancien logo s'il existe
-    try {
-      const existingLogo = await db.collection("settings").findOne({ type: "logo" })
-      if (existingLogo && existingLogo.fileId) {
-        await bucket.delete(existingLogo.fileId)
-        console.log("🗑️ Ancien logo supprimé")
-      }
-    } catch (error) {
-      console.warn("⚠️ Aucun ancien logo à supprimer")
+    // Supprimer l'ancien logo s'il y en a un
+    const oldLogo = await db.collection("logos").findOne({})
+    if (oldLogo) {
+      console.log("🗑️ Suppression de l'ancien logo")
+      await db.collection("logos").deleteOne({ _id: oldLogo._id })
+      // TODO: Supprimer aussi le fichier GridFS
     }
 
-    // Uploader le nouveau logo dans GridFS
-    const logoBuffer = Buffer.from(await logoFile.arrayBuffer())
-    const uploadStream = bucket.openUploadStream(logoFile.name, {
-      metadata: {
-        type: "logo",
-        originalName: logoFile.name,
-        contentType: logoFile.type,
-        uploadedAt: new Date(),
-      },
-    })
+    // Convertir le fichier en buffer
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    await new Promise((resolve, reject) => {
-      uploadStream.end(logoBuffer, (error) => {
-        if (error) reject(error)
-        else resolve(uploadStream.id)
-      })
-    })
+    // Uploader vers GridFS
+    console.log("📤 Upload vers GridFS...")
+    const fileId = await uploadFile(file.name, buffer, file.type)
+    console.log("✅ Fichier uploadé vers GridFS, ID:", fileId)
 
-    console.log(`✅ Logo uploadé avec l'ID: ${uploadStream.id}`)
+    // Sauvegarder les métadonnées en base
+    const logoDoc = {
+      filename: file.name,
+      fileId: fileId,
+      contentType: file.type,
+      size: file.size,
+      uploadDate: new Date(),
+    }
 
-    // Sauvegarder les métadonnées du logo
-    await db.collection("settings").replaceOne(
-      { type: "logo" },
-      {
-        type: "logo",
-        fileId: uploadStream.id,
-        filename: logoFile.name,
-        contentType: logoFile.type,
-        size: logoFile.size,
-        uploadedAt: new Date(),
-      },
-      { upsert: true },
-    )
+    const result = await db.collection("logos").insertOne(logoDoc)
+    console.log("✅ Métadonnées logo sauvegardées, ID:", result.insertedId)
 
     return NextResponse.json({
       success: true,
       message: "Logo uploadé avec succès",
-      filename: logoFile.name,
-      fileId: uploadStream.id,
+      logoId: result.insertedId,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ Erreur upload logo:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Erreur lors de l'upload du logo",
-        details: error.message,
+        error: error.message,
       },
       { status: 500 },
     )

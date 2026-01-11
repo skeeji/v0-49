@@ -1,7 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { TimelineBlock } from "@/components/TimelineBlock"
+import { useState, useEffect, useRef } from "react"
+import { useAuth } from "@/contexts/AuthContext"
+import Image from "next/image"
+import Link from "next/link"
+import { EditableField } from "@/components/EditableField"
+import { MobileFooter } from "@/components/MobileFooter"
 
 const periods = [
   {
@@ -107,7 +111,13 @@ const periods = [
 export default function ChronologiePage() {
   const [timelineData, setTimelineData] = useState<any[]>([])
   const [descriptions, setDescriptions] = useState<{ [key: string]: string }>({})
+  const [periodImages, setPeriodImages] = useState<{ [key: string]: string }>({})
   const [isLoading, setIsLoading] = useState(true)
+  const { userData } = useAuth()
+  const [scrollPosition, setScrollPosition] = useState(0)
+  const timelineRef = useRef<HTMLDivElement>(null)
+
+  const canEdit = userData?.role === "admin"
 
   useEffect(() => {
     const savedDescriptions = JSON.parse(localStorage.getItem("timeline-descriptions") || "{}")
@@ -116,24 +126,49 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true)
       try {
-        const response = await fetch("/api/luminaires")
+        const response = await fetch("/api/luminaires?limit=10000")
         const data = await response.json()
 
+        const imagesResponse = await fetch("/api/period-images")
+        const imagesData = await imagesResponse.json()
+
+        if (imagesData.success) {
+          setPeriodImages(imagesData.images)
+        }
+
         if (data.success && data.luminaires) {
-          // CORRECTION: Adapter les données et ne pas mettre 2025 par défaut
-          const adaptedLuminaires = data.luminaires.map((lum: any) => ({
-            ...lum,
-            id: lum._id,
-            image: lum.images?.[0],
-            year: lum.annee && !isNaN(Number(lum.annee)) ? Number(lum.annee) : null, // Ne pas mettre 2025 par défaut
-            artist: lum.designer,
-          }))
+          const adaptedLuminaires = data.luminaires.map((lum: any) => {
+            let year = null
+            const anneeValue = lum.annee || lum.Année || lum.year
+
+            if (anneeValue) {
+              const numYear = typeof anneeValue === "number" ? anneeValue : Number.parseInt(anneeValue)
+              if (!isNaN(numYear) && numYear > 1000 && numYear < 2100) {
+                year = numYear
+              }
+            }
+
+            let imageUrl = null
+            if (lum.fileId) {
+              imageUrl = `/api/images/${lum.fileId}`
+            } else if (lum.filename || lum["Nom du fichier"]) {
+              const filename = lum.filename || lum["Nom du fichier"]
+              imageUrl = `/api/images/filename/${encodeURIComponent(filename)}`
+            }
+
+            return {
+              ...lum,
+              id: lum._id,
+              image: imageUrl,
+              year: year,
+              artist: lum["Artiste / Dates"] || lum.designer || "",
+              name: lum["Nom luminaire"] || lum.nom || "Sans nom",
+            }
+          })
 
           const grouped = periods.map((period) => {
             const periodLuminaires = adaptedLuminaires.filter((luminaire: any) => {
-              // CORRECTION: Ignorer les luminaires sans année valide
-              if (!luminaire.year || luminaire.year === null) return false
-              return luminaire.year >= period.start && luminaire.year <= period.end
+              return luminaire.year !== null && luminaire.year >= period.start && luminaire.year <= period.end
             })
 
             const sortedLuminaires = [...periodLuminaires].sort((a: any, b: any) => (a.year || 0) - (b.year || 0))
@@ -142,6 +177,7 @@ export default function ChronologiePage() {
               ...period,
               description: savedDescriptions[period.name] || period.defaultDescription,
               luminaires: sortedLuminaires,
+              imageUrl: imagesData.success ? imagesData.images[period.name] : null,
             }
           })
 
@@ -153,11 +189,13 @@ export default function ChronologiePage() {
         setIsLoading(false)
       }
     }
+
     fetchAndProcessData()
   }, [])
 
   useEffect(() => {
     if (isLoading) return
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -168,44 +206,441 @@ export default function ChronologiePage() {
       },
       { threshold: 0.1 },
     )
+
     const elements = document.querySelectorAll(".scroll-reveal")
     elements.forEach((el) => observer.observe(el))
+
     return () => observer.disconnect()
   }, [timelineData, isLoading])
 
   const updateDescription = (periodName: string, newDescription: string) => {
+    if (!canEdit) return
+
     const updatedDescriptions = { ...descriptions, [periodName]: newDescription }
     setDescriptions(updatedDescriptions)
     localStorage.setItem("timeline-descriptions", JSON.stringify(updatedDescriptions))
+
     setTimelineData((prev) =>
       prev.map((period) => (period.name === periodName ? { ...period, description: newDescription } : period)),
     )
   }
 
+  const scrollTimeline = (direction: "left" | "right") => {
+    if (timelineRef.current) {
+      const scrollAmount = 400
+      const newPosition =
+        direction === "left" ? Math.max(0, scrollPosition - scrollAmount) : scrollPosition + scrollAmount
+
+      timelineRef.current.scrollTo({
+        left: newPosition,
+        behavior: "smooth",
+      })
+      setScrollPosition(newPosition)
+    }
+  }
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <p>Chargement...</p>
+      <div className="min-h-screen bg-[#f5f1e8] pb-20">
+        <div className="container mx-auto px-4 py-16">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl font-serif text-gray-900 mb-4">Chronologie des Périodes Artistiques</h1>
+            <p className="text-gray-600 mb-8">Explorez les luminaires à travers le temps</p>
+          </div>
+
+          <div className="max-w-6xl mx-auto mb-12">
+            <div className="relative">
+              {/* Timeline line */}
+              <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-300 transform -translate-y-1/2" />
+
+              {/* Period markers */}
+              <div className="relative flex justify-between items-center">
+                {[
+                  { name: "Moyen-âge", start: 1000 },
+                  { name: "Renaissance", start: 1500 },
+                  { name: "Baroque", start: 1600 },
+                  { name: "Classique", start: 1700 },
+                  { name: "Romantique", start: 1800 },
+                  { name: "Art Nouveau", start: 1890 },
+                  { name: "Art Déco", start: 1920 },
+                  { name: "Moderne", start: 1950 },
+                  { name: "Contemporain", start: 2000 },
+                ].map((period, index) => (
+                  <div key={index} className="flex flex-col items-center group cursor-pointer">
+                    <div className="w-4 h-4 rounded-full bg-[#8b7355] mb-2 group-hover:scale-125 transition-transform relative z-10" />
+                    <span className="text-xs text-gray-600 text-center max-w-[80px] group-hover:text-[#8b7355] transition-colors">
+                      {period.name}
+                    </span>
+                    <span className="text-xs text-gray-400 mt-1">{period.start}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8b7355] mx-auto mb-4" />
+            <p className="font-serif text-gray-700">Chargement de la chronologie...</p>
+          </div>
+        </div>
+        <MobileFooter />
       </div>
     )
   }
 
+  const totalLuminaires = timelineData.reduce((sum, period) => sum + period.luminaires.length, 0)
+
   return (
-    <div className="container-responsive py-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-playfair text-dark mb-12 text-center">Chronologie des Périodes Artistiques</h1>
-        <div className="space-y-16">
-          {timelineData.map((period, index) => (
-            <TimelineBlock
-              key={period.name}
-              period={period}
-              isLeft={index % 2 === 0}
-              className="scroll-reveal"
-              onDescriptionUpdate={updateDescription}
-            />
-          ))}
+    <div className="min-h-screen bg-[#f5f1e8] pb-20">
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl md:text-4xl font-serif text-gray-900 mb-2 text-center">
+            Chronologie des Périodes Artistiques
+          </h1>
+          <p className="text-center text-gray-600 mb-8 font-serif">
+            {totalLuminaires} luminaires classés par période historique
+          </p>
+
+          <div className="mb-10 relative">
+            {/* Left arrow button */}
+            <button
+              onClick={() => scrollTimeline("left")}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-[#8b7355] hover:text-white hover:border-[#8b7355] transition-all group disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Précédent"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2.5}
+                stroke="currentColor"
+                className="w-6 h-6"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+
+            {/* Right arrow button */}
+            <button
+              onClick={() => scrollTimeline("right")}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-[#8b7355] hover:text-white hover:border-[#8b7355] transition-all group disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Suivant"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2.5}
+                stroke="currentColor"
+                className="w-6 h-6"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+
+            {/* Timeline container without scrollbar */}
+            <div className="max-w-6xl mx-auto px-16">
+              <div
+                ref={timelineRef}
+                className="overflow-x-auto scrollbar-hide py-12"
+                style={{
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                }}
+              >
+                <style jsx>{`
+                  div::-webkit-scrollbar {
+                    display: none;
+                  }
+                `}</style>
+                <div className="min-w-[1600px]">
+                  <svg viewBox="0 0 1600 200" className="w-full h-auto">
+                    <defs>
+                      {/* Central line with elegant gradient */}
+                      <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style={{ stopColor: "#6b5644", stopOpacity: 1 }} />
+                        <stop offset="25%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
+                        <stop offset="50%" style={{ stopColor: "#a0826d", stopOpacity: 1 }} />
+                        <stop offset="75%" style={{ stopColor: "#b8a08a", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#d4c5b0", stopOpacity: 1 }} />
+                      </linearGradient>
+                      <filter id="shadow">
+                        <feDropShadow dx="0" dy="3" stdDeviation="4" floodOpacity="0.25" />
+                      </filter>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                        <feMerge>
+                          <feMergeNode in="coloredBlur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+
+                      {/* Gradient definitions for each period */}
+                      <radialGradient id="periodGradient0" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#4a3f35", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#6b5644", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient1" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#5a4a3d", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#7a6551", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient2" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#6a5544", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#8b7355", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient3" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#75604e", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#957e68", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient4" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#806b58", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#a0826d", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient5" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#8a7562", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#aa8e78", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient6" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#95806c", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#b59a82", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient7" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#9f8a76", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#bfa58c", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient8" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#a99580", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#c9b096", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient9" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#b3a08a", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#d3bba0", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient10" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#bdaa94", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#ddc6aa", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient11" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#c7b59e", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#e7d1b4", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient12" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#d1c0a8", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#f1dcbe", stopOpacity: 1 }} />
+                      </radialGradient>
+                      <radialGradient id="periodGradient13" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style={{ stopColor: "#dbcbb2", stopOpacity: 1 }} />
+                        <stop offset="100%" style={{ stopColor: "#fbe7c8", stopOpacity: 1 }} />
+                      </radialGradient>
+                    </defs>
+
+                    {/* Central elegant line through all periods */}
+                    <line
+                      x1="100"
+                      y1="100"
+                      x2="1500"
+                      y2="100"
+                      stroke="url(#lineGradient)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      opacity="0.8"
+                    />
+
+                    {/* Period markers with gradient from dark to light */}
+                    {timelineData.map((period, index) => {
+                      const x = 100 + (index * 1400) / (timelineData.length - 1)
+                      return (
+                        <g key={period.name} className="cursor-pointer group">
+                          <a href={`#${period.name}`}>
+                            {/* Outer glow that intensifies on hover */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="28"
+                              fill={`url(#periodGradient${index})`}
+                              opacity="0.15"
+                              className="group-hover:opacity-30 group-hover:r-32 transition-all duration-300"
+                            />
+
+                            {/* Main circle with period-specific gradient */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="20"
+                              fill={`url(#periodGradient${index})`}
+                              stroke="white"
+                              strokeWidth="3"
+                              filter="url(#shadow)"
+                              className="group-hover:r-22 group-hover:stroke-[4] transition-all duration-300"
+                            />
+
+                            {/* Inner highlight ring */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="14"
+                              fill="none"
+                              stroke="white"
+                              strokeWidth="1.5"
+                              opacity="0.4"
+                              className="group-hover:opacity-70 transition-opacity duration-300"
+                            />
+
+                            {/* Center dot with glow effect */}
+                            <circle
+                              cx={x}
+                              cy="100"
+                              r="6"
+                              fill="white"
+                              className="group-hover:r-8 transition-all duration-300"
+                              filter="url(#glow)"
+                              opacity="0.9"
+                            />
+
+                            {/* Period name */}
+                            <text
+                              x={x}
+                              y="150"
+                              textAnchor="middle"
+                              className="text-[15px] font-semibold fill-gray-800 group-hover:fill-[#8b7355] group-hover:text-[16px] transition-all"
+                              style={{ fontFamily: "serif" }}
+                            >
+                              {period.name}
+                            </text>
+
+                            {/* Period date range */}
+                            <text
+                              x={x}
+                              y="170"
+                              textAnchor="middle"
+                              className="text-[13px] fill-gray-500 group-hover:fill-[#8b7355] transition-colors"
+                            >
+                              {period.start}-{period.end}
+                            </text>
+
+                            {/* Elegant tooltip on hover */}
+                            <g className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <rect
+                                x={x - 80}
+                                y="20"
+                                width="160"
+                                height="55"
+                                rx="12"
+                                fill="white"
+                                stroke={`url(#periodGradient${index})`}
+                                strokeWidth="2"
+                                filter="url(#shadow)"
+                              />
+                              <text
+                                x={x}
+                                y="42"
+                                textAnchor="middle"
+                                className="text-[14px] font-bold fill-[#8b7355]"
+                                style={{ fontFamily: "serif" }}
+                              >
+                                {period.name}
+                              </text>
+                              <text x={x} y="60" textAnchor="middle" className="text-[12px] fill-gray-600">
+                                {period.luminaires.length} luminaires
+                              </text>
+                            </g>
+                          </a>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {timelineData.map((period, index) => (
+              <div
+                key={period.name}
+                id={period.name}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden scroll-reveal"
+              >
+                <div className="md:flex">
+                  {/* Image de la période */}
+                  <div className="md:w-2/5 aspect-[4/3] md:aspect-auto relative bg-gray-100 overflow-hidden">
+                    {period.imageUrl ? (
+                      <Image
+                        src={period.imageUrl || "/placeholder.svg"}
+                        alt={period.name}
+                        fill
+                        className="object-cover rounded-l-2xl"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <div className="text-6xl">🎨</div>
+                      </div>
+                    )}
+                    {/* Badge de la période */}
+                    <div
+                      className="absolute bottom-4 left-4 px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide text-white"
+                      style={{ backgroundColor: "#8b7355" }}
+                    >
+                      {period.name}
+                    </div>
+                  </div>
+
+                  {/* Contenu de la carte */}
+                  <div className="md:w-3/5 p-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm text-gray-600">
+                        {period.start} - {period.end}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900">{period.luminaires.length} luminaires</span>
+                    </div>
+
+                    <h2 className="text-2xl font-serif text-gray-900 mb-3">{period.name}</h2>
+
+                    <EditableField
+                      value={period.description}
+                      onSave={(newDesc) => updateDescription(period.name, newDesc)}
+                      multiline
+                      disabled={!canEdit}
+                      className="text-sm text-gray-700 leading-relaxed mb-4"
+                    />
+
+                    {period.luminaires.length > 0 && (
+                      <div className="flex gap-2 mb-4">
+                        {period.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
+                          <Link
+                            key={idx}
+                            href={`/luminaires/${luminaire.id}`}
+                            className="w-16 h-16 relative bg-gray-100 rounded-lg overflow-hidden hover:ring-2 hover:ring-[#f2d895] transition-all"
+                          >
+                            {luminaire.image && (
+                              <Image
+                                src={luminaire.image || "/placeholder.svg"}
+                                alt={luminaire.name}
+                                fill
+                                className="object-cover rounded-lg"
+                                unoptimized
+                              />
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+
+                    <Link href={`/luminaires?yearMin=${period.start}&yearMax=${period.end}`}>
+                      <button className="w-full py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                        Voir les {period.luminaires.length} luminaires
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      <MobileFooter />
     </div>
   )
 }

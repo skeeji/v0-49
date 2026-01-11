@@ -1,71 +1,57 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { getBucket } from "@/lib/gridfs"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
-    console.log(`🎥 Récupération de la vidéo: ${id}`)
+    console.log("🎥 API videos/[id]: Récupération vidéo ID:", params.id)
 
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, error: "ID vidéo invalide" }, { status: 400 })
-    }
-
+    const db = await getDatabase()
     const bucket = await getBucket()
-    const objectId = new ObjectId(id)
 
-    // Vérifier que le fichier existe
-    const fileInfo = await bucket.find({ _id: objectId }).toArray()
-    if (fileInfo.length === 0) {
-      return NextResponse.json({ success: false, error: "Vidéo non trouvée" }, { status: 404 })
+    // Chercher la vidéo par ID
+    const video = await db.collection("videos").findOne({ _id: new ObjectId(params.id) })
+
+    if (!video) {
+      console.log("❌ Vidéo non trouvée")
+      return NextResponse.json({ error: "Vidéo non trouvée" }, { status: 404 })
     }
 
-    const file = fileInfo[0]
-    console.log(`📁 Fichier trouvé: ${file.filename}, taille: ${file.length} bytes`)
+    console.log("📁 Vidéo trouvée, récupération du fichier GridFS:", video.fileId)
 
-    // Créer un stream de lecture depuis GridFS
-    const downloadStream = bucket.openDownloadStream(objectId)
+    // Récupérer le fichier depuis GridFS
+    const downloadStream = bucket.openDownloadStream(new ObjectId(video.fileId))
 
-    // Gérer les erreurs du stream
-    downloadStream.on("error", (error) => {
-      console.error("❌ Erreur stream vidéo:", error)
-    })
+    // Convertir le stream en buffer
+    const chunks: Buffer[] = []
 
-    // Convertir le stream en Response
-    const readableStream = new ReadableStream({
-      start(controller) {
-        downloadStream.on("data", (chunk) => {
-          controller.enqueue(new Uint8Array(chunk))
+    return new Promise((resolve, reject) => {
+      downloadStream.on("data", (chunk) => {
+        chunks.push(chunk)
+      })
+
+      downloadStream.on("end", () => {
+        const buffer = Buffer.concat(chunks)
+        console.log("✅ Vidéo récupérée, taille:", buffer.length, "bytes")
+
+        const response = new NextResponse(buffer, {
+          headers: {
+            "Content-Type": video.contentType || "video/mp4",
+            "Content-Length": buffer.length.toString(),
+            "Cache-Control": "public, max-age=31536000",
+          },
         })
+        resolve(response)
+      })
 
-        downloadStream.on("end", () => {
-          controller.close()
-        })
-
-        downloadStream.on("error", (error) => {
-          controller.error(error)
-        })
-      },
+      downloadStream.on("error", (error) => {
+        console.error("❌ Erreur lecture GridFS:", error)
+        reject(NextResponse.json({ error: "Erreur lecture fichier" }, { status: 500 }))
+      })
     })
-
-    // Retourner la vidéo avec les bons headers
-    return new NextResponse(readableStream, {
-      headers: {
-        "Content-Type": file.metadata?.contentType || "video/mp4",
-        "Content-Length": file.length.toString(),
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "public, max-age=31536000",
-      },
-    })
-  } catch (error: any) {
-    console.error("❌ Erreur récupération vidéo:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erreur lors de la récupération de la vidéo",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+  } catch (error) {
+    console.error("❌ Erreur API videos/[id]:", error)
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }
