@@ -578,13 +578,13 @@ export default function LuminaireDetailPage() {
                   />
                 </div>
 
-                {canSeeEstimation && (luminaire.estimation || canEdit) && (
+                {canSeeEstimation && luminaire.estimation && (
                   <div className="text-right">
                     <div className="text-xs text-gray-500 mb-1">Estimation</div>
                     <EditableField
-                      value={luminaire.estimation || ""}
+                      value={luminaire.estimation}
                       onSave={(val) => handleUpdate("estimation", val)}
-                      className="text-xl font-semibold text-gray-900
+                      className="text-xl font-semibold text-gray-900"
                       placeholder="Prix"
                       disabled={!canEdit}
                     />
