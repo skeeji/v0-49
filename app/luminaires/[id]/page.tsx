@@ -149,20 +149,20 @@ export default function LuminaireDetailPage() {
           const currentMaterials = current.materials
             .toLowerCase()
             .split(/[,\s]+/)
-            .filter((m) => m.length > 2)
+            .filter((m: string) => m.length > 2)
           const itemMaterials = Array.isArray(item.materiaux)
             ? item.materiaux
                 .join(", ")
                 .toLowerCase()
                 .split(/[,\s]+/)
-                .filter((m) => m.length > 2)
+                .filter((m: string) => m.length > 2)
             : String(item.materiaux || "")
                 .toLowerCase()
                 .split(/[,\s]+/)
-                .filter((m) => m.length > 2)
+                .filter((m: string) => m.length > 2)
 
-          const commonMaterials = currentMaterials.filter((mat) =>
-            itemMaterials.some((itemMat) => itemMat.includes(mat) || mat.includes(itemMat)),
+          const commonMaterials = currentMaterials.filter((mat: string) =>
+            itemMaterials.some((itemMat: string) => itemMat.includes(mat) || mat.includes(itemMat)),
           )
           score += commonMaterials.length * 15
         }
@@ -181,13 +181,13 @@ export default function LuminaireDetailPage() {
           const currentWords = current.name
             .toLowerCase()
             .split(/\s+/)
-            .filter((w) => w.length > 3)
+            .filter((w: string) => w.length > 3)
           const itemWords = String(item["Nom luminaire"])
             .toLowerCase()
             .split(/\s+/)
-            .filter((w) => w.length > 3)
-          const commonWords = currentWords.filter((word) =>
-            itemWords.some((itemWord) => itemWord.includes(word) || word.includes(itemWord)),
+            .filter((w: string) => w.length > 3)
+          const commonWords = currentWords.filter((word: string) =>
+            itemWords.some((itemWord: string) => itemWord.includes(word) || word.includes(itemWord)),
           )
           score += commonWords.length * 8
         }
@@ -578,11 +578,12 @@ export default function LuminaireDetailPage() {
                   />
                 </div>
 
-                {canSeeEstimation && luminaire.estimation && (
+                {/* MODIFICATION ICI : canSeeEstimation && (luminaire.estimation || canEdit) */}
+                {canSeeEstimation && (luminaire.estimation || canEdit) && (
                   <div className="text-right">
                     <div className="text-xs text-gray-500 mb-1">Estimation</div>
                     <EditableField
-                      value={luminaire.estimation}
+                      value={luminaire.estimation || ""}
                       onSave={(val) => handleUpdate("estimation", val)}
                       className="text-xl font-semibold text-gray-900"
                       placeholder="Prix"
@@ -653,9 +654,9 @@ export default function LuminaireDetailPage() {
                       <EditableField
                         value={luminaire.editeur || ""}
                         onSave={(value) => handleUpdate("editeur", value)}
-                        canEdit={canEdit}
                         className="text-gray-900 font-medium"
                         placeholder="—"
+                        disabled={!canEdit}
                       />
                     </div>
                   )}
@@ -666,9 +667,9 @@ export default function LuminaireDetailPage() {
                       <EditableField
                         value={luminaire.year || ""}
                         onSave={(value) => handleUpdate("year", value)}
-                        canEdit={canEdit}
                         className="text-gray-900 font-medium"
                         placeholder="—"
+                        disabled={!canEdit}
                       />
                     </div>
                   )}
@@ -679,9 +680,9 @@ export default function LuminaireDetailPage() {
                       <EditableField
                         value={luminaire.signed || ""}
                         onSave={(value) => handleUpdate("signed", value)}
-                        canEdit={canEdit}
                         className="text-gray-900 font-medium"
                         placeholder="—"
+                        disabled={!canEdit}
                       />
                     </div>
                   )}
@@ -694,9 +695,9 @@ export default function LuminaireDetailPage() {
                       <EditableField
                         value={luminaire.categorie || ""}
                         onSave={(value) => handleUpdate("categorie", value)}
-                        canEdit={canEdit}
                         className="text-gray-900 font-medium"
                         placeholder="—"
+                        disabled={!canEdit}
                       />
                     </div>
                   )}
@@ -707,9 +708,9 @@ export default function LuminaireDetailPage() {
                       <EditableField
                         value={luminaire.materials || ""}
                         onSave={(value) => handleUpdate("materials", value)}
-                        canEdit={canEdit}
                         className="text-gray-900 font-medium"
                         placeholder="—"
+                        disabled={!canEdit}
                       />
                     </div>
                   )}
@@ -720,9 +721,9 @@ export default function LuminaireDetailPage() {
                       <EditableField
                         value={luminaire.dimensions || ""}
                         onSave={(value) => handleUpdate("dimensions", value)}
-                        canEdit={canEdit}
                         className="text-gray-900 font-medium"
                         placeholder="—"
+                        disabled={!canEdit}
                       />
                     </div>
                   )}
@@ -734,9 +735,9 @@ export default function LuminaireDetailPage() {
                     <EditableField
                       value={luminaire.lienSiteMarchand || ""}
                       onSave={(value) => handleUpdate("lienSiteMarchand", value)}
-                      canEdit={canEdit}
                       className="text-[#8b7355] hover:underline break-all"
                       placeholder="—"
+                      disabled={!canEdit}
                     />
                   </div>
                 )}
@@ -747,9 +748,9 @@ export default function LuminaireDetailPage() {
                     <EditableField
                       value={luminaire.bibliographie || ""}
                       onSave={(value) => handleUpdate("bibliographie", value)}
-                      canEdit={canEdit}
                       className="text-gray-900"
                       placeholder="—"
+                      disabled={!canEdit}
                     />
                   </div>
                 )}
@@ -760,9 +761,9 @@ export default function LuminaireDetailPage() {
                     <EditableField
                       value={luminaire.etiquette || ""}
                       onSave={(value) => handleUpdate("etiquette", value)}
-                      canEdit={canEdit}
                       className="text-gray-900"
                       placeholder="—"
+                      disabled={!canEdit}
                     />
                   </div>
                 )}
