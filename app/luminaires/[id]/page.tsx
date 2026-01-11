@@ -592,6 +592,7 @@ export default function LuminaireDetailPage() {
                 )}
               </div>
 
+              {/* Designer section - unchanged */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6 flex items-center justify-between hover:bg-gray-100 transition-colors cursor-pointer">
                 <Link
                   href={`/designers/${encodeURIComponent(luminaire.artist)}`}
@@ -629,312 +630,183 @@ export default function LuminaireDetailPage() {
                 <ArrowRight className="w-5 h-5 text-gray-400" />
               </div>
 
-              <div className="space-y-4">
-                {((luminaire.year && luminaire.year.trim()) || canEdit) && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Année</p>
-                    <EditableField
-                      value={luminaire.year || ""}
-                      onSave={(value) => handleUpdate("year", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter année..."
-                    />
-                  </div>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 border-t border-gray-100 pt-6">
+                {/* Left column */}
+                <div className="space-y-4">
+                  {((luminaire.year && luminaire.year.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Année</span>
+                      <EditableField
+                        value={luminaire.year || ""}
+                        onSave={(value) => handleUpdate("year", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter année..."
+                      />
+                    </div>
+                  )}
 
-                {((luminaire.categorie && luminaire.categorie.trim()) || canEdit) && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Catégorie</p>
-                    <EditableField
-                      value={luminaire.categorie || ""}
-                      onSave={(value) => handleUpdate("categorie", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter catégorie..."
-                    />
-                  </div>
-                )}
+                  {((luminaire.categorie && luminaire.categorie.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Catégorie</span>
+                      <EditableField
+                        value={luminaire.categorie || ""}
+                        onSave={(value) => handleUpdate("categorie", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter catégorie..."
+                      />
+                    </div>
+                  )}
 
-                {((luminaire.materials && luminaire.materials.trim()) || canEdit) && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Matériaux</p>
-                    <EditableField
-                      value={luminaire.materials || ""}
-                      onSave={(value) => handleUpdate("materials", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter matériaux..."
-                    />
-                  </div>
-                )}
+                  {((luminaire.materials && luminaire.materials.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Matériaux</span>
+                      <EditableField
+                        value={luminaire.materials || ""}
+                        onSave={(value) => handleUpdate("materials", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter matériaux..."
+                      />
+                    </div>
+                  )}
 
-                {((luminaire.dimensions && luminaire.dimensions.trim()) || canEdit) && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Dimensions</p>
-                    <EditableField
-                      value={luminaire.dimensions || ""}
-                      onSave={(value) => handleUpdate("dimensions", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter dimensions..."
-                    />
-                  </div>
-                )}
+                  {((luminaire.dimensions && luminaire.dimensions.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Dimensions</span>
+                      <EditableField
+                        value={luminaire.dimensions || ""}
+                        onSave={(value) => handleUpdate("dimensions", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter dimensions..."
+                      />
+                    </div>
+                  )}
 
-                {((luminaire.editeur && luminaire.editeur.trim()) || canEdit) && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Éditeur</p>
-                    <EditableField
-                      value={luminaire.editeur || ""}
-                      onSave={(value) => handleUpdate("editeur", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter éditeur..."
-                    />
-                  </div>
-                )}
+                  {((luminaire.signed && luminaire.signed.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Signé</span>
+                      <EditableField
+                        value={luminaire.signed || ""}
+                        onSave={(value) => handleUpdate("signed", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter signature..."
+                      />
+                    </div>
+                  )}
+                </div>
 
-                {((luminaire.estimation && luminaire.estimation.trim()) || canEdit) && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Estimation</p>
-                    <EditableField
-                      value={luminaire.estimation || ""}
-                      onSave={(value) => handleUpdate("estimation", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter estimation..."
-                    />
-                  </div>
-                )}
+                {/* Right column */}
+                <div className="space-y-4">
+                  {((luminaire.editeur && luminaire.editeur.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Éditeur</span>
+                      <EditableField
+                        value={luminaire.editeur || ""}
+                        onSave={(value) => handleUpdate("editeur", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter éditeur..."
+                      />
+                    </div>
+                  )}
 
-                {((luminaire.bibliographie && luminaire.bibliographie.trim()) || canEdit) && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
-                    <EditableField
-                      value={luminaire.bibliographie || ""}
-                      onSave={(value) => handleUpdate("bibliographie", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter bibliographie..."
-                    />
-                  </div>
-                )}
+                  {((luminaire.bibliographie && luminaire.bibliographie.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Bibliographie</span>
+                      <EditableField
+                        value={luminaire.bibliographie || ""}
+                        onSave={(value) => handleUpdate("bibliographie", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter bibliographie..."
+                      />
+                    </div>
+                  )}
 
-                {((luminaire.lienSiteMarchand && luminaire.lienSiteMarchand.trim()) || canEdit) && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Lien site marchand</p>
-                    <EditableField
-                      value={luminaire.lienSiteMarchand || ""}
-                      onSave={(value) => handleUpdate("lienSiteMarchand", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter lien..."
-                    />
-                  </div>
-                )}
+                  {((luminaire.lienSiteMarchand && luminaire.lienSiteMarchand.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Lien marchand</span>
+                      <EditableField
+                        value={luminaire.lienSiteMarchand || ""}
+                        onSave={(value) => handleUpdate("lienSiteMarchand", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter lien..."
+                      />
+                    </div>
+                  )}
 
-                {luminaire.signed && luminaire.signed.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Signé</p>
-                    <EditableField
-                      value={luminaire.signed}
-                      onSave={(value) => handleUpdate("signed", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
+                  {((luminaire.etiquette && luminaire.etiquette.trim()) || canEdit) && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Étiquette</span>
+                      <EditableField
+                        value={luminaire.etiquette || ""}
+                        onSave={(value) => handleUpdate("etiquette", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter étiquette..."
+                      />
+                    </div>
+                  )}
 
-                {luminaire.categorie && luminaire.categorie.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Catégorie</p>
-                    <EditableField
-                      value={luminaire.categorie}
-                      onSave={(value) => handleUpdate("categorie", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
+                  {canEdit && luminaire.specialty && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Période</span>
+                      <EditableField
+                        value={luminaire.specialty}
+                        onSave={(value) => handleUpdate("specialty", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                      />
+                    </div>
+                  )}
 
-                {luminaire.materials && luminaire.materials.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Matériaux</p>
-                    <EditableField
-                      value={luminaire.materials}
-                      onSave={(value) => handleUpdate("materials", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
+                  {canEdit && luminaire.collaboration && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Collaboration</span>
+                      <EditableField
+                        value={luminaire.collaboration}
+                        onSave={(value) => handleUpdate("collaboration", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                      />
+                    </div>
+                  )}
 
-                {luminaire.dimensions && luminaire.dimensions.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Dimensions</p>
-                    <EditableField
-                      value={luminaire.dimensions}
-                      onSave={(value) => handleUpdate("dimensions", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
+                  {canEdit && !luminaire.specialty && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Période</span>
+                      <EditableField
+                        value=""
+                        onSave={(value) => handleUpdate("specialty", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter période..."
+                      />
+                    </div>
+                  )}
 
-                {luminaire.editeur && luminaire.editeur.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Éditeur</p>
-                    <EditableField
-                      value={luminaire.editeur}
-                      onSave={(value) => handleUpdate("editeur", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
-                {luminaire.bibliographie && luminaire.bibliographie.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
-                    <EditableField
-                      value={luminaire.bibliographie}
-                      onSave={(value) => handleUpdate("bibliographie", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
-                {luminaire.lienSiteMarchand && luminaire.lienSiteMarchand.trim() && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Lien site marchand</p>
-                    <EditableField
-                      value={luminaire.lienSiteMarchand}
-                      onSave={(value) => handleUpdate("lienSiteMarchand", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
-                {canEdit && luminaire.specialty && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Spécialité / Période</p>
-                    <EditableField
-                      value={luminaire.specialty}
-                      onSave={(value) => handleUpdate("specialty", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
-                {canEdit && luminaire.collaboration && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Collaboration / Œuvre</p>
-                    <EditableField
-                      value={luminaire.collaboration}
-                      onSave={(value) => handleUpdate("collaboration", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
-                {canEdit && luminaire.etiquette && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Étiquette</p>
-                    <EditableField
-                      value={luminaire.etiquette}
-                      onSave={(value) => handleUpdate("etiquette", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                    />
-                  </div>
-                )}
-
-                {canEdit && !luminaire.signed && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Signé</p>
-                    <EditableField
-                      value=""
-                      onSave={(value) => handleUpdate("signed", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter signature..."
-                    />
-                  </div>
-                )}
-
-                {canEdit && !luminaire.bibliographie && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Bibliographie</p>
-                    <EditableField
-                      value=""
-                      onSave={(value) => handleUpdate("bibliographie", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter bibliographie..."
-                    />
-                  </div>
-                )}
-
-                {canEdit && !luminaire.etiquette && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Étiquette</p>
-                    <EditableField
-                      value=""
-                      onSave={(value) => handleUpdate("etiquette", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter étiquette..."
-                    />
-                  </div>
-                )}
-
-                {canEdit && !luminaire.lienSiteMarchand && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Lien site marchand</p>
-                    <EditableField
-                      value=""
-                      onSave={(value) => handleUpdate("lienSiteMarchand", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter lien..."
-                    />
-                  </div>
-                )}
-
-                {canEdit && !luminaire.specialty && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Spécialité / Période</p>
-                    <EditableField
-                      value=""
-                      onSave={(value) => handleUpdate("specialty", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter période..."
-                    />
-                  </div>
-                )}
-
-                {canEdit && !luminaire.collaboration && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Collaboration / Œuvre</p>
-                    <EditableField
-                      value=""
-                      onSave={(value) => handleUpdate("collaboration", value)}
-                      canEdit={canEdit}
-                      className="text-gray-900"
-                      placeholder="Ajouter collaboration..."
-                    />
-                  </div>
-                )}
+                  {canEdit && !luminaire.collaboration && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm text-gray-500 w-24 flex-shrink-0 pt-0.5">Collaboration</span>
+                      <EditableField
+                        value=""
+                        onSave={(value) => handleUpdate("collaboration", value)}
+                        canEdit={canEdit}
+                        className="text-gray-900 flex-1"
+                        placeholder="Ajouter collaboration..."
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {luminaire.description && (
-                <div className="mb-6">
+                <div className="mt-6 pt-6 border-t border-gray-100">
                   <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Description</h3>
                   <EditableField
                     value={luminaire.description}
