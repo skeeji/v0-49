@@ -554,20 +554,47 @@ export default function HomePage() {
       }
     }
 
-    // Charger quelques designers pour la preview
-    const loadDesigners = async () => {
+  // Charger des designers celebres et recents pour la preview
+  const loadDesigners = async () => {
+  try {
+    // Chercher des designers connus et recents
+    const knownNames = ["Starck", "Lalique", "Galle", "Daum", "Tiffany", "Ingo Maurer", "Castiglioni", "Noguchi", "Le Corbusier", "Perriand"]
+    const results: any[] = []
+    for (const name of knownNames) {
+      if (results.length >= 6) break
       try {
-        const response = await fetch("/api/designers?limit=6")
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            setPreviewDesigners(data.designers.filter((d: any) => d.image))
+        const res = await fetch(`/api/designers?search=${encodeURIComponent(name)}&limit=1`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && data.designers.length > 0) {
+            const d = data.designers[0]
+            if (d.image && !results.find((r: any) => r.id === d.id)) {
+              results.push(d)
+            }
           }
         }
-      } catch (error) {
-        console.error("Erreur chargement designers preview:", error)
+      } catch {}
+    }
+    // Si pas assez, completer avec le fetch classique
+    if (results.length < 6) {
+      const fallback = await fetch("/api/designers?limit=20")
+      if (fallback.ok) {
+        const data = await fallback.json()
+        if (data.success) {
+          for (const d of data.designers) {
+            if (results.length >= 6) break
+            if (d.image && !results.find((r: any) => r.id === d.id)) {
+              results.push(d)
+            }
+          }
+        }
       }
     }
+    setPreviewDesigners(results)
+  } catch (error) {
+  console.error("Erreur chargement designers preview:", error)
+  }
+  }
 
     loadDesigners()
 
@@ -1144,12 +1171,7 @@ export default function HomePage() {
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
-                    <Grid3x3 className="w-5 h-5 text-[#8b7355]" />
-                  </div>
-                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Collection</span>
-                </div>
+                <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider mb-4 block">Collection</span>
                 <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
                   Plus de {luminaires.length > 0 ? luminaires.length.toLocaleString("fr-FR") : "9 000"} luminaires a decouvrir
                 </h2>
@@ -1174,10 +1196,10 @@ export default function HomePage() {
               </div>
               {/* Grille de vrais luminaires du catalogue MongoDB */}
               <div className="bg-white rounded-2xl p-4 shadow-xl border border-gray-100">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {luminaires
                     .filter((l: any) => l.filename)
-                    .slice(0, 6)
+                    .slice(0, 12)
                     .map((l: any, i: number) => (
                       <Link key={i} href={`/luminaires/${l._id}`}>
                         <div className="aspect-square rounded-xl overflow-hidden bg-[#f5f1e8] cursor-pointer group relative">
@@ -1216,7 +1238,7 @@ export default function HomePage() {
               {/* Cartes designers avec vraies images */}
               <div className="order-2 md:order-1 bg-white rounded-2xl p-5 shadow-xl border border-gray-100">
                 <div className="space-y-3">
-                  {previewDesigners.slice(0, 4).map((designer: any, i: number) => {
+                  {previewDesigners.slice(0, 6).map((designer: any, i: number) => {
                     const name = designer.nom || designer.Nom || designer.name || "Designer"
                     return (
                       <Link key={i} href={`/designers/${encodeURIComponent(name)}`} className="block">
@@ -1252,12 +1274,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="order-1 md:order-2">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-[#8b7355]" />
-                  </div>
-                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Designers</span>
-                </div>
+                <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider mb-4 block">Designers</span>
                 <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
                   Les grands maitres du luminaire
                 </h2>
@@ -1287,18 +1304,10 @@ export default function HomePage() {
           <div className="max-w-6xl mx-auto">
             {/* Header centre */}
             <div className="text-center mb-12">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-[#8b7355]" />
-                </div>
-                <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Chronologie</span>
-              </div>
-              <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-3 text-balance">
+              <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider mb-4 block">Chronologie</span>
+              <h2 className="text-3xl md:text-4xl font-serif text-gray-900 text-balance">
                 Un voyage a travers les epoques
               </h2>
-              <p className="text-gray-600 leading-relaxed max-w-2xl mx-auto">
-                Parcourez l'evolution du luminaire du Moyen-Age au design contemporain. Chaque epoque a faconne les styles, les materiaux et les techniques.
-              </p>
             </div>
 
             {/* Slider avec fleches de navigation */}
@@ -1351,18 +1360,16 @@ export default function HomePage() {
                   return (
                     <Link key={i} href="/chronologie" className="block flex-shrink-0 w-[250px] snap-center">
                       <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
-                        <div className="h-40 relative overflow-hidden" style={{ backgroundColor: period.color + "18" }}>
+                        <div className="h-48 relative overflow-hidden flex items-center justify-center p-4" style={{ backgroundColor: period.color + "12" }}>
                           {sample ? (
                             <img
                               src={`/api/images/filename/${sample.filename}`}
                               alt={sample.nom || period.name}
-                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                              className="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-500"
                               loading="lazy"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Clock className="w-12 h-12" style={{ color: period.color, opacity: 0.25 }} />
-                            </div>
+                            <Clock className="w-12 h-12" style={{ color: period.color, opacity: 0.25 }} />
                           )}
                           <div className="absolute top-3 left-3">
                             <span className="px-3 py-1 rounded-full text-white text-xs font-bold shadow-lg" style={{ backgroundColor: period.color + "dd" }}>
@@ -1372,15 +1379,11 @@ export default function HomePage() {
                           <div className="absolute bottom-0 left-0 right-0 h-1" style={{ backgroundColor: period.color }} />
                         </div>
                         <div className="p-4">
-                          <h3 className="text-lg font-serif font-bold text-gray-900 mb-1.5">{period.name}</h3>
-                          <p className="text-xs text-gray-500 leading-relaxed mb-3">{period.desc}</p>
+                          <h3 className="text-lg font-serif font-bold text-gray-900 mb-1">{period.name}</h3>
                           {count > 0 && (
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: period.color }} />
-                              <span className="text-xs text-[#8b7355] font-semibold">
-                                {count} luminaire{count > 1 ? "s" : ""}
-                              </span>
-                            </div>
+                            <span className="text-xs text-[#8b7355] font-semibold">
+                              {count} luminaire{count > 1 ? "s" : ""}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -1441,12 +1444,7 @@ export default function HomePage() {
 
               </div>
               <div className="order-1 md:order-2">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-[#8b7355]" />
-                  </div>
-                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Abonnement</span>
-                </div>
+                <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider mb-4 block">Abonnement</span>
                 <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
                   Debloquez tout le potentiel
                 </h2>
