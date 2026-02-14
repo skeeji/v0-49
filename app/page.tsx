@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Camera, Upload, X, Lamp, Users, Clock, CreditCard, ArrowRight, Search, Grid3x3 } from "lucide-react"
+import { Camera, Upload, X, Lamp, Users, Clock, CreditCard, ArrowRight, Search, Grid3x3, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -1139,7 +1139,7 @@ export default function HomePage() {
       {/* ========== PRESENTATION DES PAGES ========== */}
       <div className="relative z-10 bg-[#f5f1e8]">
 
-        {/* ---- SECTION COLLECTION ---- */}
+        {/* Section Luminaires - avec vrais luminaires du catalogue */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -1172,6 +1172,7 @@ export default function HomePage() {
                   </button>
                 </Link>
               </div>
+              {/* Grille de vrais luminaires du catalogue MongoDB */}
               <div className="bg-white rounded-2xl p-4 shadow-xl border border-gray-100">
                 <div className="grid grid-cols-3 gap-2">
                   {luminaires
@@ -1186,11 +1187,7 @@ export default function HomePage() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             loading="lazy"
                           />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end justify-center pb-2">
-                            <span className="text-white text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity truncate px-1 drop-shadow-lg">
-                              {l.nom || l["Nom luminaire"] || "Voir la fiche"}
-                            </span>
-                          </div>
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                         </div>
                       </Link>
                     ))}
@@ -1207,12 +1204,16 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div className="max-w-5xl mx-auto px-4"><div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" /></div>
+        {/* Separateur */}
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
+        </div>
 
-        {/* ---- SECTION DESIGNERS ---- */}
+        {/* Section Designers - avec vrais designers de la base */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
+              {/* Cartes designers avec vraies images */}
               <div className="order-2 md:order-1 bg-white rounded-2xl p-5 shadow-xl border border-gray-100">
                 <div className="space-y-3">
                   {previewDesigners.slice(0, 4).map((designer: any, i: number) => {
@@ -1235,9 +1236,9 @@ export default function HomePage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-lg font-serif font-bold text-gray-900 group-hover:text-[#8b7355] transition-colors leading-tight">{name}</p>
+                            <p className="text-lg font-serif font-bold text-gray-900 group-hover:text-[#8b7355] transition-colors">{name}</p>
                             {(designer.description || designer.biographie) && (
-                              <p className="text-sm text-gray-500 line-clamp-1 mt-1">{(designer.description || designer.biographie || "").substring(0, 80)}</p>
+                              <p className="text-sm text-gray-500 line-clamp-1 mt-0.5">{(designer.description || designer.biographie || "").substring(0, 80)}</p>
                             )}
                           </div>
                           <ArrowRight className="w-5 h-5 text-[#8b7355]/30 group-hover:text-[#8b7355] group-hover:translate-x-1 transition-all flex-shrink-0" />
@@ -1276,12 +1277,15 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div className="max-w-5xl mx-auto px-4"><div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" /></div>
+        {/* Separateur */}
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
+        </div>
 
-        {/* ---- SECTION CHRONOLOGIE ---- */}
+        {/* Section Chronologie - slider horizontal fonctionnel */}
         <section className="py-20 px-4 overflow-hidden">
           <div className="max-w-6xl mx-auto">
-            {/* Header */}
+            {/* Header centre */}
             <div className="text-center mb-12">
               <div className="flex items-center justify-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
@@ -1293,18 +1297,19 @@ export default function HomePage() {
                 Un voyage a travers les epoques
               </h2>
               <p className="text-gray-600 leading-relaxed max-w-2xl mx-auto">
-                Parcourez l'evolution du luminaire a travers les siecles, du Moyen-Age au design contemporain.
+                Parcourez l'evolution du luminaire du Moyen-Age au design contemporain. Chaque epoque a faconne les styles, les materiaux et les techniques.
               </p>
             </div>
 
-            {/* Slider avec fleches */}
+            {/* Slider avec fleches de navigation */}
             <div className="relative">
               <button
                 onClick={() => {
                   const el = document.getElementById("chrono-slider")
                   if (el) el.scrollBy({ left: -320, behavior: "smooth" })
                 }}
-                className="absolute -left-3 md:left-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white shadow-xl border border-gray-200 flex items-center justify-center hover:bg-[#f5f1e8] transition-colors"
+                className="absolute -left-2 md:left-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white shadow-xl border border-gray-200 flex items-center justify-center hover:bg-[#f5f1e8] transition-colors"
+                aria-label="Periode precedente"
               >
                 <ChevronLeft className="w-5 h-5 text-[#8b7355]" />
               </button>
@@ -1313,16 +1318,18 @@ export default function HomePage() {
                   const el = document.getElementById("chrono-slider")
                   if (el) el.scrollBy({ left: 320, behavior: "smooth" })
                 }}
-                className="absolute -right-3 md:right-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white shadow-xl border border-gray-200 flex items-center justify-center hover:bg-[#f5f1e8] transition-colors"
+                className="absolute -right-2 md:right-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white shadow-xl border border-gray-200 flex items-center justify-center hover:bg-[#f5f1e8] transition-colors"
+                aria-label="Periode suivante"
               >
                 <ChevronRight className="w-5 h-5 text-[#8b7355]" />
               </button>
 
               <div
                 id="chrono-slider"
-                className="flex gap-5 overflow-x-auto pb-6 px-10 snap-x snap-mandatory scrollbar-hide"
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                className="flex gap-5 overflow-x-auto pb-4 px-10 snap-x snap-mandatory"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
               >
+                <style>{`#chrono-slider::-webkit-scrollbar { display: none; }`}</style>
                 {[
                   { name: "Moyen-Age", years: "1000 - 1499", desc: "Chandeliers en fer forge, lampes a huile et cire dans les abbayes et chateaux", color: "#6b5644", start: 1000, end: 1499 },
                   { name: "Renaissance", years: "1500 - 1599", desc: "Premieres suspensions en bronze et cristal dans les palais europeens", color: "#7a6349", start: 1500, end: 1599 },
@@ -1342,10 +1349,9 @@ export default function HomePage() {
                   const count = periodLuminaires.length
 
                   return (
-                    <Link key={i} href="/chronologie" className="block flex-shrink-0 w-[260px] snap-center">
+                    <Link key={i} href="/chronologie" className="block flex-shrink-0 w-[250px] snap-center">
                       <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
-                        {/* Image */}
-                        <div className="h-44 relative overflow-hidden" style={{ backgroundColor: period.color + "18" }}>
+                        <div className="h-40 relative overflow-hidden" style={{ backgroundColor: period.color + "18" }}>
                           {sample ? (
                             <img
                               src={`/api/images/filename/${sample.filename}`}
@@ -1358,19 +1364,16 @@ export default function HomePage() {
                               <Clock className="w-12 h-12" style={{ color: period.color, opacity: 0.25 }} />
                             </div>
                           )}
-                          {/* Badge date */}
                           <div className="absolute top-3 left-3">
-                            <span className="px-3 py-1 rounded-full text-white text-xs font-bold shadow-lg backdrop-blur-sm" style={{ backgroundColor: period.color + "dd" }}>
+                            <span className="px-3 py-1 rounded-full text-white text-xs font-bold shadow-lg" style={{ backgroundColor: period.color + "dd" }}>
                               {period.years}
                             </span>
                           </div>
-                          {/* Barre de couleur en bas */}
                           <div className="absolute bottom-0 left-0 right-0 h-1" style={{ backgroundColor: period.color }} />
                         </div>
-                        {/* Texte */}
-                        <div className="p-5">
-                          <h3 className="text-xl font-serif font-bold text-gray-900 mb-2">{period.name}</h3>
-                          <p className="text-sm text-gray-500 leading-relaxed mb-3">{period.desc}</p>
+                        <div className="p-4">
+                          <h3 className="text-lg font-serif font-bold text-gray-900 mb-1.5">{period.name}</h3>
+                          <p className="text-xs text-gray-500 leading-relaxed mb-3">{period.desc}</p>
                           {count > 0 && (
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: period.color }} />
@@ -1385,30 +1388,25 @@ export default function HomePage() {
                   )
                 })}
               </div>
-
-              {/* Barre de progression */}
-              <div className="flex justify-center gap-1.5 mt-2">
-                {Array.from({ length: 9 }).map((_, i) => (
-                  <div key={i} className="w-8 h-1 rounded-full bg-[#8b7355]" style={{ opacity: 0.15 + i * 0.1 }} />
-                ))}
-              </div>
             </div>
 
-            {/* CTA */}
             <div className="text-center mt-10">
               <Link href="/chronologie">
-                <button className="flex items-center gap-2 px-7 py-3.5 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg mx-auto text-base">
+                <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg mx-auto">
                   Explorer la chronologie complete
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </Link>
             </div>
           </div>
         </section>
 
-        <div className="max-w-5xl mx-auto px-4"><div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" /></div>
+        {/* Separateur */}
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
+        </div>
 
-        {/* ---- SECTION PRIX ---- */}
+        {/* Section Prix / Abonnement */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -1424,7 +1422,7 @@ export default function HomePage() {
                   <span className="text-4xl font-bold text-gray-900">30</span>
                   <span className="text-lg text-gray-500 ml-1">EUR/mois</span>
                 </div>
-                <div className="space-y-2.5 mt-2">
+                <div className="space-y-2 mt-2">
                   {[
                     "Collection complete de luminaires",
                     "Recherche IA illimitee",
@@ -1432,14 +1430,15 @@ export default function HomePage() {
                     "Export PDF des fiches",
                     "Favoris et estimation de prix",
                   ].map((feature, i) => (
-                    <div key={i} className="flex items-center gap-2.5 text-sm text-gray-700">
-                      <div className="w-5 h-5 rounded-full bg-[#8b7355]/10 flex items-center justify-center flex-shrink-0">
-                        <div className="w-2 h-2 rounded-full bg-[#8b7355]" />
+                    <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                      <div className="w-4 h-4 rounded-full bg-[#8b7355]/10 flex items-center justify-center flex-shrink-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#8b7355]" />
                       </div>
                       {feature}
                     </div>
                   ))}
                 </div>
+
               </div>
               <div className="order-1 md:order-2">
                 <div className="flex items-center gap-3 mb-4">
@@ -1467,6 +1466,7 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Footer de la page */}
         <div className="py-10 text-center text-sm text-gray-400">
           <p className="font-serif">Luminaires - Du Moyen-Age a nos jours</p>
         </div>
