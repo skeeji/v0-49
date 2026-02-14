@@ -1138,7 +1138,7 @@ export default function HomePage() {
                 <p className="text-gray-600 leading-relaxed mb-6">
                   Explorez notre base de donnees exhaustive de luminaires du Moyen-Age a nos jours. 
                   Filtrez par categorie, materiau, periode ou designer. Chaque fiche detaillee presente 
-                  l'histoire, les dimensions et les caracteristiques de chaque piece.
+                  les dimensions et les caracteristiques de chaque piece.
                 </p>
                 <div className="flex flex-wrap gap-3 mb-8">
                   {["Lustres", "Appliques", "Lampadaires", "Lampes", "Suspensions"].map((cat) => (
@@ -1154,21 +1154,12 @@ export default function HomePage() {
                   </button>
                 </Link>
               </div>
-              <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
-                <div className="grid grid-cols-3 gap-3">
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <div key={i} className="aspect-square rounded-xl bg-gradient-to-br from-[#f5f1e8] to-[#e8e0d0] flex items-center justify-center">
-                      <Grid3x3 className="w-6 h-6 text-[#8b7355]/30" />
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-                  <span>9 000+ luminaires</span>
-                  <div className="flex items-center gap-1.5">
-                    <Search className="w-3.5 h-3.5" />
-                    <span>Filtres avances</span>
-                  </div>
-                </div>
+              <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-100">
+                <img
+                  src="/images/preview-luminaires.jpg"
+                  alt="Apercu de la collection de luminaires"
+                  className="w-full h-[340px] object-cover"
+                />
               </div>
             </div>
           </div>
@@ -1183,24 +1174,12 @@ export default function HomePage() {
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="order-2 md:order-1 bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
-                <div className="space-y-3">
-                  {["Emile Galle (1846-1904)", "Rene Lalique (1860-1945)", "Louis Comfort Tiffany (1848-1933)"].map((name, i) => (
-                    <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-[#f5f1e8]/60 hover:bg-[#f5f1e8] transition-colors">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#8b7355]/20 to-[#8b7355]/5 flex items-center justify-center flex-shrink-0">
-                        <Users className="w-5 h-5 text-[#8b7355]/50" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
-                        <p className="text-xs text-gray-500">Art Nouveau</p>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 text-center text-sm text-gray-400">
-                  Et des centaines d'autres artistes...
-                </div>
+              <div className="order-2 md:order-1 rounded-2xl overflow-hidden shadow-xl border border-gray-100">
+                <img
+                  src="/images/preview-designers.jpg"
+                  alt="Ateliers des grands designers de luminaires"
+                  className="w-full h-[340px] object-cover"
+                />
               </div>
               <div className="order-1 md:order-2">
                 <div className="flex items-center gap-3 mb-4">
@@ -1217,6 +1196,13 @@ export default function HomePage() {
                   en passant par Lalique et Tiffany, explorez les oeuvres de chaque designer avec leur biographie 
                   et l'ensemble de leurs creations dans notre collection.
                 </p>
+                <div className="flex flex-wrap gap-2 mb-8">
+                  {["Emile Galle", "Rene Lalique", "Tiffany", "Daum", "Muller"].map((name) => (
+                    <span key={name} className="px-3 py-1.5 bg-white rounded-full text-xs font-medium text-gray-700 border border-gray-200 shadow-sm">
+                      {name}
+                    </span>
+                  ))}
+                </div>
                 <Link href="/designers">
                   <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
                     Decouvrir les designers
@@ -1233,55 +1219,91 @@ export default function HomePage() {
           <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
         </div>
 
-        {/* Section Chronologie */}
+        {/* Section Chronologie - fidele a la vraie page */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-[#8b7355]" />
-                  </div>
-                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Chronologie</span>
+            {/* Header */}
+            <div className="text-center mb-12">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-[#8b7355]" />
                 </div>
-                <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
-                  Un voyage a travers les epoques
-                </h2>
-                <p className="text-gray-600 leading-relaxed mb-6">
-                  Parcourez l'evolution du luminaire a travers les siecles. Du Moyen-Age au design contemporain, 
-                  decouvrez comment chaque epoque a influence les styles, les materiaux et les techniques. 
-                  Chaque periode est illustree avec des pieces representatives de la collection.
-                </p>
-                <Link href="/chronologie">
-                  <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
-                    Explorer la chronologie
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </Link>
+                <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Chronologie</span>
               </div>
-              <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
-                <div className="space-y-2">
+              <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
+                Un voyage a travers les epoques
+              </h2>
+              <p className="text-gray-600 leading-relaxed max-w-2xl mx-auto">
+                Parcourez l'evolution du luminaire a travers les siecles. Du Moyen-Age au design contemporain, 
+                decouvrez comment chaque epoque a influence les styles, les materiaux et les techniques.
+              </p>
+            </div>
+
+            {/* Timeline preview - style fidele a la page chronologie */}
+            <div className="grid md:grid-cols-5 gap-4 mb-10">
+              <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100 md:col-span-2">
+                <img
+                  src="/images/preview-chronologie.jpg"
+                  alt="Evolution des luminaires a travers les epoques"
+                  className="w-full h-48 md:h-full object-cover"
+                />
+              </div>
+              <div className="md:col-span-3 flex flex-col gap-3">
+                {/* Mini-timeline bar */}
+                <div className="bg-white rounded-xl p-4 shadow-md border border-gray-100">
+                  <div className="relative">
+                    <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-gradient-to-r from-[#6b5644] via-[#8b7355] to-[#d4c5b0] -translate-y-1/2" />
+                    <div className="relative flex justify-between px-2">
+                      {[
+                        { name: "Moyen-Age", year: "1000" },
+                        { name: "Renaissance", year: "1500" },
+                        { name: "Baroque", year: "1600" },
+                        { name: "Art Nouveau", year: "1890" },
+                        { name: "Art Deco", year: "1920" },
+                        { name: "Moderne", year: "1950" },
+                        { name: "Contemp.", year: "2000" },
+                      ].map((p, i) => (
+                        <div key={i} className="flex flex-col items-center">
+                          <div className="w-3 h-3 rounded-full bg-[#8b7355] border-2 border-white shadow-sm relative z-10" style={{ opacity: 1 - i * 0.08 }} />
+                          <span className="text-[9px] md:text-[10px] text-gray-600 mt-1.5 text-center leading-tight font-medium">{p.name}</span>
+                          <span className="text-[8px] md:text-[9px] text-gray-400">{p.year}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Period preview cards */}
+                <div className="grid grid-cols-2 gap-3 flex-1">
                   {[
-                    { period: "Moyen-Age", years: "1000 - 1499", color: "bg-amber-100 text-amber-700" },
-                    { period: "Art Nouveau", years: "1890 - 1910", color: "bg-emerald-100 text-emerald-700" },
-                    { period: "Art Deco", years: "1920 - 1940", color: "bg-blue-100 text-blue-700" },
-                    { period: "Design Moderne", years: "1950 - 1969", color: "bg-violet-100 text-violet-700" },
-                    { period: "Contemporain", years: "2000+", color: "bg-rose-100 text-rose-700" },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="w-1 h-8 rounded-full bg-[#8b7355]" style={{ opacity: 1 - i * 0.15 }} />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">{item.period}</p>
-                        <p className="text-xs text-gray-500">{item.years}</p>
+                    { name: "Moyen-Age", years: "1000-1499", desc: "Artisanat monastique, chandelles et lampes a huile ornementees", color: "#6b5644" },
+                    { name: "Art Nouveau", years: "1890-1910", desc: "Formes organiques avec Galle, Daum et Tiffany", color: "#8b7355" },
+                    { name: "Art Deco", years: "1920-1940", desc: "Style geometrique et luxueux des annees folles", color: "#a0826d" },
+                    { name: "Contemporain", years: "2000+", desc: "LED et eco-design revolutionnent l'eclairage", color: "#c9b096" },
+                  ].map((period, i) => (
+                    <div key={i} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-8 rounded-full" style={{ backgroundColor: period.color }} />
+                        <div>
+                          <p className="text-sm font-serif font-medium text-gray-900">{period.name}</p>
+                          <p className="text-[10px] text-gray-400">{period.years}</p>
+                        </div>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${item.color}`}>
-                        {item.period.substring(0, 3)}
-                      </span>
+                      <p className="text-xs text-gray-600 leading-relaxed">{period.desc}</p>
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 h-1.5 rounded-full bg-gradient-to-r from-amber-200 via-emerald-200 via-blue-200 via-violet-200 to-rose-200" />
               </div>
+            </div>
+
+            {/* CTA */}
+            <div className="text-center">
+              <Link href="/chronologie">
+                <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg mx-auto">
+                  Explorer la chronologie complete
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
             </div>
           </div>
         </section>
@@ -1295,33 +1317,42 @@ export default function HomePage() {
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="order-2 md:order-1 bg-white rounded-2xl p-6 shadow-xl border border-gray-100 border-2 border-[#8b7355]/30">
-                <div className="text-center mb-4">
-                  <span className="inline-block bg-[#8b7355] text-white text-xs px-3 py-1 rounded-full font-medium mb-3">
-                    Recommande
-                  </span>
-                  <h3 className="text-2xl font-serif text-gray-900">Premium</h3>
-                  <p className="text-sm text-gray-500 mt-1">Acces complet a toutes les fonctionnalites</p>
+              <div className="order-2 md:order-1">
+                <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-100 mb-6">
+                  <img
+                    src="/images/preview-pricing.jpg"
+                    alt="Acces premium a la collection"
+                    className="w-full h-[220px] object-cover"
+                  />
                 </div>
-                <div className="text-center py-4">
-                  <span className="text-4xl font-bold text-gray-900">30</span>
-                  <span className="text-lg text-gray-500 ml-1">EUR/mois</span>
-                </div>
-                <div className="space-y-2 mt-2">
-                  {[
-                    "Collection complete de 9 000+ luminaires",
-                    "Recherche IA illimitee",
-                    "Suppression arriere-plan",
-                    "Export PDF des fiches",
-                    "Favoris et estimation de prix",
-                  ].map((feature, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                      <div className="w-4 h-4 rounded-full bg-[#8b7355]/10 flex items-center justify-center flex-shrink-0">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#8b7355]" />
-                      </div>
-                      {feature}
+                <div className="bg-white rounded-2xl p-6 shadow-xl border-2 border-[#8b7355]/30">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <span className="inline-block bg-[#8b7355] text-white text-xs px-3 py-1 rounded-full font-medium mb-1">
+                        Recommande
+                      </span>
+                      <h3 className="text-xl font-serif text-gray-900">Premium</h3>
                     </div>
-                  ))}
+                    <div className="text-right">
+                      <span className="text-3xl font-bold text-gray-900">30</span>
+                      <span className="text-sm text-gray-500 ml-1">EUR/mois</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      "9 000+ luminaires",
+                      "Recherche IA",
+                      "Export PDF",
+                      "Favoris",
+                      "Estimation prix",
+                      "Suppression fond",
+                    ].map((feature, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-gray-600">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#8b7355] flex-shrink-0" />
+                        {feature}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="order-1 md:order-2">
@@ -1352,7 +1383,7 @@ export default function HomePage() {
 
         {/* Footer de la page */}
         <div className="py-10 text-center text-sm text-gray-400">
-          <p>Luminaires - Du Moyen-Age a nos jours</p>
+          <p className="font-serif">Luminaires - Du Moyen-Age a nos jours</p>
         </div>
 
       </div>
