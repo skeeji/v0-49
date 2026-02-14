@@ -24,6 +24,8 @@ import {
   CheckSquare,
   Square,
   ListChecks,
+  CalendarDays,
+  StickyNote,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -32,6 +34,7 @@ interface CrmAction {
   id: string
   text: string
   done: boolean
+  dueDate?: string | null
 }
 
 interface CrmProject {
@@ -49,6 +52,11 @@ interface CrmProject {
   imageId: string | null
   createdAt: string
   updatedAt: string
+}
+
+function calcProgress(timeSpent: number, timeEstimated: number): number {
+  if (timeEstimated <= 0) return 0
+  return Math.min(Math.round((timeSpent / timeEstimated) * 100), 100)
 }
 
 interface CrmStats {
@@ -214,7 +222,6 @@ function DetailPanel({
   const [actions, setActions] = useState<CrmAction[]>(project.actions || [])
   const [newAction, setNewAction] = useState("")
   const [driveLink, setDriveLink] = useState(project.driveLink || "")
-  const [progress, setProgress] = useState(project.progress || 0)
   const [timeSpent, setTimeSpent] = useState(project.timeSpent || 0)
   const [budget, setBudget] = useState(project.budget || 0)
   const [timeEstimated, setTimeEstimated] = useState(project.timeEstimated || 0)
@@ -238,7 +245,7 @@ function DetailPanel({
           notes,
           actions,
           driveLink,
-          progress,
+          progress: calcProgress(timeSpent, timeEstimated),
           timeSpent,
           budget,
           timeEstimated,
@@ -385,58 +392,49 @@ function DetailPanel({
             </div>
           </div>
 
-          {/* Budget + Time estimated */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">
-                Budget (EUR)
-              </label>
-              <Input
-                type="number"
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">
-                Temps estime (h)
-              </label>
-              <Input
-                type="number"
-                value={timeEstimated}
-                onChange={(e) => setTimeEstimated(Number(e.target.value))}
-              />
-            </div>
-          </div>
-
-          {/* Progress */}
+          {/* Budget */}
           <div>
             <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">
-              Progression ({progress}%)
-            </label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#8b7355]"
-            />
-            <Progress value={progress} className="mt-2 h-2" />
-          </div>
-
-          {/* Time spent */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">
-              Temps passe (heures)
+              Budget (EUR)
             </label>
             <Input
               type="number"
-              value={timeSpent}
-              onChange={(e) => setTimeSpent(Number(e.target.value))}
+              value={budget}
+              onChange={(e) => setBudget(Number(e.target.value))}
             />
+          </div>
+
+          {/* Time tracking + auto progress */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">
+              Temps passe / estime
+            </label>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <span className="text-xs text-gray-400 block mb-1">Passe (h)</span>
+                <Input
+                  type="number"
+                  value={timeSpent}
+                  onChange={(e) => setTimeSpent(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <span className="text-xs text-gray-400 block mb-1">Estime (h)</span>
+                <Input
+                  type="number"
+                  value={timeEstimated}
+                  onChange={(e) => setTimeEstimated(Number(e.target.value))}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Progress value={calcProgress(timeSpent, timeEstimated)} className="h-2 flex-1" />
+              <span className="text-xs font-medium text-gray-600 w-10 text-right">
+                {calcProgress(timeSpent, timeEstimated)}%
+              </span>
+            </div>
             {timeEstimated > 0 && timeSpent > timeEstimated && (
-              <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+              <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
                 Depassement de {timeSpent - timeEstimated}h sur l{"'"}estimation
               </p>
@@ -486,42 +484,67 @@ function DetailPanel({
               Actions a mener
             </label>
             <div className="flex flex-col gap-2">
-              {actions.map((action) => (
-                <div
-                  key={action.id}
-                  className="flex items-start gap-2 group"
-                >
-                  <button
-                    onClick={() =>
-                      setActions((prev) =>
-                        prev.map((a) =>
-                          a.id === action.id ? { ...a, done: !a.done } : a
+              {actions.map((action) => {
+                const isOverdue = !action.done && action.dueDate && new Date(action.dueDate) < new Date()
+                return (
+                  <div
+                    key={action.id}
+                    className={`flex items-start gap-2 group rounded-lg p-2 -mx-2 transition-colors ${isOverdue ? "bg-red-50/60" : ""}`}
+                  >
+                    <button
+                      onClick={() =>
+                        setActions((prev) =>
+                          prev.map((a) =>
+                            a.id === action.id ? { ...a, done: !a.done } : a
+                          )
                         )
-                      )
-                    }
-                    className="mt-0.5 flex-shrink-0 text-gray-400 hover:text-[#8b7355] transition-colors"
-                  >
-                    {action.done ? (
-                      <CheckSquare className="w-4 h-4 text-emerald-500" />
-                    ) : (
-                      <Square className="w-4 h-4" />
-                    )}
-                  </button>
-                  <span
-                    className={`text-sm flex-1 ${action.done ? "line-through text-gray-400" : "text-gray-700"}`}
-                  >
-                    {action.text}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setActions((prev) => prev.filter((a) => a.id !== action.id))
-                    }
-                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                      }
+                      className="mt-0.5 flex-shrink-0 text-gray-400 hover:text-[#8b7355] transition-colors"
+                    >
+                      {action.done ? (
+                        <CheckSquare className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <span
+                        className={`text-sm block ${action.done ? "line-through text-gray-400" : "text-gray-700"}`}
+                      >
+                        {action.text}
+                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="date"
+                          value={action.dueDate || ""}
+                          onChange={(e) =>
+                            setActions((prev) =>
+                              prev.map((a) =>
+                                a.id === action.id ? { ...a, dueDate: e.target.value || null } : a
+                              )
+                            )
+                          }
+                          className={`text-xs border-0 bg-transparent p-0 ${
+                            isOverdue
+                              ? "text-red-500 font-medium"
+                              : action.dueDate
+                                ? "text-gray-500"
+                                : "text-gray-300"
+                          }`}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() =>
+                        setActions((prev) => prev.filter((a) => a.id !== action.id))
+                      }
+                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 mt-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
               <div className="flex gap-2">
                 <Input
                   value={newAction}
@@ -532,7 +555,7 @@ function DetailPanel({
                     if (e.key === "Enter" && newAction.trim()) {
                       setActions((prev) => [
                         ...prev,
-                        { id: Date.now().toString(), text: newAction.trim(), done: false },
+                        { id: Date.now().toString(), text: newAction.trim(), done: false, dueDate: null },
                       ])
                       setNewAction("")
                     }
@@ -547,7 +570,7 @@ function DetailPanel({
                     if (newAction.trim()) {
                       setActions((prev) => [
                         ...prev,
-                        { id: Date.now().toString(), text: newAction.trim(), done: false },
+                        { id: Date.now().toString(), text: newAction.trim(), done: false, dueDate: null },
                       ])
                       setNewAction("")
                     }
@@ -767,16 +790,13 @@ export default function CrmPage() {
                         Statut
                       </th>
                       <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">
-                        Progression
+                        Temps / Progression
                       </th>
                       <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">
-                        Actions
+                        Actions / Notes
                       </th>
                       <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">
                         Budget
-                      </th>
-                      <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">
-                        Temps
                       </th>
                       <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">
                         Echeance
@@ -821,12 +841,25 @@ export default function CrmPage() {
                             <StatusBadge status={project.status} />
                           </td>
                           <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <Progress value={project.progress} className="h-1.5 flex-1 max-w-24" />
-                              <span className="text-xs text-gray-500 w-8 text-right">
-                                {project.progress}%
-                              </span>
-                            </div>
+                            {(() => {
+                              const pct = calcProgress(project.timeSpent, project.timeEstimated)
+                              return (
+                                <div className="min-w-[140px]">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className={`text-xs font-medium ${timeExceeded ? "text-amber-600" : "text-gray-600"}`}>
+                                      {project.timeSpent}h
+                                    </span>
+                                    <span className="text-xs text-gray-300">/</span>
+                                    <span className="text-xs text-gray-500">{project.timeEstimated}h</span>
+                                    {timeExceeded && <AlertTriangle className="w-3 h-3 text-amber-500" />}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Progress value={pct} className="h-1.5 flex-1" />
+                                    <span className="text-xs text-gray-400 w-7 text-right">{pct}%</span>
+                                  </div>
+                                </div>
+                              )
+                            })()}
                           </td>
                           <td className="px-5 py-4">
                             {(() => {
@@ -834,13 +867,42 @@ export default function CrmPage() {
                               const total = projectActions.length
                               const done = projectActions.filter((a) => a.done).length
                               const pending = total - done
-                              if (total === 0) return <span className="text-sm text-gray-400">-</span>
+                              const nextAction = projectActions.find((a) => !a.done)
+                              const hasNotes = !!project.notes?.trim()
                               return (
-                                <div className="flex items-center gap-1.5">
-                                  <ListChecks className="w-3.5 h-3.5 text-gray-400" />
-                                  <span className={`text-sm ${pending > 0 ? "text-amber-600 font-medium" : "text-emerald-600"}`}>
-                                    {done}/{total}
-                                  </span>
+                                <div className="flex flex-col gap-1 min-w-[160px] max-w-[240px]">
+                                  {total > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <ListChecks className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                      <span className={`text-xs ${pending > 0 ? "text-amber-600 font-medium" : "text-emerald-600"}`}>
+                                        {done}/{total}
+                                      </span>
+                                      {nextAction && (
+                                        <span className="text-xs text-gray-500 truncate ml-1">
+                                          - {nextAction.text}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {nextAction?.dueDate && (
+                                    <div className="flex items-center gap-1 ml-5">
+                                      <CalendarDays className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                                      <span className={`text-xs ${new Date(nextAction.dueDate) < new Date() ? "text-red-500 font-medium" : "text-gray-400"}`}>
+                                        {new Date(nextAction.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {hasNotes && (
+                                    <div className="flex items-center gap-1.5">
+                                      <StickyNote className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                                      <span className="text-xs text-gray-400 truncate">
+                                        {project.notes!.substring(0, 40)}{project.notes!.length > 40 ? "..." : ""}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {total === 0 && !hasNotes && (
+                                    <span className="text-xs text-gray-300">-</span>
+                                  )}
                                 </div>
                               )
                             })()}
@@ -849,18 +911,6 @@ export default function CrmPage() {
                             <span className="text-sm font-medium text-gray-900">
                               {formatCurrency(project.budget)}
                             </span>
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <span
-                                className={`text-sm ${timeExceeded ? "text-amber-600 font-medium" : "text-gray-600"}`}
-                              >
-                                {project.timeSpent}h
-                              </span>
-                              {timeExceeded && (
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                              )}
-                            </div>
                           </td>
                           <td className="px-5 py-4 text-right">
                             {project.deadline ? (
@@ -925,32 +975,64 @@ export default function CrmPage() {
                           {formatCurrency(project.budget)}
                         </span>
                       </div>
-                      <Progress value={project.progress} className="h-1.5 mb-2" />
+                      {/* Time + Progress */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-xs font-medium ${timeExceeded ? "text-amber-600" : "text-gray-600"}`}>
+                          {project.timeSpent}h
+                        </span>
+                        <Progress value={calcProgress(project.timeSpent, project.timeEstimated)} className="h-1.5 flex-1" />
+                        <span className="text-xs text-gray-400">
+                          {project.timeEstimated}h
+                        </span>
+                      </div>
+
+                      {/* Actions summary */}
                       {(() => {
                         const projectActions = (project.actions || []) as CrmAction[]
                         const total = projectActions.length
                         const done = projectActions.filter((a) => a.done).length
                         const pending = total - done
+                        const nextAction = projectActions.find((a) => !a.done)
                         if (total === 0) return null
                         return (
-                          <div className="flex items-center gap-1.5 mb-2 text-xs">
-                            <ListChecks className="w-3 h-3 text-gray-400" />
-                            <span className={pending > 0 ? "text-amber-600 font-medium" : "text-emerald-600"}>
-                              {done}/{total} actions
-                            </span>
-                            {pending > 0 && (
-                              <span className="text-gray-400">({pending} restante{pending > 1 ? "s" : ""})</span>
+                          <div className="mb-2 text-xs flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <ListChecks className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                              <span className={pending > 0 ? "text-amber-600 font-medium" : "text-emerald-600"}>
+                                {done}/{total}
+                              </span>
+                              {nextAction && (
+                                <span className="text-gray-500 truncate">
+                                  - {nextAction.text}
+                                </span>
+                              )}
+                            </div>
+                            {nextAction?.dueDate && (
+                              <div className="flex items-center gap-1 ml-4">
+                                <CalendarDays className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                                <span className={new Date(nextAction.dueDate) < new Date() ? "text-red-500 font-medium" : "text-gray-400"}>
+                                  {new Date(nextAction.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                                </span>
+                              </div>
                             )}
                           </div>
                         )
                       })()}
+
+                      {/* Notes preview */}
+                      {project.notes?.trim() && (
+                        <div className="flex items-center gap-1.5 mb-2 text-xs">
+                          <StickyNote className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                          <span className="text-gray-400 truncate">
+                            {project.notes.substring(0, 50)}{project.notes.length > 50 ? "..." : ""}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between text-xs text-gray-500">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          <span className={timeExceeded ? "text-amber-600 font-medium" : ""}>
-                            {project.timeSpent}h
-                            {project.timeEstimated > 0 && ` / ${project.timeEstimated}h`}
-                          </span>
+                          <span>{calcProgress(project.timeSpent, project.timeEstimated)}%</span>
                         </div>
                         {project.deadline && (
                           <span className={deadlinePassed ? "text-red-600 font-medium" : ""}>

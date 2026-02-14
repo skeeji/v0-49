@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import { GridFSBucket, ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
 
+export const runtime = "nodejs"
+export const maxDuration = 300
+
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 export async function POST(request: NextRequest) {
