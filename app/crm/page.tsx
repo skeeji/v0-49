@@ -21,9 +21,18 @@ import {
   Euro,
   FolderOpen,
   TrendingUp,
+  CheckSquare,
+  Square,
+  ListChecks,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+
+interface CrmAction {
+  id: string
+  text: string
+  done: boolean
+}
 
 interface CrmProject {
   _id: string
@@ -35,6 +44,7 @@ interface CrmProject {
   timeEstimated: number
   deadline: string | null
   notes: string
+  actions: CrmAction[]
   driveLink: string
   imageId: string | null
   createdAt: string
@@ -201,6 +211,8 @@ function DetailPanel({
   onDelete: () => void
 }) {
   const [notes, setNotes] = useState(project.notes || "")
+  const [actions, setActions] = useState<CrmAction[]>(project.actions || [])
+  const [newAction, setNewAction] = useState("")
   const [driveLink, setDriveLink] = useState(project.driveLink || "")
   const [progress, setProgress] = useState(project.progress || 0)
   const [timeSpent, setTimeSpent] = useState(project.timeSpent || 0)
@@ -224,6 +236,7 @@ function DetailPanel({
         body: JSON.stringify({
           name,
           notes,
+          actions,
           driveLink,
           progress,
           timeSpent,
@@ -467,6 +480,88 @@ function DetailPanel({
             </div>
           </div>
 
+          {/* Actions a mener */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">
+              Actions a mener
+            </label>
+            <div className="flex flex-col gap-2">
+              {actions.map((action) => (
+                <div
+                  key={action.id}
+                  className="flex items-start gap-2 group"
+                >
+                  <button
+                    onClick={() =>
+                      setActions((prev) =>
+                        prev.map((a) =>
+                          a.id === action.id ? { ...a, done: !a.done } : a
+                        )
+                      )
+                    }
+                    className="mt-0.5 flex-shrink-0 text-gray-400 hover:text-[#8b7355] transition-colors"
+                  >
+                    {action.done ? (
+                      <CheckSquare className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                  </button>
+                  <span
+                    className={`text-sm flex-1 ${action.done ? "line-through text-gray-400" : "text-gray-700"}`}
+                  >
+                    {action.text}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setActions((prev) => prev.filter((a) => a.id !== action.id))
+                    }
+                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <Input
+                  value={newAction}
+                  onChange={(e) => setNewAction(e.target.value)}
+                  placeholder="Ajouter une action..."
+                  className="flex-1 text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newAction.trim()) {
+                      setActions((prev) => [
+                        ...prev,
+                        { id: Date.now().toString(), text: newAction.trim(), done: false },
+                      ])
+                      setNewAction("")
+                    }
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0 px-3"
+                  disabled={!newAction.trim()}
+                  onClick={() => {
+                    if (newAction.trim()) {
+                      setActions((prev) => [
+                        ...prev,
+                        { id: Date.now().toString(), text: newAction.trim(), done: false },
+                      ])
+                      setNewAction("")
+                    }
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              {actions.length === 0 && (
+                <p className="text-xs text-gray-400 italic">Aucune action pour le moment</p>
+              )}
+            </div>
+          </div>
+
           {/* Notes */}
           <div>
             <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">
@@ -674,6 +769,9 @@ export default function CrmPage() {
                       <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">
                         Progression
                       </th>
+                      <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">
+                        Actions
+                      </th>
                       <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider px-5 py-3">
                         Budget
                       </th>
@@ -729,6 +827,23 @@ export default function CrmPage() {
                                 {project.progress}%
                               </span>
                             </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            {(() => {
+                              const projectActions = (project.actions || []) as CrmAction[]
+                              const total = projectActions.length
+                              const done = projectActions.filter((a) => a.done).length
+                              const pending = total - done
+                              if (total === 0) return <span className="text-sm text-gray-400">-</span>
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <ListChecks className="w-3.5 h-3.5 text-gray-400" />
+                                  <span className={`text-sm ${pending > 0 ? "text-amber-600 font-medium" : "text-emerald-600"}`}>
+                                    {done}/{total}
+                                  </span>
+                                </div>
+                              )
+                            })()}
                           </td>
                           <td className="px-5 py-4 text-right">
                             <span className="text-sm font-medium text-gray-900">
@@ -811,6 +926,24 @@ export default function CrmPage() {
                         </span>
                       </div>
                       <Progress value={project.progress} className="h-1.5 mb-2" />
+                      {(() => {
+                        const projectActions = (project.actions || []) as CrmAction[]
+                        const total = projectActions.length
+                        const done = projectActions.filter((a) => a.done).length
+                        const pending = total - done
+                        if (total === 0) return null
+                        return (
+                          <div className="flex items-center gap-1.5 mb-2 text-xs">
+                            <ListChecks className="w-3 h-3 text-gray-400" />
+                            <span className={pending > 0 ? "text-amber-600 font-medium" : "text-emerald-600"}>
+                              {done}/{total} actions
+                            </span>
+                            {pending > 0 && (
+                              <span className="text-gray-400">({pending} restante{pending > 1 ? "s" : ""})</span>
+                            )}
+                          </div>
+                        )
+                      })()}
                       <div className="flex items-center justify-between text-xs text-gray-500">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />

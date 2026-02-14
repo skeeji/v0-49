@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
       timeEstimated: body.timeEstimated || 0,
       deadline: body.deadline || null,
       notes: body.notes || "",
+      actions: body.actions || [],
       driveLink: body.driveLink || "",
       imageId: body.imageId || null,
       createdAt: new Date(),
