@@ -1172,21 +1172,23 @@ export default function HomePage() {
                   </button>
                 </Link>
               </div>
-              {/* Grille de vrais luminaires du catalogue MongoDB */}
+              {/* Grille de vrais luminaires du catalogue MongoDB - cliquables */}
               <div className="bg-white rounded-2xl p-4 shadow-xl border border-gray-100">
                 <div className="grid grid-cols-3 gap-2">
                   {luminaires
                     .filter((l: any) => l.filename)
                     .slice(0, 6)
                     .map((l: any, i: number) => (
-                      <div key={i} className="aspect-square rounded-xl overflow-hidden bg-[#f5f1e8]">
-                        <img
-                          src={`/api/images/filename/${l.filename}`}
-                          alt={l.nom || l["Nom luminaire"] || "Luminaire"}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                        />
-                      </div>
+                      <Link key={i} href={`/luminaires/${l._id}`}>
+                        <div className="aspect-square rounded-xl overflow-hidden bg-[#f5f1e8] cursor-pointer group">
+                          <img
+                            src={`/api/images/filename/${l.filename}`}
+                            alt={l.nom || l["Nom luminaire"] || "Luminaire"}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                        </div>
+                      </Link>
                     ))}
                 </div>
                 <div className="mt-3 flex items-center justify-between text-sm text-gray-500">
@@ -1215,8 +1217,8 @@ export default function HomePage() {
                 <div className="space-y-3">
                   {previewDesigners.slice(0, 4).map((designer: any, i: number) => (
                     <Link key={i} href={`/designers/${encodeURIComponent(designer.nom || "")}`} className="block">
-                      <div className="flex items-center gap-4 p-3 rounded-xl bg-[#f5f1e8]/60 hover:bg-[#f5f1e8] transition-colors">
-                        <div className="w-14 h-14 rounded-full overflow-hidden bg-[#e8e0d0] flex-shrink-0">
+                      <div className="flex items-center gap-4 p-3 rounded-xl bg-[#f5f1e8]/60 hover:bg-[#f5f1e8] transition-colors group">
+                        <div className="w-16 h-16 rounded-full overflow-hidden bg-[#e8e0d0] flex-shrink-0 ring-2 ring-[#8b7355]/20">
                           {designer.image ? (
                             <img
                               src={designer.image}
@@ -1226,17 +1228,17 @@ export default function HomePage() {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <Users className="w-5 h-5 text-[#8b7355]/50" />
+                              <Users className="w-6 h-6 text-[#8b7355]/50" />
                             </div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{designer.nom}</p>
+                          <p className="text-base font-serif font-semibold text-gray-900 group-hover:text-[#8b7355] transition-colors">{designer.nom}</p>
                           {designer.description && (
-                            <p className="text-xs text-gray-500 truncate">{designer.description.substring(0, 60)}</p>
+                            <p className="text-sm text-gray-500 line-clamp-2 mt-0.5 leading-snug">{designer.description.substring(0, 80)}</p>
                           )}
                         </div>
-                        <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                        <ArrowRight className="w-5 h-5 text-[#8b7355]/40 group-hover:text-[#8b7355] transition-colors flex-shrink-0" />
                       </div>
                     </Link>
                   ))}
@@ -1276,96 +1278,120 @@ export default function HomePage() {
           <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
         </div>
 
-        {/* Section Chronologie - avec vrais luminaires par epoque */}
+        {/* Section Chronologie - full width, slider fonctionnel */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-[#8b7355]" />
-                  </div>
-                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Chronologie</span>
+            {/* Header centre */}
+            <div className="text-center mb-10">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-[#8b7355]" />
                 </div>
-                <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
-                  Un voyage a travers les epoques
-                </h2>
-                <p className="text-gray-600 leading-relaxed mb-6">
-                  Parcourez l'evolution du luminaire a travers les siecles. Du Moyen-Age au design contemporain, 
-                  decouvrez comment chaque epoque a influence les styles, les materiaux et les techniques. 
-                  Chaque periode est illustree avec des pieces representatives de la collection.
-                </p>
-                <Link href="/chronologie">
-                  <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
-                    Explorer la chronologie
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </Link>
+                <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Chronologie</span>
               </div>
-              {/* Apercu des periodes avec vrais luminaires */}
-              <div className="bg-white rounded-2xl p-5 shadow-xl border border-gray-100">
-                {/* Mini-timeline */}
-                <div className="relative mb-5">
-                  <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-gradient-to-r from-[#6b5644] via-[#8b7355] to-[#d4c5b0] -translate-y-1/2" />
-                  <div className="relative flex justify-between px-1">
-                    {[
-                      { name: "M-Age", year: "1000" },
-                      { name: "Renais.", year: "1500" },
-                      { name: "Baroque", year: "1600" },
-                      { name: "Art Nouv.", year: "1890" },
-                      { name: "Art Deco", year: "1920" },
-                      { name: "Contemp.", year: "2000" },
-                    ].map((p, i) => (
-                      <div key={i} className="flex flex-col items-center">
-                        <div className="w-3 h-3 rounded-full bg-[#8b7355] border-2 border-white shadow-sm relative z-10" />
-                        <span className="text-[9px] text-gray-600 mt-1.5 text-center leading-tight font-medium">{p.name}</span>
-                        <span className="text-[8px] text-gray-400">{p.year}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Cartes de periodes avec vrais luminaires */}
-                <div className="space-y-2">
-                  {[
-                    { name: "Moyen-Age", start: 1000, end: 1499, color: "#6b5644" },
-                    { name: "Art Nouveau", start: 1890, end: 1910, color: "#8b7355" },
-                    { name: "Art Deco", start: 1920, end: 1940, color: "#a0826d" },
-                    { name: "Contemporain", start: 1970, end: 2030, color: "#c9b096" },
-                  ].map((period, i) => {
-                    const periodLuminaires = luminaires.filter((l: any) => {
-                      const y = parseInt(l.annee || l.Année || l.year)
-                      return !isNaN(y) && y >= period.start && y <= period.end && l.filename
-                    })
-                    const sample = periodLuminaires.slice(0, 3)
-                    return (
-                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#f5f1e8]/60 transition-colors">
-                        <div className="w-1.5 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: period.color }} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-serif font-medium text-gray-900">{period.name}</p>
-                          <p className="text-[10px] text-gray-400">{period.start} - {period.end > 2025 ? "auj." : period.end}</p>
+              <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-3 text-balance">
+                Un voyage a travers les epoques
+              </h2>
+              <p className="text-gray-600 leading-relaxed max-w-2xl mx-auto">
+                Parcourez l'evolution du luminaire du Moyen-Age au design contemporain.
+              </p>
+            </div>
+
+            {/* Slider horizontal de periodes - scroll fonctionnel */}
+            <div className="relative">
+              {/* Fleche gauche */}
+              <button
+                onClick={() => {
+                  const el = document.getElementById("chrono-slider")
+                  if (el) el.scrollBy({ left: -300, behavior: "smooth" })
+                }}
+                className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5 text-[#8b7355]" />
+              </button>
+              {/* Fleche droite */}
+              <button
+                onClick={() => {
+                  const el = document.getElementById("chrono-slider")
+                  if (el) el.scrollBy({ left: 300, behavior: "smooth" })
+                }}
+                className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-[#8b7355]" />
+              </button>
+
+              <div
+                id="chrono-slider"
+                className="flex gap-5 overflow-x-auto pb-4 px-8 snap-x snap-mandatory scrollbar-hide"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {[
+                  { name: "Moyen-Age", years: "1000 - 1499", desc: "Chandeliers en fer forge, lampes a huile et cire dans les abbayes et chateaux", color: "#6b5644", start: 1000, end: 1499 },
+                  { name: "Renaissance", years: "1500 - 1599", desc: "Premieres suspensions en bronze et cristal dans les palais europeens", color: "#7a6349", start: 1500, end: 1599 },
+                  { name: "Baroque", years: "1600 - 1714", desc: "Opulence des lustres a pampilles et girandoles dans les cours royales", color: "#836c50", start: 1600, end: 1714 },
+                  { name: "Neoclassique", years: "1715 - 1789", desc: "Retour a la sobriete antique, bronze dore et cristal taille", color: "#8b7355", start: 1715, end: 1789 },
+                  { name: "Empire", years: "1800 - 1850", desc: "Lustres monumentaux inspires de l'Antiquite greco-romaine", color: "#947c5c", start: 1800, end: 1850 },
+                  { name: "Art Nouveau", years: "1890 - 1910", desc: "Formes organiques avec les maitres Galle, Daum et Tiffany", color: "#9d8563", start: 1890, end: 1910 },
+                  { name: "Art Deco", years: "1920 - 1940", desc: "Geometrie, luxe et materiaux modernes des annees folles", color: "#a68e6a", start: 1920, end: 1940 },
+                  { name: "Moderne", years: "1950 - 1969", desc: "Revolution du design scandinave et italien d'apres-guerre", color: "#b09b78", start: 1950, end: 1969 },
+                  { name: "Contemporain", years: "1970 - auj.", desc: "LED, eco-design et creations d'artistes contemporains", color: "#c9b096", start: 1970, end: 2030 },
+                ].map((period, i) => {
+                  const periodLuminaires = luminaires.filter((l: any) => {
+                    const y = parseInt(l.annee || l["Année"] || l.year)
+                    return !isNaN(y) && y >= period.start && y <= period.end && l.filename
+                  })
+                  const sample = periodLuminaires.slice(0, 1)
+                  const count = periodLuminaires.length
+
+                  return (
+                    <div
+                      key={i}
+                      className="flex-shrink-0 w-[220px] snap-center bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-xl transition-shadow group"
+                    >
+                      {/* Image du luminaire representatif */}
+                      <div className="h-36 relative overflow-hidden" style={{ backgroundColor: period.color + "15" }}>
+                        {sample.length > 0 ? (
+                          <img
+                            src={`/api/images/filename/${sample[0].filename}`}
+                            alt={sample[0].nom || period.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Clock className="w-10 h-10" style={{ color: period.color, opacity: 0.3 }} />
+                          </div>
+                        )}
+                        <div className="absolute top-3 left-3">
+                          <span className="px-2.5 py-1 rounded-full text-white text-[11px] font-semibold shadow-md" style={{ backgroundColor: period.color }}>
+                            {period.years}
+                          </span>
                         </div>
-                        <div className="flex -space-x-2">
-                          {sample.map((l: any, j: number) => (
-                            <div key={j} className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-sm bg-[#f5f1e8]">
-                              <img
-                                src={`/api/images/filename/${l.filename}`}
-                                alt={l.nom || "Luminaire"}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            </div>
-                          ))}
-                          {periodLuminaires.length > 3 && (
-                            <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm bg-[#8b7355] flex items-center justify-center">
-                              <span className="text-[9px] text-white font-medium">+{periodLuminaires.length - 3}</span>
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    )
-                  })}
-                </div>
+                      {/* Contenu */}
+                      <div className="p-4">
+                        <h3 className="text-lg font-serif font-semibold text-gray-900 mb-1">{period.name}</h3>
+                        <p className="text-xs text-gray-500 leading-relaxed mb-3">{period.desc}</p>
+                        {count > 0 && (
+                          <span className="text-[11px] text-[#8b7355] font-medium">
+                            {count} luminaire{count > 1 ? "s" : ""} dans la collection
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
+            </div>
+
+            {/* CTA */}
+            <div className="text-center mt-8">
+              <Link href="/chronologie">
+                <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg mx-auto">
+                  Explorer la chronologie complete
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
             </div>
           </div>
         </section>
@@ -1407,22 +1433,7 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-                {/* Mini preview de luminaires en bas de la carte prix */}
-                <div className="flex justify-center gap-2 mt-5 pt-4 border-t border-gray-100">
-                  {luminaires
-                    .filter((l: any) => l.filename)
-                    .slice(6, 10)
-                    .map((l: any, i: number) => (
-                      <div key={i} className="w-12 h-12 rounded-lg overflow-hidden bg-[#f5f1e8]">
-                        <img
-                          src={`/api/images/filename/${l.filename}`}
-                          alt={l.nom || "Luminaire"}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                    ))}
-                </div>
+
               </div>
               <div className="order-1 md:order-2">
                 <div className="flex items-center gap-3 mb-4">
