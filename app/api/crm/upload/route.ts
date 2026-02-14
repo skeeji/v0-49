@@ -20,6 +20,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const MAX_SIZE = 2 * 1024 * 1024 // 2 Mo
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json(
+        { success: false, error: "L'image ne doit pas depasser 2 Mo" },
+        { status: 400 }
+      )
+    }
+
     const client = await clientPromise
     const db = client.db(DBNAME)
     const bucket = new GridFSBucket(db, { bucketName: "crm_uploads" })

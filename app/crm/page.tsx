@@ -262,6 +262,11 @@ function DetailPanel({
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const MAX_SIZE = 2 * 1024 * 1024
+    if (file.size > MAX_SIZE) {
+      alert("L'image ne doit pas depasser 2 Mo")
+      return
+    }
     setUploading(true)
     try {
       const formData = new FormData()
@@ -730,6 +735,83 @@ export default function CrmPage() {
             </div>
           </div>
 
+          {/* Mini calendar - upcoming dates */}
+          {(() => {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const allDates: { date: string; label: string; project: string; type: "action" | "deadline"; overdue: boolean }[] = []
+            projects.forEach((p) => {
+              if (p.deadline && p.status === "En cours") {
+                const d = new Date(p.deadline)
+                allDates.push({
+                  date: p.deadline,
+                  label: "Echeance",
+                  project: p.name,
+                  type: "deadline",
+                  overdue: d < today,
+                })
+              }
+              ;(p.actions || []).forEach((a: CrmAction) => {
+                if (a.dueDate && !a.done) {
+                  const d = new Date(a.dueDate)
+                  allDates.push({
+                    date: a.dueDate,
+                    label: a.text,
+                    project: p.name,
+                    type: "action",
+                    overdue: d < today,
+                  })
+                }
+              })
+            })
+            allDates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            const upcoming = allDates.filter((d) => !d.overdue).slice(0, 5)
+            const overdue = allDates.filter((d) => d.overdue)
+            if (allDates.length === 0) return null
+            return (
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CalendarDays className="w-4 h-4 text-[#8b7355]" />
+                  <h3 className="text-sm font-semibold text-gray-800">Calendrier</h3>
+                  {overdue.length > 0 && (
+                    <span className="text-[10px] bg-red-100 text-red-600 font-medium px-1.5 py-0.5 rounded-full">
+                      {overdue.length} en retard
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {overdue.slice(0, 3).map((d, i) => (
+                    <div key={`o-${i}`} className="flex items-center gap-2 text-xs bg-red-50/60 rounded-md px-2 py-1.5">
+                      <span className="text-red-500 font-medium w-14 flex-shrink-0">
+                        {new Date(d.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                      </span>
+                      <span className="text-red-600 truncate flex-1">{d.label}</span>
+                      <span className="text-red-400 truncate flex-shrink-0 max-w-[120px] text-[10px]">{d.project}</span>
+                      {d.type === "deadline" && (
+                        <AlertTriangle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                      )}
+                    </div>
+                  ))}
+                  {upcoming.map((d, i) => (
+                    <div key={`u-${i}`} className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 hover:bg-gray-50 transition-colors">
+                      <span className="text-gray-500 font-medium w-14 flex-shrink-0">
+                        {new Date(d.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                      </span>
+                      <span className="text-gray-700 truncate flex-1">{d.label}</span>
+                      <span className="text-gray-400 truncate flex-shrink-0 max-w-[120px] text-[10px]">{d.project}</span>
+                      {d.type === "deadline" && (
+                        <Clock className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                      )}
+                    </div>
+                  ))}
+                  {overdue.length > 3 && (
+                    <span className="text-[10px] text-red-400 px-2">+{overdue.length - 3} autres en retard</span>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Search and filters */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -866,37 +948,40 @@ export default function CrmPage() {
                               const projectActions = (project.actions || []) as CrmAction[]
                               const total = projectActions.length
                               const done = projectActions.filter((a) => a.done).length
-                              const pending = total - done
-                              const nextAction = projectActions.find((a) => !a.done)
                               const hasNotes = !!project.notes?.trim()
+                              const pendingActions = projectActions.filter((a) => !a.done)
                               return (
-                                <div className="flex flex-col gap-1 min-w-[160px] max-w-[240px]">
+                                <div className="flex flex-col gap-1 min-w-[180px] max-w-[280px]">
                                   {total > 0 && (
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
                                       <ListChecks className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                                      <span className={`text-xs ${pending > 0 ? "text-amber-600 font-medium" : "text-emerald-600"}`}>
-                                        {done}/{total}
+                                      <span className={`text-xs font-medium ${done < total ? "text-amber-600" : "text-emerald-600"}`}>
+                                        {done}/{total} actions
                                       </span>
-                                      {nextAction && (
-                                        <span className="text-xs text-gray-500 truncate ml-1">
-                                          - {nextAction.text}
-                                        </span>
-                                      )}
                                     </div>
                                   )}
-                                  {nextAction?.dueDate && (
-                                    <div className="flex items-center gap-1 ml-5">
-                                      <CalendarDays className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                                      <span className={`text-xs ${new Date(nextAction.dueDate) < new Date() ? "text-red-500 font-medium" : "text-gray-400"}`}>
-                                        {new Date(nextAction.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                                      </span>
-                                    </div>
+                                  {pendingActions.slice(0, 3).map((action) => {
+                                    const overdue = action.dueDate && new Date(action.dueDate) < new Date()
+                                    return (
+                                      <div key={action.id} className="flex items-center gap-1.5 pl-1">
+                                        <Square className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                                        <span className="text-xs text-gray-600 truncate flex-1">{action.text}</span>
+                                        {action.dueDate && (
+                                          <span className={`text-[10px] flex-shrink-0 ${overdue ? "text-red-500 font-medium" : "text-gray-400"}`}>
+                                            {new Date(action.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                  {pendingActions.length > 3 && (
+                                    <span className="text-[10px] text-gray-400 pl-5">+{pendingActions.length - 3} autres</span>
                                   )}
                                   {hasNotes && (
-                                    <div className="flex items-center gap-1.5">
-                                      <StickyNote className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <StickyNote className="w-3 h-3 text-gray-300 flex-shrink-0" />
                                       <span className="text-xs text-gray-400 truncate">
-                                        {project.notes!.substring(0, 40)}{project.notes!.length > 40 ? "..." : ""}
+                                        {project.notes!.substring(0, 35)}{project.notes!.length > 35 ? "..." : ""}
                                       </span>
                                     </div>
                                   )}
@@ -991,29 +1076,32 @@ export default function CrmPage() {
                         const projectActions = (project.actions || []) as CrmAction[]
                         const total = projectActions.length
                         const done = projectActions.filter((a) => a.done).length
-                        const pending = total - done
-                        const nextAction = projectActions.find((a) => !a.done)
+                        const pendingActions = projectActions.filter((a) => !a.done)
                         if (total === 0) return null
                         return (
-                          <div className="mb-2 text-xs flex flex-col gap-0.5">
+                          <div className="mb-2 text-xs flex flex-col gap-1">
                             <div className="flex items-center gap-1.5">
                               <ListChecks className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                              <span className={pending > 0 ? "text-amber-600 font-medium" : "text-emerald-600"}>
-                                {done}/{total}
+                              <span className={done < total ? "text-amber-600 font-medium" : "text-emerald-600"}>
+                                {done}/{total} actions
                               </span>
-                              {nextAction && (
-                                <span className="text-gray-500 truncate">
-                                  - {nextAction.text}
-                                </span>
-                              )}
                             </div>
-                            {nextAction?.dueDate && (
-                              <div className="flex items-center gap-1 ml-4">
-                                <CalendarDays className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                                <span className={new Date(nextAction.dueDate) < new Date() ? "text-red-500 font-medium" : "text-gray-400"}>
-                                  {new Date(nextAction.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                                </span>
-                              </div>
+                            {pendingActions.slice(0, 2).map((action) => {
+                              const overdue = action.dueDate && new Date(action.dueDate) < new Date()
+                              return (
+                                <div key={action.id} className="flex items-center gap-1.5 pl-1">
+                                  <Square className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                                  <span className="text-gray-600 truncate flex-1">{action.text}</span>
+                                  {action.dueDate && (
+                                    <span className={`text-[10px] flex-shrink-0 ${overdue ? "text-red-500 font-medium" : "text-gray-400"}`}>
+                                      {new Date(action.dueDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                            {pendingActions.length > 2 && (
+                              <span className="text-[10px] text-gray-400 pl-5">+{pendingActions.length - 2} autres</span>
                             )}
                           </div>
                         )
