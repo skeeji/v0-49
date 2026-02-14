@@ -1238,7 +1238,7 @@ export default function HomePage() {
               {/* Cartes designers avec vraies images */}
               <div className="order-2 md:order-1 bg-white rounded-2xl p-5 shadow-xl border border-gray-100">
                 <div className="space-y-3">
-                  {previewDesigners.slice(0, 6).map((designer: any, i: number) => {
+                  {previewDesigners.slice(0, 4).map((designer: any, i: number) => {
                     const name = designer.nom || designer.Nom || designer.name || "Designer"
                     return (
                       <Link key={i} href={`/designers/${encodeURIComponent(name)}`} className="block">
