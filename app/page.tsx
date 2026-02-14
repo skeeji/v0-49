@@ -17,7 +17,8 @@ const apiUrl = "https://image-similarity-api-590690354412.us-central1.run.app/ap
 export default function HomePage() {
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState([])
-  const [luminaires, setLuminaires] = useState([])
+  const [luminaires, setLuminaires] = useState<any[]>([])
+  const [previewDesigners, setPreviewDesigners] = useState<any[]>([])
   const [welcomeVideo, setWelcomeVideo] = useState("")
   const [isCameraActive, setIsCameraActive] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
@@ -552,6 +553,23 @@ export default function HomePage() {
         console.error("Erreur lors du chargement des luminaires:", error)
       }
     }
+
+    // Charger quelques designers pour la preview
+    const loadDesigners = async () => {
+      try {
+        const response = await fetch("/api/designers?limit=6")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setPreviewDesigners(data.designers.filter((d: any) => d.image))
+          }
+        }
+      } catch (error) {
+        console.error("Erreur chargement designers preview:", error)
+      }
+    }
+
+    loadDesigners()
 
     // Charger la vidéo d'accueil depuis l'API
     const loadWelcomeVideo = async () => {
@@ -1121,7 +1139,7 @@ export default function HomePage() {
       {/* ========== PRESENTATION DES PAGES ========== */}
       <div className="relative z-10 bg-[#f5f1e8]">
 
-        {/* Section Luminaires */}
+        {/* Section Luminaires - avec vrais luminaires du catalogue */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -1133,7 +1151,7 @@ export default function HomePage() {
                   <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Collection</span>
                 </div>
                 <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
-                  Plus de 9 000 luminaires a decouvrir
+                  Plus de {luminaires.length > 0 ? luminaires.length.toLocaleString("fr-FR") : "9 000"} luminaires a decouvrir
                 </h2>
                 <p className="text-gray-600 leading-relaxed mb-6">
                   Explorez notre base de donnees exhaustive de luminaires du Moyen-Age a nos jours. 
@@ -1154,12 +1172,30 @@ export default function HomePage() {
                   </button>
                 </Link>
               </div>
-              <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-100">
-                <img
-                  src="/images/preview-luminaires.jpg"
-                  alt="Apercu de la collection de luminaires"
-                  className="w-full h-[340px] object-cover"
-                />
+              {/* Grille de vrais luminaires du catalogue MongoDB */}
+              <div className="bg-white rounded-2xl p-4 shadow-xl border border-gray-100">
+                <div className="grid grid-cols-3 gap-2">
+                  {luminaires
+                    .filter((l: any) => l.filename)
+                    .slice(0, 6)
+                    .map((l: any, i: number) => (
+                      <div key={i} className="aspect-square rounded-xl overflow-hidden bg-[#f5f1e8]">
+                        <img
+                          src={`/api/images/filename/${l.filename}`}
+                          alt={l.nom || l["Nom luminaire"] || "Luminaire"}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      </div>
+                    ))}
+                </div>
+                <div className="mt-3 flex items-center justify-between text-sm text-gray-500">
+                  <span>{luminaires.length.toLocaleString("fr-FR")} luminaires</span>
+                  <div className="flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Filtres avances</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1170,16 +1206,44 @@ export default function HomePage() {
           <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
         </div>
 
-        {/* Section Designers */}
+        {/* Section Designers - avec vrais designers de la base */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="order-2 md:order-1 rounded-2xl overflow-hidden shadow-xl border border-gray-100">
-                <img
-                  src="/images/preview-designers.jpg"
-                  alt="Ateliers des grands designers de luminaires"
-                  className="w-full h-[340px] object-cover"
-                />
+              {/* Cartes designers avec vraies images */}
+              <div className="order-2 md:order-1 bg-white rounded-2xl p-5 shadow-xl border border-gray-100">
+                <div className="space-y-3">
+                  {previewDesigners.slice(0, 4).map((designer: any, i: number) => (
+                    <Link key={i} href={`/designers/${encodeURIComponent(designer.nom || "")}`} className="block">
+                      <div className="flex items-center gap-4 p-3 rounded-xl bg-[#f5f1e8]/60 hover:bg-[#f5f1e8] transition-colors">
+                        <div className="w-14 h-14 rounded-full overflow-hidden bg-[#e8e0d0] flex-shrink-0">
+                          {designer.image ? (
+                            <img
+                              src={designer.image}
+                              alt={designer.nom || "Designer"}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Users className="w-5 h-5 text-[#8b7355]/50" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{designer.nom}</p>
+                          {designer.description && (
+                            <p className="text-xs text-gray-500 truncate">{designer.description.substring(0, 60)}</p>
+                          )}
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                <div className="mt-4 text-center text-sm text-gray-400">
+                  Et des centaines d'autres artistes...
+                </div>
               </div>
               <div className="order-1 md:order-2">
                 <div className="flex items-center gap-3 mb-4">
@@ -1196,13 +1260,6 @@ export default function HomePage() {
                   en passant par Lalique et Tiffany, explorez les oeuvres de chaque designer avec leur biographie 
                   et l'ensemble de leurs creations dans notre collection.
                 </p>
-                <div className="flex flex-wrap gap-2 mb-8">
-                  {["Emile Galle", "Rene Lalique", "Tiffany", "Daum", "Muller"].map((name) => (
-                    <span key={name} className="px-3 py-1.5 bg-white rounded-full text-xs font-medium text-gray-700 border border-gray-200 shadow-sm">
-                      {name}
-                    </span>
-                  ))}
-                </div>
                 <Link href="/designers">
                   <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
                     Decouvrir les designers
@@ -1219,91 +1276,96 @@ export default function HomePage() {
           <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
         </div>
 
-        {/* Section Chronologie - fidele a la vraie page */}
+        {/* Section Chronologie - avec vrais luminaires par epoque */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-12">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-[#8b7355]" />
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-[#8b7355]" />
+                  </div>
+                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Chronologie</span>
                 </div>
-                <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Chronologie</span>
+                <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
+                  Un voyage a travers les epoques
+                </h2>
+                <p className="text-gray-600 leading-relaxed mb-6">
+                  Parcourez l'evolution du luminaire a travers les siecles. Du Moyen-Age au design contemporain, 
+                  decouvrez comment chaque epoque a influence les styles, les materiaux et les techniques. 
+                  Chaque periode est illustree avec des pieces representatives de la collection.
+                </p>
+                <Link href="/chronologie">
+                  <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
+                    Explorer la chronologie
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </Link>
               </div>
-              <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
-                Un voyage a travers les epoques
-              </h2>
-              <p className="text-gray-600 leading-relaxed max-w-2xl mx-auto">
-                Parcourez l'evolution du luminaire a travers les siecles. Du Moyen-Age au design contemporain, 
-                decouvrez comment chaque epoque a influence les styles, les materiaux et les techniques.
-              </p>
-            </div>
-
-            {/* Timeline preview - style fidele a la page chronologie */}
-            <div className="grid md:grid-cols-5 gap-4 mb-10">
-              <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100 md:col-span-2">
-                <img
-                  src="/images/preview-chronologie.jpg"
-                  alt="Evolution des luminaires a travers les epoques"
-                  className="w-full h-48 md:h-full object-cover"
-                />
-              </div>
-              <div className="md:col-span-3 flex flex-col gap-3">
-                {/* Mini-timeline bar */}
-                <div className="bg-white rounded-xl p-4 shadow-md border border-gray-100">
-                  <div className="relative">
-                    <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-gradient-to-r from-[#6b5644] via-[#8b7355] to-[#d4c5b0] -translate-y-1/2" />
-                    <div className="relative flex justify-between px-2">
-                      {[
-                        { name: "Moyen-Age", year: "1000" },
-                        { name: "Renaissance", year: "1500" },
-                        { name: "Baroque", year: "1600" },
-                        { name: "Art Nouveau", year: "1890" },
-                        { name: "Art Deco", year: "1920" },
-                        { name: "Moderne", year: "1950" },
-                        { name: "Contemp.", year: "2000" },
-                      ].map((p, i) => (
-                        <div key={i} className="flex flex-col items-center">
-                          <div className="w-3 h-3 rounded-full bg-[#8b7355] border-2 border-white shadow-sm relative z-10" style={{ opacity: 1 - i * 0.08 }} />
-                          <span className="text-[9px] md:text-[10px] text-gray-600 mt-1.5 text-center leading-tight font-medium">{p.name}</span>
-                          <span className="text-[8px] md:text-[9px] text-gray-400">{p.year}</span>
-                        </div>
-                      ))}
-                    </div>
+              {/* Apercu des periodes avec vrais luminaires */}
+              <div className="bg-white rounded-2xl p-5 shadow-xl border border-gray-100">
+                {/* Mini-timeline */}
+                <div className="relative mb-5">
+                  <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-gradient-to-r from-[#6b5644] via-[#8b7355] to-[#d4c5b0] -translate-y-1/2" />
+                  <div className="relative flex justify-between px-1">
+                    {[
+                      { name: "M-Age", year: "1000" },
+                      { name: "Renais.", year: "1500" },
+                      { name: "Baroque", year: "1600" },
+                      { name: "Art Nouv.", year: "1890" },
+                      { name: "Art Deco", year: "1920" },
+                      { name: "Contemp.", year: "2000" },
+                    ].map((p, i) => (
+                      <div key={i} className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-[#8b7355] border-2 border-white shadow-sm relative z-10" />
+                        <span className="text-[9px] text-gray-600 mt-1.5 text-center leading-tight font-medium">{p.name}</span>
+                        <span className="text-[8px] text-gray-400">{p.year}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {/* Period preview cards */}
-                <div className="grid grid-cols-2 gap-3 flex-1">
+                {/* Cartes de periodes avec vrais luminaires */}
+                <div className="space-y-2">
                   {[
-                    { name: "Moyen-Age", years: "1000-1499", desc: "Artisanat monastique, chandelles et lampes a huile ornementees", color: "#6b5644" },
-                    { name: "Art Nouveau", years: "1890-1910", desc: "Formes organiques avec Galle, Daum et Tiffany", color: "#8b7355" },
-                    { name: "Art Deco", years: "1920-1940", desc: "Style geometrique et luxueux des annees folles", color: "#a0826d" },
-                    { name: "Contemporain", years: "2000+", desc: "LED et eco-design revolutionnent l'eclairage", color: "#c9b096" },
-                  ].map((period, i) => (
-                    <div key={i} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-8 rounded-full" style={{ backgroundColor: period.color }} />
-                        <div>
+                    { name: "Moyen-Age", start: 1000, end: 1499, color: "#6b5644" },
+                    { name: "Art Nouveau", start: 1890, end: 1910, color: "#8b7355" },
+                    { name: "Art Deco", start: 1920, end: 1940, color: "#a0826d" },
+                    { name: "Contemporain", start: 1970, end: 2030, color: "#c9b096" },
+                  ].map((period, i) => {
+                    const periodLuminaires = luminaires.filter((l: any) => {
+                      const y = parseInt(l.annee || l.Année || l.year)
+                      return !isNaN(y) && y >= period.start && y <= period.end && l.filename
+                    })
+                    const sample = periodLuminaires.slice(0, 3)
+                    return (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#f5f1e8]/60 transition-colors">
+                        <div className="w-1.5 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: period.color }} />
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-serif font-medium text-gray-900">{period.name}</p>
-                          <p className="text-[10px] text-gray-400">{period.years}</p>
+                          <p className="text-[10px] text-gray-400">{period.start} - {period.end > 2025 ? "auj." : period.end}</p>
+                        </div>
+                        <div className="flex -space-x-2">
+                          {sample.map((l: any, j: number) => (
+                            <div key={j} className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-sm bg-[#f5f1e8]">
+                              <img
+                                src={`/api/images/filename/${l.filename}`}
+                                alt={l.nom || "Luminaire"}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          ))}
+                          {periodLuminaires.length > 3 && (
+                            <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm bg-[#8b7355] flex items-center justify-center">
+                              <span className="text-[9px] text-white font-medium">+{periodLuminaires.length - 3}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <p className="text-xs text-gray-600 leading-relaxed">{period.desc}</p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
-            </div>
-
-            {/* CTA */}
-            <div className="text-center">
-              <Link href="/chronologie">
-                <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg mx-auto">
-                  Explorer la chronologie complete
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </Link>
             </div>
           </div>
         </section>
@@ -1317,42 +1379,49 @@ export default function HomePage() {
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="order-2 md:order-1">
-                <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-100 mb-6">
-                  <img
-                    src="/images/preview-pricing.jpg"
-                    alt="Acces premium a la collection"
-                    className="w-full h-[220px] object-cover"
-                  />
+              <div className="order-2 md:order-1 bg-white rounded-2xl p-6 shadow-xl border-2 border-[#8b7355]/30">
+                <div className="text-center mb-4">
+                  <span className="inline-block bg-[#8b7355] text-white text-xs px-3 py-1 rounded-full font-medium mb-3">
+                    Recommande
+                  </span>
+                  <h3 className="text-2xl font-serif text-gray-900">Premium</h3>
+                  <p className="text-sm text-gray-500 mt-1">Acces complet a toutes les fonctionnalites</p>
                 </div>
-                <div className="bg-white rounded-2xl p-6 shadow-xl border-2 border-[#8b7355]/30">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <span className="inline-block bg-[#8b7355] text-white text-xs px-3 py-1 rounded-full font-medium mb-1">
-                        Recommande
-                      </span>
-                      <h3 className="text-xl font-serif text-gray-900">Premium</h3>
+                <div className="text-center py-4">
+                  <span className="text-4xl font-bold text-gray-900">30</span>
+                  <span className="text-lg text-gray-500 ml-1">EUR/mois</span>
+                </div>
+                <div className="space-y-2 mt-2">
+                  {[
+                    "Collection complete de luminaires",
+                    "Recherche IA illimitee",
+                    "Suppression arriere-plan",
+                    "Export PDF des fiches",
+                    "Favoris et estimation de prix",
+                  ].map((feature, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                      <div className="w-4 h-4 rounded-full bg-[#8b7355]/10 flex items-center justify-center flex-shrink-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#8b7355]" />
+                      </div>
+                      {feature}
                     </div>
-                    <div className="text-right">
-                      <span className="text-3xl font-bold text-gray-900">30</span>
-                      <span className="text-sm text-gray-500 ml-1">EUR/mois</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      "9 000+ luminaires",
-                      "Recherche IA",
-                      "Export PDF",
-                      "Favoris",
-                      "Estimation prix",
-                      "Suppression fond",
-                    ].map((feature, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-gray-600">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#8b7355] flex-shrink-0" />
-                        {feature}
+                  ))}
+                </div>
+                {/* Mini preview de luminaires en bas de la carte prix */}
+                <div className="flex justify-center gap-2 mt-5 pt-4 border-t border-gray-100">
+                  {luminaires
+                    .filter((l: any) => l.filename)
+                    .slice(6, 10)
+                    .map((l: any, i: number) => (
+                      <div key={i} className="w-12 h-12 rounded-lg overflow-hidden bg-[#f5f1e8]">
+                        <img
+                          src={`/api/images/filename/${l.filename}`}
+                          alt={l.nom || "Luminaire"}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
                       </div>
                     ))}
-                  </div>
                 </div>
               </div>
               <div className="order-1 md:order-2">
