@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Camera, Upload, X } from "lucide-react"
+import { Camera, Upload, X, Lamp, Users, Clock, CreditCard, ArrowRight, Search, Grid3x3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -635,7 +635,9 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f1e8]">
+    <div className="bg-[#f5f1e8]">
+      {/* Hero section */}
+      <div className="relative min-h-screen">
       {/* Vidéo de fond */}
       {welcomeVideo && (
         <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
@@ -1104,6 +1106,255 @@ export default function HomePage() {
             </div>
           </div>
         )}
+      </div>
+      {/* Scroll indicator */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-bounce">
+        <div className="flex flex-col items-center gap-1 text-[#8b7355]/60">
+          <span className="text-xs font-medium">Decouvrir</span>
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
+      </div>{/* End hero section */}
+
+      {/* ========== PRESENTATION DES PAGES ========== */}
+      <div className="relative z-10 bg-[#f5f1e8]">
+
+        {/* Section Luminaires */}
+        <section className="py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
+                    <Grid3x3 className="w-5 h-5 text-[#8b7355]" />
+                  </div>
+                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Collection</span>
+                </div>
+                <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
+                  Plus de 9 000 luminaires a decouvrir
+                </h2>
+                <p className="text-gray-600 leading-relaxed mb-6">
+                  Explorez notre base de donnees exhaustive de luminaires du Moyen-Age a nos jours. 
+                  Filtrez par categorie, materiau, periode ou designer. Chaque fiche detaillee presente 
+                  l'histoire, les dimensions et les caracteristiques de chaque piece.
+                </p>
+                <div className="flex flex-wrap gap-3 mb-8">
+                  {["Lustres", "Appliques", "Lampadaires", "Lampes", "Suspensions"].map((cat) => (
+                    <span key={cat} className="px-3 py-1.5 bg-white rounded-full text-xs font-medium text-gray-700 border border-gray-200 shadow-sm">
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+                <Link href="/luminaires">
+                  <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
+                    Explorer la collection
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </Link>
+              </div>
+              <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
+                <div className="grid grid-cols-3 gap-3">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="aspect-square rounded-xl bg-gradient-to-br from-[#f5f1e8] to-[#e8e0d0] flex items-center justify-center">
+                      <Grid3x3 className="w-6 h-6 text-[#8b7355]/30" />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+                  <span>9 000+ luminaires</span>
+                  <div className="flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Filtres avances</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Separateur */}
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
+        </div>
+
+        {/* Section Designers */}
+        <section className="py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div className="order-2 md:order-1 bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
+                <div className="space-y-3">
+                  {["Emile Galle (1846-1904)", "Rene Lalique (1860-1945)", "Louis Comfort Tiffany (1848-1933)"].map((name, i) => (
+                    <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-[#f5f1e8]/60 hover:bg-[#f5f1e8] transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#8b7355]/20 to-[#8b7355]/5 flex items-center justify-center flex-shrink-0">
+                        <Users className="w-5 h-5 text-[#8b7355]/50" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                        <p className="text-xs text-gray-500">Art Nouveau</p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 text-center text-sm text-gray-400">
+                  Et des centaines d'autres artistes...
+                </div>
+              </div>
+              <div className="order-1 md:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-[#8b7355]" />
+                  </div>
+                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Designers</span>
+                </div>
+                <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
+                  Les grands maitres du luminaire
+                </h2>
+                <p className="text-gray-600 leading-relaxed mb-6">
+                  Decouvrez les artistes et artisans qui ont faconne l'histoire de l'eclairage. De Galle a Starck, 
+                  en passant par Lalique et Tiffany, explorez les oeuvres de chaque designer avec leur biographie 
+                  et l'ensemble de leurs creations dans notre collection.
+                </p>
+                <Link href="/designers">
+                  <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
+                    Decouvrir les designers
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Separateur */}
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
+        </div>
+
+        {/* Section Chronologie */}
+        <section className="py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-[#8b7355]" />
+                  </div>
+                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Chronologie</span>
+                </div>
+                <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
+                  Un voyage a travers les epoques
+                </h2>
+                <p className="text-gray-600 leading-relaxed mb-6">
+                  Parcourez l'evolution du luminaire a travers les siecles. Du Moyen-Age au design contemporain, 
+                  decouvrez comment chaque epoque a influence les styles, les materiaux et les techniques. 
+                  Chaque periode est illustree avec des pieces representatives de la collection.
+                </p>
+                <Link href="/chronologie">
+                  <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
+                    Explorer la chronologie
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </Link>
+              </div>
+              <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
+                <div className="space-y-2">
+                  {[
+                    { period: "Moyen-Age", years: "1000 - 1499", color: "bg-amber-100 text-amber-700" },
+                    { period: "Art Nouveau", years: "1890 - 1910", color: "bg-emerald-100 text-emerald-700" },
+                    { period: "Art Deco", years: "1920 - 1940", color: "bg-blue-100 text-blue-700" },
+                    { period: "Design Moderne", years: "1950 - 1969", color: "bg-violet-100 text-violet-700" },
+                    { period: "Contemporain", years: "2000+", color: "bg-rose-100 text-rose-700" },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="w-1 h-8 rounded-full bg-[#8b7355]" style={{ opacity: 1 - i * 0.15 }} />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">{item.period}</p>
+                        <p className="text-xs text-gray-500">{item.years}</p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${item.color}`}>
+                        {item.period.substring(0, 3)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 h-1.5 rounded-full bg-gradient-to-r from-amber-200 via-emerald-200 via-blue-200 via-violet-200 to-rose-200" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Separateur */}
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
+        </div>
+
+        {/* Section Prix / Abonnement */}
+        <section className="py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div className="order-2 md:order-1 bg-white rounded-2xl p-6 shadow-xl border border-gray-100 border-2 border-[#8b7355]/30">
+                <div className="text-center mb-4">
+                  <span className="inline-block bg-[#8b7355] text-white text-xs px-3 py-1 rounded-full font-medium mb-3">
+                    Recommande
+                  </span>
+                  <h3 className="text-2xl font-serif text-gray-900">Premium</h3>
+                  <p className="text-sm text-gray-500 mt-1">Acces complet a toutes les fonctionnalites</p>
+                </div>
+                <div className="text-center py-4">
+                  <span className="text-4xl font-bold text-gray-900">30</span>
+                  <span className="text-lg text-gray-500 ml-1">EUR/mois</span>
+                </div>
+                <div className="space-y-2 mt-2">
+                  {[
+                    "Collection complete de 9 000+ luminaires",
+                    "Recherche IA illimitee",
+                    "Suppression arriere-plan",
+                    "Export PDF des fiches",
+                    "Favoris et estimation de prix",
+                  ].map((feature, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                      <div className="w-4 h-4 rounded-full bg-[#8b7355]/10 flex items-center justify-center flex-shrink-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#8b7355]" />
+                      </div>
+                      {feature}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="order-1 md:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-[#8b7355]/10 flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-[#8b7355]" />
+                  </div>
+                  <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider">Abonnement</span>
+                </div>
+                <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
+                  Debloquez tout le potentiel
+                </h2>
+                <p className="text-gray-600 leading-relaxed mb-6">
+                  Avec l'abonnement Premium, accedez a l'integralite de la collection, a la recherche IA illimitee, 
+                  a la suppression d'arriere-plan, aux exports PDF et a bien d'autres fonctionnalites exclusives. 
+                  Profitez de 2 mois offerts avec l'abonnement annuel.
+                </p>
+                <Link href="/pricing">
+                  <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
+                    Voir les forfaits
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer de la page */}
+        <div className="py-10 text-center text-sm text-gray-400">
+          <p>Luminaires - Du Moyen-Age a nos jours</p>
+        </div>
+
       </div>
 
       {/* Modal de connexion */}
