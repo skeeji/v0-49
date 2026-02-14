@@ -26,6 +26,8 @@ import {
   ListChecks,
   CalendarDays,
   StickyNote,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -629,6 +631,10 @@ export default function CrmPage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [showNewModal, setShowNewModal] = useState(false)
   const [selectedProject, setSelectedProject] = useState<CrmProject | null>(null)
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  })
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -735,78 +741,149 @@ export default function CrmPage() {
             </div>
           </div>
 
-          {/* Mini calendar - upcoming dates */}
+          {/* Real month calendar */}
           {(() => {
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            const allDates: { date: string; label: string; project: string; type: "action" | "deadline"; overdue: boolean }[] = []
+            // Collect all dated events
+            type CalEvent = { date: string; label: string; project: string; type: "action" | "deadline" }
+            const events: CalEvent[] = []
             projects.forEach((p) => {
               if (p.deadline && p.status === "En cours") {
-                const d = new Date(p.deadline)
-                allDates.push({
-                  date: p.deadline,
-                  label: "Echeance",
-                  project: p.name,
-                  type: "deadline",
-                  overdue: d < today,
-                })
+                events.push({ date: p.deadline, label: "Echeance", project: p.name, type: "deadline" })
               }
               ;(p.actions || []).forEach((a: CrmAction) => {
                 if (a.dueDate && !a.done) {
-                  const d = new Date(a.dueDate)
-                  allDates.push({
-                    date: a.dueDate,
-                    label: a.text,
-                    project: p.name,
-                    type: "action",
-                    overdue: d < today,
-                  })
+                  events.push({ date: a.dueDate, label: a.text, project: p.name, type: "action" })
                 }
               })
             })
-            allDates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            const upcoming = allDates.filter((d) => !d.overdue).slice(0, 5)
-            const overdue = allDates.filter((d) => d.overdue)
-            if (allDates.length === 0) return null
+            // Build eventsByDay map: "YYYY-MM-DD" -> CalEvent[]
+            const eventsByDay: Record<string, CalEvent[]> = {}
+            events.forEach((ev) => {
+              const key = ev.date.substring(0, 10)
+              if (!eventsByDay[key]) eventsByDay[key] = []
+              eventsByDay[key].push(ev)
+            })
+
+            // Calendar grid computation
+            const year = calendarMonth.getFullYear()
+            const month = calendarMonth.getMonth()
+            const firstDayOfMonth = new Date(year, month, 1)
+            const lastDayOfMonth = new Date(year, month + 1, 0)
+            const startWeekday = (firstDayOfMonth.getDay() + 6) % 7 // Monday = 0
+            const daysInMonth = lastDayOfMonth.getDate()
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const todayStr = today.toISOString().substring(0, 10)
+            const monthLabel = firstDayOfMonth.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
+
+            const cells: (number | null)[] = []
+            for (let i = 0; i < startWeekday; i++) cells.push(null)
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+            while (cells.length % 7 !== 0) cells.push(null)
+
             return (
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <CalendarDays className="w-4 h-4 text-[#8b7355]" />
-                  <h3 className="text-sm font-semibold text-gray-800">Calendrier</h3>
-                  {overdue.length > 0 && (
-                    <span className="text-[10px] bg-red-100 text-red-600 font-medium px-1.5 py-0.5 rounded-full">
-                      {overdue.length} en retard
-                    </span>
-                  )}
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-[#8b7355]" />
+                    <h3 className="text-sm font-semibold text-gray-800 capitalize">{monthLabel}</h3>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCalendarMonth(new Date(year, month - 1, 1))}
+                      className="p-1 rounded-md hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCalendarMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
+                      className="px-2 py-0.5 text-[10px] text-gray-500 hover:text-[#8b7355] hover:bg-gray-50 rounded transition-colors"
+                    >
+                      Auj.
+                    </button>
+                    <button
+                      onClick={() => setCalendarMonth(new Date(year, month + 1, 1))}
+                      className="p-1 rounded-md hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  {overdue.slice(0, 3).map((d, i) => (
-                    <div key={`o-${i}`} className="flex items-center gap-2 text-xs bg-red-50/60 rounded-md px-2 py-1.5">
-                      <span className="text-red-500 font-medium w-14 flex-shrink-0">
-                        {new Date(d.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                      </span>
-                      <span className="text-red-600 truncate flex-1">{d.label}</span>
-                      <span className="text-red-400 truncate flex-shrink-0 max-w-[120px] text-[10px]">{d.project}</span>
-                      {d.type === "deadline" && (
-                        <AlertTriangle className="w-3 h-3 text-red-400 flex-shrink-0" />
-                      )}
+                {/* Day names */}
+                <div className="grid grid-cols-7 gap-0 mb-1">
+                  {["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"].map((d) => (
+                    <div key={d} className="text-center text-[10px] font-medium text-gray-400 py-1">
+                      {d}
                     </div>
                   ))}
-                  {upcoming.map((d, i) => (
-                    <div key={`u-${i}`} className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 hover:bg-gray-50 transition-colors">
-                      <span className="text-gray-500 font-medium w-14 flex-shrink-0">
-                        {new Date(d.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                      </span>
-                      <span className="text-gray-700 truncate flex-1">{d.label}</span>
-                      <span className="text-gray-400 truncate flex-shrink-0 max-w-[120px] text-[10px]">{d.project}</span>
-                      {d.type === "deadline" && (
-                        <Clock className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                      )}
-                    </div>
-                  ))}
-                  {overdue.length > 3 && (
-                    <span className="text-[10px] text-red-400 px-2">+{overdue.length - 3} autres en retard</span>
-                  )}
+                </div>
+                {/* Day cells */}
+                <div className="grid grid-cols-7 gap-0">
+                  {cells.map((day, idx) => {
+                    if (day === null) return <div key={idx} className="h-8" />
+                    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                    const dayEvents = eventsByDay[dateStr] || []
+                    const hasAction = dayEvents.some((e) => e.type === "action")
+                    const hasDeadline = dayEvents.some((e) => e.type === "deadline")
+                    const isToday = dateStr === todayStr
+                    const isPast = new Date(dateStr) < today && dayEvents.length > 0
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`relative h-8 flex flex-col items-center justify-center rounded-md text-xs group cursor-default transition-colors
+                          ${isToday ? "bg-[#8b7355] text-white font-bold" : ""}
+                          ${!isToday && dayEvents.length > 0 ? "hover:bg-gray-50" : ""}
+                          ${!isToday && isPast ? "text-gray-400" : ""}
+                          ${!isToday && !isPast && dayEvents.length === 0 ? "text-gray-600" : ""}
+                          ${!isToday && !isPast && dayEvents.length > 0 ? "text-gray-800 font-medium" : ""}
+                        `}
+                      >
+                        <span>{day}</span>
+                        {/* Dots */}
+                        {dayEvents.length > 0 && (
+                          <div className="flex gap-0.5 absolute bottom-0.5">
+                            {hasDeadline && (
+                              <span className={`w-1 h-1 rounded-full ${isPast && !isToday ? "bg-red-400" : isToday ? "bg-white/80" : "bg-amber-400"}`} />
+                            )}
+                            {hasAction && (
+                              <span className={`w-1 h-1 rounded-full ${isPast && !isToday ? "bg-red-300" : isToday ? "bg-white/60" : "bg-blue-400"}`} />
+                            )}
+                          </div>
+                        )}
+                        {/* Tooltip */}
+                        {dayEvents.length > 0 && (
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 hidden group-hover:block z-50">
+                            <div className="bg-gray-900 text-white text-[10px] rounded-lg shadow-lg px-3 py-2 whitespace-nowrap max-w-[220px]">
+                              {dayEvents.map((ev, i) => (
+                                <div key={i} className="flex items-center gap-1.5 py-0.5">
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ev.type === "deadline" ? "bg-amber-400" : "bg-blue-400"}`} />
+                                  <span className="truncate">{ev.label}</span>
+                                  <span className="text-gray-400 truncate ml-auto text-[9px]">{ev.project}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Legend */}
+                <div className="flex items-center gap-4 mt-3 pt-2 border-t border-gray-50">
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                    Action
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    Echeance
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    En retard
+                  </div>
                 </div>
               </div>
             )
