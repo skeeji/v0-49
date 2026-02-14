@@ -50,6 +50,7 @@ export function Header() {
 
   if (userData?.role === "admin") {
     navItems.push({ href: "/import", label: "Import" })
+    navItems.push({ href: "/crm", label: "CRM" })
   }
 
   const isActivePage = (href: string) => {
