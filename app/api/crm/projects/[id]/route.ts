@@ -38,11 +38,28 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const isTimerSave = searchParams.get("timerSave") === "1"
     const body = await request.json()
 
     const client = await clientPromise
     const db = client.db(DBNAME)
     const collection = db.collection("crm")
+
+    // Handle timer save via sendBeacon (incremental time delta)
+    if (isTimerSave && body.timeSpentDelta) {
+      const project = await collection.findOne({ _id: new ObjectId(id) })
+      if (!project) {
+        return NextResponse.json({ success: false, error: "Projet non trouve" }, { status: 404 })
+      }
+      const extraHours = body.timeSpentDelta / 3600
+      const newTimeSpent = Math.round(((project.timeSpent || 0) + extraHours) * 100) / 100
+      await collection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { timeSpent: newTimeSpent, updatedAt: new Date() } }
+      )
+      return NextResponse.json({ success: true })
+    }
 
     // Remove _id from update body if present
     const { _id, ...updateData } = body

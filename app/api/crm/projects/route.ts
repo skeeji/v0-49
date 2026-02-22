@@ -41,11 +41,14 @@ export async function GET(request: NextRequest) {
       })
       .toArray()
 
-    // Sort: En cours first, then Gagné, then Perdu
+    // Sort by status pipeline order
     const statusOrder: Record<string, number> = {
-      "En cours": 0,
-      "Gagné": 1,
-      "Perdu": 2,
+      "En negociation": 0,
+      "Devis envoye": 1,
+      "En cours": 2,
+      "Gagne": 3,
+      "Gagné": 3,
+      "Perdu": 4,
     }
 
     projects.sort((a, b) => {
@@ -57,13 +60,14 @@ export async function GET(request: NextRequest) {
 
     // Calculate stats
     const allProjects = await collection.find({}).toArray()
+    const activeStatuses = ["En negociation", "Devis envoye", "En cours"]
     const caEnCours = allProjects
-      .filter((p) => p.status === "En cours")
+      .filter((p) => activeStatuses.includes(p.status))
       .reduce((sum, p) => sum + (p.budget || 0), 0)
     const caGagne = allProjects
-      .filter((p) => p.status === "Gagné")
+      .filter((p) => p.status === "Gagne" || p.status === "Gagné")
       .reduce((sum, p) => sum + (p.budget || 0), 0)
-    const projetsActifs = allProjects.filter((p) => p.status === "En cours").length
+    const projetsActifs = allProjects.filter((p) => activeStatuses.includes(p.status)).length
 
     return NextResponse.json({
       success: true,
