@@ -13,93 +13,85 @@ interface Period {
 }
 
 export function ChronoCarousel({ periods }: { periods: Period[] }) {
-  const [activeIdx, setActiveIdx] = useState(0)
+  const [activeIdx, setActiveIdx] = useState(Math.floor(periods.length / 2))
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Scroll the active card into view centered
   useEffect(() => {
-    if (!scrollRef.current) return
-    const container = scrollRef.current
-    const cards = container.children
-    if (!cards[activeIdx]) return
-    const card = cards[activeIdx] as HTMLElement
-    const scrollLeft = card.offsetLeft - container.offsetWidth / 2 + card.offsetWidth / 2
-    container.scrollTo({ left: scrollLeft, behavior: "smooth" })
+    if (scrollRef.current) {
+      const container = scrollRef.current
+      const cards = container.children
+      if (cards[activeIdx]) {
+        const card = cards[activeIdx] as HTMLElement
+        const scrollLeft = card.offsetLeft - container.offsetWidth / 2 + card.offsetWidth / 2
+        container.scrollTo({ left: scrollLeft, behavior: "smooth" })
+      }
+    }
   }, [activeIdx])
 
   return (
-    <div>
-      {/* Horizontal scroll strip - all periods visible, selected one is large */}
-      <div
-        ref={scrollRef}
-        className="flex gap-3 overflow-x-auto pb-4 items-end"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
-      >
-        <style>{`
-          .chrono-strip::-webkit-scrollbar { display: none; }
-        `}</style>
-        {periods.map((period, i) => {
-          const isActive = i === activeIdx
-          return (
-            <button
-              key={i}
-              onClick={() => setActiveIdx(i)}
-              className={`flex-shrink-0 relative rounded-xl overflow-hidden cursor-pointer transition-all duration-500 ease-in-out ${
-                isActive
-                  ? "w-[340px] md:w-[420px] h-[280px] md:h-[340px] shadow-2xl"
-                  : "w-[140px] md:w-[160px] h-[180px] md:h-[220px] opacity-70 hover:opacity-90 shadow-lg"
-              }`}
-            >
-              {period.sample ? (
-                <img
-                  src={`/api/images/filename/${period.sample.filename}`}
-                  alt={period.name}
-                  className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${
-                    isActive ? "scale-100" : "scale-110"
-                  }`}
-                  loading="lazy"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-[#8b7355]/15" />
-              )}
-              <div className={`absolute inset-0 transition-colors duration-300 ${
-                isActive
-                  ? "bg-gradient-to-t from-black/60 via-black/15 to-transparent"
-                  : "bg-black/40"
-              }`} />
+    <div
+      ref={scrollRef}
+      className="flex items-center gap-3 md:gap-4 overflow-x-auto py-4 px-4"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
+    >
+      <style>{`
+        .chrono-slider-row::-webkit-scrollbar { display: none; }
+      `}</style>
+      {periods.map((period, i) => {
+        const isActive = i === activeIdx
+        return (
+          <button
+            key={period.name}
+            onClick={() => setActiveIdx(i)}
+            className={`flex-shrink-0 relative overflow-hidden transition-all duration-500 ease-in-out cursor-pointer ${
+              isActive
+                ? "w-[180px] h-[200px] md:w-[220px] md:h-[240px] rounded-2xl ring-2 ring-[#8b7355]/60 shadow-2xl z-10"
+                : "w-[120px] h-[140px] md:w-[140px] md:h-[160px] rounded-xl opacity-80 hover:opacity-100"
+            }`}
+          >
+            {/* Background */}
+            {isActive ? (
+              <div className="absolute inset-0 bg-black" />
+            ) : (
+              <div className="absolute inset-0 bg-[#e8e0d0]" />
+            )}
 
-              {/* Years - top */}
-              <div className="absolute top-3 left-3 z-10">
-                <span className={`text-white/80 font-medium tracking-wider ${
-                  isActive ? "text-xs md:text-sm" : "text-[9px] md:text-[10px]"
-                }`}>{period.years}</span>
+            {/* Image */}
+            {period.sample ? (
+              <img
+                src={`/api/images/filename/${period.sample.filename}`}
+                alt={period.name}
+                className={`absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
+                  isActive ? "scale-100 opacity-100" : "scale-90 opacity-60 grayscale-[30%]"
+                }`}
+                loading="lazy"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[#8b7355]/30 text-3xl font-serif">{period.name.charAt(0)}</span>
               </div>
+            )}
 
-              {/* Name + count - bottom */}
-              <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 z-10">
-                <h3 className={`font-serif font-bold text-white leading-tight transition-all ${
-                  isActive ? "text-xl md:text-2xl" : "text-xs md:text-sm"
-                }`}>{period.name}</h3>
-                {isActive && period.count > 0 && (
-                  <span className="text-white/60 text-xs mt-1 block">{period.count} luminaire{period.count > 1 ? "s" : ""}</span>
-                )}
-              </div>
+            {/* Overlay gradient for active */}
+            {isActive && (
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            )}
 
-              {/* Active indicator bar */}
-              {isActive && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#8b7355] z-20" />
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Link to full chronologie */}
-      <div className="flex justify-center mt-2">
-        <Link href="/chronologie" className="text-sm text-[#8b7355] hover:underline font-medium">
-          Voir la chronologie complete
-        </Link>
-      </div>
+            {/* Period name */}
+            <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3 z-10 text-center">
+              <span
+                className={`font-serif font-bold leading-tight drop-shadow transition-all duration-300 ${
+                  isActive
+                    ? "text-white text-sm md:text-base"
+                    : "text-gray-700 text-xs md:text-sm"
+                }`}
+              >
+                {period.name}
+              </span>
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 }
