@@ -559,7 +559,7 @@ export default function HomePage() {
   const loadDesigners = async () => {
   try {
     // Chercher des designers connus et recents
-    const knownNames = ["Galle", "Lalique", "Tiffany", "Daum", "Starck", "Tom Dixon", "Caffieri", "Royere"]
+    const knownNames = ["Daum", "Tiffany", "Caffieri", "Starck", "Lalique", "Royere", "Galle", "Tom Dixon"]
     const results: any[] = []
     for (const name of knownNames) {
       if (results.length >= 6) break
@@ -1189,7 +1189,7 @@ export default function HomePage() {
                     const c = (l.categorie || l["Catégorie"] || l.nom || "").toLowerCase()
                     return c.includes(cat.toLowerCase()) && l.filename && !usedIds.has(l._id)
                   })
-                  const pickIdx = Math.min(5 + i * 3, matches.length - 1)
+                  const pickIdx = Math.min(3 + i * 4, matches.length - 1)
                   const match = matches[Math.max(0, pickIdx)] || matches[0]
                   if (match) usedIds.add(match._id)
                   return (
