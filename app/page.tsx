@@ -558,7 +558,7 @@ export default function HomePage() {
   const loadDesigners = async () => {
   try {
     // Chercher des designers connus et recents
-    const knownNames = ["Starck", "Lalique", "Galle", "Daum", "Tiffany", "Ingo Maurer", "Castiglioni", "Noguchi", "Le Corbusier", "Perriand"]
+    const knownNames = ["Caffieri", "Royere", "Starck", "Tom Dixon", "Lalique", "Galle", "Daum", "Tiffany"]
     const results: any[] = []
     for (const name of knownNames) {
       if (results.length >= 6) break
@@ -1180,11 +1180,13 @@ export default function HomePage() {
                   Filtrez par categorie, materiau, periode ou designer. Chaque fiche detaillee presente 
                   les dimensions et les caracteristiques de chaque piece.
                 </p>
-                <div className="flex flex-wrap gap-3 mb-8">
+                <div className="flex gap-2 mb-8 overflow-x-auto flex-nowrap">
                   {["Lustres", "Appliques", "Lampadaires", "Lampes", "Suspensions"].map((cat) => (
-                    <span key={cat} className="px-3 py-1.5 bg-white rounded-full text-xs font-medium text-gray-700 border border-gray-200 shadow-sm">
-                      {cat}
-                    </span>
+                    <Link key={cat} href={`/luminaires?categorie=${encodeURIComponent(cat)}`}>
+                      <span className="px-3 py-1.5 bg-white rounded-full text-xs font-medium text-gray-700 border border-gray-200 shadow-sm hover:bg-[#8b7355] hover:text-white hover:border-[#8b7355] transition-colors cursor-pointer whitespace-nowrap">
+                        {cat}
+                      </span>
+                    </Link>
                   ))}
                 </div>
                 <Link href="/luminaires">
@@ -1202,7 +1204,7 @@ export default function HomePage() {
                     .slice(0, 12)
                     .map((l: any, i: number) => (
                       <Link key={i} href={`/luminaires/${l._id}`}>
-                        <div className="aspect-square rounded-xl overflow-hidden bg-[#f5f1e8] cursor-pointer group relative">
+                        <div className="aspect-square rounded-xl overflow-hidden bg-white cursor-pointer group relative">
                           <img
                             src={`/api/images/filename/${l.filename}`}
                             alt={l.nom || l["Nom luminaire"] || "Luminaire"}
@@ -1358,34 +1360,37 @@ export default function HomePage() {
                   const count = periodLuminaires.length
 
                   return (
-                    <Link key={i} href="/chronologie" className="block flex-shrink-0 w-[250px] snap-center">
-                      <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
-                        <div className="h-48 relative overflow-hidden flex items-center justify-center p-4" style={{ backgroundColor: period.color + "12" }}>
-                          {sample ? (
-                            <img
-                              src={`/api/images/filename/${sample.filename}`}
-                              alt={sample.nom || period.name}
-                              className="max-w-full max-h-full object-contain hover:scale-105 transition-transform duration-500"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <Clock className="w-12 h-12" style={{ color: period.color, opacity: 0.25 }} />
-                          )}
-                          <div className="absolute top-3 left-3">
-                            <span className="px-3 py-1 rounded-full text-white text-xs font-bold shadow-lg" style={{ backgroundColor: period.color + "dd" }}>
-                              {period.years}
-                            </span>
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 h-1" style={{ backgroundColor: period.color }} />
+                    <Link key={i} href="/chronologie" className="block flex-shrink-0 w-[280px] snap-center">
+                      <div className="relative h-[340px] rounded-2xl overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                        {/* Image plein ecran en fond */}
+                        {sample ? (
+                          <img
+                            src={`/api/images/filename/${sample.filename}`}
+                            alt={sample.nom || period.name}
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="absolute inset-0" style={{ backgroundColor: period.color + "30" }} />
+                        )}
+                        {/* Overlay sombre */}
+                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
+                        {/* Annees en haut */}
+                        <div className="absolute top-4 left-0 right-0 text-center z-10">
+                          <span className="text-white/90 text-sm font-medium tracking-wide">{period.years}</span>
                         </div>
-                        <div className="p-4">
-                          <h3 className="text-lg font-serif font-bold text-gray-900 mb-1">{period.name}</h3>
-                          {count > 0 && (
-                            <span className="text-xs text-[#8b7355] font-semibold">
+                        {/* Nom de la periode au centre */}
+                        <div className="absolute inset-0 flex items-center justify-center z-10">
+                          <h3 className="text-3xl font-serif font-bold text-white text-center px-4 drop-shadow-lg">{period.name}</h3>
+                        </div>
+                        {/* Nombre en bas */}
+                        {count > 0 && (
+                          <div className="absolute bottom-4 left-0 right-0 text-center z-10">
+                            <span className="text-white/80 text-sm font-medium">
                               {count} luminaire{count > 1 ? "s" : ""}
                             </span>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </Link>
                   )

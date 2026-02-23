@@ -55,9 +55,14 @@ export default function LuminairesPage() {
     const designer = searchParams.get("designer")
     const yearMin = searchParams.get("yearMin")
     const yearMax = searchParams.get("yearMax")
+    const categorie = searchParams.get("categorie")
 
     if (designer) {
       setSelectedDesigner(designer)
+    }
+
+    if (categorie) {
+      setSelectedCategorie(categorie)
     }
 
     if (yearMin && yearMax) {
