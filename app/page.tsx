@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Camera, Upload, X, Lamp, Users, Clock, CreditCard, ArrowRight, Search, Grid3x3, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChronoCarousel } from "@/components/chrono-carousel"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -1179,14 +1180,17 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-8 md:gap-12">
+            <div className="grid grid-cols-3 gap-x-8 gap-y-10 md:gap-x-16 max-w-3xl mx-auto">
               {(() => {
                 const categories = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe", "Lanterne"]
+                const usedIds = new Set<string>()
                 return categories.map((cat, i) => {
-                  const match = luminaires.find((l: any) => {
+                  const matches = luminaires.filter((l: any) => {
                     const c = (l.categorie || l["Catégorie"] || l.nom || "").toLowerCase()
-                    return c.includes(cat.toLowerCase()) && l.filename
+                    return c.includes(cat.toLowerCase()) && l.filename && !usedIds.has(l._id)
                   })
+                  const match = matches[Math.min(1, matches.length - 1)] || matches[0]
+                  if (match) usedIds.add(match._id)
                   return (
                     <Link key={i} href={`/luminaires?categorie=${encodeURIComponent(cat)}`} className="group">
                       <div className="flex flex-col items-center gap-3">
@@ -1296,13 +1300,9 @@ export default function HomePage() {
               </h2>
             </div>
 
-            {/* Slider horizontal de periodes */}
-            <div
-              className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
-            >
-              <style>{`#chrono-home-scroll::-webkit-scrollbar { display: none; }`}</style>
-              {[
+            {/* Carousel: image principale au centre + vignettes scrollables */}
+            {(() => {
+              const periods = [
                 { name: "Moyen-Age", years: "1000 - 1499", start: 1000, end: 1499 },
                 { name: "Renaissance", years: "1500 - 1599", start: 1500, end: 1599 },
                 { name: "Baroque", years: "1600 - 1714", start: 1600, end: 1714 },
@@ -1312,42 +1312,17 @@ export default function HomePage() {
                 { name: "Art Deco", years: "1920 - 1940", start: 1920, end: 1940 },
                 { name: "Moderne", years: "1950 - 1969", start: 1950, end: 1969 },
                 { name: "Contemporain", years: "1970 - auj.", start: 1970, end: 2030 },
-              ].map((period, i) => {
-                const periodLuminaires = luminaires.filter((l: any) => {
+              ].map(p => {
+                const pLum = luminaires.filter((l: any) => {
                   const y = parseInt(l.annee || l["Année"] || l.year)
-                  return !isNaN(y) && y >= period.start && y <= period.end && l.filename
+                  return !isNaN(y) && y >= p.start && y <= p.end && l.filename
                 })
-                const sample = periodLuminaires[0]
-                const count = periodLuminaires.length
-
-                return (
-                  <Link key={i} href="/chronologie" className="flex-shrink-0 w-[calc(33.333%-11px)] min-w-[260px] snap-start">
-                    <div className="relative aspect-[2/3] rounded-xl overflow-hidden group cursor-pointer">
-                      {sample ? (
-                        <img
-                          src={`/api/images/filename/${sample.filename}`}
-                          alt={sample.nom || period.name}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-[#8b7355]/20" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent group-hover:from-black/80 transition-colors" />
-                      <div className="absolute top-3 left-3 z-10">
-                        <span className="text-white/70 text-[10px] md:text-xs font-medium tracking-wider">{period.years}</span>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 z-10">
-                        <h3 className="text-base md:text-xl font-serif font-bold text-white leading-tight">{period.name}</h3>
-                        {count > 0 && (
-                          <span className="text-white/60 text-[10px] md:text-xs mt-1 block">{count} luminaire{count > 1 ? "s" : ""}</span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+                return { ...p, sample: pLum[0], count: pLum.length }
+              })
+              const activeIdx = typeof window !== "undefined" ? undefined : 0
+              return <ChronoCarousel periods={periods} />
+            })()}
+            
 
             <div className="text-center mt-10">
               <Link href="/chronologie">
