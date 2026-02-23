@@ -627,16 +627,12 @@ export default function HomePage() {
     loadLuminaires()
     loadWelcomeVideo()
 
-    // Charger les images personnalisees de la page d'accueil
+    // Charger images personnalisees accueil
     fetch("/api/homepage-images")
       .then(r => r.json())
       .then(data => {
-        if (data.success && data.images) {
-          setHomepageImages(data.images)
-        }
-        if (data.success && data.metadata) {
-          setHomepageMeta(data.metadata)
-        }
+        if (data.success && data.images) setHomepageImages(data.images)
+        if (data.success && data.metadata) setHomepageMeta(data.metadata)
       })
       .catch(() => {})
 
@@ -1207,15 +1203,14 @@ export default function HomePage() {
                   const pickIdx = Math.min(6 + i * 5, matches.length - 1)
                   const match = matches[Math.max(0, pickIdx)] || matches[0]
                   if (match) usedIds.add(match._id)
-                  const overrideKey = `homepage_luminaire_${i}`
-                  const overrideSrc = homepageImages[overrideKey]
+                  const lumOverride = homepageImages[`homepage_luminaire_${i}`]
                   return (
                     <Link key={i} href={`/luminaires?categorie=${encodeURIComponent(cat)}`} className="group">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-[#8b7355]/20 group-hover:border-[#8b7355] transition-all duration-300 shadow-lg group-hover:shadow-xl bg-white">
-                          {(overrideSrc || match) ? (
+                          {(lumOverride || match) ? (
                             <img
-                              src={overrideSrc || `/api/images/filename/${match.filename}`}
+                              src={lumOverride || `/api/images/filename/${match.filename}`}
                               alt={cat}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                               loading="lazy"
@@ -1262,18 +1257,17 @@ export default function HomePage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
               {Array.from({ length: 4 }).map((_, i) => {
-                const designerOverrideKey = `homepage_designer_${i}`
-                const designerOverrideSrc = homepageImages[designerOverrideKey]
-                const meta = homepageMeta[designerOverrideKey]
+                const overrideKey = `homepage_designer_${i}`
+                const overrideSrc = homepageImages[overrideKey]
+                const meta = homepageMeta[overrideKey]
                 const overrideName = meta?.designerName || null
 
-                // If an override exists with a designer name, look up their data in previewDesigners
+                // Use override designer name to find info in DB results, or fall back to previewDesigners list
                 let designer: any = null
                 let name = "Designer"
                 let bio = ""
 
                 if (overrideName) {
-                  // Search in all fetched designers for matching name
                   designer = previewDesigners.find((d: any) => {
                     const dName = (d.nom || d.Nom || d.name || "").toLowerCase()
                     return dName.includes(overrideName.toLowerCase()) || overrideName.toLowerCase().includes(dName)
@@ -1281,15 +1275,14 @@ export default function HomePage() {
                   name = overrideName
                   bio = designer?.description || designer?.biographie || ""
                 } else {
-                  // Fall back to the previewDesigners list
-                  const fallbackDesigners = previewDesigners.filter((d: any) => d.image)
-                  designer = fallbackDesigners[i]
+                  const fallback = previewDesigners.filter((d: any) => d.image)
+                  designer = fallback[i]
                   if (!designer) return null
                   name = designer.nom || designer.Nom || designer.name || "Designer"
                   bio = designer.description || designer.biographie || ""
                 }
 
-                const imgSrc = designerOverrideSrc || designer?.image
+                const imgSrc = overrideSrc || designer?.image
                 if (!imgSrc) return null
 
                 return (

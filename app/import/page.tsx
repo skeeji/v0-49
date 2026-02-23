@@ -659,13 +659,13 @@ export default function ImportPage() {
     setUploadProgress(10)
 
     try {
-  const formData = new FormData()
-  formData.append("image", file)
-  formData.append("section", selectedHomepageSection)
-  formData.append("index", selectedHomepageIndex)
-  if (selectedHomepageSection === "designer" && homepageDesignerName.trim()) {
-    formData.append("designerName", homepageDesignerName.trim())
-  }
+      const formData = new FormData()
+      formData.append("image", file)
+      formData.append("section", selectedHomepageSection)
+      formData.append("index", selectedHomepageIndex)
+      if (selectedHomepageSection === "designer" && homepageDesignerName.trim()) {
+        formData.append("designerName", homepageDesignerName.trim())
+      }
 
       const response = await fetch("/api/upload/homepage-images", {
         method: "POST",
@@ -1421,10 +1421,10 @@ export default function ImportPage() {
                   <ImageIcon className="w-5 h-5" />
                   Images Page Accueil
                 </CardTitle>
-                <CardDescription>Images pour les sections luminaires, designers et chronologie de l'accueil</CardDescription>
+                <CardDescription>Images pour les sections luminaires, designers et chronologie de la page d'accueil</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Select value={selectedHomepageSection} onValueChange={setSelectedHomepageSection}>
+                <Select value={selectedHomepageSection} onValueChange={(v) => { setSelectedHomepageSection(v); setSelectedHomepageIndex("0"); setHomepageDesignerName(""); }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Choisir une section" />
                   </SelectTrigger>
@@ -1486,7 +1486,7 @@ export default function ImportPage() {
                       placeholder="Ex: Philippe Starck"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                     />
-                    <p className="text-xs text-gray-500">Le nom sera utilise pour retrouver les infos du designer en base</p>
+                    <p className="text-xs text-gray-500">Le nom sera recherche en base pour afficher ses infos et le lien vers sa page</p>
                   </div>
                 )}
 

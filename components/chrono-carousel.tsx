@@ -12,21 +12,14 @@ interface Period {
   count: number
 }
 
-export function ChronoCarousel({
-  periods,
-  homepageImages = {},
-}: {
-  periods: Period[]
-  homepageImages?: Record<string, string>
-}) {
+export function ChronoCarousel({ periods }: { periods: Period[] }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [activeIdx, setActiveIdx] = useState(-1)
-  const lastActiveRef = useRef(-1)
+  const [activeIdx, setActiveIdx] = useState(Math.floor(periods.length / 2))
   const rafRef = useRef<number>(0)
   const isHoveringRef = useRef(false)
   const mouseXRef = useRef(0.5)
 
-  // Detect which card is closest to the center - debounced via ref comparison
+  // Detect which card is closest to the center
   const detectCenter = useCallback(() => {
     const container = scrollRef.current
     if (!container) return
@@ -42,17 +35,13 @@ export function ChronoCarousel({
         closest = i
       }
     })
-    // Only update if it actually changed - prevents re-render loops
-    if (closest !== lastActiveRef.current) {
-      lastActiveRef.current = closest
-      setActiveIdx(closest)
-    }
+    setActiveIdx(closest)
   }, [])
 
   // Initial centering
   useEffect(() => {
     const container = scrollRef.current
-    if (!container || periods.length === 0) return
+    if (!container) return
 
     const centerOnCard = () => {
       const cards = container.querySelectorAll<HTMLElement>("[data-chrono-card]")
@@ -61,15 +50,14 @@ export function ChronoCarousel({
         const card = cards[mid]
         container.scrollLeft = card.offsetLeft - container.offsetWidth / 2 + card.offsetWidth / 2
       }
-      lastActiveRef.current = mid
-      setActiveIdx(mid)
     }
 
-    const t = setTimeout(centerOnCard, 150)
+    // Run centering after a short delay to ensure layout is done
+    const t = setTimeout(centerOnCard, 100)
     return () => clearTimeout(t)
   }, [periods.length])
 
-  // Scroll listener with throttle
+  // Scroll listener
   useEffect(() => {
     const container = scrollRef.current
     if (!container) return
@@ -89,11 +77,12 @@ export function ChronoCarousel({
     return () => container.removeEventListener("scroll", onScroll)
   }, [detectCenter])
 
-  // Desktop: mouse hover auto-scroll
+  // Desktop: mouse hover auto-scroll (move left/right based on mouse position)
   useEffect(() => {
     const container = scrollRef.current
     if (!container) return
 
+    // Only on non-touch devices
     const isTouchDevice = "ontouchstart" in window
     if (isTouchDevice) return
 
@@ -107,11 +96,12 @@ export function ChronoCarousel({
     const animate = () => {
       if (isHoveringRef.current && container) {
         const x = mouseXRef.current
+        // Dead zone in the center (40%-60%) - no scroll
         if (x < 0.3) {
-          const speed = (0.3 - x) * 4
+          const speed = (0.3 - x) * 12
           container.scrollLeft -= speed
         } else if (x > 0.7) {
-          const speed = (x - 0.7) * 4
+          const speed = (x - 0.7) * 12
           container.scrollLeft += speed
         }
       }
@@ -131,16 +121,11 @@ export function ChronoCarousel({
     }
   }, [])
 
-  // All cards have the SAME base size - zoom is done purely via CSS transform: scale()
-  // This prevents layout shifts that cause the vibration feedback loop
-  const CARD_W = "w-[110px] sm:w-[130px] md:w-[150px]"
-  const CARD_H = "h-[130px] sm:h-[155px] md:h-[175px]"
-
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative">
       <div
         ref={scrollRef}
-        className="flex items-center gap-3 sm:gap-4 md:gap-5 overflow-x-auto py-8 md:py-10"
+        className="flex items-center gap-2 sm:gap-3 md:gap-4 overflow-x-auto py-4 md:py-6"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
       >
         <style>{`div::-webkit-scrollbar { display: none; }`}</style>
@@ -148,30 +133,27 @@ export function ChronoCarousel({
         <div className="flex-shrink-0 w-[30vw] sm:w-[35vw] md:w-[40vw]" />
         {periods.map((period, i) => {
           const isActive = i === activeIdx
-          const overrideKey = `homepage_chronologie_${i}`
-          const overrideSrc = homepageImages[overrideKey]
-          const imgSrc = overrideSrc || (period.sample ? `/api/images/filename/${period.sample.filename}` : "")
           return (
             <Link
               key={period.name}
               href="/chronologie"
               data-chrono-card
-              className={`flex-shrink-0 ${CARD_W} ${CARD_H} relative overflow-hidden rounded-xl block will-change-transform transition-transform duration-500 ease-out ${
+              className={`flex-shrink-0 relative overflow-hidden transition-all duration-300 ease-out block ${
                 isActive
-                  ? "scale-[1.3] z-10 shadow-2xl ring-2 ring-[#c9a96e]/60 rounded-2xl"
-                  : "scale-100 opacity-75"
+                  ? "w-[140px] h-[160px] sm:w-[170px] sm:h-[190px] md:w-[200px] md:h-[230px] rounded-2xl ring-2 ring-[#c9a96e]/70 shadow-2xl z-10"
+                  : "w-[95px] h-[110px] sm:w-[115px] sm:h-[135px] md:w-[135px] md:h-[155px] rounded-xl opacity-80"
               }`}
             >
               {/* Background */}
               <div className="absolute inset-0 bg-[#d5cbb8]" />
 
               {/* Image */}
-              {imgSrc ? (
+              {period.sample ? (
                 <img
-                  src={imgSrc}
+                  src={`/api/images/filename/${period.sample.filename}`}
                   alt={period.name}
-                  className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 ${
-                    isActive ? "opacity-100" : "opacity-50 grayscale-[50%]"
+                  className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${
+                    isActive ? "scale-100 opacity-100" : "scale-95 opacity-50 grayscale-[50%]"
                   }`}
                   loading="lazy"
                 />
@@ -182,25 +164,25 @@ export function ChronoCarousel({
               )}
 
               {/* Overlay */}
-              <div className={`absolute inset-0 transition-opacity duration-500 ${
+              <div className={`absolute inset-0 transition-all duration-300 ${
                 isActive
                   ? "bg-gradient-to-t from-black/70 via-black/10 to-transparent"
                   : "bg-gradient-to-t from-black/50 via-black/5 to-transparent"
               }`} />
 
               {/* Text */}
-              <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 z-10 text-center">
+              <div className="absolute bottom-0 left-0 right-0 p-1.5 sm:p-2 md:p-3 z-10 text-center">
                 <span
-                  className={`font-serif font-bold leading-tight drop-shadow-lg block transition-all duration-500 ${
+                  className={`font-serif font-bold leading-tight drop-shadow-lg block ${
                     isActive
-                      ? "text-[#f5e6c8] text-[10px] sm:text-xs md:text-sm"
+                      ? "text-[#f5e6c8] text-[11px] sm:text-xs md:text-sm"
                       : "text-[#e8dcc8]/90 text-[9px] sm:text-[10px] md:text-xs"
                   }`}
                 >
                   {period.name}
                 </span>
                 {isActive && (
-                  <span className="text-[#c9a96e] text-[8px] sm:text-[9px] md:text-[10px] mt-0.5 block font-medium tracking-wide">
+                  <span className="text-[#c9a96e] text-[8px] sm:text-[9px] md:text-[11px] mt-0.5 block font-medium tracking-wide">
                     {period.years}
                   </span>
                 )}

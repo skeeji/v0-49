@@ -8,8 +8,8 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get("image") as File
-    const section = formData.get("section") as string // "luminaire", "designer", "chronologie"
-    const index = formData.get("index") as string // "0", "1", "2", etc.
+    const section = formData.get("section") as string
+    const index = formData.get("index") as string
     const designerName = formData.get("designerName") as string | null
 
     if (!file || !section) {
@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
     const db = client.db(DBNAME)
     const bucket = new GridFSBucket(db, { bucketName: "uploads" })
 
-    const metadataKey = `homepage_${section}${index ? `_${index}` : ""}`
+    const metadataKey = `homepage_${section}_${index || "0"}`
 
-    // Delete existing image for this section/index
-    const existingFiles = await db.collection("uploads.files").find({ "metadata.homepageKey": metadataKey }).toArray()
-    for (const existingFile of existingFiles) {
-      await bucket.delete(existingFile._id)
+    // Remove existing image for this key
+    const existing = await db.collection("uploads.files").find({ "metadata.homepageKey": metadataKey }).toArray()
+    for (const f of existing) {
+      await bucket.delete(f._id)
     }
 
     // Upload new image
@@ -46,14 +46,13 @@ export async function POST(request: NextRequest) {
         resolve(
           NextResponse.json({
             success: true,
-            message: `Image uploadee pour ${section} #${index || "0"}`,
+            message: `Image uploadee pour ${section} #${index}`,
             fileId: uploadStream.id,
           }),
         )
       })
-
       uploadStream.on("error", () => {
-        resolve(NextResponse.json({ success: false, message: "Erreur lors de l'upload" }, { status: 500 }))
+        resolve(NextResponse.json({ success: false, message: "Erreur upload" }, { status: 500 }))
       })
     })
   } catch (error) {
