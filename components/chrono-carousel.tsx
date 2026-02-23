@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import Link from "next/link"
 
 interface Period {
@@ -15,18 +15,71 @@ interface Period {
 export function ChronoCarousel({ periods }: { periods: Period[] }) {
   const [activeIdx, setActiveIdx] = useState(Math.floor(periods.length / 2))
   const scrollRef = useRef<HTMLDivElement>(null)
+  const isUserScrolling = useRef(false)
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
+  // Scroll to active card on click
+  const scrollToCard = useCallback((idx: number) => {
     if (scrollRef.current) {
+      isUserScrolling.current = false
       const container = scrollRef.current
       const cards = container.children
-      if (cards[activeIdx]) {
-        const card = cards[activeIdx] as HTMLElement
+      if (cards[idx]) {
+        const card = cards[idx] as HTMLElement
         const scrollLeft = card.offsetLeft - container.offsetWidth / 2 + card.offsetWidth / 2
         container.scrollTo({ left: scrollLeft, behavior: "smooth" })
       }
     }
+  }, [])
+
+  // Initial scroll to center
+  useEffect(() => {
+    scrollToCard(activeIdx)
+  }, [])
+
+  // Detect scroll and update active card based on center position
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      isUserScrolling.current = true
+
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
+      scrollTimeout.current = setTimeout(() => {
+        if (!container) return
+        const containerCenter = container.scrollLeft + container.offsetWidth / 2
+        let closestIdx = 0
+        let closestDist = Infinity
+
+        Array.from(container.children).forEach((child, idx) => {
+          const el = child as HTMLElement
+          const cardCenter = el.offsetLeft + el.offsetWidth / 2
+          const dist = Math.abs(containerCenter - cardCenter)
+          if (dist < closestDist) {
+            closestDist = dist
+            closestIdx = idx
+          }
+        })
+
+        if (closestIdx !== activeIdx) {
+          setActiveIdx(closestIdx)
+        }
+        isUserScrolling.current = false
+      }, 100)
+    }
+
+    container.addEventListener("scroll", handleScroll, { passive: true })
+    return () => {
+      container.removeEventListener("scroll", handleScroll)
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
+    }
   }, [activeIdx])
+
+  const handleClick = (idx: number) => {
+    setActiveIdx(idx)
+    scrollToCard(idx)
+  }
 
   return (
     <div
@@ -34,15 +87,12 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
       className="flex items-center gap-3 md:gap-4 overflow-x-auto py-4 px-4"
       style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
     >
-      <style>{`
-        .chrono-slider-row::-webkit-scrollbar { display: none; }
-      `}</style>
       {periods.map((period, i) => {
         const isActive = i === activeIdx
         return (
           <button
             key={period.name}
-            onClick={() => setActiveIdx(i)}
+            onClick={() => handleClick(i)}
             className={`flex-shrink-0 relative overflow-hidden transition-all duration-500 ease-in-out cursor-pointer ${
               isActive
                 ? "w-[180px] h-[200px] md:w-[220px] md:h-[240px] rounded-2xl ring-2 ring-[#8b7355]/60 shadow-2xl z-10"

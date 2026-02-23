@@ -559,7 +559,7 @@ export default function HomePage() {
   const loadDesigners = async () => {
   try {
     // Chercher des designers connus et recents
-    const knownNames = ["Caffieri", "Royere", "Starck", "Tom Dixon", "Lalique", "Galle", "Daum", "Tiffany"]
+    const knownNames = ["Caffieri", "Galle", "Lalique", "Starck", "Tom Dixon", "Royere", "Daum", "Tiffany"]
     const results: any[] = []
     for (const name of knownNames) {
       if (results.length >= 6) break
@@ -1189,18 +1189,18 @@ export default function HomePage() {
                     const c = (l.categorie || l["Catégorie"] || l.nom || "").toLowerCase()
                     return c.includes(cat.toLowerCase()) && l.filename && !usedIds.has(l._id)
                   })
-                  const pickIdx = Math.min(2 + i, matches.length - 1)
+                  const pickIdx = Math.min(4 + i * 2, matches.length - 1)
                   const match = matches[Math.max(0, pickIdx)] || matches[0]
                   if (match) usedIds.add(match._id)
                   return (
                     <Link key={i} href={`/luminaires?categorie=${encodeURIComponent(cat)}`} className="group">
                       <div className="flex flex-col items-center gap-3">
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-[#8b7355]/20 group-hover:border-[#8b7355] transition-all duration-300 shadow-lg group-hover:shadow-xl bg-white">
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-[#8b7355]/20 group-hover:border-[#8b7355] transition-all duration-300 shadow-lg group-hover:shadow-xl bg-[#f5f1e8]">
                           {match ? (
                             <img
                               src={`/api/images/filename/${match.filename}`}
                               alt={cat}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500"
                               loading="lazy"
                             />
                           ) : (
@@ -1318,7 +1318,8 @@ export default function HomePage() {
                   const y = parseInt(l.annee || l["Année"] || l.year)
                   return !isNaN(y) && y >= p.start && y <= p.end && l.filename
                 })
-                return { ...p, sample: pLum[Math.min(2, pLum.length - 1)] || pLum[0], count: pLum.length }
+                const idx = Math.min(3, pLum.length - 1)
+                return { ...p, sample: pLum[Math.max(0, idx)] || pLum[0], count: pLum.length }
               })
               const activeIdx = typeof window !== "undefined" ? undefined : 0
               return <ChronoCarousel periods={periods} />
