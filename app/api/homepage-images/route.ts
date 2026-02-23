@@ -14,12 +14,18 @@ export async function GET() {
       .toArray()
 
     const images: Record<string, string> = {}
+    const metadata: Record<string, any> = {}
     for (const file of files) {
       const key = file.metadata.homepageKey
       images[key] = `/api/images/${file._id}`
+      metadata[key] = {
+        designerName: file.metadata.designerName || null,
+        section: file.metadata.section || null,
+        index: file.metadata.index || "0",
+      }
     }
 
-    return NextResponse.json({ success: true, images })
+    return NextResponse.json({ success: true, images, metadata })
   } catch (error) {
     console.error("Erreur API homepage images:", error)
     return NextResponse.json({ success: false, images: {} })

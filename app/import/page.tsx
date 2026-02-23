@@ -104,6 +104,7 @@ export default function ImportPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("")
   const [selectedHomepageSection, setSelectedHomepageSection] = useState("")
   const [selectedHomepageIndex, setSelectedHomepageIndex] = useState("0")
+  const [homepageDesignerName, setHomepageDesignerName] = useState("")
 
   const csvFileRef = useRef<HTMLInputElement>(null)
   const designersFileRef = useRef<HTMLInputElement>(null)
@@ -658,10 +659,13 @@ export default function ImportPage() {
     setUploadProgress(10)
 
     try {
-      const formData = new FormData()
-      formData.append("image", file)
-      formData.append("section", selectedHomepageSection)
-      formData.append("index", selectedHomepageIndex)
+  const formData = new FormData()
+  formData.append("image", file)
+  formData.append("section", selectedHomepageSection)
+  formData.append("index", selectedHomepageIndex)
+  if (selectedHomepageSection === "designer" && homepageDesignerName.trim()) {
+    formData.append("designerName", homepageDesignerName.trim())
+  }
 
       const response = await fetch("/api/upload/homepage-images", {
         method: "POST",
@@ -1449,10 +1453,10 @@ export default function ImportPage() {
                       )}
                       {selectedHomepageSection === "designer" && (
                         <>
-                          <SelectItem value="0">Designer 1</SelectItem>
-                          <SelectItem value="1">Designer 2</SelectItem>
-                          <SelectItem value="2">Designer 3</SelectItem>
-                          <SelectItem value="3">Designer 4</SelectItem>
+                          <SelectItem value="0">Position 1</SelectItem>
+                          <SelectItem value="1">Position 2</SelectItem>
+                          <SelectItem value="2">Position 3</SelectItem>
+                          <SelectItem value="3">Position 4</SelectItem>
                         </>
                       )}
                       {selectedHomepageSection === "chronologie" && (
@@ -1470,6 +1474,20 @@ export default function ImportPage() {
                       )}
                     </SelectContent>
                   </Select>
+                )}
+
+                {selectedHomepageSection === "designer" && (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Nom du designer</label>
+                    <input
+                      type="text"
+                      value={homepageDesignerName}
+                      onChange={(e) => setHomepageDesignerName(e.target.value)}
+                      placeholder="Ex: Philippe Starck"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    />
+                    <p className="text-xs text-gray-500">Le nom sera utilise pour retrouver les infos du designer en base</p>
+                  </div>
                 )}
 
                 <input

@@ -22,6 +22,7 @@ export default function HomePage() {
   const [previewDesigners, setPreviewDesigners] = useState<any[]>([])
   const [welcomeVideo, setWelcomeVideo] = useState("")
   const [homepageImages, setHomepageImages] = useState<Record<string, string>>({})
+  const [homepageMeta, setHomepageMeta] = useState<Record<string, any>>({})
   const [isCameraActive, setIsCameraActive] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
@@ -632,6 +633,9 @@ export default function HomePage() {
       .then(data => {
         if (data.success && data.images) {
           setHomepageImages(data.images)
+        }
+        if (data.success && data.metadata) {
+          setHomepageMeta(data.metadata)
         }
       })
       .catch(() => {})
@@ -1257,26 +1261,46 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {previewDesigners.filter((d: any) => d.image).slice(0, 4).map((designer: any, i: number) => {
-                const name = designer.nom || designer.Nom || designer.name || "Designer"
-                const bio = designer.description || designer.biographie || ""
+              {Array.from({ length: 4 }).map((_, i) => {
                 const designerOverrideKey = `homepage_designer_${i}`
                 const designerOverrideSrc = homepageImages[designerOverrideKey]
+                const meta = homepageMeta[designerOverrideKey]
+                const overrideName = meta?.designerName || null
+
+                // If an override exists with a designer name, look up their data in previewDesigners
+                let designer: any = null
+                let name = "Designer"
+                let bio = ""
+
+                if (overrideName) {
+                  // Search in all fetched designers for matching name
+                  designer = previewDesigners.find((d: any) => {
+                    const dName = (d.nom || d.Nom || d.name || "").toLowerCase()
+                    return dName.includes(overrideName.toLowerCase()) || overrideName.toLowerCase().includes(dName)
+                  })
+                  name = overrideName
+                  bio = designer?.description || designer?.biographie || ""
+                } else {
+                  // Fall back to the previewDesigners list
+                  const fallbackDesigners = previewDesigners.filter((d: any) => d.image)
+                  designer = fallbackDesigners[i]
+                  if (!designer) return null
+                  name = designer.nom || designer.Nom || designer.name || "Designer"
+                  bio = designer.description || designer.biographie || ""
+                }
+
+                const imgSrc = designerOverrideSrc || designer?.image
+                if (!imgSrc) return null
+
                 return (
                   <Link key={i} href={`/designers/${encodeURIComponent(name)}`}>
                     <div className="relative aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer">
-                      {(designerOverrideSrc || designer.image) ? (
-                        <img
-                          src={designerOverrideSrc || designer.image}
-                          alt={name}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-[#8b7355]/20 flex items-center justify-center">
-                          <Users className="w-10 h-10 text-[#8b7355]/30" />
-                        </div>
-                      )}
+                      <img
+                        src={imgSrc}
+                        alt={name}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        loading="lazy"
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent group-hover:from-black/80 transition-colors" />
                       <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 z-10">
                         <h3 className="text-base md:text-lg font-serif font-bold text-[#f5e6c8] leading-tight">{name}</h3>

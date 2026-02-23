@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get("image") as File
     const section = formData.get("section") as string // "luminaire", "designer", "chronologie"
     const index = formData.get("index") as string // "0", "1", "2", etc.
+    const designerName = formData.get("designerName") as string | null
 
     if (!file || !section) {
       return NextResponse.json({ success: false, message: "Fichier et section requis" }, { status: 400 })
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
         homepageKey: metadataKey,
         section,
         index: index || "0",
+        designerName: designerName || null,
         uploadDate: new Date(),
         contentType: file.type,
       },
