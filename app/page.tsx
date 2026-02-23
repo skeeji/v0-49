@@ -559,7 +559,7 @@ export default function HomePage() {
   const loadDesigners = async () => {
   try {
     // Chercher des designers connus et recents
-    const knownNames = ["Daum", "Tiffany", "Caffieri", "Starck", "Lalique", "Royere", "Galle", "Tom Dixon"]
+    const knownNames = ["Starck", "Tom Dixon", "Royere", "Ingo Maurer", "Flos", "Artemide", "Le Corbusier", "Charlotte Perriand", "Serge Mouille", "Jean Prouve"]
     const results: any[] = []
     for (const name of knownNames) {
       if (results.length >= 6) break
@@ -1189,7 +1189,7 @@ export default function HomePage() {
                     const c = (l.categorie || l["Catégorie"] || l.nom || "").toLowerCase()
                     return c.includes(cat.toLowerCase()) && l.filename && !usedIds.has(l._id)
                   })
-                  const pickIdx = Math.min(3 + i * 4, matches.length - 1)
+                  const pickIdx = Math.min(6 + i * 5, matches.length - 1)
                   const match = matches[Math.max(0, pickIdx)] || matches[0]
                   if (match) usedIds.add(match._id)
                   return (
@@ -1318,7 +1318,7 @@ export default function HomePage() {
                   const y = parseInt(l.annee || l["Année"] || l.year)
                   return !isNaN(y) && y >= p.start && y <= p.end && l.filename
                 })
-                const sampleIdx = Math.min(4, pLum.length - 1)
+                const sampleIdx = Math.min(6, pLum.length - 1)
                 return { ...p, sample: pLum[Math.max(0, sampleIdx)] || pLum[0], count: pLum.length }
               })
               const activeIdx = typeof window !== "undefined" ? undefined : 0

@@ -119,6 +119,11 @@ export default function ChronologiePage() {
 
   const canEdit = userData?.role === "admin"
 
+  // Always start at the top of the page
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+  
   useEffect(() => {
     const savedDescriptions = JSON.parse(localStorage.getItem("timeline-descriptions") || "{}")
     setDescriptions(savedDescriptions)

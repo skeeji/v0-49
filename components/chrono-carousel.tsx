@@ -125,10 +125,12 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
     <div className="relative">
       <div
         ref={scrollRef}
-        className="flex items-center gap-2 sm:gap-3 md:gap-4 overflow-x-auto py-4 md:py-6 px-6 sm:px-10 md:px-20"
+        className="flex items-center gap-2 sm:gap-3 md:gap-4 overflow-x-auto py-4 md:py-6"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
       >
         <style>{`div::-webkit-scrollbar { display: none; }`}</style>
+        {/* Spacer so the first card can reach center */}
+        <div className="flex-shrink-0 w-[30vw] sm:w-[35vw] md:w-[40vw]" />
         {periods.map((period, i) => {
           const isActive = i === activeIdx
           return (
@@ -188,6 +190,8 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
             </Link>
           )
         })}
+        {/* Spacer so the last card can reach center */}
+        <div className="flex-shrink-0 w-[30vw] sm:w-[35vw] md:w-[40vw]" />
       </div>
     </div>
   )
