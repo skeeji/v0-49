@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useRef, useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 
 interface Period {
@@ -13,90 +13,72 @@ interface Period {
 }
 
 export function ChronoCarousel({ periods }: { periods: Period[] }) {
-  const [activeIdx, setActiveIdx] = useState(Math.floor(periods.length / 2))
   const scrollRef = useRef<HTMLDivElement>(null)
-  const isUserScrolling = useRef(false)
-  const scrollTimeout = useRef<NodeJS.Timeout | null>(null)
+  const [activeIdx, setActiveIdx] = useState(Math.floor(periods.length / 2))
 
-  // Scroll to active card on click
-  const scrollToCard = useCallback((idx: number) => {
-    if (scrollRef.current) {
-      isUserScrolling.current = false
-      const container = scrollRef.current
-      const cards = container.children
-      if (cards[idx]) {
-        const card = cards[idx] as HTMLElement
-        const scrollLeft = card.offsetLeft - container.offsetWidth / 2 + card.offsetWidth / 2
-        container.scrollTo({ left: scrollLeft, behavior: "smooth" })
+  const detectCenter = useCallback(() => {
+    const container = scrollRef.current
+    if (!container) return
+    const centerX = container.scrollLeft + container.offsetWidth / 2
+    let closest = 0
+    let minDist = Infinity
+    const cards = container.querySelectorAll<HTMLElement>("[data-chrono-card]")
+    cards.forEach((card, i) => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2
+      const dist = Math.abs(centerX - cardCenter)
+      if (dist < minDist) {
+        minDist = dist
+        closest = i
       }
-    }
+    })
+    setActiveIdx(closest)
   }, [])
 
-  // Initial scroll to center
-  useEffect(() => {
-    scrollToCard(activeIdx)
-  }, [])
-
-  // Detect scroll and update active card based on center position
   useEffect(() => {
     const container = scrollRef.current
     if (!container) return
 
-    const handleScroll = () => {
-      isUserScrolling.current = true
+    // Center on the middle card initially
+    const cards = container.querySelectorAll<HTMLElement>("[data-chrono-card]")
+    const mid = Math.floor(periods.length / 2)
+    if (cards[mid]) {
+      const card = cards[mid]
+      container.scrollLeft = card.offsetLeft - container.offsetWidth / 2 + card.offsetWidth / 2
+    }
 
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
-      scrollTimeout.current = setTimeout(() => {
-        if (!container) return
-        const containerCenter = container.scrollLeft + container.offsetWidth / 2
-        let closestIdx = 0
-        let closestDist = Infinity
-
-        Array.from(container.children).forEach((child, idx) => {
-          const el = child as HTMLElement
-          const cardCenter = el.offsetLeft + el.offsetWidth / 2
-          const dist = Math.abs(containerCenter - cardCenter)
-          if (dist < closestDist) {
-            closestDist = dist
-            closestIdx = idx
-          }
+    let ticking = false
+    const onScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          detectCenter()
+          ticking = false
         })
-
-        if (closestIdx !== activeIdx) {
-          setActiveIdx(closestIdx)
-        }
-        isUserScrolling.current = false
-      }, 100)
+        ticking = true
+      }
     }
 
-    container.addEventListener("scroll", handleScroll, { passive: true })
-    return () => {
-      container.removeEventListener("scroll", handleScroll)
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
-    }
-  }, [activeIdx])
-
-  const handleClick = (idx: number) => {
-    setActiveIdx(idx)
-    scrollToCard(idx)
-  }
+    container.addEventListener("scroll", onScroll, { passive: true })
+    return () => container.removeEventListener("scroll", onScroll)
+  }, [periods.length, detectCenter])
 
   return (
     <div
       ref={scrollRef}
-      className="flex items-center gap-3 md:gap-4 overflow-x-auto py-4 px-4"
+      className="flex items-center gap-2 sm:gap-3 md:gap-4 overflow-x-auto py-6 px-8 md:px-16 scroll-smooth"
       style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
     >
+      <style>{`.chrono-scroll::-webkit-scrollbar { display: none; }`}</style>
       {periods.map((period, i) => {
         const isActive = i === activeIdx
         return (
-          <button
+          <Link
             key={period.name}
-            onClick={() => handleClick(i)}
-            className={`flex-shrink-0 relative overflow-hidden transition-all duration-500 ease-in-out cursor-pointer ${
+            href="/chronologie"
+            data-chrono-card
+            className={`flex-shrink-0 relative overflow-hidden transition-all duration-500 ease-in-out block ${
               isActive
-                ? "w-[180px] h-[200px] md:w-[220px] md:h-[240px] rounded-2xl ring-2 ring-[#8b7355]/60 shadow-2xl z-10"
-                : "w-[120px] h-[140px] md:w-[140px] md:h-[160px] rounded-xl opacity-80 hover:opacity-100"
+                ? "w-[150px] h-[170px] sm:w-[180px] sm:h-[200px] md:w-[220px] md:h-[240px] rounded-2xl ring-2 ring-[#8b7355]/60 shadow-2xl z-10"
+                : "w-[100px] h-[120px] sm:w-[120px] sm:h-[140px] md:w-[140px] md:h-[160px] rounded-xl"
             }`}
           >
             {/* Background */}
@@ -108,7 +90,7 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
                 src={`/api/images/filename/${period.sample.filename}`}
                 alt={period.name}
                 className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 ${
-                  isActive ? "scale-100 opacity-100" : "scale-90 opacity-60 grayscale-[30%]"
+                  isActive ? "scale-100 opacity-100" : "scale-95 opacity-50 grayscale-[40%]"
                 }`}
                 loading="lazy"
               />
@@ -122,22 +104,27 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
             <div className={`absolute inset-0 transition-all duration-500 ${
               isActive
                 ? "bg-gradient-to-t from-black/60 via-transparent to-transparent"
-                : "bg-gradient-to-t from-black/40 via-transparent to-transparent"
+                : "bg-gradient-to-t from-black/50 via-black/10 to-transparent"
             }`} />
 
             {/* Period name */}
             <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3 z-10 text-center">
               <span
-                className={`font-serif font-bold leading-tight drop-shadow-lg transition-all duration-300 ${
+                className={`font-serif font-bold leading-tight drop-shadow-lg transition-all duration-300 block ${
                   isActive
-                    ? "text-white text-sm md:text-base"
-                    : "text-white text-xs md:text-sm"
+                    ? "text-white text-xs sm:text-sm md:text-base"
+                    : "text-white/80 text-[10px] sm:text-xs md:text-sm"
                 }`}
               >
                 {period.name}
               </span>
+              {isActive && (
+                <span className="text-white/60 text-[9px] sm:text-[10px] md:text-xs mt-0.5 block font-sans">
+                  {period.years}
+                </span>
+              )}
             </div>
-          </button>
+          </Link>
         )
       })}
     </div>
