@@ -97,10 +97,13 @@ export default function ImportPage() {
     logo?: ImportResult
     reset?: ImportResult
     periodImages?: { [key: string]: ImportResult }
+    homepageImages?: { [key: string]: ImportResult }
   }>({})
   const [exportingCSV, setExportingCSV] = useState(false)
   const [exportingImages, setExportingImages] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState("")
+  const [selectedHomepageSection, setSelectedHomepageSection] = useState("")
+  const [selectedHomepageIndex, setSelectedHomepageIndex] = useState("0")
 
   const csvFileRef = useRef<HTMLInputElement>(null)
   const designersFileRef = useRef<HTMLInputElement>(null)
@@ -109,6 +112,7 @@ export default function ImportPage() {
   const videoFileRef = useRef<HTMLInputElement>(null)
   const logoFileRef = useRef<HTMLInputElement>(null)
   const periodImageFileRef = useRef<HTMLInputElement>(null)
+  const homepageImageFileRef = useRef<HTMLInputElement>(null)
 
   const { toast } = useToast()
 
@@ -642,6 +646,51 @@ export default function ImportPage() {
       setIsUploading(false)
       setUploadProgress(0)
       setCurrentStep("")
+    }
+  }
+
+  const handleHomepageImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !selectedHomepageSection) return
+
+    setIsUploading(true)
+    setCurrentStep(`Upload image accueil ${selectedHomepageSection} #${selectedHomepageIndex}...`)
+    setUploadProgress(10)
+
+    try {
+      const formData = new FormData()
+      formData.append("image", file)
+      formData.append("section", selectedHomepageSection)
+      formData.append("index", selectedHomepageIndex)
+
+      const response = await fetch("/api/upload/homepage-images", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      const key = `${selectedHomepageSection}_${selectedHomepageIndex}`
+
+      setResults((prev) => ({
+        ...prev,
+        homepageImages: {
+          ...prev.homepageImages,
+          [key]: result,
+        },
+      }))
+
+      if (result.success) {
+        toast({ title: "Image accueil uploadee", description: result.message })
+      } else {
+        toast({ title: "Erreur upload", description: result.message, variant: "destructive" })
+      }
+    } catch (error: any) {
+      toast({ title: "Erreur critique", description: "Impossible d'uploader l'image", variant: "destructive" })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+      if (homepageImageFileRef.current) homepageImageFileRef.current.value = ""
     }
   }
 
@@ -1353,6 +1402,106 @@ export default function ImportPage() {
                           <div className="flex items-center gap-2 text-red-600">
                             <XCircle className="w-4 h-4" />
                             <span>{period}: Erreur</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-amber-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-700">
+                  <ImageIcon className="w-5 h-5" />
+                  Images Page Accueil
+                </CardTitle>
+                <CardDescription>Images pour les sections luminaires, designers et chronologie de l'accueil</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Select value={selectedHomepageSection} onValueChange={setSelectedHomepageSection}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir une section" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="luminaire">Collection Luminaires</SelectItem>
+                    <SelectItem value="designer">Designers</SelectItem>
+                    <SelectItem value="chronologie">Chronologie</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {selectedHomepageSection && (
+                  <Select value={selectedHomepageIndex} onValueChange={setSelectedHomepageIndex}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Position de l'image" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedHomepageSection === "luminaire" && (
+                        <>
+                          <SelectItem value="0">Lustre</SelectItem>
+                          <SelectItem value="1">Applique</SelectItem>
+                          <SelectItem value="2">Suspension</SelectItem>
+                          <SelectItem value="3">Lampadaire</SelectItem>
+                          <SelectItem value="4">Lampe</SelectItem>
+                          <SelectItem value="5">Lanterne</SelectItem>
+                        </>
+                      )}
+                      {selectedHomepageSection === "designer" && (
+                        <>
+                          <SelectItem value="0">Designer 1</SelectItem>
+                          <SelectItem value="1">Designer 2</SelectItem>
+                          <SelectItem value="2">Designer 3</SelectItem>
+                          <SelectItem value="3">Designer 4</SelectItem>
+                        </>
+                      )}
+                      {selectedHomepageSection === "chronologie" && (
+                        <>
+                          <SelectItem value="0">Moyen-Age</SelectItem>
+                          <SelectItem value="1">Renaissance</SelectItem>
+                          <SelectItem value="2">Baroque</SelectItem>
+                          <SelectItem value="3">Neoclassique</SelectItem>
+                          <SelectItem value="4">Empire</SelectItem>
+                          <SelectItem value="5">Art Nouveau</SelectItem>
+                          <SelectItem value="6">Art Deco</SelectItem>
+                          <SelectItem value="7">Moderne</SelectItem>
+                          <SelectItem value="8">Contemporain</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <input
+                  ref={homepageImageFileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleHomepageImageUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => homepageImageFileRef.current?.click()}
+                  disabled={isUploading || !selectedHomepageSection}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Uploader Image Accueil
+                </Button>
+
+                {results.homepageImages && Object.keys(results.homepageImages).length > 0 && (
+                  <div className="text-sm space-y-1">
+                    {Object.entries(results.homepageImages).map(([key, result]) => (
+                      <div key={key}>
+                        {result.success ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{key}: Image uploadee</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600">
+                            <XCircle className="w-4 h-4" />
+                            <span>{key}: Erreur</span>
                           </div>
                         )}
                       </div>

@@ -98,10 +98,10 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
         const x = mouseXRef.current
         // Dead zone in the center (40%-60%) - no scroll
         if (x < 0.3) {
-          const speed = (0.3 - x) * 12
+          const speed = (0.3 - x) * 5
           container.scrollLeft -= speed
         } else if (x > 0.7) {
-          const speed = (x - 0.7) * 12
+          const speed = (x - 0.7) * 5
           container.scrollLeft += speed
         }
       }

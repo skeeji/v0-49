@@ -1264,9 +1264,9 @@ export default function HomePage() {
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent group-hover:from-black/80 transition-colors" />
                       <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 z-10">
-                        <h3 className="text-base md:text-lg font-serif font-bold text-white leading-tight">{name}</h3>
+                        <h3 className="text-base md:text-lg font-serif font-bold text-[#f5e6c8] leading-tight">{name}</h3>
                         {bio && (
-                          <p className="text-white/50 text-[10px] md:text-xs mt-1 line-clamp-1">{bio.substring(0, 60)}</p>
+                          <p className="text-[#d4c4a0]/80 text-[10px] md:text-xs mt-1 line-clamp-1">{bio.substring(0, 60)}</p>
                         )}
                       </div>
                     </div>
