@@ -328,23 +328,53 @@ export default function ChronologiePage() {
                 id={period.name}
                 className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden scroll-reveal"
               >
+                {/* Slider d'images en premier plan */}
+                {period.luminaires.length > 0 && (
+                  <div
+                    className="flex gap-2 overflow-x-auto p-3 pb-2"
+                    style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
+                  >
+                    {period.luminaires.slice(0, 12).map((luminaire: any, idx: number) => (
+                      <Link
+                        key={idx}
+                        href={`/luminaires/${luminaire.id}`}
+                        className="flex-shrink-0 w-28 h-28 md:w-36 md:h-36 relative bg-white rounded-lg overflow-hidden hover:ring-2 hover:ring-[#8b7355]/40 transition-all group"
+                      >
+                        {luminaire.image ? (
+                          <Image
+                            src={luminaire.image || "/placeholder.svg"}
+                            alt={luminaire.name}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-[#f5f1e8]">
+                            <span className="text-[10px] text-gray-400 text-center px-1">{luminaire.name}</span>
+                          </div>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {/* Contenu principal */}
                 <div className="md:flex">
-                  {/* Image de la période */}
+                  {/* Image de la periode */}
                   <div className="md:w-2/5 aspect-[4/3] md:aspect-auto relative bg-gray-100 overflow-hidden">
                     {period.imageUrl ? (
                       <Image
                         src={period.imageUrl || "/placeholder.svg"}
                         alt={period.name}
                         fill
-                        className="object-cover rounded-l-2xl"
+                        className="object-cover rounded-bl-2xl"
                         unoptimized
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <div className="text-6xl">🎨</div>
+                      <div className="w-full h-full min-h-[200px] flex items-center justify-center bg-[#f5f1e8]">
+                        <span className="text-4xl font-serif text-[#8b7355]/20">{period.name}</span>
                       </div>
                     )}
-                    {/* Badge de la période */}
                     <div
                       className="absolute bottom-4 left-4 px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide text-white"
                       style={{ backgroundColor: "#8b7355" }}
@@ -353,13 +383,11 @@ export default function ChronologiePage() {
                     </div>
                   </div>
 
-                  {/* Contenu de la carte */}
+                  {/* Contenu texte */}
                   <div className="md:w-3/5 p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-sm text-gray-600">
-                        {period.start} - {period.end}
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">{period.luminaires.length} luminaires</span>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-sm text-gray-500">{period.start} - {period.end}</span>
+                      <span className="text-sm font-medium text-[#8b7355]">{period.luminaires.length} luminaires</span>
                     </div>
 
                     <h2 className="text-2xl font-serif text-gray-900 mb-3">{period.name}</h2>
@@ -372,30 +400,8 @@ export default function ChronologiePage() {
                       className="text-sm text-gray-700 leading-relaxed mb-4"
                     />
 
-                    {period.luminaires.length > 0 && (
-                      <div className="flex gap-2 mb-4">
-                        {period.luminaires.slice(0, 3).map((luminaire: any, idx: number) => (
-                          <Link
-                            key={idx}
-                            href={`/luminaires/${luminaire.id}`}
-                            className="w-16 h-16 relative bg-gray-100 rounded-lg overflow-hidden hover:ring-2 hover:ring-[#f2d895] transition-all"
-                          >
-                            {luminaire.image && (
-                              <Image
-                                src={luminaire.image || "/placeholder.svg"}
-                                alt={luminaire.name}
-                                fill
-                                className="object-cover rounded-lg"
-                                unoptimized
-                              />
-                            )}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-
                     <Link href={`/luminaires?yearMin=${period.start}&yearMax=${period.end}`}>
-                      <button className="w-full py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                      <button className="w-full py-2.5 border border-[#8b7355]/30 rounded-lg text-sm font-medium text-[#8b7355] hover:bg-[#8b7355] hover:text-white transition-colors">
                         Voir les {period.luminaires.length} luminaires
                       </button>
                     </Link>

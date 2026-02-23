@@ -1166,61 +1166,59 @@ export default function HomePage() {
       {/* ========== PRESENTATION DES PAGES ========== */}
       <div className="relative z-10 bg-[#f5f1e8]">
 
-        {/* Section Luminaires - avec vrais luminaires du catalogue */}
+        {/* Section Collection */}
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider mb-4 block">Collection</span>
-                <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4 text-balance">
-                  Plus de {luminaires.length > 0 ? luminaires.length.toLocaleString("fr-FR") : "9 000"} luminaires a decouvrir
-                </h2>
-                <p className="text-gray-600 leading-relaxed mb-6">
-                  Explorez notre base de donnees exhaustive de luminaires du Moyen-Age a nos jours. 
-                  Filtrez par categorie, materiau, periode ou designer. Chaque fiche detaillee presente 
-                  les dimensions et les caracteristiques de chaque piece.
-                </p>
-                <Link href="/luminaires">
-                  <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg">
-                    Explorer la collection
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </Link>
-              </div>
-              {/* Une image par type de luminaire */}
-              <div className="grid grid-cols-2 gap-3">
-                {(() => {
-                  const categories = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe", "Lanterne"]
-                  return categories.map((cat, i) => {
-                    const match = luminaires.find((l: any) => {
-                      const c = (l.categorie || l["Catégorie"] || l.nom || "").toLowerCase()
-                      return c.includes(cat.toLowerCase()) && l.filename
-                    })
-                    return (
-                      <Link key={i} href={`/luminaires?categorie=${encodeURIComponent(cat)}`}>
-                        <div className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer bg-white">
+            <div className="text-center mb-14">
+              <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider mb-4 block">Collection</span>
+              <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mb-3 text-balance">
+                Plus de {luminaires.length > 0 ? luminaires.length.toLocaleString("fr-FR") : "9 000"} luminaires
+              </h2>
+              <p className="text-gray-600 leading-relaxed max-w-xl mx-auto">
+                Explorez notre catalogue par categorie, du lustre monumental a la lampe de chevet.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-8 md:gap-12">
+              {(() => {
+                const categories = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe", "Lanterne"]
+                return categories.map((cat, i) => {
+                  const match = luminaires.find((l: any) => {
+                    const c = (l.categorie || l["Catégorie"] || l.nom || "").toLowerCase()
+                    return c.includes(cat.toLowerCase()) && l.filename
+                  })
+                  return (
+                    <Link key={i} href={`/luminaires?categorie=${encodeURIComponent(cat)}`} className="group">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-[#8b7355]/20 group-hover:border-[#8b7355] transition-all duration-300 shadow-lg group-hover:shadow-xl bg-white">
                           {match ? (
                             <img
                               src={`/api/images/filename/${match.filename}`}
                               alt={cat}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                               loading="lazy"
                             />
                           ) : (
-                            <div className="w-full h-full bg-[#f5f1e8] flex items-center justify-center">
+                            <div className="w-full h-full flex items-center justify-center bg-[#f5f1e8]">
                               <Lamp className="w-8 h-8 text-[#8b7355]/20" />
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent group-hover:from-black/70 transition-colors" />
-                          <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
-                            <span className="text-white font-serif font-bold text-sm">{cat}s</span>
-                          </div>
                         </div>
-                      </Link>
-                    )
-                  })
-                })()}
-              </div>
+                        <span className="text-sm font-serif font-medium text-gray-800 group-hover:text-[#8b7355] transition-colors">{cat}s</span>
+                      </div>
+                    </Link>
+                  )
+                })
+              })()}
+            </div>
+
+            <div className="text-center mt-12">
+              <Link href="/luminaires">
+                <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg mx-auto">
+                  Explorer la collection
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
             </div>
           </div>
         </section>
@@ -1298,38 +1296,12 @@ export default function HomePage() {
               </h2>
             </div>
 
-            {/* Ligne horizontale elegante */}
-            <div className="relative mb-14">
-              <div className="absolute top-3 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#8b7355]/40 to-transparent" />
-              <div className="flex justify-between items-start relative">
-                {[
-                  { name: "Moyen-Age", year: "1000", start: 1000, end: 1499 },
-                  { name: "Renaissance", year: "1500", start: 1500, end: 1599 },
-                  { name: "Baroque", year: "1600", start: 1600, end: 1714 },
-                  { name: "Neoclassique", year: "1715", start: 1715, end: 1789 },
-                  { name: "Empire", year: "1800", start: 1800, end: 1850 },
-                  { name: "Art Nouveau", year: "1890", start: 1890, end: 1910 },
-                  { name: "Art Deco", year: "1920", start: 1920, end: 1940 },
-                  { name: "Moderne", year: "1950", start: 1950, end: 1969 },
-                  { name: "Contemporain", year: "1970", start: 1970, end: 2030 },
-                ].map((p, i) => (
-                  <Link key={i} href="/chronologie" className="flex flex-col items-center group cursor-pointer">
-                    <div className="w-[7px] h-[7px] rounded-full bg-[#8b7355] group-hover:scale-150 transition-transform relative z-10 ring-2 ring-[#f5f1e8]" />
-                    <span className="text-[10px] md:text-xs font-serif text-gray-800 mt-3 text-center leading-tight group-hover:text-[#8b7355] transition-colors">
-                      {p.name}
-                    </span>
-                    <span className="text-[9px] md:text-[10px] text-gray-400 mt-0.5">{p.year}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
             {/* Slider horizontal de periodes */}
             <div
               className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
             >
-              <style>{`.chrono-home-slider::-webkit-scrollbar { display: none; }`}</style>
+              <style>{`#chrono-home-scroll::-webkit-scrollbar { display: none; }`}</style>
               {[
                 { name: "Moyen-Age", years: "1000 - 1499", start: 1000, end: 1499 },
                 { name: "Renaissance", years: "1500 - 1599", start: 1500, end: 1599 },
@@ -1349,8 +1321,8 @@ export default function HomePage() {
                 const count = periodLuminaires.length
 
                 return (
-                  <Link key={i} href="/chronologie" className="flex-shrink-0 w-[calc(33.333%-11px)] min-w-[220px] snap-start">
-                    <div className="relative aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer">
+                  <Link key={i} href="/chronologie" className="flex-shrink-0 w-[calc(33.333%-11px)] min-w-[260px] snap-start">
+                    <div className="relative aspect-[2/3] rounded-xl overflow-hidden group cursor-pointer">
                       {sample ? (
                         <img
                           src={`/api/images/filename/${sample.filename}`}
