@@ -623,18 +623,18 @@ export default function HomePage() {
       }
     }
 
-  loadLuminaires()
-  loadWelcomeVideo()
+    loadLuminaires()
+    loadWelcomeVideo()
 
-  // Charger les images personnalisees de la page d'accueil
-  fetch("/api/homepage-images")
-    .then(r => r.json())
-    .then(data => {
-      if (data.success && data.images) {
-        setHomepageImages(data.images)
-      }
-    })
-    .catch(() => {})
+    // Charger les images personnalisees de la page d'accueil
+    fetch("/api/homepage-images")
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.images) {
+          setHomepageImages(data.images)
+        }
+      })
+      .catch(() => {})
 
     // Cleanup au démontage du composant
     return () => {
@@ -1204,14 +1204,14 @@ export default function HomePage() {
                   const match = matches[Math.max(0, pickIdx)] || matches[0]
                   if (match) usedIds.add(match._id)
                   const overrideKey = `homepage_luminaire_${i}`
-                  const imgSrc = homepageImages[overrideKey] || (match ? `/api/images/filename/${match.filename}` : "")
+                  const overrideSrc = homepageImages[overrideKey]
                   return (
                     <Link key={i} href={`/luminaires?categorie=${encodeURIComponent(cat)}`} className="group">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-[#8b7355]/20 group-hover:border-[#8b7355] transition-all duration-300 shadow-lg group-hover:shadow-xl bg-white">
-                          {imgSrc ? (
+                          {(overrideSrc || match) ? (
                             <img
-                              src={imgSrc}
+                              src={overrideSrc || `/api/images/filename/${match.filename}`}
                               alt={cat}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                               loading="lazy"
@@ -1261,13 +1261,13 @@ export default function HomePage() {
                 const name = designer.nom || designer.Nom || designer.name || "Designer"
                 const bio = designer.description || designer.biographie || ""
                 const designerOverrideKey = `homepage_designer_${i}`
-                const designerImgSrc = homepageImages[designerOverrideKey] || designer.image
+                const designerOverrideSrc = homepageImages[designerOverrideKey]
                 return (
                   <Link key={i} href={`/designers/${encodeURIComponent(name)}`}>
                     <div className="relative aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer">
-                      {designerImgSrc ? (
+                      {(designerOverrideSrc || designer.image) ? (
                         <img
-                          src={designerImgSrc}
+                          src={designerOverrideSrc || designer.image}
                           alt={name}
                           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                           loading="lazy"
