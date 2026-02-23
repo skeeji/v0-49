@@ -1324,14 +1324,6 @@ export default function HomePage() {
             })()}
             
 
-            <div className="text-center mt-10">
-              <Link href="/chronologie">
-                <button className="flex items-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-xl font-medium hover:bg-[#75614a] transition-colors shadow-lg mx-auto">
-                  Explorer la chronologie complete
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </Link>
-            </div>
           </div>
         </section>
 
