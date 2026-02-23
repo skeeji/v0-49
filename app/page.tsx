@@ -1189,7 +1189,8 @@ export default function HomePage() {
                     const c = (l.categorie || l["Catégorie"] || l.nom || "").toLowerCase()
                     return c.includes(cat.toLowerCase()) && l.filename && !usedIds.has(l._id)
                   })
-                  const match = matches[Math.min(1, matches.length - 1)] || matches[0]
+                  const pickIdx = Math.min(2 + i, matches.length - 1)
+                  const match = matches[Math.max(0, pickIdx)] || matches[0]
                   if (match) usedIds.add(match._id)
                   return (
                     <Link key={i} href={`/luminaires?categorie=${encodeURIComponent(cat)}`} className="group">
@@ -1243,7 +1244,7 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              {previewDesigners.slice(0, 4).map((designer: any, i: number) => {
+              {previewDesigners.filter((d: any) => d.image).slice(0, 4).map((designer: any, i: number) => {
                 const name = designer.nom || designer.Nom || designer.name || "Designer"
                 const bio = designer.description || designer.biographie || ""
                 return (
@@ -1317,7 +1318,7 @@ export default function HomePage() {
                   const y = parseInt(l.annee || l["Année"] || l.year)
                   return !isNaN(y) && y >= p.start && y <= p.end && l.filename
                 })
-                return { ...p, sample: pLum[0], count: pLum.length }
+                return { ...p, sample: pLum[Math.min(2, pLum.length - 1)] || pLum[0], count: pLum.length }
               })
               const activeIdx = typeof window !== "undefined" ? undefined : 0
               return <ChronoCarousel periods={periods} />

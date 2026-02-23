@@ -50,18 +50,14 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
             }`}
           >
             {/* Background */}
-            {isActive ? (
-              <div className="absolute inset-0 bg-black" />
-            ) : (
-              <div className="absolute inset-0 bg-[#e8e0d0]" />
-            )}
+            <div className="absolute inset-0 bg-[#e8e0d0]" />
 
             {/* Image */}
             {period.sample ? (
               <img
                 src={`/api/images/filename/${period.sample.filename}`}
                 alt={period.name}
-                className={`absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
+                className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 ${
                   isActive ? "scale-100 opacity-100" : "scale-90 opacity-60 grayscale-[30%]"
                 }`}
                 loading="lazy"
@@ -72,18 +68,20 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
               </div>
             )}
 
-            {/* Overlay gradient for active */}
-            {isActive && (
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-            )}
+            {/* Overlay gradient */}
+            <div className={`absolute inset-0 transition-all duration-500 ${
+              isActive
+                ? "bg-gradient-to-t from-black/60 via-transparent to-transparent"
+                : "bg-gradient-to-t from-black/40 via-transparent to-transparent"
+            }`} />
 
             {/* Period name */}
             <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3 z-10 text-center">
               <span
-                className={`font-serif font-bold leading-tight drop-shadow transition-all duration-300 ${
+                className={`font-serif font-bold leading-tight drop-shadow-lg transition-all duration-300 ${
                   isActive
                     ? "text-white text-sm md:text-base"
-                    : "text-gray-700 text-xs md:text-sm"
+                    : "text-white text-xs md:text-sm"
                 }`}
               >
                 {period.name}
