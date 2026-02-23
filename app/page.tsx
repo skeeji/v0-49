@@ -1301,101 +1301,86 @@ export default function HomePage() {
           <div className="h-px bg-gradient-to-r from-transparent via-[#8b7355]/20 to-transparent" />
         </div>
 
-        {/* Section Chronologie - slider horizontal fonctionnel */}
-        <section className="py-20 px-4 overflow-hidden">
+        {/* Section Chronologie */}
+        <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto">
-            {/* Header centre */}
-            <div className="text-center mb-12">
+            <div className="text-center mb-14">
               <span className="text-sm font-medium text-[#8b7355] uppercase tracking-wider mb-4 block">Chronologie</span>
               <h2 className="text-3xl md:text-4xl font-serif text-gray-900 text-balance">
                 Un voyage a travers les epoques
               </h2>
             </div>
 
-            {/* Slider avec fleches de navigation */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  const el = document.getElementById("chrono-slider")
-                  if (el) el.scrollBy({ left: -320, behavior: "smooth" })
-                }}
-                className="absolute -left-2 md:left-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white shadow-xl border border-gray-200 flex items-center justify-center hover:bg-[#f5f1e8] transition-colors"
-                aria-label="Periode precedente"
-              >
-                <ChevronLeft className="w-5 h-5 text-[#8b7355]" />
-              </button>
-              <button
-                onClick={() => {
-                  const el = document.getElementById("chrono-slider")
-                  if (el) el.scrollBy({ left: 320, behavior: "smooth" })
-                }}
-                className="absolute -right-2 md:right-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white shadow-xl border border-gray-200 flex items-center justify-center hover:bg-[#f5f1e8] transition-colors"
-                aria-label="Periode suivante"
-              >
-                <ChevronRight className="w-5 h-5 text-[#8b7355]" />
-              </button>
-
-              <div
-                id="chrono-slider"
-                className="flex gap-5 overflow-x-auto pb-4 px-10 snap-x snap-mandatory"
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
-              >
-                <style>{`#chrono-slider::-webkit-scrollbar { display: none; }`}</style>
+            {/* Ligne horizontale elegante */}
+            <div className="relative mb-14">
+              <div className="absolute top-3 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#8b7355]/40 to-transparent" />
+              <div className="flex justify-between items-start relative">
                 {[
-                  { name: "Moyen-Age", years: "1000 - 1499", desc: "Chandeliers en fer forge, lampes a huile et cire dans les abbayes et chateaux", color: "#6b5644", start: 1000, end: 1499 },
-                  { name: "Renaissance", years: "1500 - 1599", desc: "Premieres suspensions en bronze et cristal dans les palais europeens", color: "#7a6349", start: 1500, end: 1599 },
-                  { name: "Baroque", years: "1600 - 1714", desc: "Opulence des lustres a pampilles et girandoles dans les cours royales", color: "#836c50", start: 1600, end: 1714 },
-                  { name: "Neoclassique", years: "1715 - 1789", desc: "Retour a la sobriete antique, bronze dore et cristal taille", color: "#8b7355", start: 1715, end: 1789 },
-                  { name: "Empire", years: "1800 - 1850", desc: "Lustres monumentaux inspires de l'Antiquite greco-romaine", color: "#947c5c", start: 1800, end: 1850 },
-                  { name: "Art Nouveau", years: "1890 - 1910", desc: "Formes organiques avec les maitres Galle, Daum et Tiffany", color: "#9d8563", start: 1890, end: 1910 },
-                  { name: "Art Deco", years: "1920 - 1940", desc: "Geometrie, luxe et materiaux modernes des annees folles", color: "#a68e6a", start: 1920, end: 1940 },
-                  { name: "Moderne", years: "1950 - 1969", desc: "Revolution du design scandinave et italien d'apres-guerre", color: "#b09b78", start: 1950, end: 1969 },
-                  { name: "Contemporain", years: "1970 - auj.", desc: "LED, eco-design et creations d'artistes contemporains", color: "#c9b096", start: 1970, end: 2030 },
-                ].map((period, i) => {
-                  const periodLuminaires = luminaires.filter((l: any) => {
-                    const y = parseInt(l.annee || l["Année"] || l.year)
-                    return !isNaN(y) && y >= period.start && y <= period.end && l.filename
-                  })
-                  const sample = periodLuminaires[0]
-                  const count = periodLuminaires.length
+                  { name: "Moyen-Age", year: "1000", start: 1000, end: 1499 },
+                  { name: "Renaissance", year: "1500", start: 1500, end: 1599 },
+                  { name: "Baroque", year: "1600", start: 1600, end: 1714 },
+                  { name: "Neoclassique", year: "1715", start: 1715, end: 1789 },
+                  { name: "Empire", year: "1800", start: 1800, end: 1850 },
+                  { name: "Art Nouveau", year: "1890", start: 1890, end: 1910 },
+                  { name: "Art Deco", year: "1920", start: 1920, end: 1940 },
+                  { name: "Moderne", year: "1950", start: 1950, end: 1969 },
+                  { name: "Contemporain", year: "1970", start: 1970, end: 2030 },
+                ].map((p, i) => (
+                  <Link key={i} href="/chronologie" className="flex flex-col items-center group cursor-pointer">
+                    <div className="w-[7px] h-[7px] rounded-full bg-[#8b7355] group-hover:scale-150 transition-transform relative z-10 ring-2 ring-[#f5f1e8]" />
+                    <span className="text-[10px] md:text-xs font-serif text-gray-800 mt-3 text-center leading-tight group-hover:text-[#8b7355] transition-colors">
+                      {p.name}
+                    </span>
+                    <span className="text-[9px] md:text-[10px] text-gray-400 mt-0.5">{p.year}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
 
-                  return (
-                    <Link key={i} href="/chronologie" className="block flex-shrink-0 w-[280px] snap-center">
-                      <div className="relative h-[340px] rounded-2xl overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                        {/* Image plein ecran en fond */}
-                        {sample ? (
-                          <img
-                            src={`/api/images/filename/${sample.filename}`}
-                            alt={sample.nom || period.name}
-                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="absolute inset-0" style={{ backgroundColor: period.color + "30" }} />
-                        )}
-                        {/* Overlay sombre */}
-                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
-                        {/* Annees en haut */}
-                        <div className="absolute top-4 left-0 right-0 text-center z-10">
-                          <span className="text-white/90 text-sm font-medium tracking-wide">{period.years}</span>
-                        </div>
-                        {/* Nom de la periode au centre */}
-                        <div className="absolute inset-0 flex items-center justify-center z-10">
-                          <h3 className="text-3xl font-serif font-bold text-white text-center px-4 drop-shadow-lg">{period.name}</h3>
-                        </div>
-                        {/* Nombre en bas */}
+            {/* Grille de periodes avec images */}
+            <div className="grid grid-cols-3 md:grid-cols-3 gap-3 md:gap-4">
+              {[
+                { name: "Moyen-Age", years: "1000 - 1499", start: 1000, end: 1499 },
+                { name: "Renaissance", years: "1500 - 1599", start: 1500, end: 1599 },
+                { name: "Baroque", years: "1600 - 1714", start: 1600, end: 1714 },
+                { name: "Art Nouveau", years: "1890 - 1910", start: 1890, end: 1910 },
+                { name: "Art Deco", years: "1920 - 1940", start: 1920, end: 1940 },
+                { name: "Contemporain", years: "1970 - auj.", start: 1970, end: 2030 },
+              ].map((period, i) => {
+                const periodLuminaires = luminaires.filter((l: any) => {
+                  const y = parseInt(l.annee || l["Année"] || l.year)
+                  return !isNaN(y) && y >= period.start && y <= period.end && l.filename
+                })
+                const sample = periodLuminaires[0]
+                const count = periodLuminaires.length
+
+                return (
+                  <Link key={i} href="/chronologie">
+                    <div className="relative aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer">
+                      {sample ? (
+                        <img
+                          src={`/api/images/filename/${sample.filename}`}
+                          alt={sample.nom || period.name}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-[#8b7355]/20" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 group-hover:from-black/80 transition-colors" />
+                      <div className="absolute top-3 left-3 z-10">
+                        <span className="text-white/70 text-[10px] md:text-xs font-medium tracking-wider">{period.years}</span>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 z-10">
+                        <h3 className="text-base md:text-xl font-serif font-bold text-white leading-tight">{period.name}</h3>
                         {count > 0 && (
-                          <div className="absolute bottom-4 left-0 right-0 text-center z-10">
-                            <span className="text-white/80 text-sm font-medium">
-                              {count} luminaire{count > 1 ? "s" : ""}
-                            </span>
-                          </div>
+                          <span className="text-white/60 text-[10px] md:text-xs mt-1 block">{count} luminaire{count > 1 ? "s" : ""}</span>
                         )}
                       </div>
-                    </Link>
-                  )
-                })}
-              </div>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
 
             <div className="text-center mt-10">
