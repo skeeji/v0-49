@@ -75,19 +75,26 @@ interface CrmStats {
 }
 
 // --- Financial Dashboard Types ---
-interface FinancialIndicator {
-  Date_Facture_Client?: string
-  Date_Facture_Fournisseur?: string
-  Montant_Client?: string
-  Montant_Fournisseur?: string
-  Client?: string
-  Fournisseur?: string
+interface FinancialApiRow {
+  ca_mois?: string
+  depenses_mois?: string
+  benefice_mois?: string
+  ca_annee?: string
+  depenses_annee?: string
+  benefice_annee?: string
+  nb_relances_client?: string
+  nb_relances_fournisseur?: string
 }
 
-interface FinancialRelance {
+interface FinancialRelanceRow {
   Client?: string
-  Montant?: string
+  Montant_client?: string
   Date_Facture_Client?: string
+  Statut_client?: string
+  Fournisseur?: string
+  Montant_fournisseur?: string
+  Date_Facture_Fournisseur?: string
+  Statut_fournisseur?: string
 }
 
 interface FinancialData {
@@ -95,8 +102,10 @@ interface FinancialData {
   depensesMonth: number
   beneficeMonth: number
   caAnnuel: number
-  relancesClients: Array<{ client: string; montant: number; echeance: Date; enRetard: boolean }>
-  dettesFournisseurs: Array<{ fournisseur: string; montant: number; echeance: Date; enRetard: boolean }>
+  depensesAnnuel: number
+  beneficeAnnuel: number
+  relancesClients: Array<{ client: string; montant: number; echeance: Date; enRetard: boolean; statut: string }>
+  dettesFournisseurs: Array<{ fournisseur: string; montant: number; echeance: Date; enRetard: boolean; statut: string }>
 }
 
 // --- Helpers ---
@@ -131,7 +140,8 @@ function isDeadlinePassed(deadline: string | null, status: string): boolean {
 // --- Financial Helpers ---
 function parseFinancialAmount(value: string | undefined): number {
   if (!value) return 0
-  const cleaned = value.replace(/[€\s]/g, "").replace(",", ".")
+  // Remove euro symbol, spaces (including narrow no-break space \u202f), and replace comma with dot
+  const cleaned = value.replace(/[€\s\u202f]/g, "").replace(",", ".")
   return parseFloat(cleaned) || 0
 }
 
@@ -651,87 +661,59 @@ export default function CrmPage() {
   const fetchFinancialData = useCallback(async () => {
     setFinancialLoading(true)
     try {
-      const [indicatorsRes, relancesRes] = await Promise.all([
+      const [apiRes, relancesRes] = await Promise.all([
         fetch("https://api.sheetbest.com/sheets/e1218948-cbda-4d37-8b09-b6b2888f4a27/tabs/API"),
         fetch("https://api.sheetbest.com/sheets/e1218948-cbda-4d37-8b09-b6b2888f4a27/tabs/RELANCES")
       ])
       
-      const indicators: FinancialIndicator[] = await indicatorsRes.json()
-      const relances: FinancialRelance[] = await relancesRes.json()
+      const apiData: FinancialApiRow[] = await apiRes.json()
+      const relancesData: FinancialRelanceRow[] = await relancesRes.json()
       
       const now = new Date()
-      const currentMonth = now.getMonth()
-      const currentYear = now.getFullYear()
       
-      let caMonth = 0
-      let depensesMonth = 0
-      let caAnnuel = 0
+      // Get values from API tab (first row contains aggregated data)
+      const apiRow = apiData[0] || {}
+      const caMonth = parseFinancialAmount(apiRow.ca_mois)
+      const depensesMonth = parseFinancialAmount(apiRow.depenses_mois)
+      const beneficeMonth = parseFinancialAmount(apiRow.benefice_mois)
+      const caAnnuel = parseFinancialAmount(apiRow.ca_annee)
+      const depensesAnnuel = parseFinancialAmount(apiRow.depenses_annee)
+      const beneficeAnnuel = parseFinancialAmount(apiRow.benefice_annee)
       
       const relancesClients: FinancialData["relancesClients"] = []
       const dettesFournisseurs: FinancialData["dettesFournisseurs"] = []
       
-      // Process indicators
-      indicators.forEach((row) => {
-        // Client invoices (CA)
-        if (row.Date_Facture_Client && row.Montant_Client) {
+      // Process relances tab
+      relancesData.forEach((row) => {
+        // Client relances
+        if (row.Client && row.Montant_client && row.Date_Facture_Client) {
           const date = parseFinancialDate(row.Date_Facture_Client)
-          const montant = parseFinancialAmount(row.Montant_Client)
-          if (date) {
-            if (date.getFullYear() === currentYear) {
-              caAnnuel += montant
-              if (date.getMonth() === currentMonth) {
-                caMonth += montant
-              }
-            }
-            // Echeance = date + 40 jours
+          const montant = parseFinancialAmount(row.Montant_client)
+          if (date && montant > 0) {
             const echeance = addDays(date, 40)
-            if (echeance >= now || echeance < now) {
-              relancesClients.push({
-                client: row.Client || "Client inconnu",
-                montant,
-                echeance,
-                enRetard: echeance < now
-              })
-            }
-          }
-        }
-        
-        // Supplier invoices (Depenses)
-        if (row.Date_Facture_Fournisseur && row.Montant_Fournisseur) {
-          const date = parseFinancialDate(row.Date_Facture_Fournisseur)
-          const montant = parseFinancialAmount(row.Montant_Fournisseur)
-          if (date) {
-            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
-              depensesMonth += montant
-            }
-            // Echeance = date + 30 jours
-            const echeance = addDays(date, 30)
-            dettesFournisseurs.push({
-              fournisseur: row.Fournisseur || "Fournisseur inconnu",
+            relancesClients.push({
+              client: row.Client,
               montant,
               echeance,
-              enRetard: echeance < now
+              enRetard: echeance < now,
+              statut: row.Statut_client || ""
             })
           }
         }
-      })
-      
-      // Process relances
-      relances.forEach((row) => {
-        if (row.Client && row.Montant && row.Date_Facture_Client) {
-          const date = parseFinancialDate(row.Date_Facture_Client)
-          const montant = parseFinancialAmount(row.Montant)
+        
+        // Supplier debts
+        if (row.Fournisseur && row.Date_Facture_Fournisseur) {
+          const date = parseFinancialDate(row.Date_Facture_Fournisseur)
+          const montant = parseFinancialAmount(row.Montant_fournisseur)
           if (date) {
-            const echeance = addDays(date, 40)
-            const exists = relancesClients.some(r => r.client === row.Client && r.montant === montant)
-            if (!exists) {
-              relancesClients.push({
-                client: row.Client,
-                montant,
-                echeance,
-                enRetard: echeance < now
-              })
-            }
+            const echeance = addDays(date, 30)
+            dettesFournisseurs.push({
+              fournisseur: row.Fournisseur,
+              montant,
+              echeance,
+              enRetard: echeance < now,
+              statut: row.Statut_fournisseur || ""
+            })
           }
         }
       })
@@ -743,8 +725,10 @@ export default function CrmPage() {
       setFinancialData({
         caMonth,
         depensesMonth,
-        beneficeMonth: caMonth - depensesMonth,
+        beneficeMonth,
         caAnnuel,
+        depensesAnnuel,
+        beneficeAnnuel,
         relancesClients,
         dettesFournisseurs
       })
@@ -892,78 +876,78 @@ export default function CrmPage() {
 
           {/* Financial Dashboard Content */}
           {showFinancialDashboard && (
-            <div className="bg-slate-900 rounded-xl p-5 border border-slate-700 shadow-lg">
+            <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
               {financialLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
-                  <span className="text-white/60 text-sm ml-3">Chargement des donnees financieres...</span>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#8b7355]" />
+                  <span className="text-gray-500 text-sm ml-3">Chargement des donnees financieres...</span>
                 </div>
               ) : financialData ? (
                 <div className="flex flex-col gap-5">
                   {/* Financial Stats Cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                    <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-100">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <Euro className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-xs text-slate-400">CA Mois</span>
+                        <Euro className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-xs text-emerald-700/70">CA Mois</span>
                       </div>
-                      <p className="text-lg font-semibold text-white">{formatCurrency(financialData.caMonth)}</p>
+                      <p className="text-lg font-semibold text-emerald-700">{formatCurrency(financialData.caMonth)}</p>
                     </div>
-                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                    <div className="bg-red-50 rounded-lg p-4 border border-red-100">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <Receipt className="w-3.5 h-3.5 text-red-400" />
-                        <span className="text-xs text-slate-400">Depenses Mois</span>
+                        <Receipt className="w-3.5 h-3.5 text-red-600" />
+                        <span className="text-xs text-red-700/70">Depenses Mois</span>
                       </div>
-                      <p className="text-lg font-semibold text-white">{formatCurrency(financialData.depensesMonth)}</p>
+                      <p className="text-lg font-semibold text-red-700">{formatCurrency(financialData.depensesMonth)}</p>
                     </div>
-                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                    <div className={`rounded-lg p-4 border ${financialData.beneficeMonth >= 0 ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100"}`}>
                       <div className="flex items-center gap-2 mb-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="text-xs text-slate-400">Benefice Mois</span>
+                        <TrendingUp className={`w-3.5 h-3.5 ${financialData.beneficeMonth >= 0 ? "text-blue-600" : "text-orange-600"}`} />
+                        <span className={`text-xs ${financialData.beneficeMonth >= 0 ? "text-blue-700/70" : "text-orange-700/70"}`}>Benefice Mois</span>
                       </div>
-                      <p className={`text-lg font-semibold ${financialData.beneficeMonth >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      <p className={`text-lg font-semibold ${financialData.beneficeMonth >= 0 ? "text-blue-700" : "text-orange-700"}`}>
                         {formatCurrency(financialData.beneficeMonth)}
                       </p>
                     </div>
-                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                    <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <Wallet className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-xs text-slate-400">CA Annuel</span>
+                        <Wallet className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="text-xs text-amber-700/70">CA Annuel</span>
                       </div>
-                      <p className="text-lg font-semibold text-white">{formatCurrency(financialData.caAnnuel)}</p>
+                      <p className="text-lg font-semibold text-amber-700">{formatCurrency(financialData.caAnnuel)}</p>
                     </div>
                   </div>
 
                   {/* Tables */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Relances Clients */}
-                    <div className="bg-slate-800/30 rounded-lg border border-slate-700 overflow-hidden">
-                      <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
-                        <Users className="w-4 h-4 text-blue-400" />
-                        <h4 className="text-sm font-medium text-white">Relances Clients</h4>
-                        <span className="text-xs text-slate-500 ml-auto">{financialData.relancesClients.length} factures</span>
+                    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2 bg-white">
+                        <Users className="w-4 h-4 text-blue-600" />
+                        <h4 className="text-sm font-medium text-gray-800">Relances Clients</h4>
+                        <span className="text-xs text-gray-400 ml-auto">{financialData.relancesClients.length} facture(s)</span>
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         {financialData.relancesClients.length === 0 ? (
-                          <p className="text-sm text-slate-500 p-4 text-center">Aucune relance</p>
+                          <p className="text-sm text-gray-400 p-4 text-center">Aucune relance</p>
                         ) : (
                           <table className="w-full">
                             <thead>
-                              <tr className="text-xs text-slate-500 border-b border-slate-700/50">
+                              <tr className="text-xs text-gray-500 border-b border-gray-200 bg-white">
                                 <th className="text-left px-4 py-2 font-medium">Client</th>
                                 <th className="text-right px-4 py-2 font-medium">Montant</th>
                                 <th className="text-right px-4 py-2 font-medium">Echeance</th>
                               </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="bg-white">
                               {financialData.relancesClients.slice(0, 10).map((r, i) => (
-                                <tr key={i} className="border-b border-slate-700/30 last:border-0">
-                                  <td className="px-4 py-2 text-sm text-slate-300">{r.client}</td>
-                                  <td className="px-4 py-2 text-sm text-right text-white font-medium">{formatCurrency(r.montant)}</td>
+                                <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="px-4 py-2 text-sm text-gray-700">{r.client}</td>
+                                  <td className="px-4 py-2 text-sm text-right text-gray-900 font-medium">{formatCurrency(r.montant)}</td>
                                   <td className="px-4 py-2 text-right">
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${r.enRetard ? "bg-red-500/20 text-red-400" : "text-slate-400"}`}>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${r.enRetard ? "bg-red-100 text-red-600" : "text-gray-500"}`}>
                                       {r.echeance.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                                      {r.enRetard && " - EN RETARD"}
+                                      {r.enRetard && " - RETARD"}
                                     </span>
                                   </td>
                                 </tr>
@@ -975,33 +959,33 @@ export default function CrmPage() {
                     </div>
 
                     {/* Dettes Fournisseurs */}
-                    <div className="bg-slate-800/30 rounded-lg border border-slate-700 overflow-hidden">
-                      <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-amber-400" />
-                        <h4 className="text-sm font-medium text-white">Dettes Fournisseurs</h4>
-                        <span className="text-xs text-slate-500 ml-auto">{financialData.dettesFournisseurs.length} factures</span>
+                    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2 bg-white">
+                        <Building2 className="w-4 h-4 text-amber-600" />
+                        <h4 className="text-sm font-medium text-gray-800">Dettes Fournisseurs</h4>
+                        <span className="text-xs text-gray-400 ml-auto">{financialData.dettesFournisseurs.length} facture(s)</span>
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         {financialData.dettesFournisseurs.length === 0 ? (
-                          <p className="text-sm text-slate-500 p-4 text-center">Aucune dette</p>
+                          <p className="text-sm text-gray-400 p-4 text-center">Aucune dette</p>
                         ) : (
                           <table className="w-full">
                             <thead>
-                              <tr className="text-xs text-slate-500 border-b border-slate-700/50">
+                              <tr className="text-xs text-gray-500 border-b border-gray-200 bg-white">
                                 <th className="text-left px-4 py-2 font-medium">Fournisseur</th>
                                 <th className="text-right px-4 py-2 font-medium">Montant</th>
                                 <th className="text-right px-4 py-2 font-medium">Echeance</th>
                               </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="bg-white">
                               {financialData.dettesFournisseurs.slice(0, 10).map((d, i) => (
-                                <tr key={i} className="border-b border-slate-700/30 last:border-0">
-                                  <td className="px-4 py-2 text-sm text-slate-300">{d.fournisseur}</td>
-                                  <td className="px-4 py-2 text-sm text-right text-white font-medium">{formatCurrency(d.montant)}</td>
+                                <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="px-4 py-2 text-sm text-gray-700">{d.fournisseur}</td>
+                                  <td className="px-4 py-2 text-sm text-right text-gray-900 font-medium">{formatCurrency(d.montant)}</td>
                                   <td className="px-4 py-2 text-right">
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${d.enRetard ? "bg-red-500/20 text-red-400" : "text-slate-400"}`}>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${d.enRetard ? "bg-red-100 text-red-600" : "text-gray-500"}`}>
                                       {d.echeance.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                                      {d.enRetard && " - EN RETARD"}
+                                      {d.enRetard && " - RETARD"}
                                     </span>
                                   </td>
                                 </tr>
@@ -1014,7 +998,7 @@ export default function CrmPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400 text-center py-4">Erreur de chargement des donnees</p>
+                <p className="text-sm text-gray-400 text-center py-4">Erreur de chargement des donnees</p>
               )}
             </div>
           )}
