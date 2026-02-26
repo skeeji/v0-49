@@ -29,6 +29,12 @@ import {
   ChevronRight,
   Play,
   Pause,
+  ChevronDown,
+  ChevronUp,
+  Wallet,
+  Receipt,
+  Users,
+  Building2,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -68,6 +74,31 @@ interface CrmStats {
   projetsActifs: number
 }
 
+// --- Financial Dashboard Types ---
+interface FinancialIndicator {
+  Date_Facture_Client?: string
+  Date_Facture_Fournisseur?: string
+  Montant_Client?: string
+  Montant_Fournisseur?: string
+  Client?: string
+  Fournisseur?: string
+}
+
+interface FinancialRelance {
+  Client?: string
+  Montant?: string
+  Date_Facture_Client?: string
+}
+
+interface FinancialData {
+  caMonth: number
+  depensesMonth: number
+  beneficeMonth: number
+  caAnnuel: number
+  relancesClients: Array<{ client: string; montant: number; echeance: Date; enRetard: boolean }>
+  dettesFournisseurs: Array<{ fournisseur: string; montant: number; echeance: Date; enRetard: boolean }>
+}
+
 // --- Helpers ---
 
 function calcProgress(timeSpent: number, timeEstimated: number): number {
@@ -95,6 +126,28 @@ function formatTime(seconds: number): string {
 function isDeadlinePassed(deadline: string | null, status: string): boolean {
   if (!deadline || status === "Gagne" || status === "Perdu") return false
   return new Date(deadline) < new Date()
+}
+
+// --- Financial Helpers ---
+function parseFinancialAmount(value: string | undefined): number {
+  if (!value) return 0
+  const cleaned = value.replace(/[€\s]/g, "").replace(",", ".")
+  return parseFloat(cleaned) || 0
+}
+
+function parseFinancialDate(dateStr: string | undefined): Date | null {
+  if (!dateStr) return null
+  const parts = dateStr.split("/")
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
+  }
+  return new Date(dateStr)
+}
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -568,6 +621,9 @@ export default function CrmPage() {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
+  const [showFinancialDashboard, setShowFinancialDashboard] = useState(false)
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null)
+  const [financialLoading, setFinancialLoading] = useState(false)
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -590,6 +646,120 @@ export default function CrmPage() {
   useEffect(() => {
     fetchProjects()
   }, [fetchProjects])
+
+  // Fetch financial data from SheetBest
+  const fetchFinancialData = useCallback(async () => {
+    setFinancialLoading(true)
+    try {
+      const [indicatorsRes, relancesRes] = await Promise.all([
+        fetch("https://api.sheetbest.com/sheets/e1218948-cbda-4d37-8b09-b6b2888f4a27/tabs/API"),
+        fetch("https://api.sheetbest.com/sheets/e1218948-cbda-4d37-8b09-b6b2888f4a27/tabs/RELANCES")
+      ])
+      
+      const indicators: FinancialIndicator[] = await indicatorsRes.json()
+      const relances: FinancialRelance[] = await relancesRes.json()
+      
+      const now = new Date()
+      const currentMonth = now.getMonth()
+      const currentYear = now.getFullYear()
+      
+      let caMonth = 0
+      let depensesMonth = 0
+      let caAnnuel = 0
+      
+      const relancesClients: FinancialData["relancesClients"] = []
+      const dettesFournisseurs: FinancialData["dettesFournisseurs"] = []
+      
+      // Process indicators
+      indicators.forEach((row) => {
+        // Client invoices (CA)
+        if (row.Date_Facture_Client && row.Montant_Client) {
+          const date = parseFinancialDate(row.Date_Facture_Client)
+          const montant = parseFinancialAmount(row.Montant_Client)
+          if (date) {
+            if (date.getFullYear() === currentYear) {
+              caAnnuel += montant
+              if (date.getMonth() === currentMonth) {
+                caMonth += montant
+              }
+            }
+            // Echeance = date + 40 jours
+            const echeance = addDays(date, 40)
+            if (echeance >= now || echeance < now) {
+              relancesClients.push({
+                client: row.Client || "Client inconnu",
+                montant,
+                echeance,
+                enRetard: echeance < now
+              })
+            }
+          }
+        }
+        
+        // Supplier invoices (Depenses)
+        if (row.Date_Facture_Fournisseur && row.Montant_Fournisseur) {
+          const date = parseFinancialDate(row.Date_Facture_Fournisseur)
+          const montant = parseFinancialAmount(row.Montant_Fournisseur)
+          if (date) {
+            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+              depensesMonth += montant
+            }
+            // Echeance = date + 30 jours
+            const echeance = addDays(date, 30)
+            dettesFournisseurs.push({
+              fournisseur: row.Fournisseur || "Fournisseur inconnu",
+              montant,
+              echeance,
+              enRetard: echeance < now
+            })
+          }
+        }
+      })
+      
+      // Process relances
+      relances.forEach((row) => {
+        if (row.Client && row.Montant && row.Date_Facture_Client) {
+          const date = parseFinancialDate(row.Date_Facture_Client)
+          const montant = parseFinancialAmount(row.Montant)
+          if (date) {
+            const echeance = addDays(date, 40)
+            const exists = relancesClients.some(r => r.client === row.Client && r.montant === montant)
+            if (!exists) {
+              relancesClients.push({
+                client: row.Client,
+                montant,
+                echeance,
+                enRetard: echeance < now
+              })
+            }
+          }
+        }
+      })
+      
+      // Sort by echeance
+      relancesClients.sort((a, b) => a.echeance.getTime() - b.echeance.getTime())
+      dettesFournisseurs.sort((a, b) => a.echeance.getTime() - b.echeance.getTime())
+      
+      setFinancialData({
+        caMonth,
+        depensesMonth,
+        beneficeMonth: caMonth - depensesMonth,
+        caAnnuel,
+        relancesClients,
+        dettesFournisseurs
+      })
+    } catch (error) {
+      console.error("Error fetching financial data:", error)
+    } finally {
+      setFinancialLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (showFinancialDashboard && !financialData) {
+      fetchFinancialData()
+    }
+  }, [showFinancialDashboard, financialData, fetchFinancialData])
 
   // Timer save callback: incrementally add seconds to timeSpent
   const handleTimerSave = useCallback(async (projectId: string, extraSeconds: number) => {
@@ -678,7 +848,7 @@ export default function CrmPage() {
                 <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
                   <Euro className="w-4 h-4 text-blue-600" />
                 </div>
-                <span className="text-sm font-medium text-gray-500">CA En Cours</span>
+                <span className="text-sm font-medium text-gray-500">CA Estimation</span>
               </div>
               <p className="text-2xl font-semibold text-gray-900">{formatCurrency(stats.caEnCours)}</p>
             </div>
@@ -701,6 +871,153 @@ export default function CrmPage() {
               <p className="text-2xl font-semibold text-gray-900">{stats.projetsActifs}</p>
             </div>
           </div>
+
+          {/* Financial Dashboard Toggle */}
+          <button
+            onClick={() => setShowFinancialDashboard(!showFinancialDashboard)}
+            className="flex items-center justify-between w-full bg-white rounded-xl px-5 py-3 border border-gray-100 shadow-sm hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Wallet className="w-4 h-4 text-slate-600" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Dashboard Financier</span>
+            </div>
+            {showFinancialDashboard ? (
+              <ChevronUp className="w-4 h-4 text-gray-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            )}
+          </button>
+
+          {/* Financial Dashboard Content */}
+          {showFinancialDashboard && (
+            <div className="bg-slate-900 rounded-xl p-5 border border-slate-700 shadow-lg">
+              {financialLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
+                  <span className="text-white/60 text-sm ml-3">Chargement des donnees financieres...</span>
+                </div>
+              ) : financialData ? (
+                <div className="flex flex-col gap-5">
+                  {/* Financial Stats Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Euro className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-xs text-slate-400">CA Mois</span>
+                      </div>
+                      <p className="text-lg font-semibold text-white">{formatCurrency(financialData.caMonth)}</p>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Receipt className="w-3.5 h-3.5 text-red-400" />
+                        <span className="text-xs text-slate-400">Depenses Mois</span>
+                      </div>
+                      <p className="text-lg font-semibold text-white">{formatCurrency(financialData.depensesMonth)}</p>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="text-xs text-slate-400">Benefice Mois</span>
+                      </div>
+                      <p className={`text-lg font-semibold ${financialData.beneficeMonth >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {formatCurrency(financialData.beneficeMonth)}
+                      </p>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Wallet className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-xs text-slate-400">CA Annuel</span>
+                      </div>
+                      <p className="text-lg font-semibold text-white">{formatCurrency(financialData.caAnnuel)}</p>
+                    </div>
+                  </div>
+
+                  {/* Tables */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Relances Clients */}
+                    <div className="bg-slate-800/30 rounded-lg border border-slate-700 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-blue-400" />
+                        <h4 className="text-sm font-medium text-white">Relances Clients</h4>
+                        <span className="text-xs text-slate-500 ml-auto">{financialData.relancesClients.length} factures</span>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {financialData.relancesClients.length === 0 ? (
+                          <p className="text-sm text-slate-500 p-4 text-center">Aucune relance</p>
+                        ) : (
+                          <table className="w-full">
+                            <thead>
+                              <tr className="text-xs text-slate-500 border-b border-slate-700/50">
+                                <th className="text-left px-4 py-2 font-medium">Client</th>
+                                <th className="text-right px-4 py-2 font-medium">Montant</th>
+                                <th className="text-right px-4 py-2 font-medium">Echeance</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {financialData.relancesClients.slice(0, 10).map((r, i) => (
+                                <tr key={i} className="border-b border-slate-700/30 last:border-0">
+                                  <td className="px-4 py-2 text-sm text-slate-300">{r.client}</td>
+                                  <td className="px-4 py-2 text-sm text-right text-white font-medium">{formatCurrency(r.montant)}</td>
+                                  <td className="px-4 py-2 text-right">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${r.enRetard ? "bg-red-500/20 text-red-400" : "text-slate-400"}`}>
+                                      {r.echeance.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                                      {r.enRetard && " - EN RETARD"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Dettes Fournisseurs */}
+                    <div className="bg-slate-800/30 rounded-lg border border-slate-700 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-sm font-medium text-white">Dettes Fournisseurs</h4>
+                        <span className="text-xs text-slate-500 ml-auto">{financialData.dettesFournisseurs.length} factures</span>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {financialData.dettesFournisseurs.length === 0 ? (
+                          <p className="text-sm text-slate-500 p-4 text-center">Aucune dette</p>
+                        ) : (
+                          <table className="w-full">
+                            <thead>
+                              <tr className="text-xs text-slate-500 border-b border-slate-700/50">
+                                <th className="text-left px-4 py-2 font-medium">Fournisseur</th>
+                                <th className="text-right px-4 py-2 font-medium">Montant</th>
+                                <th className="text-right px-4 py-2 font-medium">Echeance</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {financialData.dettesFournisseurs.slice(0, 10).map((d, i) => (
+                                <tr key={i} className="border-b border-slate-700/30 last:border-0">
+                                  <td className="px-4 py-2 text-sm text-slate-300">{d.fournisseur}</td>
+                                  <td className="px-4 py-2 text-sm text-right text-white font-medium">{formatCurrency(d.montant)}</td>
+                                  <td className="px-4 py-2 text-right">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${d.enRetard ? "bg-red-500/20 text-red-400" : "text-slate-400"}`}>
+                                      {d.echeance.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                                      {d.enRetard && " - EN RETARD"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-4">Erreur de chargement des donnees</p>
+              )}
+            </div>
+          )}
 
           {/* Calendar */}
           {(() => {
