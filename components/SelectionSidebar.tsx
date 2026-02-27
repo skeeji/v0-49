@@ -9,8 +9,6 @@ import { useSelection } from "@/contexts/SelectionContext"
 import Image from "next/image"
 import { toast } from "sonner"
 
-const API_BASE_URL_PDF = "https://chatbot-984654216979.europe-west1.run.app"
-
 export function SelectionSidebar() {
   const {
     selection,
@@ -54,7 +52,7 @@ export function SelectionSidebar() {
         })),
       }
 
-      const response = await fetch(`${API_BASE_URL_PDF}/api/generate_pdf`, {
+      const response = await fetch("/api/generate-pdf", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
