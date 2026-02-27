@@ -4,8 +4,10 @@ import { Inter, Playfair_Display } from "next/font/google"
 import "./globals.css"
 import { Header } from "@/components/Header"
 import { AuthProvider } from "@/contexts/AuthContext"
+import { SelectionProvider } from "@/contexts/SelectionContext"
 import { Toaster } from "sonner"
 import ChatWidget from "@/components/ChatWidget"
+import { SelectionSidebar } from "@/components/SelectionSidebar"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" })
@@ -26,21 +28,24 @@ export default function RootLayout({
     <html lang="fr" className={`${inter.variable} ${playfair.variable}`}>
       <body className="font-sans antialiased bg-white">
         <AuthProvider>
-          <Header />
-          <main>{children}</main>
-          <div className="hidden">
-            <ChatWidget />
-          </div>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: {
-                background: "white",
-                border: "1px solid #e2e8f0",
-                color: "#1e293b",
-              },
-            }}
-          />
+          <SelectionProvider>
+            <Header />
+            <main>{children}</main>
+            <div className="hidden">
+              <ChatWidget />
+            </div>
+            <SelectionSidebar />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: "white",
+                  border: "1px solid #e2e8f0",
+                  color: "#1e293b",
+                },
+              }}
+            />
+          </SelectionProvider>
         </AuthProvider>
       </body>
     </html>

@@ -2,11 +2,12 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { Upload, Send, ImageIcon, Loader2, Trash2, Plus } from "lucide-react"
+import { Upload, Send, ImageIcon, Loader2, Trash2, Plus, ShoppingBag, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { useAuth } from "@/contexts/AuthContext"
+import { useSelection } from "@/contexts/SelectionContext"
 import { toast } from "sonner"
 import Link from "next/link"
 import Image from "next/image"
@@ -26,6 +27,7 @@ interface SearchResult {
   annee?: string | number
   similarity?: number
   lien_site?: string
+  dimensions?: string
 }
 
 interface Message {
@@ -48,6 +50,7 @@ interface Conversation {
 
 export default function RecherchePage() {
   const { user, userData, incrementSearchCount } = useAuth()
+  const { addToSelection, isInSelection, selection, setIsSelectionOpen } = useSelection()
   const [inputValue, setInputValue] = useState("")
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -503,15 +506,30 @@ export default function RecherchePage() {
 
         <div className="flex-1 flex flex-col min-h-0">
           <div className="p-3 md:p-6 bg-white border-b border-slate-200">
-            <div className="max-w-4xl mx-auto">
-              <h1 className="text-xl md:text-3xl font-serif text-slate-800 mb-1 md:mb-2" style={{ color: "#8b7355" }}>
-                Recherche de Luminaires
-              </h1>
-              <p className="text-xs md:text-base text-slate-600">
-                {currentConversation
-                  ? "Continuez votre recherche ou affinez les résultats"
-                  : "Commencez une nouvelle recherche par texte ou par image"}
-              </p>
+            <div className="max-w-4xl mx-auto flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-xl md:text-3xl font-serif text-slate-800 mb-1 md:mb-2" style={{ color: "#8b7355" }}>
+                  Recherche de Luminaires
+                </h1>
+                <p className="text-xs md:text-base text-slate-600">
+                  {currentConversation
+                    ? "Continuez votre recherche ou affinez les résultats"
+                    : "Commencez une nouvelle recherche par texte ou par image"}
+                </p>
+              </div>
+              {/* Selection toggle button */}
+              <button
+                onClick={() => setIsSelectionOpen(true)}
+                className="relative flex items-center gap-2 px-3 py-2 bg-[#faf8f5] hover:bg-[#f5f1e8] border border-stone-200 rounded-lg transition-colors"
+              >
+                <ShoppingBag className="w-5 h-5 text-[#8b7355]" />
+                <span className="hidden sm:inline text-sm font-medium text-stone-700">Ma Sélection</span>
+                {selection.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#8b7355] text-white text-xs rounded-full flex items-center justify-center font-medium">
+                    {selection.length}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
@@ -572,41 +590,77 @@ export default function RecherchePage() {
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
                                 {message.results.slice(0, 3).map((result, index) => {
                                   if (!result.luminaireId) return null
+                                  const itemId = result.luminaireId || result.imageId || `result-${index}`
+                                  const isSelected = isInSelection(itemId)
 
                                   return (
-                                    <Link
-                                      key={index}
-                                      href={`/luminaires/${result.luminaireId}`}
-                                      className="block group"
-                                    >
-                                      <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
-                                        <div className="relative w-full h-48 md:h-64 bg-slate-100">
-                                          <Image
-                                            src={result.imageUrl || "/placeholder.svg"}
-                                            alt={result.nom || result.imageId || "Luminaire"}
-                                            fill
-                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                            unoptimized
-                                          />
-                                        </div>
-                                        <div className="p-3 md:p-4 space-y-1 md:space-y-2">
-                                          <h4 className="font-semibold text-slate-900 text-sm md:text-lg line-clamp-2">
-                                            {result.nom || result.imageId || "Luminaire"}
-                                          </h4>
-                                          {result.artiste && (
-                                            <p className="text-xs md:text-sm text-slate-600">
-                                              {result.artiste}
-                                              {result.annee && ` • ${result.annee}`}
-                                            </p>
-                                          )}
-                                          {result.similarity && (
-                                            <p className="text-xs md:text-sm font-medium" style={{ color: "#8b7355" }}>
-                                              {Math.round(result.similarity * 100)}% similaire
-                                            </p>
-                                          )}
-                                        </div>
-                                      </Card>
-                                    </Link>
+                                    <div key={index} className="relative group">
+                                      {/* Add to selection button */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          e.stopPropagation()
+                                          if (!isSelected) {
+                                            addToSelection({
+                                              id: itemId,
+                                              imageId: result.imageId,
+                                              imageUrl: result.imageUrl || "/placeholder.svg",
+                                              luminaireId: result.luminaireId,
+                                              nom: result.nom || result.imageId || "Luminaire",
+                                              artiste: result.artiste || "Inconnu",
+                                              annee: result.annee,
+                                              dimensions: result.dimensions,
+                                            })
+                                            toast.success("Ajouté à la sélection")
+                                          }
+                                        }}
+                                        className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-md ${
+                                          isSelected
+                                            ? "bg-green-500 text-white cursor-default"
+                                            : "bg-white/90 hover:bg-[#8b7355] hover:text-white text-stone-600"
+                                        }`}
+                                        title={isSelected ? "Déjà ajouté" : "Ajouter à la sélection"}
+                                        disabled={isSelected}
+                                      >
+                                        {isSelected ? (
+                                          <Check className="w-4 h-4" />
+                                        ) : (
+                                          <Plus className="w-4 h-4" />
+                                        )}
+                                      </button>
+                                      <Link
+                                        href={`/luminaires/${result.luminaireId}`}
+                                        className="block"
+                                      >
+                                        <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
+                                          <div className="relative w-full h-48 md:h-64 bg-slate-100">
+                                            <Image
+                                              src={result.imageUrl || "/placeholder.svg"}
+                                              alt={result.nom || result.imageId || "Luminaire"}
+                                              fill
+                                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                              unoptimized
+                                            />
+                                          </div>
+                                          <div className="p-3 md:p-4 space-y-1 md:space-y-2">
+                                            <h4 className="font-semibold text-slate-900 text-sm md:text-lg line-clamp-2">
+                                              {result.nom || result.imageId || "Luminaire"}
+                                            </h4>
+                                            {result.artiste && (
+                                              <p className="text-xs md:text-sm text-slate-600">
+                                                {result.artiste}
+                                                {result.annee && ` • ${result.annee}`}
+                                              </p>
+                                            )}
+                                            {result.similarity && (
+                                              <p className="text-xs md:text-sm font-medium" style={{ color: "#8b7355" }}>
+                                                {Math.round(result.similarity * 100)}% similaire
+                                              </p>
+                                            )}
+                                          </div>
+                                        </Card>
+                                      </Link>
+                                    </div>
                                   )
                                 })}
                               </div>

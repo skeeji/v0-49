@@ -89,6 +89,16 @@
   }
 }
 
+/* Selection Sidebar Styles - David Bitton aesthetic */
+.selection-sidebar {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.selection-sidebar h2,
+.selection-sidebar h4 {
+  font-family: "Playfair Display", Georgia, serif;
+}
+
 /* Bottom Navigation Bar Styles */
 .bottom-nav {
   position: fixed;
