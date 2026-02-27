@@ -7,15 +7,11 @@ export interface SelectedLuminaire {
   id: string
   imageId?: string
   imageUrl: string
-  luminaireId?: string | null
   nom: string
   artiste: string
-  annee?: string | number
-  // Editable fields for PDF generation
-  dimensions?: string
-  puissance?: string
+  // Only manual fields - dimensions/materials come from server CSV
   prixHT?: string
-  materiau?: string
+  puissance?: string
 }
 
 interface SelectionContextType {
@@ -40,7 +36,6 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
 
   const addToSelection = useCallback((luminaire: SelectedLuminaire) => {
     setSelection((prev) => {
-      // Check if already in selection
       if (prev.some((item) => item.id === luminaire.id)) {
         return prev
       }
