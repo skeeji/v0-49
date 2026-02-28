@@ -9,6 +9,8 @@ import { useSelection } from "@/contexts/SelectionContext"
 import Image from "next/image"
 import { toast } from "sonner"
 
+const API_BASE_URL = "https://chatbot-984654216979.europe-west1.run.app"
+
 export function SelectionSidebar() {
   const {
     selection,
@@ -38,21 +40,17 @@ export function SelectionSidebar() {
     setIsGeneratingPDF(true)
 
     try {
+      // Format payload according to Python API specification
       const payload = {
         client_name: clientName,
-        luminaires: selection.map((item) => ({
-          image_id: item.imageId || item.luminaireId || item.id,
-          nom: item.nom,
-          artiste: item.artiste,
-          dimensions: item.dimensions || "",
-          puissance: item.puissance || "",
-          prix_ht: item.prixHT || "",
-          materiau: item.materiau || "",
-          image_url: item.imageUrl,
+        items: selection.map((item) => ({
+          image_id: item.imageId || "",
+          prix_manuel: item.prixHT || "",
+          puissance_manuelle: item.puissance || "",
         })),
       }
 
-      const response = await fetch("/api/generate-pdf", {
+      const response = await fetch(`${API_BASE_URL}/api/generate_pdf`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -61,7 +59,8 @@ export function SelectionSidebar() {
       })
 
       if (!response.ok) {
-        throw new Error("Erreur lors de la génération du PDF")
+        const errorText = await response.text()
+        throw new Error(errorText || "Erreur lors de la génération du PDF")
       }
 
       // Download the PDF
@@ -69,7 +68,7 @@ export function SelectionSidebar() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `Selection_${clientName.replace(/\s+/g, "_")}.pdf`
+      a.download = `selection_${clientName.replace(/\s+/g, "_")}.pdf`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -90,7 +89,7 @@ export function SelectionSidebar() {
 
   return (
     <>
-      {/* Floating toggle button */}
+      {/* Floating toggle button - Mobile only */}
       <button
         onClick={() => setIsSelectionOpen(true)}
         className="fixed bottom-6 left-6 z-40 bg-[#8b7355] hover:bg-[#7a6548] text-white rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-105 md:hidden"
@@ -114,33 +113,33 @@ export function SelectionSidebar() {
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 right-0 h-full z-50 bg-[#faf8f5] border-l border-stone-200 shadow-xl transition-transform duration-300 ease-in-out flex flex-col
-          w-full sm:w-96 md:w-[400px]
+        className={`selection-sidebar fixed top-0 right-0 h-full z-50 bg-[#faf8f5] border-l border-stone-200 shadow-xl transition-transform duration-300 ease-in-out flex flex-col
+          w-full sm:w-96 md:w-[420px]
           ${isSelectionOpen ? "translate-x-0" : "translate-x-full"}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-stone-200 bg-white">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between p-5 border-b border-stone-200 bg-white">
+          <div className="flex items-center gap-3">
             <ShoppingBag className="w-5 h-5 text-[#8b7355]" />
-            <h2 className="text-lg font-serif text-stone-800">Ma Sélection</h2>
+            <h2 className="text-xl font-serif text-stone-800 tracking-wide">Ma Sélection</h2>
             {selection.length > 0 && (
-              <span className="ml-1 px-2 py-0.5 bg-[#8b7355] text-white text-xs rounded-full">
+              <span className="px-2.5 py-0.5 bg-[#8b7355] text-white text-xs rounded-full font-medium">
                 {selection.length}
               </span>
             )}
           </div>
           <button
             onClick={() => setIsSelectionOpen(false)}
-            className="p-1.5 hover:bg-stone-100 rounded-full transition-colors"
+            className="p-2 hover:bg-stone-100 rounded-full transition-colors"
             aria-label="Fermer"
           >
-            <X className="w-5 h-5 text-stone-600" />
+            <X className="w-5 h-5 text-stone-500" />
           </button>
         </div>
 
         {/* Client name input */}
-        <div className="p-4 bg-white border-b border-stone-200">
-          <Label htmlFor="clientName" className="text-sm font-medium text-stone-700 mb-1.5 block">
+        <div className="p-5 bg-white border-b border-stone-100">
+          <Label htmlFor="clientName" className="text-sm font-medium text-stone-600 mb-2 block tracking-wide">
             Nom du Client
           </Label>
           <Input
@@ -148,29 +147,29 @@ export function SelectionSidebar() {
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
             placeholder="Ex: David Bitton"
-            className="bg-[#faf8f5] border-stone-300 focus:border-[#8b7355] focus:ring-[#8b7355]"
+            className="bg-[#faf8f5] border-stone-200 focus:border-[#8b7355] focus:ring-[#8b7355]/20 h-11"
           />
         </div>
 
         {/* Selection list */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {selection.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingBag className="w-12 h-12 mx-auto text-stone-300 mb-3" />
-              <p className="text-stone-500 text-sm">Votre sélection est vide</p>
-              <p className="text-stone-400 text-xs mt-1">
-                Cliquez sur le bouton + des luminaires pour les ajouter
+            <div className="text-center py-16">
+              <ShoppingBag className="w-14 h-14 mx-auto text-stone-200 mb-4" />
+              <p className="text-stone-500 font-serif text-lg">Votre sélection est vide</p>
+              <p className="text-stone-400 text-sm mt-2">
+                Cliquez sur + pour ajouter des luminaires
               </p>
             </div>
           ) : (
             selection.map((item) => (
               <div
                 key={item.id}
-                className="bg-white rounded-lg border border-stone-200 overflow-hidden shadow-sm"
+                className="bg-white rounded-lg border border-stone-100 overflow-hidden shadow-sm"
               >
-                {/* Item header */}
-                <div className="flex gap-3 p-3">
-                  <div className="relative w-16 h-16 rounded-md overflow-hidden flex-shrink-0 bg-stone-100">
+                {/* Item header - Image left / Info right layout */}
+                <div className="flex gap-4 p-4">
+                  <div className="relative w-20 h-20 rounded overflow-hidden flex-shrink-0 bg-stone-50 border border-stone-100">
                     <Image
                       src={item.imageUrl || "/placeholder.svg"}
                       alt={item.nom}
@@ -180,13 +179,15 @@ export function SelectionSidebar() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-stone-800 text-sm line-clamp-1">{item.nom}</h4>
-                    <p className="text-xs text-stone-500">{item.artiste}</p>
+                    <h4 className="font-serif text-stone-800 text-base leading-tight line-clamp-2">
+                      {item.nom}
+                    </h4>
+                    <p className="text-sm text-stone-500 mt-0.5 italic">{item.artiste}</p>
                     <button
                       onClick={() => toggleExpand(item.id)}
-                      className="flex items-center gap-1 text-xs text-[#8b7355] mt-1 hover:underline"
+                      className="flex items-center gap-1 text-xs text-[#8b7355] mt-2 hover:underline font-medium"
                     >
-                      Éditer les détails
+                      Modifier
                       <ChevronRight
                         className={`w-3 h-3 transition-transform ${expandedItem === item.id ? "rotate-90" : ""}`}
                       />
@@ -194,55 +195,33 @@ export function SelectionSidebar() {
                   </div>
                   <button
                     onClick={() => removeFromSelection(item.id)}
-                    className="p-1.5 hover:bg-red-50 rounded-full transition-colors self-start"
+                    className="p-1.5 hover:bg-red-50 rounded-full transition-colors self-start -mt-1 -mr-1"
                     aria-label="Supprimer"
                   >
-                    <Trash2 className="w-4 h-4 text-red-400 hover:text-red-600" />
+                    <Trash2 className="w-4 h-4 text-stone-300 hover:text-red-500" />
                   </button>
                 </div>
 
-                {/* Expanded edit section */}
+                {/* Expanded edit section - Only Prix HT and Puissance */}
                 {expandedItem === item.id && (
-                  <div className="px-3 pb-3 pt-1 border-t border-stone-100 space-y-2 bg-stone-50">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs text-stone-600">Dimensions</Label>
-                        <Input
-                          value={item.dimensions || ""}
-                          onChange={(e) => updateLuminaire(item.id, { dimensions: e.target.value })}
-                          placeholder="Ex: 45 x 55 cm"
-                          className="h-8 text-sm bg-white"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-stone-600">Puissance</Label>
-                        <Input
-                          value={item.puissance || ""}
-                          onChange={(e) => updateLuminaire(item.id, { puissance: e.target.value })}
-                          placeholder="Ex: E27 / 866lm"
-                          className="h-8 text-sm bg-white"
-                        />
-                      </div>
+                  <div className="px-4 pb-4 pt-2 border-t border-stone-50 space-y-3 bg-[#faf8f5]">
+                    <div>
+                      <Label className="text-xs text-stone-500 uppercase tracking-wider">Prix HT</Label>
+                      <Input
+                        value={item.prixHT || ""}
+                        onChange={(e) => updateLuminaire(item.id, { prixHT: e.target.value })}
+                        placeholder="Ex: 19 860 €"
+                        className="h-9 text-sm bg-white border-stone-200 mt-1"
+                      />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs text-stone-600">Matériau</Label>
-                        <Input
-                          value={item.materiau || ""}
-                          onChange={(e) => updateLuminaire(item.id, { materiau: e.target.value })}
-                          placeholder="Ex: Verre, Laiton"
-                          className="h-8 text-sm bg-white"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-stone-600">Prix HT (€)</Label>
-                        <Input
-                          value={item.prixHT || ""}
-                          onChange={(e) => updateLuminaire(item.id, { prixHT: e.target.value })}
-                          placeholder="Ex: 698,00"
-                          className="h-8 text-sm bg-white"
-                        />
-                      </div>
+                    <div>
+                      <Label className="text-xs text-stone-500 uppercase tracking-wider">Puissance / Lumens</Label>
+                      <Input
+                        value={item.puissance || ""}
+                        onChange={(e) => updateLuminaire(item.id, { puissance: e.target.value })}
+                        placeholder="Ex: E27 / LED intégrée"
+                        className="h-9 text-sm bg-white border-stone-200 mt-1"
+                      />
                     </div>
                   </div>
                 )}
@@ -252,11 +231,11 @@ export function SelectionSidebar() {
         </div>
 
         {/* Footer actions */}
-        <div className="p-4 bg-white border-t border-stone-200 space-y-2">
+        <div className="p-5 bg-white border-t border-stone-200 space-y-3">
           <Button
             onClick={handleGeneratePDF}
             disabled={selection.length === 0 || isGeneratingPDF}
-            className="w-full bg-[#8b7355] hover:bg-[#7a6548] text-white font-medium"
+            className="w-full bg-[#8b7355] hover:bg-[#7a6548] text-white font-medium h-12 text-base"
           >
             {isGeneratingPDF ? (
               <>
@@ -266,15 +245,15 @@ export function SelectionSidebar() {
             ) : (
               <>
                 <FileText className="w-4 h-4 mr-2" />
-                Générer la Sélection PDF
+                Générer la Sélection
               </>
             )}
           </Button>
           {selection.length > 0 && (
             <Button
               onClick={clearSelection}
-              variant="outline"
-              className="w-full border-stone-300 text-stone-600 hover:bg-stone-50"
+              variant="ghost"
+              className="w-full text-stone-500 hover:text-stone-700 hover:bg-stone-50"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Vider la sélection

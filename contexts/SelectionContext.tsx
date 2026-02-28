@@ -5,11 +5,11 @@ import { createContext, useContext, useState, useCallback } from "react"
 
 export interface SelectedLuminaire {
   id: string
-  imageId?: string
+  imageId: string
   imageUrl: string
   nom: string
   artiste: string
-  // Only manual fields - dimensions/materials come from server CSV
+  // Manual fields only - dimensions/materials are fetched from CSV by Python server
   prixHT?: string
   puissance?: string
 }

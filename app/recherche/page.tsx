@@ -603,13 +603,10 @@ export default function RecherchePage() {
                                           if (!isSelected) {
                                             addToSelection({
                                               id: itemId,
-                                              imageId: result.imageId,
+                                              imageId: result.imageId || "",
                                               imageUrl: result.imageUrl || "/placeholder.svg",
-                                              luminaireId: result.luminaireId,
                                               nom: result.nom || result.imageId || "Luminaire",
                                               artiste: result.artiste || "Inconnu",
-                                              annee: result.annee,
-                                              dimensions: result.dimensions,
                                             })
                                             toast.success("Ajouté à la sélection")
                                           }
