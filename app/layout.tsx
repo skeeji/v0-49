@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   description: "Découvrez une collection unique de luminaires historiques du Moyen Âge à nos jours avec recherche IA",
   keywords: "luminaires, collection, historique, antiquités, design, éclairage",
   generator: "v0.dev",
+  other: {
+    "pinterest": "nopin",
+  },
 }
 
 export default function RootLayout({
