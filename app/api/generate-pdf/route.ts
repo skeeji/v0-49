@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
+import clientPromise from "@/lib/mongodb"
 
 // Couleurs du design Gersaint
 const GOLD = { r: 200/255, g: 169/255, b: 110/255 }
 const DARK = { r: 26/255, g: 26/255, b: 26/255 }
 const GRAY = { r: 102/255, g: 102/255, b: 102/255 }
+
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 interface LuminaireItem {
   image_id: string
@@ -30,7 +33,6 @@ async function loadImageFromUrl(url: string): Promise<ArrayBuffer | null> {
       headers: { 
         'Accept': 'image/*',
       },
-      next: { revalidate: 3600 } 
     })
     if (!response.ok) return null
     return await response.arrayBuffer()
@@ -39,32 +41,73 @@ async function loadImageFromUrl(url: string): Promise<ArrayBuffer | null> {
   }
 }
 
-// Fonction pour récupérer les données d'un luminaire depuis l'API
-async function fetchLuminaireData(imageId: string): Promise<LuminaireItem | null> {
+// Fonction pour nettoyer le texte pour PDF (remplacer caracteres non-ASCII)
+function cleanTextForPdf(text: string | undefined | null): string {
+  if (!text) return ""
+  // Remplacer les caracteres speciaux par leurs equivalents ASCII
+  return text
+    .replace(/[éèêë]/g, 'e')
+    .replace(/[àâä]/g, 'a')
+    .replace(/[ùûü]/g, 'u')
+    .replace(/[îï]/g, 'i')
+    .replace(/[ôö]/g, 'o')
+    .replace(/[ç]/g, 'c')
+    .replace(/[œ]/g, 'oe')
+    .replace(/[æ]/g, 'ae')
+    .replace(/[ÉÈÊË]/g, 'E')
+    .replace(/[ÀÂÄÆ]/g, 'A')
+    .replace(/[ÙÛÜ]/g, 'U')
+    .replace(/[ÎÏ]/g, 'I')
+    .replace(/[ÔÖ]/g, 'O')
+    .replace(/[Ç]/g, 'C')
+    .replace(/[Œ]/g, 'OE')
+    .replace(/[€]/g, 'EUR')
+    .replace(/[•·]/g, '-')
+    .replace(/['']/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/[—–]/g, '-')
+    .replace(/[…]/g, '...')
+    // Supprimer tout autre caractere non-ASCII
+    .replace(/[^\x00-\x7F]/g, '')
+}
+
+// Fonction pour recuperer les donnees d'un luminaire depuis MongoDB par imageId
+async function fetchLuminaireDataFromDB(imageId: string): Promise<LuminaireItem | null> {
   try {
-    // Extraire l'ID numérique du nom de fichier (ex: "luminaire_5966.jpg" -> "5966")
-    const match = imageId.match(/luminaire_(\d+)/)
-    if (!match) return null
+    console.log("[v0] Fetching luminaire data for imageId:", imageId)
     
-    const numericId = match[1]
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000'
+    const client = await clientPromise
+    const db = client.db(DBNAME)
+    const collection = db.collection("luminaires")
     
-    const response = await fetch(`${baseUrl}/api/luminaires/${numericId}`)
-    if (!response.ok) return null
+    // Chercher par imageId ou par nom de fichier
+    const luminaire = await collection.findOne({
+      $or: [
+        { imageId: imageId },
+        { "Nom du fichier": imageId },
+        { filename: imageId },
+        { "Image luminaire (Nom du fichier)": imageId },
+      ]
+    })
     
-    const data = await response.json()
+    if (!luminaire) {
+      console.log("[v0] Luminaire not found for imageId:", imageId)
+      return null
+    }
+    
+    console.log("[v0] Found luminaire:", luminaire.nom || luminaire["Nom luminaire"])
+    
     return {
       image_id: imageId,
-      nom: data.nom || data.name || imageId,
-      artiste: data.artiste || data.designer || "",
-      annee: data.annee || data.year || "",
-      dimensions: data.dimensions || "",
-      materiaux: data.materiaux || data.materials || "",
-      categorie: data.categorie || data.category || "",
+      nom: luminaire.nom || luminaire["Nom luminaire"] || luminaire.name || imageId,
+      artiste: luminaire.designer || luminaire["Artiste / Dates"] || luminaire["Artiste, ca annee"] || "",
+      annee: luminaire.annee || luminaire["Annee"] || luminaire.year || "",
+      dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
+      materiaux: luminaire.materiaux || luminaire["Materiaux"] || luminaire.materials || "",
+      categorie: luminaire.categorie || luminaire["Categorie"] || luminaire.category || "",
     }
-  } catch {
+  } catch (error) {
+    console.error("[v0] Error fetching luminaire from DB:", error)
     return null
   }
 }
@@ -74,6 +117,8 @@ export async function POST(request: NextRequest) {
     const body: PDFRequest = await request.json()
     const { client_name, items } = body
 
+    console.log("[v0] PDF generation request:", { client_name, itemCount: items?.length })
+
     if (!items || items.length === 0) {
       return NextResponse.json(
         { error: "No items provided" },
@@ -81,7 +126,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Créer le document PDF
+    // Creer le document PDF
     const pdfDoc = await PDFDocument.create()
     const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman)
     const timesRomanBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold)
@@ -92,9 +137,9 @@ export async function POST(request: NextRequest) {
     const pageWidth = 595.28  // A4
     const pageHeight = 841.89 // A4
 
-    // ═══════════════════════════════════════════
+    // ===============================================
     // PAGE 1 : COUVERTURE
-    // ═══════════════════════════════════════════
+    // ===============================================
     const coverPage = pdfDoc.addPage([pageWidth, pageHeight])
     
     // Titre GERSAINT
@@ -139,8 +184,9 @@ export async function POST(request: NextRequest) {
       color: rgb(DARK.r, DARK.g, DARK.b),
     })
 
-    const clientWidth = timesRoman.widthOfTextAtSize(client_name, 14)
-    coverPage.drawText(client_name, {
+    const cleanClientName = cleanTextForPdf(client_name)
+    const clientWidth = timesRoman.widthOfTextAtSize(cleanClientName, 14)
+    coverPage.drawText(cleanClientName, {
       x: (pageWidth - clientWidth) / 2,
       y: 155,
       size: 14,
@@ -148,34 +194,39 @@ export async function POST(request: NextRequest) {
       color: rgb(DARK.r, DARK.g, DARK.b),
     })
 
-    // ═══════════════════════════════════════════
+    // ===============================================
     // PAGES CATALOGUE
-    // ═══════════════════════════════════════════
+    // ===============================================
     const itemsPerPage = 3
     const enrichedItems: LuminaireItem[] = []
 
-    // Enrichir les items avec les données de l'API si nécessaire
+    // Enrichir les items avec les donnees de MongoDB
     for (const item of items) {
-      const apiData = await fetchLuminaireData(item.image_id)
+      console.log("[v0] Processing item:", item.image_id)
+      const dbData = await fetchLuminaireDataFromDB(item.image_id)
+      
       enrichedItems.push({
-        ...apiData,
-        ...item,
-        nom: item.nom || apiData?.nom || item.image_id,
-        artiste: item.artiste || apiData?.artiste || "",
-        annee: item.annee || apiData?.annee || "",
-        dimensions: item.dimensions || apiData?.dimensions || "",
-        materiaux: item.materiaux || apiData?.materiaux || "",
-        categorie: item.categorie || apiData?.categorie || "",
+        image_id: item.image_id,
+        nom: dbData?.nom || item.image_id,
+        artiste: dbData?.artiste || "",
+        annee: dbData?.annee || "",
+        dimensions: dbData?.dimensions || "",
+        materiaux: dbData?.materiaux || "",
+        categorie: dbData?.categorie || "",
+        prix_manuel: item.prix_manuel || "",
+        puissance_manuelle: item.puissance_manuelle || "",
       })
     }
 
-    // Générer les pages catalogue
+    console.log("[v0] Enriched items:", enrichedItems.length)
+
+    // Generer les pages catalogue
     for (let pageIndex = 0; pageIndex < Math.ceil(enrichedItems.length / itemsPerPage); pageIndex++) {
       const catalogPage = pdfDoc.addPage([pageWidth, pageHeight])
       const startIdx = pageIndex * itemsPerPage
       const pageItems = enrichedItems.slice(startIdx, startIdx + itemsPerPage)
       
-      // En-tête
+      // En-tete
       catalogPage.drawText("Luminaires", {
         x: 50,
         y: pageHeight - 50,
@@ -194,7 +245,7 @@ export async function POST(request: NextRequest) {
         color: rgb(GRAY.r, GRAY.g, GRAY.b),
       })
 
-      // Ligne dorée sous l'en-tête
+      // Ligne doree sous l'en-tete
       catalogPage.drawLine({
         start: { x: 50, y: pageHeight - 60 },
         end: { x: pageWidth - 50, y: pageHeight - 60 },
@@ -205,14 +256,14 @@ export async function POST(request: NextRequest) {
       let yPosition = pageHeight - 100
 
       for (const item of pageItems) {
-        const nom = item.nom || item.image_id || "Luminaire"
-        const artiste = item.artiste || ""
-        const annee = item.annee || ""
-        const dimensions = item.dimensions || ""
-        const materiaux = item.materiaux || ""
-        const categorie = item.categorie || ""
-        const prix = item.prix_manuel || "Prix sur demande"
-        const puissance = item.puissance_manuelle || ""
+        const nom = cleanTextForPdf(item.nom) || item.image_id || "Luminaire"
+        const artiste = cleanTextForPdf(item.artiste) || ""
+        const annee = cleanTextForPdf(item.annee) || ""
+        const dimensions = cleanTextForPdf(item.dimensions) || ""
+        const materiaux = cleanTextForPdf(item.materiaux) || ""
+        const categorie = cleanTextForPdf(item.categorie) || ""
+        const prix = cleanTextForPdf(item.prix_manuel) || "Prix sur demande"
+        const puissance = cleanTextForPdf(item.puissance_manuelle) || ""
 
         // Zone image (placeholder gris)
         const imageX = 50
@@ -228,7 +279,7 @@ export async function POST(request: NextRequest) {
             let embeddedImage
             const uint8Array = new Uint8Array(imageBytes)
             
-            // Détecter le type d'image
+            // Detecter le type d'image
             if (uint8Array[0] === 0xFF && uint8Array[1] === 0xD8) {
               embeddedImage = await pdfDoc.embedJpg(imageBytes)
             } else if (uint8Array[0] === 0x89 && uint8Array[1] === 0x50) {
@@ -284,11 +335,11 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // Texte à droite de l'image
+        // Texte a droite de l'image
         const textX = imageX + imageSize + 20
         let textY = yPosition
 
-        // Nom du luminaire (doré)
+        // Nom du luminaire (dore)
         catalogPage.drawText(nom, {
           x: textX,
           y: textY,
@@ -298,8 +349,8 @@ export async function POST(request: NextRequest) {
         })
         textY -= 18
 
-        // Artiste et année
-        const artisteLine = annee ? `${artiste}  ·  ${annee}` : artiste
+        // Artiste et annee
+        const artisteLine = annee ? `${artiste}  -  ${annee}` : artiste
         if (artisteLine) {
           catalogPage.drawText(artisteLine, {
             x: textX,
@@ -311,7 +362,7 @@ export async function POST(request: NextRequest) {
           textY -= 16
         }
 
-        // Spécifications
+        // Specifications
         const specs: string[] = []
         if (categorie) specs.push(`Categorie : ${categorie}`)
         if (dimensions) specs.push(`Dimensions : ${dimensions}`)
@@ -339,7 +390,7 @@ export async function POST(request: NextRequest) {
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
 
-        // Ligne séparatrice dorée
+        // Ligne separatrice doree
         catalogPage.drawLine({
           start: { x: 50, y: imageY - 15 },
           end: { x: pageWidth - 50, y: imageY - 15 },
@@ -351,9 +402,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ═══════════════════════════════════════════
+    // ===============================================
     // PAGE FINALE : FOOTER
-    // ═══════════════════════════════════════════
+    // ===============================================
     const footerPage = pdfDoc.addPage([pageWidth, pageHeight])
 
     // GERSAINT
@@ -376,7 +427,7 @@ export async function POST(request: NextRequest) {
       color: rgb(DARK.r, DARK.g, DARK.b),
     })
 
-    // Coordonnées
+    // Coordonnees
     const contactLines = [
       "42 rue de Maubeuge",
       "75009 Paris",
@@ -386,9 +437,9 @@ export async function POST(request: NextRequest) {
 
     let contactY = pageHeight / 2 - 30
     for (const line of contactLines) {
-      const lineWidth = helvetica.widthOfTextAtSize(line, 11)
+      const lineW = helvetica.widthOfTextAtSize(line, 11)
       footerPage.drawText(line, {
-        x: (pageWidth - lineWidth) / 2,
+        x: (pageWidth - lineW) / 2,
         y: contactY,
         size: 11,
         font: helvetica,
@@ -397,14 +448,16 @@ export async function POST(request: NextRequest) {
       contactY -= 20
     }
 
-    // Générer le PDF
+    // Generer le PDF
     const pdfBytes = await pdfDoc.save()
+
+    console.log("[v0] PDF generated successfully, size:", pdfBytes.length)
 
     return new NextResponse(pdfBytes, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="selection_gersaint_${client_name.replace(/\s+/g, '_')}.pdf"`,
+        "Content-Disposition": `attachment; filename="selection_gersaint_${cleanClientName.replace(/\s+/g, '_')}.pdf"`,
       },
     })
   } catch (error) {
