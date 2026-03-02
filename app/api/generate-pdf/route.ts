@@ -119,15 +119,13 @@ export async function POST(request: NextRequest) {
       color: rgb(DARK.r, DARK.g, DARK.b),
     })
 
-    // Symbole étoile
-    const starText = "✦"
-    const starWidth = helvetica.widthOfTextAtSize(starText, 18)
-    coverPage.drawText(starText, {
-      x: (pageWidth - starWidth) / 2,
-      y: pageHeight - 280,
-      size: 18,
-      font: helvetica,
-      color: rgb(DARK.r, DARK.g, DARK.b),
+    // Ligne decorative
+    const lineWidth = 40
+    coverPage.drawLine({
+      start: { x: (pageWidth - lineWidth) / 2, y: pageHeight - 275 },
+      end: { x: (pageWidth + lineWidth) / 2, y: pageHeight - 275 },
+      thickness: 1,
+      color: rgb(GOLD.r, GOLD.g, GOLD.b),
     })
 
     // Texte du bas
