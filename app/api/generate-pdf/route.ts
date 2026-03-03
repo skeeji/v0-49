@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
-import clientPromise from "@/lib/mongodb"
 
 // Couleurs du design Gersaint
 const GOLD = { r: 200/255, g: 169/255, b: 110/255 }
 const DARK = { r: 26/255, g: 26/255, b: 26/255 }
 const GRAY = { r: 102/255, g: 102/255, b: 102/255 }
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
-
 interface LuminaireItem {
   image_id: string
-  prix_manuel?: string
-  puissance_manuelle?: string
   nom?: string
   artiste?: string
-  annee?: string
-  dimensions?: string
-  materiaux?: string
-  categorie?: string
+  image_url?: string
+  prix_manuel?: string
+  puissance_manuelle?: string
 }
 
 interface PDFRequest {
@@ -29,14 +23,19 @@ interface PDFRequest {
 // Fonction pour charger une image depuis une URL
 async function loadImageFromUrl(url: string): Promise<ArrayBuffer | null> {
   try {
+    console.log("[v0] Loading image from:", url)
     const response = await fetch(url, { 
       headers: { 
         'Accept': 'image/*',
       },
     })
-    if (!response.ok) return null
+    if (!response.ok) {
+      console.log("[v0] Image fetch failed:", response.status)
+      return null
+    }
     return await response.arrayBuffer()
-  } catch {
+  } catch (error) {
+    console.log("[v0] Image fetch error:", error)
     return null
   }
 }
@@ -44,7 +43,6 @@ async function loadImageFromUrl(url: string): Promise<ArrayBuffer | null> {
 // Fonction pour nettoyer le texte pour PDF (remplacer caracteres non-ASCII)
 function cleanTextForPdf(text: string | undefined | null): string {
   if (!text) return ""
-  // Remplacer les caracteres speciaux par leurs equivalents ASCII
   return text
     .replace(/[éèêë]/g, 'e')
     .replace(/[àâä]/g, 'a')
@@ -67,49 +65,7 @@ function cleanTextForPdf(text: string | undefined | null): string {
     .replace(/[""]/g, '"')
     .replace(/[—–]/g, '-')
     .replace(/[…]/g, '...')
-    // Supprimer tout autre caractere non-ASCII
     .replace(/[^\x00-\x7F]/g, '')
-}
-
-// Fonction pour recuperer les donnees d'un luminaire depuis MongoDB par imageId
-async function fetchLuminaireDataFromDB(imageId: string): Promise<LuminaireItem | null> {
-  try {
-    console.log("[v0] Fetching luminaire data for imageId:", imageId)
-    
-    const client = await clientPromise
-    const db = client.db(DBNAME)
-    const collection = db.collection("luminaires")
-    
-    // Chercher par imageId ou par nom de fichier
-    const luminaire = await collection.findOne({
-      $or: [
-        { imageId: imageId },
-        { "Nom du fichier": imageId },
-        { filename: imageId },
-        { "Image luminaire (Nom du fichier)": imageId },
-      ]
-    })
-    
-    if (!luminaire) {
-      console.log("[v0] Luminaire not found for imageId:", imageId)
-      return null
-    }
-    
-    console.log("[v0] Found luminaire:", luminaire.nom || luminaire["Nom luminaire"])
-    
-    return {
-      image_id: imageId,
-      nom: luminaire.nom || luminaire["Nom luminaire"] || luminaire.name || imageId,
-      artiste: luminaire.designer || luminaire["Artiste / Dates"] || luminaire["Artiste, ca annee"] || "",
-      annee: luminaire.annee || luminaire["Annee"] || luminaire.year || "",
-      dimensions: luminaire.dimensions || luminaire["Dimensions"] || "",
-      materiaux: luminaire.materiaux || luminaire["Materiaux"] || luminaire.materials || "",
-      categorie: luminaire.categorie || luminaire["Categorie"] || luminaire.category || "",
-    }
-  } catch (error) {
-    console.error("[v0] Error fetching luminaire from DB:", error)
-    return null
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -117,7 +73,10 @@ export async function POST(request: NextRequest) {
     const body: PDFRequest = await request.json()
     const { client_name, items } = body
 
-    console.log("[v0] PDF generation request:", { client_name, itemCount: items?.length })
+    console.log("[v0] ====== PDF GENERATION START ======")
+    console.log("[v0] Client name:", client_name)
+    console.log("[v0] Items count:", items?.length)
+    console.log("[v0] Items received:", JSON.stringify(items, null, 2))
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -184,7 +143,7 @@ export async function POST(request: NextRequest) {
       color: rgb(DARK.r, DARK.g, DARK.b),
     })
 
-    const cleanClientName = cleanTextForPdf(client_name)
+    const cleanClientName = cleanTextForPdf(client_name) || "Client"
     const clientWidth = timesRoman.widthOfTextAtSize(cleanClientName, 14)
     coverPage.drawText(cleanClientName, {
       x: (pageWidth - clientWidth) / 2,
@@ -198,33 +157,14 @@ export async function POST(request: NextRequest) {
     // PAGES CATALOGUE
     // ===============================================
     const itemsPerPage = 3
-    const enrichedItems: LuminaireItem[] = []
-
-    // Enrichir les items avec les donnees de MongoDB
-    for (const item of items) {
-      console.log("[v0] Processing item:", item.image_id)
-      const dbData = await fetchLuminaireDataFromDB(item.image_id)
-      
-      enrichedItems.push({
-        image_id: item.image_id,
-        nom: dbData?.nom || item.image_id,
-        artiste: dbData?.artiste || "",
-        annee: dbData?.annee || "",
-        dimensions: dbData?.dimensions || "",
-        materiaux: dbData?.materiaux || "",
-        categorie: dbData?.categorie || "",
-        prix_manuel: item.prix_manuel || "",
-        puissance_manuelle: item.puissance_manuelle || "",
-      })
-    }
-
-    console.log("[v0] Enriched items:", enrichedItems.length)
 
     // Generer les pages catalogue
-    for (let pageIndex = 0; pageIndex < Math.ceil(enrichedItems.length / itemsPerPage); pageIndex++) {
+    for (let pageIndex = 0; pageIndex < Math.ceil(items.length / itemsPerPage); pageIndex++) {
       const catalogPage = pdfDoc.addPage([pageWidth, pageHeight])
       const startIdx = pageIndex * itemsPerPage
-      const pageItems = enrichedItems.slice(startIdx, startIdx + itemsPerPage)
+      const pageItems = items.slice(startIdx, startIdx + itemsPerPage)
+      
+      console.log("[v0] Processing page", pageIndex + 1, "with", pageItems.length, "items")
       
       // En-tete
       catalogPage.drawText("Luminaires", {
@@ -256,74 +196,64 @@ export async function POST(request: NextRequest) {
       let yPosition = pageHeight - 100
 
       for (const item of pageItems) {
+        console.log("[v0] Processing item:", item.image_id, "nom:", item.nom)
+        
+        // Use data directly from the payload - no MongoDB lookup needed
         const nom = cleanTextForPdf(item.nom) || item.image_id || "Luminaire"
         const artiste = cleanTextForPdf(item.artiste) || ""
-        const annee = cleanTextForPdf(item.annee) || ""
-        const dimensions = cleanTextForPdf(item.dimensions) || ""
-        const materiaux = cleanTextForPdf(item.materiaux) || ""
-        const categorie = cleanTextForPdf(item.categorie) || ""
         const prix = cleanTextForPdf(item.prix_manuel) || "Prix sur demande"
         const puissance = cleanTextForPdf(item.puissance_manuelle) || ""
 
-        // Zone image (placeholder gris)
+        console.log("[v0] Item data - nom:", nom, "artiste:", artiste, "prix:", prix)
+
+        // Zone image
         const imageX = 50
         const imageY = yPosition - 120
         const imageSize = 120
 
-        // Essayer de charger l'image
-        const imageUrl = `https://storage.googleapis.com/gersaint-images/images/luminaires/${item.image_id}`
-        const imageBytes = await loadImageFromUrl(imageUrl)
+        // Essayer de charger l'image depuis l'URL fournie
+        let imageLoaded = false
+        const imageUrl = item.image_url
         
-        if (imageBytes) {
-          try {
-            let embeddedImage
-            const uint8Array = new Uint8Array(imageBytes)
-            
-            // Detecter le type d'image
-            if (uint8Array[0] === 0xFF && uint8Array[1] === 0xD8) {
-              embeddedImage = await pdfDoc.embedJpg(imageBytes)
-            } else if (uint8Array[0] === 0x89 && uint8Array[1] === 0x50) {
-              embeddedImage = await pdfDoc.embedPng(imageBytes)
-            }
-            
-            if (embeddedImage) {
-              const imgDims = embeddedImage.scale(1)
-              const scale = Math.min(imageSize / imgDims.width, imageSize / imgDims.height)
-              const scaledWidth = imgDims.width * scale
-              const scaledHeight = imgDims.height * scale
+        if (imageUrl && !imageUrl.includes('placeholder')) {
+          console.log("[v0] Trying to load image:", imageUrl)
+          const imageBytes = await loadImageFromUrl(imageUrl)
+          
+          if (imageBytes) {
+            try {
+              let embeddedImage
+              const uint8Array = new Uint8Array(imageBytes)
               
-              catalogPage.drawImage(embeddedImage, {
-                x: imageX + (imageSize - scaledWidth) / 2,
-                y: imageY + (imageSize - scaledHeight) / 2,
-                width: scaledWidth,
-                height: scaledHeight,
-              })
-            } else {
-              // Placeholder
-              catalogPage.drawRectangle({
-                x: imageX,
-                y: imageY,
-                width: imageSize,
-                height: imageSize,
-                color: rgb(0.93, 0.92, 0.90),
-                borderColor: rgb(0.8, 0.8, 0.8),
-                borderWidth: 0.5,
-              })
+              // Detecter le type d'image
+              if (uint8Array[0] === 0xFF && uint8Array[1] === 0xD8) {
+                embeddedImage = await pdfDoc.embedJpg(imageBytes)
+              } else if (uint8Array[0] === 0x89 && uint8Array[1] === 0x50) {
+                embeddedImage = await pdfDoc.embedPng(imageBytes)
+              }
+              
+              if (embeddedImage) {
+                const imgDims = embeddedImage.scale(1)
+                const scale = Math.min(imageSize / imgDims.width, imageSize / imgDims.height)
+                const scaledWidth = imgDims.width * scale
+                const scaledHeight = imgDims.height * scale
+                
+                catalogPage.drawImage(embeddedImage, {
+                  x: imageX + (imageSize - scaledWidth) / 2,
+                  y: imageY + (imageSize - scaledHeight) / 2,
+                  width: scaledWidth,
+                  height: scaledHeight,
+                })
+                imageLoaded = true
+                console.log("[v0] Image loaded successfully")
+              }
+            } catch (imgError) {
+              console.log("[v0] Error embedding image:", imgError)
             }
-          } catch {
-            // Placeholder en cas d'erreur
-            catalogPage.drawRectangle({
-              x: imageX,
-              y: imageY,
-              width: imageSize,
-              height: imageSize,
-              color: rgb(0.93, 0.92, 0.90),
-              borderColor: rgb(0.8, 0.8, 0.8),
-              borderWidth: 0.5,
-            })
           }
-        } else {
-          // Placeholder si pas d'image
+        }
+        
+        if (!imageLoaded) {
+          // Placeholder gris si pas d'image
           catalogPage.drawRectangle({
             x: imageX,
             y: imageY,
@@ -349,10 +279,9 @@ export async function POST(request: NextRequest) {
         })
         textY -= 18
 
-        // Artiste et annee
-        const artisteLine = annee ? `${artiste}  -  ${annee}` : artiste
-        if (artisteLine) {
-          catalogPage.drawText(artisteLine, {
+        // Artiste
+        if (artiste) {
+          catalogPage.drawText(artiste, {
             x: textX,
             y: textY,
             size: 10,
@@ -362,15 +291,9 @@ export async function POST(request: NextRequest) {
           textY -= 16
         }
 
-        // Specifications
-        const specs: string[] = []
-        if (categorie) specs.push(`Categorie : ${categorie}`)
-        if (dimensions) specs.push(`Dimensions : ${dimensions}`)
-        if (materiaux) specs.push(`Materiaux : ${materiaux}`)
-        if (puissance) specs.push(`Puissance : ${puissance}`)
-
-        for (const spec of specs) {
-          catalogPage.drawText(spec, {
+        // Puissance si fournie
+        if (puissance) {
+          catalogPage.drawText(`Puissance : ${puissance}`, {
             x: textX,
             y: textY,
             size: 9,
@@ -451,7 +374,8 @@ export async function POST(request: NextRequest) {
     // Generer le PDF
     const pdfBytes = await pdfDoc.save()
 
-    console.log("[v0] PDF generated successfully, size:", pdfBytes.length)
+    console.log("[v0] ====== PDF GENERATION SUCCESS ======")
+    console.log("[v0] PDF size:", pdfBytes.length, "bytes")
 
     return new NextResponse(pdfBytes, {
       status: 200,

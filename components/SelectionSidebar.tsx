@@ -38,15 +38,19 @@ export function SelectionSidebar() {
     setIsGeneratingPDF(true)
 
     try {
-      // Format payload according to Python API specification
+      // Format payload with ALL available data from selection
       const payload = {
         client_name: clientName,
         items: selection.map((item) => ({
           image_id: item.imageId || "",
+          nom: item.nom || "",
+          artiste: item.artiste || "",
+          image_url: item.imageUrl || "",
           prix_manuel: item.prixHT || "",
           puissance_manuelle: item.puissance || "",
         })),
       }
+      console.log("[v0] PDF payload:", JSON.stringify(payload, null, 2))
 
       const response = await fetch("/api/generate-pdf", {
         method: "POST",
