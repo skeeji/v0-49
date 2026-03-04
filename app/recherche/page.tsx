@@ -590,7 +590,19 @@ export default function RecherchePage() {
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
                                 {message.results.slice(0, 3).map((result, index) => {
                                   if (!result.luminaireId) return null
-                                  const itemId = result.luminaireId || result.imageId || `result-${index}`
+                                  
+                                  // Extract imageId from imageUrl if not provided (e.g., "luminaire_4428.jpg" from URL)
+                                  let extractedImageId = result.imageId || ""
+                                  if (!extractedImageId && result.imageUrl) {
+                                    const urlParts = result.imageUrl.split("/")
+                                    const filename = urlParts[urlParts.length - 1]
+                                    if (filename) {
+                                      extractedImageId = filename // e.g., "luminaire_4428.jpg"
+                                    }
+                                  }
+                                  console.log("[v0] Result imageUrl:", result.imageUrl, "-> extractedImageId:", extractedImageId)
+                                  
+                                  const itemId = result.luminaireId || extractedImageId || `result-${index}`
                                   const isSelected = isInSelection(itemId)
 
                                   return (
@@ -603,9 +615,9 @@ export default function RecherchePage() {
                                           if (!isSelected) {
                                             addToSelection({
                                               id: itemId,
-                                              imageId: result.imageId || "",
+                                              imageId: extractedImageId,
                                               imageUrl: result.imageUrl || "/placeholder.svg",
-                                              nom: result.nom || result.imageId || "Luminaire",
+                                              nom: result.nom || extractedImageId || "Luminaire",
                                               artiste: result.artiste || "Inconnu",
                                             })
                                             toast.success("Ajouté à la sélection")
