@@ -335,7 +335,13 @@ export async function POST(request: NextRequest) {
         color: rgb(GOLD.r, GOLD.g, GOLD.b),
       })
 
-      let yPosition = pageHeight - 90
+      // Calcul de l'espace disponible pour 3 items
+      const headerHeight = 60
+      const footerHeight = 60
+      const availableHeight = pageHeight - headerHeight - footerHeight
+      const itemHeight = Math.floor(availableHeight / 3)
+      
+      let yPosition = pageHeight - headerHeight - 20
 
       for (const item of pageItems) {
         const nom = cleanTextForPdf(item.nom)
@@ -346,11 +352,12 @@ export async function POST(request: NextRequest) {
         const puissance = cleanTextForPdf(item.puissance)
         const prix = cleanTextForPdf(item.prix)
 
-        // Zone image - plus petite pour 3 par page
+        // Zone image - taille adaptee pour remplir la page
         const imageX = margin
-        const imageY = yPosition - 130
-        const imageWidth = 110
-        const imageHeight = 110
+        const imageSize = Math.min(itemHeight - 40, 180)
+        const imageY = yPosition - imageSize
+        const imageWidth = imageSize
+        const imageHeight = imageSize
 
         // Charger l'image
         let imageLoaded = false
@@ -404,134 +411,84 @@ export async function POST(request: NextRequest) {
         }
 
         // Zone texte a droite
-        const textX = imageX + imageWidth + 20
-        let textY = yPosition - 5
-        const fieldWidth = 250
+        const textX = imageX + imageWidth + 25
+        let textY = yPosition - 8
+        const fieldWidth = 280
+        const lineHeight = 18
 
-        // Nom du luminaire - Champ editable totalement invisible
-        const nomFieldName = `nom_${itemCounter}`
-        const nomField = form.createTextField(nomFieldName)
-        nomField.setText(nom || "")
-        nomField.addToPage(catalogPage, {
+        // Nom du luminaire
+        catalogPage.drawText(nom || "Luminaire", {
           x: textX,
-          y: textY - 2,
-          width: fieldWidth,
-          height: 14,
-          borderWidth: 0,
+          y: textY,
+          size: 13,
+          font: timesRomanBold,
+          color: rgb(GOLD.r, GOLD.g, GOLD.b),
         })
-        textY -= 16
+        textY -= lineHeight + 2
 
-        // Artiste + Annee - Champ editable totalement invisible
+        // Artiste + Annee
         const artisteAnnee = (artiste || "") + (annee ? `. (${annee})` : "")
-        const artisteFieldName = `artiste_${itemCounter}`
-        const artisteField = form.createTextField(artisteFieldName)
-        artisteField.setText(artisteAnnee)
-        artisteField.addToPage(catalogPage, {
-          x: textX,
-          y: textY - 2,
-          width: fieldWidth,
-          height: 12,
-          borderWidth: 0,
-        })
-        textY -= 16
+        if (artisteAnnee) {
+          catalogPage.drawText(artisteAnnee, {
+            x: textX,
+            y: textY,
+            size: 10,
+            font: timesRomanItalic,
+            color: rgb(DARK.r, DARK.g, DARK.b),
+          })
+        }
+        textY -= lineHeight + 4
 
-        // Dimensions - Champ editable totalement invisible
-        catalogPage.drawText("Dimensions : ", {
-          x: textX,
-          y: textY,
-          size: 8,
-          font: helvetica,
-          color: rgb(DARK.r, DARK.g, DARK.b),
-        })
-        const dimFieldName = `dimensions_${itemCounter}`
-        const dimField = form.createTextField(dimFieldName)
-        dimField.setText(dimensions || "")
-        dimField.addToPage(catalogPage, {
-          x: textX + 52,
-          y: textY - 2,
-          width: 195,
-          height: 12,
-          borderWidth: 0,
-        })
-        textY -= 14
-
-        // Materiaux - Champ editable totalement invisible
-        catalogPage.drawText("Materiaux : ", {
-          x: textX,
-          y: textY,
-          size: 8,
-          font: helvetica,
-          color: rgb(DARK.r, DARK.g, DARK.b),
-        })
-        const matFieldName = `materiaux_${itemCounter}`
-        const matField = form.createTextField(matFieldName)
-        matField.setText(materiaux || "")
-        matField.addToPage(catalogPage, {
-          x: textX + 48,
-          y: textY - 2,
-          width: 200,
-          height: 12,
-          borderWidth: 0,
-        })
-        textY -= 14
-
-        // Puissance - Champ editable totalement invisible (toujours visible)
-        catalogPage.drawText("Puissance : ", {
-          x: textX,
-          y: textY,
-          size: 8,
-          font: helvetica,
-          color: rgb(DARK.r, DARK.g, DARK.b),
-        })
-        const puissanceFieldName = `puissance_${itemCounter}`
-        const puissanceField = form.createTextField(puissanceFieldName)
-        puissanceField.setText(puissance || "")
-        puissanceField.addToPage(catalogPage, {
-          x: textX + 48,
-          y: textY - 2,
-          width: 150,
-          height: 12,
-          borderWidth: 0,
-        })
-        textY -= 16
-
-        // Prix HT - Champ editable totalement invisible
-        catalogPage.drawText("Prix HT : ", {
+        // Dimensions
+        catalogPage.drawText("Dimensions : " + (dimensions || ""), {
           x: textX,
           y: textY,
           size: 9,
+          font: helvetica,
+          color: rgb(DARK.r, DARK.g, DARK.b),
+        })
+        textY -= lineHeight
+
+        // Materiaux
+        const matText = materiaux ? (materiaux.length > 50 ? materiaux.substring(0, 50) + "..." : materiaux) : ""
+        catalogPage.drawText("Materiaux : " + matText, {
+          x: textX,
+          y: textY,
+          size: 9,
+          font: helvetica,
+          color: rgb(DARK.r, DARK.g, DARK.b),
+        })
+        textY -= lineHeight
+
+        // Puissance
+        catalogPage.drawText("Puissance : " + (puissance || ""), {
+          x: textX,
+          y: textY,
+          size: 9,
+          font: helvetica,
+          color: rgb(DARK.r, DARK.g, DARK.b),
+        })
+        textY -= lineHeight + 2
+
+        // Prix HT
+        const prixText = prix ? prix : ""
+        catalogPage.drawText("Prix HT : " + prixText, {
+          x: textX,
+          y: textY,
+          size: 11,
           font: helveticaBold,
-          color: rgb(DARK.r, DARK.g, DARK.b),
-        })
-        const prixFieldName = `prix_${itemCounter}`
-        const prixField = form.createTextField(prixFieldName)
-        const prixValue = prix || ""
-        prixField.setText(prixValue)
-        prixField.addToPage(catalogPage, {
-          x: textX + 42,
-          y: textY - 2,
-          width: 80,
-          height: 12,
-          borderWidth: 0,
-        })
-        // Symbole EUR apres le champ de prix
-        catalogPage.drawText("EUR", {
-          x: textX + 125,
-          y: textY,
-          size: 9,
-          font: helvetica,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
 
         // Ligne separatrice doree fine
         catalogPage.drawLine({
-          start: { x: margin, y: imageY - 15 },
-          end: { x: pageWidth - margin, y: imageY - 15 },
+          start: { x: margin, y: imageY - 20 },
+          end: { x: pageWidth - margin, y: imageY - 20 },
           thickness: 0.5,
           color: rgb(GOLD.r, GOLD.g, GOLD.b),
         })
 
-        yPosition = imageY - 35
+        yPosition = yPosition - itemHeight
         itemCounter++
       }
 
