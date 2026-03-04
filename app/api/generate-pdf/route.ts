@@ -406,54 +406,81 @@ export async function POST(request: NextRequest) {
         // Zone texte a droite
         const textX = imageX + imageWidth + 30
         let textY = yPosition
+        const fieldWidth = 220
 
-        // Nom du luminaire (dore, en gras)
-        catalogPage.drawText(nom || "Luminaire", {
+        // Nom du luminaire - Champ editable invisible
+        const nomFieldName = `nom_${itemCounter}`
+        const nomField = form.createTextField(nomFieldName)
+        nomField.setText(nom || "")
+        nomField.addToPage(catalogPage, {
           x: textX,
-          y: textY,
-          size: 14,
-          font: timesRomanBold,
-          color: rgb(GOLD.r, GOLD.g, GOLD.b),
+          y: textY - 4,
+          width: fieldWidth,
+          height: 18,
+          borderWidth: 0,
+          backgroundColor: rgb(1, 1, 1),
+        })
+        nomField.updateAppearances(timesRomanBold)
+        textY -= 24
+
+        // Artiste + Annee - Champ editable invisible
+        const artisteAnnee = (artiste || "") + (annee ? `. (${annee})` : "")
+        const artisteFieldName = `artiste_${itemCounter}`
+        const artisteField = form.createTextField(artisteFieldName)
+        artisteField.setText(artisteAnnee)
+        artisteField.addToPage(catalogPage, {
+          x: textX,
+          y: textY - 3,
+          width: fieldWidth,
+          height: 14,
+          borderWidth: 0,
+          backgroundColor: rgb(1, 1, 1),
         })
         textY -= 22
 
-        // Artiste + Annee (italique)
-        if (artiste || annee) {
-          const artisteAnnee = artiste + (annee ? `. (${annee})` : "")
-          catalogPage.drawText(artisteAnnee, {
-            x: textX,
-            y: textY,
-            size: 10,
-            font: timesRomanItalic,
-            color: rgb(DARK.r, DARK.g, DARK.b),
-          })
-          textY -= 24
-        } else {
-          textY -= 8
-        }
-
-        // Dimensions
-        catalogPage.drawText(`Dimensions : ${dimensions || "Non specifiees"}`, {
+        // Dimensions - Champ editable invisible
+        catalogPage.drawText("Dimensions : ", {
           x: textX,
           y: textY,
           size: 9,
           font: helvetica,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
-        textY -= 16
+        const dimFieldName = `dimensions_${itemCounter}`
+        const dimField = form.createTextField(dimFieldName)
+        dimField.setText(dimensions || "")
+        dimField.addToPage(catalogPage, {
+          x: textX + 58,
+          y: textY - 3,
+          width: 160,
+          height: 14,
+          borderWidth: 0,
+          backgroundColor: rgb(1, 1, 1),
+        })
+        textY -= 18
 
-        // Materiaux
-        const matText = materiaux ? (materiaux.length > 45 ? materiaux.substring(0, 45) + "..." : materiaux) : "Non specifies"
-        catalogPage.drawText(`Materiaux : ${matText}`, {
+        // Materiaux - Champ editable invisible
+        catalogPage.drawText("Materiaux : ", {
           x: textX,
           y: textY,
           size: 9,
           font: helvetica,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
-        textY -= 16
+        const matFieldName = `materiaux_${itemCounter}`
+        const matField = form.createTextField(matFieldName)
+        matField.setText(materiaux || "")
+        matField.addToPage(catalogPage, {
+          x: textX + 52,
+          y: textY - 3,
+          width: 165,
+          height: 14,
+          borderWidth: 0,
+          backgroundColor: rgb(1, 1, 1),
+        })
+        textY -= 18
 
-        // Puissance - Toujours afficher avec champ editable
+        // Puissance - Champ editable invisible (toujours visible)
         catalogPage.drawText("Puissance : ", {
           x: textX,
           y: textY,
@@ -461,22 +488,20 @@ export async function POST(request: NextRequest) {
           font: helvetica,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
-        
-        // Champ de formulaire editable pour puissance
         const puissanceFieldName = `puissance_${itemCounter}`
         const puissanceField = form.createTextField(puissanceFieldName)
         puissanceField.setText(puissance || "")
         puissanceField.addToPage(catalogPage, {
-          x: textX + 55,
+          x: textX + 52,
           y: textY - 3,
           width: 120,
           height: 14,
-          borderWidth: 0.5,
-          borderColor: rgb(0.8, 0.8, 0.8),
+          borderWidth: 0,
+          backgroundColor: rgb(1, 1, 1),
         })
         textY -= 22
 
-        // Prix - avec symbole EUR et champ editable
+        // Prix HT - Champ editable invisible avec EUR
         catalogPage.drawText("Prix HT : ", {
           x: textX,
           y: textY,
@@ -484,19 +509,17 @@ export async function POST(request: NextRequest) {
           font: helveticaBold,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
-        
-        // Champ de formulaire editable pour prix
         const prixFieldName = `prix_${itemCounter}`
         const prixField = form.createTextField(prixFieldName)
         const prixValue = prix ? `${prix} EUR` : ""
         prixField.setText(prixValue)
         prixField.addToPage(catalogPage, {
-          x: textX + 50,
-          y: textY - 3,
+          x: textX + 48,
+          y: textY - 4,
           width: 100,
-          height: 14,
-          borderWidth: 0.5,
-          borderColor: rgb(0.8, 0.8, 0.8),
+          height: 16,
+          borderWidth: 0,
+          backgroundColor: rgb(1, 1, 1),
         })
 
         // Ligne separatrice doree
