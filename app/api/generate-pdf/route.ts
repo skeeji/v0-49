@@ -416,6 +416,9 @@ export async function POST(request: NextRequest) {
         const fieldWidth = 280
         const lineHeight = 18
 
+        // Couleur de fond blanc pour les champs invisibles
+        const WHITE_BG = rgb(1, 1, 1)
+        
         // Nom du luminaire - Champ editable invisible superpose
         const nomField = form.createTextField(`nom_${itemCounter}`)
         nomField.setText(nom || "")
@@ -425,6 +428,8 @@ export async function POST(request: NextRequest) {
           width: fieldWidth,
           height: 16,
           borderWidth: 0,
+          backgroundColor: WHITE_BG,
+          borderColor: WHITE_BG,
         })
         nomField.updateAppearances(timesRomanBold)
         textY -= lineHeight + 2
@@ -439,6 +444,8 @@ export async function POST(request: NextRequest) {
           width: fieldWidth,
           height: 14,
           borderWidth: 0,
+          backgroundColor: WHITE_BG,
+          borderColor: WHITE_BG,
         })
         artisteField.updateAppearances(timesRomanItalic)
         textY -= lineHeight + 4
@@ -459,6 +466,8 @@ export async function POST(request: NextRequest) {
           width: 220,
           height: 13,
           borderWidth: 0,
+          backgroundColor: WHITE_BG,
+          borderColor: WHITE_BG,
         })
         dimField.updateAppearances(helvetica)
         textY -= lineHeight
@@ -480,6 +489,8 @@ export async function POST(request: NextRequest) {
           width: 225,
           height: 13,
           borderWidth: 0,
+          backgroundColor: WHITE_BG,
+          borderColor: WHITE_BG,
         })
         matField.updateAppearances(helvetica)
         textY -= lineHeight
@@ -500,6 +511,8 @@ export async function POST(request: NextRequest) {
           width: 180,
           height: 13,
           borderWidth: 0,
+          backgroundColor: WHITE_BG,
+          borderColor: WHITE_BG,
         })
         puissanceField.updateAppearances(helvetica)
         textY -= lineHeight + 2
@@ -520,6 +533,8 @@ export async function POST(request: NextRequest) {
           width: 150,
           height: 14,
           borderWidth: 0,
+          backgroundColor: WHITE_BG,
+          borderColor: WHITE_BG,
         })
         prixField.updateAppearances(helveticaBold)
 
