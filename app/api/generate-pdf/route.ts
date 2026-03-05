@@ -416,69 +416,112 @@ export async function POST(request: NextRequest) {
         const fieldWidth = 280
         const lineHeight = 18
 
-        // Nom du luminaire
-        catalogPage.drawText(nom || "Luminaire", {
-          x: textX,
-          y: textY,
-          size: 13,
-          font: timesRomanBold,
-          color: rgb(GOLD.r, GOLD.g, GOLD.b),
+        // Nom du luminaire - Champ editable invisible superpose
+        const nomField = form.createTextField(`nom_${itemCounter}`)
+        nomField.setText(nom || "")
+        nomField.addToPage(catalogPage, {
+          x: textX - 2,
+          y: textY - 4,
+          width: fieldWidth,
+          height: 16,
+          borderWidth: 0,
         })
+        nomField.updateAppearances(timesRomanBold)
         textY -= lineHeight + 2
 
-        // Artiste + Annee
+        // Artiste + Annee - Champ editable invisible
         const artisteAnnee = (artiste || "") + (annee ? `. (${annee})` : "")
-        if (artisteAnnee) {
-          catalogPage.drawText(artisteAnnee, {
-            x: textX,
-            y: textY,
-            size: 10,
-            font: timesRomanItalic,
-            color: rgb(DARK.r, DARK.g, DARK.b),
-          })
-        }
+        const artisteField = form.createTextField(`artiste_${itemCounter}`)
+        artisteField.setText(artisteAnnee)
+        artisteField.addToPage(catalogPage, {
+          x: textX - 2,
+          y: textY - 3,
+          width: fieldWidth,
+          height: 14,
+          borderWidth: 0,
+        })
+        artisteField.updateAppearances(timesRomanItalic)
         textY -= lineHeight + 4
 
-        // Dimensions
-        catalogPage.drawText("Dimensions : " + (dimensions || ""), {
+        // Dimensions - Label fixe + champ editable
+        catalogPage.drawText("Dimensions : ", {
           x: textX,
           y: textY,
           size: 9,
           font: helvetica,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
+        const dimField = form.createTextField(`dimensions_${itemCounter}`)
+        dimField.setText(dimensions || "")
+        dimField.addToPage(catalogPage, {
+          x: textX + 55,
+          y: textY - 3,
+          width: 220,
+          height: 13,
+          borderWidth: 0,
+        })
+        dimField.updateAppearances(helvetica)
         textY -= lineHeight
 
-        // Materiaux
+        // Materiaux - Label fixe + champ editable
+        catalogPage.drawText("Materiaux : ", {
+          x: textX,
+          y: textY,
+          size: 9,
+          font: helvetica,
+          color: rgb(DARK.r, DARK.g, DARK.b),
+        })
         const matText = materiaux ? (materiaux.length > 50 ? materiaux.substring(0, 50) + "..." : materiaux) : ""
-        catalogPage.drawText("Materiaux : " + matText, {
-          x: textX,
-          y: textY,
-          size: 9,
-          font: helvetica,
-          color: rgb(DARK.r, DARK.g, DARK.b),
+        const matField = form.createTextField(`materiaux_${itemCounter}`)
+        matField.setText(matText)
+        matField.addToPage(catalogPage, {
+          x: textX + 50,
+          y: textY - 3,
+          width: 225,
+          height: 13,
+          borderWidth: 0,
         })
+        matField.updateAppearances(helvetica)
         textY -= lineHeight
 
-        // Puissance
-        catalogPage.drawText("Puissance : " + (puissance || ""), {
+        // Puissance - Label fixe + champ editable (toujours visible)
+        catalogPage.drawText("Puissance : ", {
           x: textX,
           y: textY,
           size: 9,
           font: helvetica,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
+        const puissanceField = form.createTextField(`puissance_${itemCounter}`)
+        puissanceField.setText(puissance || "")
+        puissanceField.addToPage(catalogPage, {
+          x: textX + 50,
+          y: textY - 3,
+          width: 180,
+          height: 13,
+          borderWidth: 0,
+        })
+        puissanceField.updateAppearances(helvetica)
         textY -= lineHeight + 2
 
-        // Prix HT
-        const prixText = prix ? prix : ""
-        catalogPage.drawText("Prix HT : " + prixText, {
+        // Prix HT - Label fixe + champ editable
+        catalogPage.drawText("Prix HT : ", {
           x: textX,
           y: textY,
           size: 11,
           font: helveticaBold,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
+        const prixField = form.createTextField(`prix_${itemCounter}`)
+        prixField.setText(prix || "")
+        prixField.addToPage(catalogPage, {
+          x: textX + 48,
+          y: textY - 3,
+          width: 150,
+          height: 14,
+          borderWidth: 0,
+        })
+        prixField.updateAppearances(helveticaBold)
 
         // Ligne separatrice doree fine
         catalogPage.drawLine({
