@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
+import { PDFDocument, rgb, StandardFonts, PDFName, PDFString } from "pdf-lib"
 import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
@@ -164,6 +164,25 @@ function extractPrix(luminaire: any): string {
     if (luminaire[field]) return String(luminaire[field])
   }
   return ""
+}
+
+// Fonction pour rendre un champ de formulaire vraiment invisible
+function makeFieldInvisible(field: any) {
+  try {
+    const widget = field.acroField.getWidgets()[0]
+    if (widget) {
+      const dict = widget.dict
+      // Supprimer le highlighting mode - /H /N = no highlighting
+      dict.set(PDFName.of('H'), PDFName.of('N'))
+      // Supprimer la bordure d'annotation
+      dict.delete(PDFName.of('BS'))
+      dict.delete(PDFName.of('Border'))
+      // Definir MK (appearance characteristics) vide pour supprimer le fond
+      dict.delete(PDFName.of('MK'))
+    }
+  } catch (e) {
+    // Ignorer les erreurs
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -416,10 +435,7 @@ export async function POST(request: NextRequest) {
         const fieldWidth = 280
         const lineHeight = 18
 
-        // Couleur de fond blanc pour les champs invisibles
-        const WHITE_BG = rgb(1, 1, 1)
-        
-        // Nom du luminaire - Champ editable invisible superpose
+        // Nom du luminaire - Champ editable invisible
         const nomField = form.createTextField(`nom_${itemCounter}`)
         nomField.setText(nom || "")
         nomField.addToPage(catalogPage, {
@@ -428,10 +444,9 @@ export async function POST(request: NextRequest) {
           width: fieldWidth,
           height: 16,
           borderWidth: 0,
-          backgroundColor: WHITE_BG,
-          borderColor: WHITE_BG,
         })
         nomField.updateAppearances(timesRomanBold)
+        makeFieldInvisible(nomField)
         textY -= lineHeight + 2
 
         // Artiste + Annee - Champ editable invisible
@@ -444,10 +459,9 @@ export async function POST(request: NextRequest) {
           width: fieldWidth,
           height: 14,
           borderWidth: 0,
-          backgroundColor: WHITE_BG,
-          borderColor: WHITE_BG,
         })
         artisteField.updateAppearances(timesRomanItalic)
+        makeFieldInvisible(artisteField)
         textY -= lineHeight + 4
 
         // Dimensions - Label fixe + champ editable
@@ -466,10 +480,9 @@ export async function POST(request: NextRequest) {
           width: 220,
           height: 13,
           borderWidth: 0,
-          backgroundColor: WHITE_BG,
-          borderColor: WHITE_BG,
         })
         dimField.updateAppearances(helvetica)
+        makeFieldInvisible(dimField)
         textY -= lineHeight
 
         // Materiaux - Label fixe + champ editable
@@ -489,10 +502,9 @@ export async function POST(request: NextRequest) {
           width: 225,
           height: 13,
           borderWidth: 0,
-          backgroundColor: WHITE_BG,
-          borderColor: WHITE_BG,
         })
         matField.updateAppearances(helvetica)
+        makeFieldInvisible(matField)
         textY -= lineHeight
 
         // Puissance - Label fixe + champ editable (toujours visible)
@@ -511,10 +523,9 @@ export async function POST(request: NextRequest) {
           width: 180,
           height: 13,
           borderWidth: 0,
-          backgroundColor: WHITE_BG,
-          borderColor: WHITE_BG,
         })
         puissanceField.updateAppearances(helvetica)
+        makeFieldInvisible(puissanceField)
         textY -= lineHeight + 2
 
         // Prix HT - Label fixe + champ editable
@@ -533,10 +544,9 @@ export async function POST(request: NextRequest) {
           width: 150,
           height: 14,
           borderWidth: 0,
-          backgroundColor: WHITE_BG,
-          borderColor: WHITE_BG,
         })
         prixField.updateAppearances(helveticaBold)
+        makeFieldInvisible(prixField)
 
         // Ligne separatrice doree fine
         catalogPage.drawLine({
