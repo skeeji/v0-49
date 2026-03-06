@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PDFDocument, rgb, StandardFonts, PDFName, PDFString } from "pdf-lib"
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 import clientPromise from "@/lib/mongodb"
 
 const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
@@ -166,24 +166,7 @@ function extractPrix(luminaire: any): string {
   return ""
 }
 
-// Fonction pour rendre un champ de formulaire vraiment invisible
-function makeFieldInvisible(field: any) {
-  try {
-    const widget = field.acroField.getWidgets()[0]
-    if (widget) {
-      const dict = widget.dict
-      // Supprimer le highlighting mode - /H /N = no highlighting
-      dict.set(PDFName.of('H'), PDFName.of('N'))
-      // Supprimer la bordure d'annotation
-      dict.delete(PDFName.of('BS'))
-      dict.delete(PDFName.of('Border'))
-      // Definir MK (appearance characteristics) vide pour supprimer le fond
-      dict.delete(PDFName.of('MK'))
-    }
-  } catch (e) {
-    // Ignorer les erreurs
-  }
-}
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -432,121 +415,70 @@ export async function POST(request: NextRequest) {
         // Zone texte a droite
         const textX = imageX + imageWidth + 25
         let textY = yPosition - 8
-        const fieldWidth = 280
         const lineHeight = 18
 
-        // Nom du luminaire - Champ editable invisible
-        const nomField = form.createTextField(`nom_${itemCounter}`)
-        nomField.setText(nom || "")
-        nomField.addToPage(catalogPage, {
-          x: textX - 2,
-          y: textY - 4,
-          width: fieldWidth,
-          height: 16,
-          borderWidth: 0,
+        // Nom du luminaire - Texte dore en gras
+        catalogPage.drawText(nom || "Luminaire", {
+          x: textX,
+          y: textY,
+          size: 13,
+          font: timesRomanBold,
+          color: rgb(GOLD.r, GOLD.g, GOLD.b),
         })
-        nomField.updateAppearances(timesRomanBold)
-        makeFieldInvisible(nomField)
         textY -= lineHeight + 2
 
-        // Artiste + Annee - Champ editable invisible
+        // Artiste + Annee - Texte italique
         const artisteAnnee = (artiste || "") + (annee ? `. (${annee})` : "")
-        const artisteField = form.createTextField(`artiste_${itemCounter}`)
-        artisteField.setText(artisteAnnee)
-        artisteField.addToPage(catalogPage, {
-          x: textX - 2,
-          y: textY - 3,
-          width: fieldWidth,
-          height: 14,
-          borderWidth: 0,
-        })
-        artisteField.updateAppearances(timesRomanItalic)
-        makeFieldInvisible(artisteField)
+        if (artisteAnnee) {
+          catalogPage.drawText(artisteAnnee, {
+            x: textX,
+            y: textY,
+            size: 10,
+            font: timesRomanItalic,
+            color: rgb(DARK.r, DARK.g, DARK.b),
+          })
+        }
         textY -= lineHeight + 4
 
-        // Dimensions - Label fixe + champ editable
-        catalogPage.drawText("Dimensions : ", {
+        // Dimensions
+        catalogPage.drawText("Dimensions : " + (dimensions || ""), {
           x: textX,
           y: textY,
           size: 9,
           font: helvetica,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
-        const dimField = form.createTextField(`dimensions_${itemCounter}`)
-        dimField.setText(dimensions || "")
-        dimField.addToPage(catalogPage, {
-          x: textX + 55,
-          y: textY - 3,
-          width: 220,
-          height: 13,
-          borderWidth: 0,
-        })
-        dimField.updateAppearances(helvetica)
-        makeFieldInvisible(dimField)
         textY -= lineHeight
 
-        // Materiaux - Label fixe + champ editable
-        catalogPage.drawText("Materiaux : ", {
-          x: textX,
-          y: textY,
-          size: 9,
-          font: helvetica,
-          color: rgb(DARK.r, DARK.g, DARK.b),
-        })
+        // Materiaux
         const matText = materiaux ? (materiaux.length > 50 ? materiaux.substring(0, 50) + "..." : materiaux) : ""
-        const matField = form.createTextField(`materiaux_${itemCounter}`)
-        matField.setText(matText)
-        matField.addToPage(catalogPage, {
-          x: textX + 50,
-          y: textY - 3,
-          width: 225,
-          height: 13,
-          borderWidth: 0,
-        })
-        matField.updateAppearances(helvetica)
-        makeFieldInvisible(matField)
-        textY -= lineHeight
-
-        // Puissance - Label fixe + champ editable (toujours visible)
-        catalogPage.drawText("Puissance : ", {
+        catalogPage.drawText("Materiaux : " + matText, {
           x: textX,
           y: textY,
           size: 9,
           font: helvetica,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
-        const puissanceField = form.createTextField(`puissance_${itemCounter}`)
-        puissanceField.setText(puissance || "")
-        puissanceField.addToPage(catalogPage, {
-          x: textX + 50,
-          y: textY - 3,
-          width: 180,
-          height: 13,
-          borderWidth: 0,
+        textY -= lineHeight
+
+        // Puissance (toujours affiche meme si vide)
+        catalogPage.drawText("Puissance : " + (puissance || ""), {
+          x: textX,
+          y: textY,
+          size: 9,
+          font: helvetica,
+          color: rgb(DARK.r, DARK.g, DARK.b),
         })
-        puissanceField.updateAppearances(helvetica)
-        makeFieldInvisible(puissanceField)
         textY -= lineHeight + 2
 
-        // Prix HT - Label fixe + champ editable
-        catalogPage.drawText("Prix HT : ", {
+        // Prix HT
+        catalogPage.drawText("Prix HT : " + (prix || ""), {
           x: textX,
           y: textY,
           size: 11,
           font: helveticaBold,
           color: rgb(DARK.r, DARK.g, DARK.b),
         })
-        const prixField = form.createTextField(`prix_${itemCounter}`)
-        prixField.setText(prix || "")
-        prixField.addToPage(catalogPage, {
-          x: textX + 48,
-          y: textY - 3,
-          width: 150,
-          height: 14,
-          borderWidth: 0,
-        })
-        prixField.updateAppearances(helveticaBold)
-        makeFieldInvisible(prixField)
 
         // Ligne separatrice doree fine
         catalogPage.drawLine({
