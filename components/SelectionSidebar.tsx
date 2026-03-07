@@ -38,19 +38,21 @@ export function SelectionSidebar() {
     setIsGeneratingPDF(true)
 
     try {
-      // Format payload with ALL available data from selection
+      // Format payload with ALL editable data from selection
       const payload = {
         client_name: clientName,
         items: selection.map((item) => ({
           image_id: item.imageId || "",
           nom: item.nom || "",
           artiste: item.artiste || "",
+          annee: item.annee || "",
           image_url: item.imageUrl || "",
-          prix_manuel: item.prixHT || "",
-          puissance_manuelle: item.puissance || "",
+          dimensions: item.dimensions || "",
+          materiaux: item.materiaux || "",
+          puissance: item.puissance || "",
+          prix: item.prixHT || "",
         })),
       }
-      console.log("[v0] PDF payload:", JSON.stringify(payload, null, 2))
 
       const response = await fetch("/api/generate-pdf", {
         method: "POST",
@@ -204,15 +206,42 @@ export function SelectionSidebar() {
                   </button>
                 </div>
 
-                {/* Expanded edit section - Only Prix HT and Puissance */}
+                {/* Expanded edit section - All fields editable */}
                 {expandedItem === item.id && (
                   <div className="px-4 pb-4 pt-2 border-t border-stone-50 space-y-3 bg-[#faf8f5]">
                     <div>
-                      <Label className="text-xs text-stone-500 uppercase tracking-wider">Prix HT</Label>
+                      <Label className="text-xs text-stone-500 uppercase tracking-wider">Nom</Label>
                       <Input
-                        value={item.prixHT || ""}
-                        onChange={(e) => updateLuminaire(item.id, { prixHT: e.target.value })}
-                        placeholder="Ex: 19 860 €"
+                        value={item.nom || ""}
+                        onChange={(e) => updateLuminaire(item.id, { nom: e.target.value })}
+                        placeholder="Nom du luminaire"
+                        className="h-9 text-sm bg-white border-stone-200 mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-stone-500 uppercase tracking-wider">Designer / Artiste</Label>
+                      <Input
+                        value={item.artiste || ""}
+                        onChange={(e) => updateLuminaire(item.id, { artiste: e.target.value })}
+                        placeholder="Ex: Evert Jelle Jelles"
+                        className="h-9 text-sm bg-white border-stone-200 mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-stone-500 uppercase tracking-wider">Dimensions</Label>
+                      <Input
+                        value={item.dimensions || ""}
+                        onChange={(e) => updateLuminaire(item.id, { dimensions: e.target.value })}
+                        placeholder="Ex: H: 27 cm - L: 27 cm - P: 9 cm"
+                        className="h-9 text-sm bg-white border-stone-200 mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-stone-500 uppercase tracking-wider">Materiaux</Label>
+                      <Input
+                        value={item.materiaux || ""}
+                        onChange={(e) => updateLuminaire(item.id, { materiaux: e.target.value })}
+                        placeholder="Ex: aluminium, laque"
                         className="h-9 text-sm bg-white border-stone-200 mt-1"
                       />
                     </div>
@@ -221,7 +250,16 @@ export function SelectionSidebar() {
                       <Input
                         value={item.puissance || ""}
                         onChange={(e) => updateLuminaire(item.id, { puissance: e.target.value })}
-                        placeholder="Ex: E27 / LED intégrée"
+                        placeholder="Ex: E27 / LED integree"
+                        className="h-9 text-sm bg-white border-stone-200 mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-stone-500 uppercase tracking-wider">Prix HT</Label>
+                      <Input
+                        value={item.prixHT || ""}
+                        onChange={(e) => updateLuminaire(item.id, { prixHT: e.target.value })}
+                        placeholder="Ex: 200 - 300"
                         className="h-9 text-sm bg-white border-stone-200 mt-1"
                       />
                     </div>

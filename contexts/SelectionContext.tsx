@@ -9,9 +9,11 @@ export interface SelectedLuminaire {
   imageUrl: string
   nom: string
   artiste: string
-  // Manual fields only - dimensions/materials are fetched from CSV by Python server
-  prixHT?: string
+  annee?: string
+  dimensions?: string
+  materiaux?: string
   puissance?: string
+  prixHT?: string
 }
 
 interface SelectionContextType {

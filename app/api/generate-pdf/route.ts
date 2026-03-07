@@ -188,13 +188,14 @@ export async function POST(request: NextRequest) {
       
       const dbData = await fetchLuminaireFromMongoDB(item.image_id)
       
+      // Priority: frontend values (edited by user) > database values
       const nom = item.nom || (dbData ? (dbData.nom || dbData.Nom || dbData["Nom luminaire"] || dbData["Nom du luminaire"]) : null) || item.image_id || "Luminaire"
       const artiste = item.artiste || (dbData ? (dbData.designer || dbData.Designer || dbData["Artiste / Dates"] || dbData["Artiste, ca année"] || dbData.artiste) : null) || ""
-      const annee = dbData ? (dbData.annee || dbData.Annee || dbData["Année"] || dbData.date || dbData.Date) : ""
-      const dimensions = dbData ? extractDimensions(dbData) : ""
-      const materiaux = dbData ? extractMaterials(dbData) : ""
-      const puissanceDB = dbData ? extractPuissance(dbData) : ""
-      const prixDB = dbData ? extractPrix(dbData) : ""
+      const annee = item.annee || (dbData ? (dbData.annee || dbData.Annee || dbData["Année"] || dbData.date || dbData.Date) : "") || ""
+      const dimensions = item.dimensions || (dbData ? extractDimensions(dbData) : "") || ""
+      const materiaux = item.materiaux || (dbData ? extractMaterials(dbData) : "") || ""
+      const puissance = item.puissance || (dbData ? extractPuissance(dbData) : "") || ""
+      const prix = item.prix || (dbData ? extractPrix(dbData) : "") || ""
       
       const enrichedItem = {
         image_id: item.image_id,
@@ -204,8 +205,8 @@ export async function POST(request: NextRequest) {
         annee,
         dimensions,
         materiaux,
-        puissance: item.puissance_manuelle || puissanceDB,
-        prix: item.prix_manuel || prixDB,
+        puissance,
+        prix,
       }
       
       console.log("[PDF] Enriched:", JSON.stringify(enrichedItem))
