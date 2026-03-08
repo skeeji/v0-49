@@ -240,35 +240,73 @@ export async function POST(request: NextRequest) {
       color: rgb(GOLD.r, GOLD.g, GOLD.b),
     })
 
-    // Titre GERSAINT
-    const gersaintText = "GERSAINT"
-    const gersaintWidth = timesRomanBold.widthOfTextAtSize(gersaintText, 36)
-    coverPage.drawText(gersaintText, {
-      x: (pageWidth - gersaintWidth) / 2,
-      y: pageHeight - 200,
-      size: 36,
-      font: timesRomanBold,
-      color: rgb(DARK.r, DARK.g, DARK.b),
-    })
+    // Charger et afficher le logo Gersaint
+    try {
+      const logoUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://gersaintparis.com'}/images/gersaint-logo.png`
+      const logoBytes = await loadImageFromUrl(logoUrl)
+      if (logoBytes) {
+        const uint8Array = new Uint8Array(logoBytes)
+        if (uint8Array[0] === 0x89 && uint8Array[1] === 0x50) {
+          const logoImage = await pdfDoc.embedPng(logoBytes)
+          const logoDims = logoImage.scale(1)
+          const logoScale = 200 / logoDims.width // Scale to 200px width
+          const logoWidth = logoDims.width * logoScale
+          const logoHeight = logoDims.height * logoScale
+          
+          coverPage.drawImage(logoImage, {
+            x: (pageWidth - logoWidth) / 2,
+            y: pageHeight - 180 - logoHeight,
+            width: logoWidth,
+            height: logoHeight,
+          })
+        }
+      }
+    } catch {
+      // Fallback to text if logo fails
+      const gersaintText = "GERSAINT"
+      const gersaintWidth = timesRomanBold.widthOfTextAtSize(gersaintText, 36)
+      coverPage.drawText(gersaintText, {
+        x: (pageWidth - gersaintWidth) / 2,
+        y: pageHeight - 200,
+        size: 36,
+        font: timesRomanBold,
+        color: rgb(DARK.r, DARK.g, DARK.b),
+      })
+      const parisText = "P A R I S"
+      const parisWidth = helvetica.widthOfTextAtSize(parisText, 14)
+      coverPage.drawText(parisText, {
+        x: (pageWidth - parisWidth) / 2,
+        y: pageHeight - 235,
+        size: 14,
+        font: helvetica,
+        color: rgb(GRAY.r, GRAY.g, GRAY.b),
+      })
+    }
 
-    // Sous-titre PARIS
-    const parisText = "P A R I S"
-    const parisWidth = helvetica.widthOfTextAtSize(parisText, 14)
-    coverPage.drawText(parisText, {
-      x: (pageWidth - parisWidth) / 2,
-      y: pageHeight - 235,
-      size: 14,
-      font: helvetica,
-      color: rgb(GRAY.r, GRAY.g, GRAY.b),
-    })
-
-    // Ligne decorative doree
-    coverPage.drawLine({
-      start: { x: (pageWidth - 60) / 2, y: pageHeight - 270 },
-      end: { x: (pageWidth + 60) / 2, y: pageHeight - 270 },
-      thickness: 1.5,
-      color: rgb(GOLD.r, GOLD.g, GOLD.b),
-    })
+    // Charger et afficher l'image decorative des luminaires grises au milieu
+    try {
+      const decorUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://gersaintparis.com'}/images/luminaires-decoratif.png`
+      const decorBytes = await loadImageFromUrl(decorUrl)
+      if (decorBytes) {
+        const uint8Array = new Uint8Array(decorBytes)
+        if (uint8Array[0] === 0x89 && uint8Array[1] === 0x50) {
+          const decorImage = await pdfDoc.embedPng(decorBytes)
+          const decorDims = decorImage.scale(1)
+          const decorScale = (pageWidth - margin * 2) / decorDims.width
+          const decorWidth = decorDims.width * decorScale
+          const decorHeight = decorDims.height * decorScale
+          
+          coverPage.drawImage(decorImage, {
+            x: (pageWidth - decorWidth) / 2,
+            y: (pageHeight / 2) - (decorHeight / 2) + 20,
+            width: decorWidth,
+            height: decorHeight,
+          })
+        }
+      }
+    } catch {
+      // No fallback needed for decorative image
+    }
 
     // Selection de luminaires
     const selectionText = "Selection de luminaires"
@@ -493,13 +531,7 @@ export async function POST(request: NextRequest) {
         itemCounter++
       }
 
-      // Ligne doree en bas de page
-      catalogPage.drawLine({
-        start: { x: margin, y: 50 },
-        end: { x: pageWidth - margin, y: 50 },
-        thickness: 1,
-        color: rgb(GOLD.r, GOLD.g, GOLD.b),
-      })
+
     }
 
     // ===============================================
@@ -515,32 +547,46 @@ export async function POST(request: NextRequest) {
       color: rgb(GOLD.r, GOLD.g, GOLD.b),
     })
 
-    // GERSAINT centre
-    const footerGersaintWidth = timesRomanBold.widthOfTextAtSize("GERSAINT", 36)
-    footerPage.drawText("GERSAINT", {
-      x: (pageWidth - footerGersaintWidth) / 2,
-      y: pageHeight / 2 + 80,
-      size: 36,
-      font: timesRomanBold,
-      color: rgb(DARK.r, DARK.g, DARK.b),
-    })
-
-    const footerParisWidth = helvetica.widthOfTextAtSize("P A R I S", 14)
-    footerPage.drawText("P A R I S", {
-      x: (pageWidth - footerParisWidth) / 2,
-      y: pageHeight / 2 + 45,
-      size: 14,
-      font: helvetica,
-      color: rgb(GRAY.r, GRAY.g, GRAY.b),
-    })
-
-    // Ligne decorative
-    footerPage.drawLine({
-      start: { x: (pageWidth - 60) / 2, y: pageHeight / 2 + 15 },
-      end: { x: (pageWidth + 60) / 2, y: pageHeight / 2 + 15 },
-      thickness: 1.5,
-      color: rgb(GOLD.r, GOLD.g, GOLD.b),
-    })
+    // Charger et afficher le logo Gersaint sur la page contact
+    try {
+      const logoUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://gersaintparis.com'}/images/gersaint-logo.png`
+      const logoBytes = await loadImageFromUrl(logoUrl)
+      if (logoBytes) {
+        const uint8Array = new Uint8Array(logoBytes)
+        if (uint8Array[0] === 0x89 && uint8Array[1] === 0x50) {
+          const logoImage = await pdfDoc.embedPng(logoBytes)
+          const logoDims = logoImage.scale(1)
+          const logoScale = 180 / logoDims.width
+          const logoWidth = logoDims.width * logoScale
+          const logoHeight = logoDims.height * logoScale
+          
+          footerPage.drawImage(logoImage, {
+            x: (pageWidth - logoWidth) / 2,
+            y: pageHeight / 2 + 60,
+            width: logoWidth,
+            height: logoHeight,
+          })
+        }
+      }
+    } catch {
+      // Fallback to text if logo fails
+      const footerGersaintWidth = timesRomanBold.widthOfTextAtSize("GERSAINT", 36)
+      footerPage.drawText("GERSAINT", {
+        x: (pageWidth - footerGersaintWidth) / 2,
+        y: pageHeight / 2 + 80,
+        size: 36,
+        font: timesRomanBold,
+        color: rgb(DARK.r, DARK.g, DARK.b),
+      })
+      const footerParisWidth = helvetica.widthOfTextAtSize("P A R I S", 14)
+      footerPage.drawText("P A R I S", {
+        x: (pageWidth - footerParisWidth) / 2,
+        y: pageHeight / 2 + 45,
+        size: 14,
+        font: helvetica,
+        color: rgb(GRAY.r, GRAY.g, GRAY.b),
+      })
+    }
 
     // Coordonnees
     const contactLines = [
