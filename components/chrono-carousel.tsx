@@ -149,12 +149,12 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
 
       if (isHoveringRef.current && container && !isJumpingRef.current) {
         const x = mouseXRef.current
-        // Wider dead zone in center (35%-65%) and slower, more stable speed
-        if (x < 0.25) {
-          const speed = (0.25 - x) * 6 * deltaTime
+        // Faster scroll speed with wider active zones
+        if (x < 0.35) {
+          const speed = (0.35 - x) * 18 * deltaTime
           container.scrollLeft -= speed
-        } else if (x > 0.75) {
-          const speed = (x - 0.75) * 6 * deltaTime
+        } else if (x > 0.65) {
+          const speed = (x - 0.65) * 18 * deltaTime
           container.scrollLeft += speed
         }
       }
