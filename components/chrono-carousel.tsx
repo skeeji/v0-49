@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect, useState, useCallback } from "react"
+import { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import Link from "next/link"
 
 interface Period {
@@ -14,15 +14,24 @@ interface Period {
 
 export function ChronoCarousel({ periods }: { periods: Period[] }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [activeIdx, setActiveIdx] = useState(Math.floor(periods.length / 2))
+  const [activeIdx, setActiveIdx] = useState(0)
   const rafRef = useRef<number>(0)
   const isHoveringRef = useRef(false)
   const mouseXRef = useRef(0.5)
+  const isJumpingRef = useRef(false)
+
+  // Triple the periods for infinite scroll effect (clone before and after)
+  const extendedPeriods = useMemo(() => {
+    if (periods.length === 0) return []
+    return [...periods, ...periods, ...periods]
+  }, [periods])
+
+  const originalLength = periods.length
 
   // Detect which card is closest to the center
   const detectCenter = useCallback(() => {
     const container = scrollRef.current
-    if (!container) return
+    if (!container || isJumpingRef.current) return
     const centerX = container.scrollLeft + container.offsetWidth / 2
     let closest = 0
     let minDist = Infinity
@@ -38,24 +47,60 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
     setActiveIdx(closest)
   }, [])
 
-  // Initial centering
+  // Handle infinite loop - jump to middle section when reaching edges
+  const handleInfiniteLoop = useCallback(() => {
+    const container = scrollRef.current
+    if (!container || isJumpingRef.current || originalLength === 0) return
+
+    const cards = container.querySelectorAll<HTMLElement>("[data-chrono-card]")
+    if (cards.length === 0) return
+
+    const firstMiddleCard = cards[originalLength]
+    const lastMiddleCard = cards[originalLength * 2 - 1]
+    
+    if (!firstMiddleCard || !lastMiddleCard) return
+
+    const scrollLeft = container.scrollLeft
+    const containerWidth = container.offsetWidth
+
+    // Check if we're in the first third (cloned beginning)
+    if (scrollLeft < firstMiddleCard.offsetLeft - containerWidth / 2) {
+      isJumpingRef.current = true
+      // Jump to the corresponding position in the middle section
+      const jumpOffset = originalLength * (cards[0]?.offsetWidth || 150 + 16)
+      container.scrollLeft = scrollLeft + jumpOffset
+      setTimeout(() => { isJumpingRef.current = false }, 50)
+    }
+    // Check if we're in the last third (cloned end)
+    else if (scrollLeft > lastMiddleCard.offsetLeft - containerWidth / 2 + (lastMiddleCard.offsetWidth || 150)) {
+      isJumpingRef.current = true
+      // Jump to the corresponding position in the middle section
+      const jumpOffset = originalLength * (cards[0]?.offsetWidth || 150 + 16)
+      container.scrollLeft = scrollLeft - jumpOffset
+      setTimeout(() => { isJumpingRef.current = false }, 50)
+    }
+  }, [originalLength])
+
+  // Initial centering on the middle section
   useEffect(() => {
     const container = scrollRef.current
-    if (!container) return
+    if (!container || originalLength === 0) return
 
-    const centerOnCard = () => {
+    const centerOnMiddle = () => {
       const cards = container.querySelectorAll<HTMLElement>("[data-chrono-card]")
-      const mid = Math.floor(periods.length / 2)
+      // Center on the middle of the middle section
+      const middleSectionStart = originalLength
+      const mid = middleSectionStart + Math.floor(originalLength / 2)
       if (cards[mid]) {
         const card = cards[mid]
         container.scrollLeft = card.offsetLeft - container.offsetWidth / 2 + card.offsetWidth / 2
+        setActiveIdx(mid)
       }
     }
 
-    // Run centering after a short delay to ensure layout is done
-    const t = setTimeout(centerOnCard, 100)
+    const t = setTimeout(centerOnMiddle, 100)
     return () => clearTimeout(t)
-  }, [periods.length])
+  }, [originalLength])
 
   // Scroll listener
   useEffect(() => {
@@ -67,6 +112,7 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
       if (!ticking) {
         requestAnimationFrame(() => {
           detectCenter()
+          handleInfiniteLoop()
           ticking = false
         })
         ticking = true
@@ -75,33 +121,40 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
 
     container.addEventListener("scroll", onScroll, { passive: true })
     return () => container.removeEventListener("scroll", onScroll)
-  }, [detectCenter])
+  }, [detectCenter, handleInfiniteLoop])
 
-  // Desktop: mouse hover auto-scroll (move left/right based on mouse position)
+  // Desktop: mouse hover auto-scroll with stable speed
   useEffect(() => {
     const container = scrollRef.current
     if (!container) return
 
-    // Only on non-touch devices
     const isTouchDevice = "ontouchstart" in window
     if (isTouchDevice) return
 
     const onMouseEnter = () => { isHoveringRef.current = true }
-    const onMouseLeave = () => { isHoveringRef.current = false }
+    const onMouseLeave = () => { 
+      isHoveringRef.current = false
+      mouseXRef.current = 0.5 // Reset to center
+    }
     const onMouseMove = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect()
       mouseXRef.current = (e.clientX - rect.left) / rect.width
     }
 
-    const animate = () => {
-      if (isHoveringRef.current && container) {
+    let lastTime = 0
+    const animate = (currentTime: number) => {
+      // Use delta time for consistent speed regardless of frame rate
+      const deltaTime = lastTime ? (currentTime - lastTime) / 16.67 : 1
+      lastTime = currentTime
+
+      if (isHoveringRef.current && container && !isJumpingRef.current) {
         const x = mouseXRef.current
-        // Dead zone in the center (40%-60%) - no scroll
-        if (x < 0.3) {
-          const speed = (0.3 - x) * 12
+        // Wider dead zone in center (35%-65%) and slower, more stable speed
+        if (x < 0.25) {
+          const speed = (0.25 - x) * 6 * deltaTime
           container.scrollLeft -= speed
-        } else if (x > 0.7) {
-          const speed = (x - 0.7) * 12
+        } else if (x > 0.75) {
+          const speed = (x - 0.75) * 6 * deltaTime
           container.scrollLeft += speed
         }
       }
@@ -121,6 +174,12 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
     }
   }, [])
 
+  // Get the actual period index (0 to originalLength-1) for display
+  const getOriginalIndex = (idx: number) => {
+    if (originalLength === 0) return 0
+    return idx % originalLength
+  }
+
   return (
     <div className="relative">
       <div
@@ -129,20 +188,23 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
         style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
       >
         <style>{`div::-webkit-scrollbar { display: none; }`}</style>
-        {/* Spacer so the first card can reach center */}
+        {/* Spacer for centering */}
         <div className="flex-shrink-0 w-[30vw] sm:w-[35vw] md:w-[40vw]" />
-        {periods.map((period, i) => {
+        {extendedPeriods.map((period, i) => {
           const isActive = i === activeIdx
+          const originalIdx = getOriginalIndex(i)
           return (
             <Link
-              key={period.name}
+              key={`${period.name}-${i}`}
               href="/chronologie"
               data-chrono-card
-              className={`flex-shrink-0 relative overflow-hidden transition-all duration-300 ease-out block ${
+              data-original-idx={originalIdx}
+              className={`flex-shrink-0 relative overflow-hidden block ${
                 isActive
                   ? "w-[140px] h-[160px] sm:w-[170px] sm:h-[190px] md:w-[200px] md:h-[230px] rounded-2xl ring-2 ring-[#c9a96e]/70 shadow-2xl z-10"
                   : "w-[95px] h-[110px] sm:w-[115px] sm:h-[135px] md:w-[135px] md:h-[155px] rounded-xl opacity-80"
               }`}
+              style={{ transition: "width 300ms ease-out, height 300ms ease-out, opacity 300ms ease-out, box-shadow 300ms ease-out" }}
             >
               {/* Background */}
               <div className="absolute inset-0 bg-[#d5cbb8]" />
@@ -152,9 +214,10 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
                 <img
                   src={`/api/images/filename/${period.sample.filename}`}
                   alt={period.name}
-                  className={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${
-                    isActive ? "scale-100 opacity-100" : "scale-95 opacity-50 grayscale-[50%]"
+                  className={`absolute inset-0 w-full h-full object-cover ${
+                    isActive ? "opacity-100" : "opacity-50 grayscale-[50%]"
                   }`}
+                  style={{ transition: "opacity 300ms ease-out, filter 300ms ease-out" }}
                   loading="lazy"
                 />
               ) : (
@@ -164,11 +227,14 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
               )}
 
               {/* Overlay */}
-              <div className={`absolute inset-0 transition-all duration-300 ${
-                isActive
-                  ? "bg-gradient-to-t from-black/70 via-black/10 to-transparent"
-                  : "bg-gradient-to-t from-black/50 via-black/5 to-transparent"
-              }`} />
+              <div 
+                className={`absolute inset-0 ${
+                  isActive
+                    ? "bg-gradient-to-t from-black/70 via-black/10 to-transparent"
+                    : "bg-gradient-to-t from-black/50 via-black/5 to-transparent"
+                }`}
+                style={{ transition: "background 300ms ease-out" }}
+              />
 
               {/* Text */}
               <div className="absolute bottom-0 left-0 right-0 p-1.5 sm:p-2 md:p-3 z-10 text-center">
@@ -190,7 +256,7 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
             </Link>
           )
         })}
-        {/* Spacer so the last card can reach center */}
+        {/* Spacer for centering */}
         <div className="flex-shrink-0 w-[30vw] sm:w-[35vw] md:w-[40vw]" />
       </div>
     </div>
