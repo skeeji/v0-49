@@ -215,10 +215,13 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
                   : "w-[115px] h-[135px] md:w-[135px] md:h-[155px] rounded-xl opacity-80"
               }`
           
+          // Create the hash link to the chronologie page with the period name as anchor
+          const periodHash = encodeURIComponent(period.name)
+          
           return (
             <Link
               key={`${period.name}-${i}`}
-              href="/chronologie"
+              href={`/chronologie#${periodHash}`}
               data-chrono-card
               data-original-idx={originalIdx}
               className={cardClasses}

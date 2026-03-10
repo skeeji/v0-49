@@ -119,9 +119,23 @@ export default function ChronologiePage() {
 
   const canEdit = userData?.role === "admin"
 
-  // Always start at the top of the page
+  // Scroll to hash anchor if present, otherwise start at top
   useEffect(() => {
-    window.scrollTo(0, 0)
+    const hash = window.location.hash
+    if (hash) {
+      // Wait for content to load then scroll to the period
+      const scrollToHash = () => {
+        const element = document.getElementById(decodeURIComponent(hash.substring(1)))
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      }
+      // Delay to ensure content is rendered
+      const timer = setTimeout(scrollToHash, 500)
+      return () => clearTimeout(timer)
+    } else {
+      window.scrollTo(0, 0)
+    }
   }, [])
   
   useEffect(() => {
