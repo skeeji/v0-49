@@ -119,24 +119,30 @@ export default function ChronologiePage() {
 
   const canEdit = userData?.role === "admin"
 
-  // Scroll to hash anchor if present, otherwise start at top
+  // Scroll to hash anchor after data is loaded
   useEffect(() => {
+    if (isLoading) return // Wait for data to load
+    
     const hash = window.location.hash
     if (hash) {
-      // Wait for content to load then scroll to the period
+      // Scroll to the period section
       const scrollToHash = () => {
-        const element = document.getElementById(decodeURIComponent(hash.substring(1)))
+        const targetId = decodeURIComponent(hash.substring(1))
+        const element = document.getElementById(targetId)
         if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" })
+          // Use a slight offset to account for any fixed headers
+          const yOffset = -20
+          const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
+          window.scrollTo({ top: y, behavior: "smooth" })
         }
       }
-      // Delay to ensure content is rendered
-      const timer = setTimeout(scrollToHash, 500)
+      // Small delay to ensure DOM is fully rendered
+      const timer = setTimeout(scrollToHash, 100)
       return () => clearTimeout(timer)
     } else {
       window.scrollTo(0, 0)
     }
-  }, [])
+  }, [isLoading]) // Re-run when loading completes
   
   useEffect(() => {
     const savedDescriptions = JSON.parse(localStorage.getItem("timeline-descriptions") || "{}")
