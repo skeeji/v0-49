@@ -15,10 +15,19 @@ interface Period {
 export function ChronoCarousel({ periods }: { periods: Period[] }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeIdx, setActiveIdx] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
   const rafRef = useRef<number>(0)
   const isHoveringRef = useRef(false)
   const mouseXRef = useRef(0.5)
   const isJumpingRef = useRef(false)
+
+  // Detect mobile on mount
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   // Triple the periods for infinite scroll effect (clone before and after)
   const extendedPeriods = useMemo(() => {
@@ -149,12 +158,12 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
 
       if (isHoveringRef.current && container && !isJumpingRef.current) {
         const x = mouseXRef.current
-        // Faster scroll speed with wider active zones
-        if (x < 0.35) {
-          const speed = (0.35 - x) * 18 * deltaTime
+        // Fast and fluid scroll - wider zones, higher speed multiplier
+        if (x < 0.4) {
+          const speed = (0.4 - x) * 28 * deltaTime
           container.scrollLeft -= speed
-        } else if (x > 0.65) {
-          const speed = (x - 0.65) * 18 * deltaTime
+        } else if (x > 0.6) {
+          const speed = (x - 0.6) * 28 * deltaTime
           container.scrollLeft += speed
         }
       }
@@ -193,18 +202,27 @@ export function ChronoCarousel({ periods }: { periods: Period[] }) {
         {extendedPeriods.map((period, i) => {
           const isActive = i === activeIdx
           const originalIdx = getOriginalIndex(i)
+          
+          // On mobile: fixed sizes to prevent zoom jitter during scroll
+          // On desktop: active card is larger
+          const cardClasses = isMobile
+            ? `flex-shrink-0 relative overflow-hidden block w-[110px] h-[130px] rounded-xl ${
+                isActive ? "ring-2 ring-[#c9a96e]/70 shadow-xl z-10" : "opacity-70"
+              }`
+            : `flex-shrink-0 relative overflow-hidden block ${
+                isActive
+                  ? "w-[170px] h-[190px] md:w-[200px] md:h-[230px] rounded-2xl ring-2 ring-[#c9a96e]/70 shadow-2xl z-10"
+                  : "w-[115px] h-[135px] md:w-[135px] md:h-[155px] rounded-xl opacity-80"
+              }`
+          
           return (
             <Link
               key={`${period.name}-${i}`}
               href="/chronologie"
               data-chrono-card
               data-original-idx={originalIdx}
-              className={`flex-shrink-0 relative overflow-hidden block ${
-                isActive
-                  ? "w-[140px] h-[160px] sm:w-[170px] sm:h-[190px] md:w-[200px] md:h-[230px] rounded-2xl ring-2 ring-[#c9a96e]/70 shadow-2xl z-10"
-                  : "w-[95px] h-[110px] sm:w-[115px] sm:h-[135px] md:w-[135px] md:h-[155px] rounded-xl opacity-80"
-              }`}
-              style={{ transition: "width 300ms ease-out, height 300ms ease-out, opacity 300ms ease-out, box-shadow 300ms ease-out" }}
+              className={cardClasses}
+              style={{ transition: isMobile ? "opacity 200ms ease-out, box-shadow 200ms ease-out" : "width 250ms ease-out, height 250ms ease-out, opacity 250ms ease-out, box-shadow 250ms ease-out" }}
             >
               {/* Background */}
               <div className="absolute inset-0 bg-[#d5cbb8]" />
