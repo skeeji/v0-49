@@ -389,7 +389,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
       {/* Title overlay */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-50 text-center pointer-events-none">
         <h2 className="text-xl md:text-3xl font-serif text-[#d4c4a0] drop-shadow-lg">
-          Galerie Immersive
+          Luminaires du Moyen-âge à nos jours
         </h2>
         <p className="text-xs md:text-sm text-[#a89878] mt-1">
           {isMobile ? "Glissez pour explorer" : "Scrollez pour explorer"}
