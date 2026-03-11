@@ -11,6 +11,7 @@ import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
 import MobileFooter from "@/components/MobileFooter" // Import MobileFooter
+import { CorridorGallery } from "@/components/CorridorGallery"
 
 // URL correcte de l'API
 const apiUrl = "https://image-similarity-api-590690354412.us-central1.run.app/api/search"
@@ -1174,6 +1175,11 @@ export default function HomePage() {
         </div>
       </div>
       </div>{/* End hero section */}
+
+      {/* ========== GALERIE IMMERSIVE 3D ========== */}
+      <div className="relative z-10">
+        <CorridorGallery />
+      </div>
 
       {/* ========== PRESENTATION DES PAGES ========== */}
       <div className="relative z-10 bg-[#f5f1e8]">
