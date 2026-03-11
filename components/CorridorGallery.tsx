@@ -2,7 +2,6 @@
 
 import { useRef, useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 
 interface LuminaireFrame {
   _id: string
@@ -22,6 +21,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
   
   // Refs for animation (no re-renders)
   const cameraZ = useRef(0)
+  const targetCameraZ = useRef(0)
   const isFetching = useRef(false)
   const framesRef = useRef<LuminaireFrame[]>([])
   const sceneRef = useRef<HTMLDivElement>(null)
@@ -31,14 +31,17 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
   const mouseY = useRef(0)
   const pageRef = useRef(1)
   const maxZ = useRef(0)
-  const mobileSliderRef = useRef<HTMLDivElement>(null)
+  
+  // Touch handling refs
+  const touchStartX = useRef(0)
+  const touchCurrentX = useRef(0)
+  const isTouching = useRef(false)
   
   // State for UI
   const [frames, setFrames] = useState<LuminaireFrame[]>([])
   const [autoPlay, setAutoPlay] = useState(false)
   const [showScrollHint, setShowScrollHint] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
-  const [mobileIndex, setMobileIndex] = useState(0)
 
   // Check if mobile
   useEffect(() => {
@@ -80,9 +83,11 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
     }
   }, [])
 
-  // Animation loop (desktop only)
+  // Animation loop - works for both desktop and mobile
   const animate = useCallback(() => {
-    if (isMobile) return
+    // Smooth interpolation towards target
+    const diff = targetCameraZ.current - cameraZ.current
+    cameraZ.current += diff * 0.1
 
     if (sceneRef.current) {
       sceneRef.current.style.transform = `translateZ(${cameraZ.current}px)`
@@ -94,7 +99,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
     }
 
     rafId.current = requestAnimationFrame(animate)
-  }, [fetchLuminaires, isMobile])
+  }, [fetchLuminaires])
 
   // Wheel handler (desktop only)
   const onWheel = useCallback((e: WheelEvent) => {
@@ -111,7 +116,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
 
     // Otherwise, hijack scroll for camera movement
     e.preventDefault()
-    cameraZ.current = Math.max(0, cameraZ.current + e.deltaY * 0.8)
+    targetCameraZ.current = Math.max(0, targetCameraZ.current + e.deltaY * 0.8)
   }, [isMobile])
 
   // Mouse move handler (desktop only)
@@ -123,31 +128,46 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
     setShowScrollHint(mouseY.current > bottomZone)
   }, [isMobile])
 
+  // Touch handlers for mobile swipe
+  const onTouchStart = useCallback((e: TouchEvent) => {
+    if (!isMobile) return
+    touchStartX.current = e.touches[0].clientX
+    touchCurrentX.current = e.touches[0].clientX
+    isTouching.current = true
+  }, [isMobile])
+
+  const onTouchMove = useCallback((e: TouchEvent) => {
+    if (!isMobile || !isTouching.current) return
+    e.preventDefault() // Prevent page scroll
+    
+    const currentX = e.touches[0].clientX
+    const deltaX = touchCurrentX.current - currentX
+    touchCurrentX.current = currentX
+    
+    // Swipe left (finger moves left) = deltaX positive = advance (increase Z)
+    // Swipe right (finger moves right) = deltaX negative = go back (decrease Z)
+    targetCameraZ.current = Math.max(0, targetCameraZ.current + deltaX * 3)
+  }, [isMobile])
+
+  const onTouchEnd = useCallback(() => {
+    isTouching.current = false
+  }, [])
+
   // Keyboard handler
   const onKeyDown = useCallback((e: KeyboardEvent) => {
-    if (isMobile) {
-      if (e.key === "ArrowRight") {
-        setMobileIndex(prev => Math.min(prev + 1, frames.length - 1))
-      } else if (e.key === "ArrowLeft") {
-        setMobileIndex(prev => Math.max(prev - 1, 0))
-      }
-    } else {
-      if (e.key === "ArrowDown") {
-        cameraZ.current = Math.max(0, cameraZ.current + 40)
-      } else if (e.key === "ArrowUp") {
-        cameraZ.current = Math.max(0, cameraZ.current - 40)
-      }
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+      targetCameraZ.current = Math.max(0, targetCameraZ.current + 200)
+    } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+      targetCameraZ.current = Math.max(0, targetCameraZ.current - 200)
     }
-  }, [isMobile, frames.length])
+  }, [])
 
-  // Auto-play toggle (desktop only)
+  // Auto-play toggle
   const toggleAutoPlay = useCallback(() => {
-    if (isMobile) return
-    
     setAutoPlay(prev => {
       if (!prev) {
         autoPlayInterval.current = setInterval(() => {
-          cameraZ.current += 2
+          targetCameraZ.current += 2
         }, 16)
       } else {
         if (autoPlayInterval.current) {
@@ -157,58 +177,29 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
       }
       return !prev
     })
-  }, [isMobile])
-
-  // Mobile slider navigation
-  const slidePrev = useCallback(() => {
-    setMobileIndex(prev => Math.max(prev - 1, 0))
   }, [])
-
-  const slideNext = useCallback(() => {
-    if (mobileIndex >= frames.length - 3 && !isFetching.current) {
-      fetchLuminaires()
-    }
-    setMobileIndex(prev => Math.min(prev + 1, frames.length - 1))
-  }, [frames.length, mobileIndex, fetchLuminaires])
-
-  // Touch handlers for mobile swipe
-  const touchStartX = useRef(0)
-  const touchEndX = useRef(0)
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-  }, [])
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX
-  }, [])
-
-  const onTouchEnd = useCallback(() => {
-    const diff = touchStartX.current - touchEndX.current
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
-        slideNext()
-      } else {
-        slidePrev()
-      }
-    }
-  }, [slideNext, slidePrev])
 
   // Setup and cleanup
   useEffect(() => {
     // Initial fetch
     fetchLuminaires()
 
-    if (!isMobile) {
-      // Start animation loop
-      rafId.current = requestAnimationFrame(animate)
+    // Start animation loop
+    rafId.current = requestAnimationFrame(animate)
 
-      // Event listeners
-      const gallery = galleryRef.current
-      if (gallery) {
-        gallery.addEventListener("wheel", onWheel, { passive: false })
-      }
-      window.addEventListener("mousemove", onMouseMove)
+    const gallery = galleryRef.current
+
+    // Desktop: wheel and mouse events
+    if (gallery) {
+      gallery.addEventListener("wheel", onWheel, { passive: false })
+    }
+    window.addEventListener("mousemove", onMouseMove)
+
+    // Mobile: touch events
+    if (gallery) {
+      gallery.addEventListener("touchstart", onTouchStart, { passive: true })
+      gallery.addEventListener("touchmove", onTouchMove, { passive: false })
+      gallery.addEventListener("touchend", onTouchEnd, { passive: true })
     }
     
     window.addEventListener("keydown", onKeyDown)
@@ -218,162 +209,33 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
       if (autoPlayInterval.current) {
         clearInterval(autoPlayInterval.current)
       }
-      const gallery = galleryRef.current
       if (gallery) {
         gallery.removeEventListener("wheel", onWheel)
+        gallery.removeEventListener("touchstart", onTouchStart)
+        gallery.removeEventListener("touchmove", onTouchMove)
+        gallery.removeEventListener("touchend", onTouchEnd)
       }
       window.removeEventListener("mousemove", onMouseMove)
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [animate, fetchLuminaires, onWheel, onMouseMove, onKeyDown, isMobile])
+  }, [animate, fetchLuminaires, onWheel, onMouseMove, onKeyDown, onTouchStart, onTouchMove, onTouchEnd])
 
   const handleFrameClick = (id: string) => {
     router.push(`/luminaires/${id}`)
   }
 
-  // Mobile version - horizontal slider
-  if (isMobile) {
-    return (
-      <div className="relative w-full h-[70vh] overflow-hidden">
-        {/* Video background */}
-        {videoUrl && (
-          <video 
-            autoPlay 
-            loop 
-            muted 
-            playsInline 
-            className="absolute inset-0 w-full h-full object-cover"
-          >
-            <source src={videoUrl} type="video/mp4" />
-          </video>
-        )}
+  // Responsive values
+  const frameWidth = isMobile ? 180 : 260
+  const frameHeight = isMobile ? 220 : 300
+  const xOffset = isMobile ? 220 : 580
+  const borderWidth = isMobile ? 4 : 6
 
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60" />
-
-        {/* Title */}
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-center pointer-events-none">
-          <h2 className="text-xl font-serif text-[#d4c4a0] drop-shadow-lg">
-            Galerie Immersive
-          </h2>
-          <p className="text-xs text-[#a89878] mt-1">
-            Glissez pour explorer
-          </p>
-        </div>
-
-        {/* Slider container */}
-        <div 
-          ref={mobileSliderRef}
-          className="absolute inset-0 flex items-center justify-center"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
-          {/* Cards container */}
-          <div 
-            className="flex items-center gap-4 transition-transform duration-300 ease-out px-8"
-            style={{
-              transform: `translateX(calc(50% - ${mobileIndex * 220 + 100}px))`
-            }}
-          >
-            {frames.map((frame, index) => {
-              const isActive = index === mobileIndex
-              const distance = Math.abs(index - mobileIndex)
-              const scale = isActive ? 1 : Math.max(0.7, 1 - distance * 0.15)
-              const opacity = Math.max(0.3, 1 - distance * 0.3)
-
-              return (
-                <div
-                  key={frame._id}
-                  onClick={() => handleFrameClick(frame._id)}
-                  className="flex-shrink-0 cursor-pointer transition-all duration-300"
-                  style={{
-                    width: "200px",
-                    height: "240px",
-                    transform: `scale(${scale})`,
-                    opacity: opacity,
-                    border: "4px solid #8B7355",
-                    boxShadow: isActive 
-                      ? "0 0 30px rgba(255,200,80,0.5), inset 0 0 12px rgba(0,0,0,0.8)" 
-                      : "inset 0 0 12px rgba(0,0,0,0.8), 0 0 16px rgba(139,115,85,0.3)"
-                  }}
-                >
-                  <img
-                    src={frame.imageUrl}
-                    alt={frame.nom || `Luminaire ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    style={{
-                      filter: "sepia(0.2) contrast(1.05)"
-                    }}
-                    loading="lazy"
-                  />
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Navigation arrows */}
-        <button
-          onClick={slidePrev}
-          disabled={mobileIndex === 0}
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-30"
-          style={{
-            background: "rgba(139,115,85,0.8)",
-            backdropFilter: "blur(4px)"
-          }}
-        >
-          <ChevronLeft className="w-6 h-6 text-white" />
-        </button>
-
-        <button
-          onClick={slideNext}
-          disabled={mobileIndex >= frames.length - 1}
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-30"
-          style={{
-            background: "rgba(139,115,85,0.8)",
-            backdropFilter: "blur(4px)"
-          }}
-        >
-          <ChevronRight className="w-6 h-6 text-white" />
-        </button>
-
-        {/* Dots indicator */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-1.5">
-          {frames.slice(0, Math.min(10, frames.length)).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setMobileIndex(index)}
-              className="w-2 h-2 rounded-full transition-all"
-              style={{
-                background: index === mobileIndex ? "#d4c4a0" : "rgba(255,255,255,0.3)"
-              }}
-            />
-          ))}
-          {frames.length > 10 && (
-            <span className="text-white/50 text-xs ml-1">+{frames.length - 10}</span>
-          )}
-        </div>
-
-        {/* Current item name */}
-        {frames[mobileIndex] && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 text-center">
-            <p className="text-sm text-[#d4c4a0] font-serif drop-shadow-lg max-w-[200px] truncate">
-              {frames[mobileIndex].nom || `Luminaire ${mobileIndex + 1}`}
-            </p>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // Desktop version - 3D corridor
   return (
     <div
       ref={galleryRef}
-      className="relative w-full h-screen overflow-hidden"
+      className="relative w-full h-screen overflow-hidden touch-none"
       style={{
-        perspective: "1200px",
+        perspective: isMobile ? "800px" : "1200px",
         perspectiveOrigin: "50% 50%"
       }}
     >
@@ -400,7 +262,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
 
       {/* Corridor atmosphere - left wall */}
       <div 
-        className="absolute left-0 top-0 bottom-0 w-32 pointer-events-none"
+        className="absolute left-0 top-0 bottom-0 w-16 md:w-32 pointer-events-none"
         style={{
           background: "linear-gradient(to right, rgba(20,16,10,0.9) 0%, transparent 100%)"
         }}
@@ -408,7 +270,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
       
       {/* Corridor atmosphere - right wall */}
       <div 
-        className="absolute right-0 top-0 bottom-0 w-32 pointer-events-none"
+        className="absolute right-0 top-0 bottom-0 w-16 md:w-32 pointer-events-none"
         style={{
           background: "linear-gradient(to left, rgba(20,16,10,0.9) 0%, transparent 100%)"
         }}
@@ -424,7 +286,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
 
       {/* Vanishing point glow */}
       <div 
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full pointer-events-none"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 md:w-96 h-48 md:h-96 rounded-full pointer-events-none"
         style={{
           background: "radial-gradient(circle, rgba(255,200,80,0.08) 0%, transparent 70%)"
         }}
@@ -441,7 +303,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
       >
         {frames.map((frame, index) => {
           const isLeft = index % 2 === 0
-          const xOffset = isLeft ? -580 : 580
+          const xPos = isLeft ? -xOffset : xOffset
           const rotateY = isLeft ? 12 : -12
 
           return (
@@ -450,24 +312,28 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
               onClick={() => handleFrameClick(frame._id)}
               className="absolute cursor-pointer group"
               style={{
-                width: "260px",
-                height: "300px",
+                width: `${frameWidth}px`,
+                height: `${frameHeight}px`,
                 left: "50%",
                 top: "50%",
-                marginLeft: "-130px",
-                marginTop: "-150px",
-                transform: `translateX(${xOffset}px) translateZ(${-index * FRAME_SPACING}px) rotateY(${rotateY}deg)`,
-                border: "6px solid #8B7355",
+                marginLeft: `${-frameWidth / 2}px`,
+                marginTop: `${-frameHeight / 2}px`,
+                transform: `translateX(${xPos}px) translateZ(${-index * FRAME_SPACING}px) rotateY(${rotateY}deg)`,
+                border: `${borderWidth}px solid #8B7355`,
                 boxShadow: "inset 0 0 12px rgba(0,0,0,0.8), 0 0 24px rgba(139,115,85,0.3)",
                 transition: "box-shadow 0.3s ease, transform 0.3s ease"
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = "inset 0 0 12px rgba(0,0,0,0.8), 0 0 40px rgba(255,200,80,0.6)"
-                e.currentTarget.style.transform = `translateX(${xOffset}px) translateZ(${-index * FRAME_SPACING}px) rotateY(${rotateY}deg) scale(1.04)`
+                if (!isMobile) {
+                  e.currentTarget.style.boxShadow = "inset 0 0 12px rgba(0,0,0,0.8), 0 0 40px rgba(255,200,80,0.6)"
+                  e.currentTarget.style.transform = `translateX(${xPos}px) translateZ(${-index * FRAME_SPACING}px) rotateY(${rotateY}deg) scale(1.04)`
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = "inset 0 0 12px rgba(0,0,0,0.8), 0 0 24px rgba(139,115,85,0.3)"
-                e.currentTarget.style.transform = `translateX(${xOffset}px) translateZ(${-index * FRAME_SPACING}px) rotateY(${rotateY}deg)`
+                if (!isMobile) {
+                  e.currentTarget.style.boxShadow = "inset 0 0 12px rgba(0,0,0,0.8), 0 0 24px rgba(139,115,85,0.3)"
+                  e.currentTarget.style.transform = `translateX(${xPos}px) translateZ(${-index * FRAME_SPACING}px) rotateY(${rotateY}deg)`
+                }
               }}
             >
               <img
@@ -496,8 +362,20 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
         {autoPlay ? "STOP" : "AUTO"}
       </button>
 
-      {/* Scroll hint chevron */}
-      {showScrollHint && (
+      {/* Scroll/Swipe hint */}
+      {isMobile ? (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-2 text-white/60">
+            <svg className="w-5 h-5 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="text-xs">Glissez pour explorer</span>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+      ) : showScrollHint && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 animate-bounce">
           <div className="flex flex-col items-center text-white/60">
             <span className="text-xs mb-1">Scroll vers le bas</span>
@@ -510,11 +388,11 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
 
       {/* Title overlay */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-50 text-center pointer-events-none">
-        <h2 className="text-2xl md:text-3xl font-serif text-[#d4c4a0] drop-shadow-lg">
+        <h2 className="text-xl md:text-3xl font-serif text-[#d4c4a0] drop-shadow-lg">
           Galerie Immersive
         </h2>
-        <p className="text-sm text-[#a89878] mt-1">
-          Scrollez pour explorer
+        <p className="text-xs md:text-sm text-[#a89878] mt-1">
+          {isMobile ? "Glissez pour explorer" : "Scrollez pour explorer"}
         </p>
       </div>
     </div>
