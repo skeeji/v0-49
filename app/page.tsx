@@ -694,9 +694,12 @@ export default function HomePage() {
 
   return (
     <div className="bg-[#f5f1e8]">
-      {/* Hero section */}
+      {/* ========== GALERIE IMMERSIVE 3D ========== */}
+      <CorridorGallery videoUrl={welcomeVideo} />
+
+      {/* Hero section - Recherche par image */}
       <div className="relative min-h-screen">
-      {/* Vidéo de fond */}
+      {/* Video de fond */}
       {welcomeVideo && (
         <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
           <source src={welcomeVideo} type="video/mp4" />
@@ -710,9 +713,9 @@ export default function HomePage() {
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-6xl font-serif leading-tight" style={{ color: "#8b7355" }}>
-            Luminaires
+            Recherche par Image
             <br />
-            <span className="text-2xl md:text-3xl font-light">Du Moyen-âge à nos jours</span>
+            <span className="text-2xl md:text-3xl font-light">Intelligence Artificielle</span>
           </h1>
         </div>
 
@@ -1175,11 +1178,6 @@ export default function HomePage() {
         </div>
       </div>
       </div>{/* End hero section */}
-
-      {/* ========== GALERIE IMMERSIVE 3D ========== */}
-      <div className="relative z-10">
-        <CorridorGallery />
-      </div>
 
       {/* ========== PRESENTATION DES PAGES ========== */}
       <div className="relative z-10 bg-[#f5f1e8]">

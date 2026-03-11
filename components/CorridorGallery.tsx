@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 interface LuminaireFrame {
   _id: string
@@ -12,7 +13,11 @@ interface LuminaireFrame {
 const FRAME_SPACING = 600
 const BATCH_SIZE = 20
 
-export function CorridorGallery() {
+interface CorridorGalleryProps {
+  videoUrl?: string
+}
+
+export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
   const router = useRouter()
   
   // Refs for animation (no re-renders)
@@ -26,11 +31,24 @@ export function CorridorGallery() {
   const mouseY = useRef(0)
   const pageRef = useRef(1)
   const maxZ = useRef(0)
+  const mobileSliderRef = useRef<HTMLDivElement>(null)
   
   // State for UI
   const [frames, setFrames] = useState<LuminaireFrame[]>([])
   const [autoPlay, setAutoPlay] = useState(false)
   const [showScrollHint, setShowScrollHint] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileIndex, setMobileIndex] = useState(0)
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   // Fetch luminaires
   const fetchLuminaires = useCallback(async () => {
@@ -62,8 +80,10 @@ export function CorridorGallery() {
     }
   }, [])
 
-  // Animation loop
+  // Animation loop (desktop only)
   const animate = useCallback(() => {
+    if (isMobile) return
+
     if (sceneRef.current) {
       sceneRef.current.style.transform = `translateZ(${cameraZ.current}px)`
     }
@@ -74,10 +94,12 @@ export function CorridorGallery() {
     }
 
     rafId.current = requestAnimationFrame(animate)
-  }, [fetchLuminaires])
+  }, [fetchLuminaires, isMobile])
 
-  // Wheel handler
+  // Wheel handler (desktop only)
   const onWheel = useCallback((e: WheelEvent) => {
+    if (isMobile) return
+
     const screenHeight = window.innerHeight
     const bottomZone = screenHeight * 0.75
 
@@ -90,27 +112,38 @@ export function CorridorGallery() {
     // Otherwise, hijack scroll for camera movement
     e.preventDefault()
     cameraZ.current = Math.max(0, cameraZ.current + e.deltaY * 0.8)
-  }, [])
+  }, [isMobile])
 
-  // Mouse move handler
+  // Mouse move handler (desktop only)
   const onMouseMove = useCallback((e: MouseEvent) => {
+    if (isMobile) return
     mouseY.current = e.clientY
     const screenHeight = window.innerHeight
     const bottomZone = screenHeight * 0.75
     setShowScrollHint(mouseY.current > bottomZone)
-  }, [])
+  }, [isMobile])
 
   // Keyboard handler
   const onKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === "ArrowDown") {
-      cameraZ.current = Math.max(0, cameraZ.current + 40)
-    } else if (e.key === "ArrowUp") {
-      cameraZ.current = Math.max(0, cameraZ.current - 40)
+    if (isMobile) {
+      if (e.key === "ArrowRight") {
+        setMobileIndex(prev => Math.min(prev + 1, frames.length - 1))
+      } else if (e.key === "ArrowLeft") {
+        setMobileIndex(prev => Math.max(prev - 1, 0))
+      }
+    } else {
+      if (e.key === "ArrowDown") {
+        cameraZ.current = Math.max(0, cameraZ.current + 40)
+      } else if (e.key === "ArrowUp") {
+        cameraZ.current = Math.max(0, cameraZ.current - 40)
+      }
     }
-  }, [])
+  }, [isMobile, frames.length])
 
-  // Auto-play toggle
+  // Auto-play toggle (desktop only)
   const toggleAutoPlay = useCallback(() => {
+    if (isMobile) return
+    
     setAutoPlay(prev => {
       if (!prev) {
         autoPlayInterval.current = setInterval(() => {
@@ -124,22 +157,60 @@ export function CorridorGallery() {
       }
       return !prev
     })
+  }, [isMobile])
+
+  // Mobile slider navigation
+  const slidePrev = useCallback(() => {
+    setMobileIndex(prev => Math.max(prev - 1, 0))
   }, [])
+
+  const slideNext = useCallback(() => {
+    if (mobileIndex >= frames.length - 3 && !isFetching.current) {
+      fetchLuminaires()
+    }
+    setMobileIndex(prev => Math.min(prev + 1, frames.length - 1))
+  }, [frames.length, mobileIndex, fetchLuminaires])
+
+  // Touch handlers for mobile swipe
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX
+  }, [])
+
+  const onTouchEnd = useCallback(() => {
+    const diff = touchStartX.current - touchEndX.current
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        slideNext()
+      } else {
+        slidePrev()
+      }
+    }
+  }, [slideNext, slidePrev])
 
   // Setup and cleanup
   useEffect(() => {
     // Initial fetch
     fetchLuminaires()
 
-    // Start animation loop
-    rafId.current = requestAnimationFrame(animate)
+    if (!isMobile) {
+      // Start animation loop
+      rafId.current = requestAnimationFrame(animate)
 
-    // Event listeners
-    const gallery = galleryRef.current
-    if (gallery) {
-      gallery.addEventListener("wheel", onWheel, { passive: false })
+      // Event listeners
+      const gallery = galleryRef.current
+      if (gallery) {
+        gallery.addEventListener("wheel", onWheel, { passive: false })
+      }
+      window.addEventListener("mousemove", onMouseMove)
     }
-    window.addEventListener("mousemove", onMouseMove)
+    
     window.addEventListener("keydown", onKeyDown)
 
     return () => {
@@ -147,28 +218,186 @@ export function CorridorGallery() {
       if (autoPlayInterval.current) {
         clearInterval(autoPlayInterval.current)
       }
+      const gallery = galleryRef.current
       if (gallery) {
         gallery.removeEventListener("wheel", onWheel)
       }
       window.removeEventListener("mousemove", onMouseMove)
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [animate, fetchLuminaires, onWheel, onMouseMove, onKeyDown])
+  }, [animate, fetchLuminaires, onWheel, onMouseMove, onKeyDown, isMobile])
 
   const handleFrameClick = (id: string) => {
     router.push(`/luminaires/${id}`)
   }
 
+  // Mobile version - horizontal slider
+  if (isMobile) {
+    return (
+      <div className="relative w-full h-[70vh] overflow-hidden">
+        {/* Video background */}
+        {videoUrl && (
+          <video 
+            autoPlay 
+            loop 
+            muted 
+            playsInline 
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src={videoUrl} type="video/mp4" />
+          </video>
+        )}
+
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60" />
+
+        {/* Title */}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-center pointer-events-none">
+          <h2 className="text-xl font-serif text-[#d4c4a0] drop-shadow-lg">
+            Galerie Immersive
+          </h2>
+          <p className="text-xs text-[#a89878] mt-1">
+            Glissez pour explorer
+          </p>
+        </div>
+
+        {/* Slider container */}
+        <div 
+          ref={mobileSliderRef}
+          className="absolute inset-0 flex items-center justify-center"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          {/* Cards container */}
+          <div 
+            className="flex items-center gap-4 transition-transform duration-300 ease-out px-8"
+            style={{
+              transform: `translateX(calc(50% - ${mobileIndex * 220 + 100}px))`
+            }}
+          >
+            {frames.map((frame, index) => {
+              const isActive = index === mobileIndex
+              const distance = Math.abs(index - mobileIndex)
+              const scale = isActive ? 1 : Math.max(0.7, 1 - distance * 0.15)
+              const opacity = Math.max(0.3, 1 - distance * 0.3)
+
+              return (
+                <div
+                  key={frame._id}
+                  onClick={() => handleFrameClick(frame._id)}
+                  className="flex-shrink-0 cursor-pointer transition-all duration-300"
+                  style={{
+                    width: "200px",
+                    height: "240px",
+                    transform: `scale(${scale})`,
+                    opacity: opacity,
+                    border: "4px solid #8B7355",
+                    boxShadow: isActive 
+                      ? "0 0 30px rgba(255,200,80,0.5), inset 0 0 12px rgba(0,0,0,0.8)" 
+                      : "inset 0 0 12px rgba(0,0,0,0.8), 0 0 16px rgba(139,115,85,0.3)"
+                  }}
+                >
+                  <img
+                    src={frame.imageUrl}
+                    alt={frame.nom || `Luminaire ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    style={{
+                      filter: "sepia(0.2) contrast(1.05)"
+                    }}
+                    loading="lazy"
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Navigation arrows */}
+        <button
+          onClick={slidePrev}
+          disabled={mobileIndex === 0}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-30"
+          style={{
+            background: "rgba(139,115,85,0.8)",
+            backdropFilter: "blur(4px)"
+          }}
+        >
+          <ChevronLeft className="w-6 h-6 text-white" />
+        </button>
+
+        <button
+          onClick={slideNext}
+          disabled={mobileIndex >= frames.length - 1}
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-30"
+          style={{
+            background: "rgba(139,115,85,0.8)",
+            backdropFilter: "blur(4px)"
+          }}
+        >
+          <ChevronRight className="w-6 h-6 text-white" />
+        </button>
+
+        {/* Dots indicator */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-1.5">
+          {frames.slice(0, Math.min(10, frames.length)).map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setMobileIndex(index)}
+              className="w-2 h-2 rounded-full transition-all"
+              style={{
+                background: index === mobileIndex ? "#d4c4a0" : "rgba(255,255,255,0.3)"
+              }}
+            />
+          ))}
+          {frames.length > 10 && (
+            <span className="text-white/50 text-xs ml-1">+{frames.length - 10}</span>
+          )}
+        </div>
+
+        {/* Current item name */}
+        {frames[mobileIndex] && (
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 text-center">
+            <p className="text-sm text-[#d4c4a0] font-serif drop-shadow-lg max-w-[200px] truncate">
+              {frames[mobileIndex].nom || `Luminaire ${mobileIndex + 1}`}
+            </p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Desktop version - 3D corridor
   return (
     <div
       ref={galleryRef}
       className="relative w-full h-screen overflow-hidden"
       style={{
         perspective: "1200px",
-        perspectiveOrigin: "50% 50%",
-        background: "radial-gradient(ellipse at 50% 50%, #1a1408 0%, #0a0a0a 70%)"
+        perspectiveOrigin: "50% 50%"
       }}
     >
+      {/* Video background */}
+      {videoUrl && (
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline 
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src={videoUrl} type="video/mp4" />
+        </video>
+      )}
+
+      {/* Dark overlay for corridor atmosphere */}
+      <div 
+        className="absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse at 50% 50%, rgba(26,20,8,0.7) 0%, rgba(10,10,10,0.85) 70%)"
+        }}
+      />
+
       {/* Corridor atmosphere - left wall */}
       <div 
         className="absolute left-0 top-0 bottom-0 w-32 pointer-events-none"
