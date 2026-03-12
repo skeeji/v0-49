@@ -34,8 +34,10 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
   
   // Touch handling refs
   const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
   const touchCurrentX = useRef(0)
   const isTouching = useRef(false)
+  const isHorizontalSwipe = useRef(false)
   
   // State for UI
   const [frames, setFrames] = useState<LuminaireFrame[]>([])
@@ -128,29 +130,54 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
     setShowScrollHint(mouseY.current > bottomZone)
   }, [isMobile])
 
-  // Touch handlers for mobile swipe
+  // Touch handlers for mobile swipe (horizontal only)
   const onTouchStart = useCallback((e: TouchEvent) => {
     if (!isMobile) return
     touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
     touchCurrentX.current = e.touches[0].clientX
     isTouching.current = true
+    isHorizontalSwipe.current = false // Reset direction detection
   }, [isMobile])
 
   const onTouchMove = useCallback((e: TouchEvent) => {
     if (!isMobile || !isTouching.current) return
-    e.preventDefault() // Prevent page scroll
     
     const currentX = e.touches[0].clientX
-    const deltaX = touchCurrentX.current - currentX
-    touchCurrentX.current = currentX
+    const currentY = e.touches[0].clientY
     
-    // Swipe left (finger moves left) = deltaX positive = advance (increase Z)
-    // Swipe right (finger moves right) = deltaX negative = go back (decrease Z)
-    targetCameraZ.current = Math.max(0, targetCameraZ.current + deltaX * 3)
+    // Detect swipe direction on first significant movement
+    if (!isHorizontalSwipe.current) {
+      const deltaX = Math.abs(currentX - touchStartX.current)
+      const deltaY = Math.abs(currentY - touchStartY.current)
+      
+      // Need at least 10px movement to determine direction
+      if (deltaX > 10 || deltaY > 10) {
+        isHorizontalSwipe.current = deltaX > deltaY
+      }
+      
+      // If vertical scroll, don't interfere
+      if (!isHorizontalSwipe.current) {
+        return
+      }
+    }
+    
+    // Only prevent default and handle gallery navigation for horizontal swipes
+    if (isHorizontalSwipe.current) {
+      e.preventDefault()
+      
+      const deltaX = touchCurrentX.current - currentX
+      touchCurrentX.current = currentX
+      
+      // Swipe left (finger moves left) = deltaX positive = advance (increase Z)
+      // Swipe right (finger moves right) = deltaX negative = go back (decrease Z)
+      targetCameraZ.current = Math.max(0, targetCameraZ.current + deltaX * 3)
+    }
   }, [isMobile])
 
   const onTouchEnd = useCallback(() => {
     isTouching.current = false
+    isHorizontalSwipe.current = false
   }, [])
 
   // Keyboard handler
@@ -233,7 +260,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
   return (
     <div
       ref={galleryRef}
-      className="relative w-full h-screen overflow-hidden touch-none"
+      className="relative w-full h-screen overflow-hidden"
       style={{
         perspective: isMobile ? "800px" : "1200px",
         perspectiveOrigin: "50% 50%"
