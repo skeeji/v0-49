@@ -285,7 +285,7 @@ export default function HomePage() {
       const imageUrl = URL.createObjectURL(file)
       setCapturedImage(imageUrl)
       setShowBackgroundOptions(true)
-      console.log("🖼️ URL de prévisualisation créée pour upload")
+      console.log("��️ URL de prévisualisation créée pour upload")
     }
   }
 
@@ -407,7 +407,7 @@ export default function HomePage() {
 
       // Vérifier l'état de la vidéo
       console.log(`📊 État vidéo: readyState=${video.readyState}, paused=${video.paused}`)
-      console.log(`📐 Dimensions vidéo: ${video.videoWidth} x ${video.videoHeight}`)
+      console.log(`�� Dimensions vidéo: ${video.videoWidth} x ${video.videoHeight}`)
 
       if (video.readyState < 2) {
         throw new Error("Vidéo pas encore prête (readyState < 2)")
@@ -849,198 +849,86 @@ export default function HomePage() {
       <CorridorGallery videoUrl={welcomeVideo} />
 
       {/* Hero section - Recherche IA */}
-      <div className="relative py-16 md:py-24 bg-gradient-to-br from-[#f5f1e8] via-[#faf8f5] to-[#f5f1e8]">
+      <div className="relative py-12 md:py-20">
+        {/* Background decoratif */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#f5f1e8] via-white to-[#f5f1e8]" />
+        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, rgba(139, 115, 85, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(139, 115, 85, 0.08) 0%, transparent 50%)" }} />
 
-      {/* Contenu principal */}
-      <div className="relative z-10 px-4">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-5xl font-serif leading-tight mb-4" style={{ color: "#8b7355" }}>
-            Recherche Intelligence Artificielle
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Trouvez des luminaires par image ou par description textuelle
-          </p>
-        </div>
-
-        {/* Grid avec Chatbot et Recherche Image */}
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-          
-          {/* === CHATBOT === */}
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-[500px] md:h-[600px]">
-            <div className="p-4 md:p-6 border-b border-slate-200 bg-gradient-to-r from-amber-50 to-orange-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl md:text-2xl font-serif" style={{ color: "#8b7355" }}>
-                    Recherche par Description
-                  </h2>
-                  <p className="text-sm text-slate-600 mt-1">Decrivez le luminaire que vous recherchez</p>
-                </div>
-                {chatMessages.length > 0 && (
-                  <Button onClick={resetChat} variant="outline" size="sm" className="text-xs">
-                    Nouvelle conversation
-                  </Button>
-                )}
-              </div>
+        {/* Contenu principal */}
+        <div className="relative z-10 px-4 md:px-8">
+          {/* Header elegant */}
+          <div className="text-center mb-10 md:mb-14">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#8b7355]/10 mb-4">
+              <Search className="w-4 h-4" style={{ color: "#8b7355" }} />
+              <span className="text-sm font-medium" style={{ color: "#8b7355" }}>Intelligence Artificielle</span>
             </div>
-
-            {/* Messages area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-              {chatMessages.length === 0 && !isChatSearching && (
-                <div className="text-center py-8 md:py-12">
-                  <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                    <ImageIcon className="w-7 h-7 md:w-8 md:h-8" style={{ color: "#8b7355" }} />
-                  </div>
-                  <h3 className="text-lg font-serif text-slate-800 mb-2">Comment puis-je vous aider ?</h3>
-                  <p className="text-sm text-slate-600 px-4">
-                    Exemple : "lustre art deco en bronze" ou "lampe de bureau annees 50"
-                  </p>
-                </div>
-              )}
-
-              {chatMessages.map((message) => (
-                <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] ${message.role === "user" ? "bg-amber-100" : "bg-slate-100"} rounded-2xl p-3 md:p-4`}>
-                    <p className="text-sm md:text-base text-slate-800">{message.content}</p>
-                    
-                    {message.results && message.results.length > 0 && (
-                      <div className="grid grid-cols-1 gap-3 mt-3">
-                        {message.results.slice(0, 3).map((result: any, index: number) => (
-                          result.luminaireId ? (
-                            <Link key={index} href={`/luminaires/${result.luminaireId}`} className="block">
-                              <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                                <div className="flex gap-3 p-2">
-                                  <div className="relative w-16 h-16 md:w-20 md:h-20 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
-                                    <Image
-                                      src={result.imageUrl || "/placeholder.svg"}
-                                      alt={result.nom || "Luminaire"}
-                                      fill
-                                      className="object-cover"
-                                      unoptimized
-                                    />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h4 className="font-medium text-slate-900 text-sm line-clamp-1">{result.nom || "Luminaire"}</h4>
-                                    <p className="text-xs text-slate-600">{result.artiste}</p>
-                                    {result.similarity && (
-                                      <p className="text-xs font-medium mt-1" style={{ color: "#8b7355" }}>
-                                        {Math.round(result.similarity * 100)}% similaire
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </Card>
-                            </Link>
-                          ) : null
-                        ))}
-                      </div>
-                    )}
-                    
-                    <p className="text-[10px] text-slate-500 mt-2">
-                      {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-
-              {isChatSearching && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-100 rounded-2xl p-4">
-                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#8b7355" }} />
-                  </div>
-                </div>
-              )}
-
-              <div ref={chatMessagesEndRef} />
-            </div>
-
-            {/* Input area */}
-            <div className="border-t border-slate-200 bg-white p-3 md:p-4">
-              <div className="flex gap-2">
-                <Input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleChatSearch()
-                    }
-                  }}
-                  placeholder="Decrivez le luminaire..."
-                  className="flex-1 h-10 md:h-12 rounded-xl text-sm"
-                  disabled={isChatSearching}
-                />
-                <Button
-                  onClick={handleChatSearch}
-                  disabled={!chatInput.trim() || isChatSearching}
-                  className="h-10 md:h-12 px-4 rounded-xl text-white"
-                  style={{ backgroundColor: "#8b7355" }}
-                >
-                  {isChatSearching ? (
-                    <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4 md:w-5 md:h-5" />
-                  )}
-                </Button>
-              </div>
-              {!user && (
-                <p className="text-[10px] text-slate-500 mt-2 text-center">
-                  Connectez-vous pour utiliser la recherche
-                </p>
-              )}
-            </div>
+            <h1 className="text-3xl md:text-5xl font-serif leading-tight mb-3 text-balance" style={{ color: "#8b7355" }}>
+              Recherche Avancee
+            </h1>
+            <p className="text-base md:text-lg text-slate-600 max-w-xl mx-auto text-pretty">
+              Explorez notre collection par image ou par description
+            </p>
           </div>
 
-          {/* === RECHERCHE PAR IMAGE === */}
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-            <div className="p-4 md:p-6 border-b border-slate-200 bg-gradient-to-r from-amber-50 to-orange-50">
-              <h2 className="text-xl md:text-2xl font-serif" style={{ color: "#8b7355" }}>
-                Recherche par Image
-              </h2>
-              <p className="text-sm text-slate-600 mt-1">
-                Photographiez ou televersez une image
-              </p>
-            </div>
-            
-            <div className="p-4 md:p-6">
-              {/* Appel a l'action pour les comptes premium */}
-              {(!user || userData?.role === "free") && (
-                <div className="mb-4 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800 font-medium">
-                    Passez a Premium pour des recherches illimitees !
-                    <Link href="/pricing" className="ml-1 underline font-bold hover:no-underline">
-                      Decouvrir Premium
-                    </Link>
-                  </p>
-                </div>
-              )}
-
-              {/* Affichage de l'image apres recherche */}
-              {capturedImage && !isSearching && searchResults.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-slate-700 mb-3 text-center">Image analysee :</h3>
-                  <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden max-w-48 mx-auto shadow-lg">
-                    <Image src={capturedImage || "/placeholder.svg"} alt="Image analysee" fill className="object-contain" />
+          {/* Grid - Image a gauche, Chatbot a droite */}
+          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+          
+            {/* === RECHERCHE PAR IMAGE (GAUCHE) === */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden order-1">
+              {/* Header */}
+              <div className="px-5 py-4 md:px-6 md:py-5 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(139, 115, 85, 0.1)" }}>
+                    <Camera className="w-5 h-5" style={{ color: "#8b7355" }} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg md:text-xl font-semibold text-slate-900">
+                      Recherche par Image
+                    </h2>
+                    <p className="text-sm text-slate-500">Televersez ou photographiez</p>
                   </div>
                 </div>
-              )}
+              </div>
+            
+              <div className="p-5 md:p-6">
+                {/* Banniere premium */}
+                {(!user || userData?.role === "free") && (
+                  <div className="mb-5 p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 rounded-xl">
+                    <p className="text-sm text-amber-800">
+                      <span className="font-semibold">Premium</span> - Recherches illimitees
+                      <Link href="/pricing" className="ml-2 underline font-medium hover:no-underline">
+                        En savoir plus
+                      </Link>
+                    </p>
+                  </div>
+                )}
 
-              {/* Elements video et canvas toujours presents mais caches */}
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                onClick={capturePhoto}
-                className={`w-full rounded-2xl bg-slate-900 cursor-pointer shadow-lg ${
-                  searchMode === "camera" && isCameraActive && !capturedImage ? "block" : "hidden"
-                }`}
-                style={{ aspectRatio: "4/3" }}
-              />
+                {/* Image analysee */}
+                {capturedImage && !isSearching && searchResults.length > 0 && (
+                  <div className="mb-5">
+                    <p className="text-sm font-medium text-slate-600 mb-3 text-center">Image analysee</p>
+                    <div className="aspect-square relative bg-slate-50 rounded-xl overflow-hidden max-w-44 mx-auto border border-slate-100">
+                      <Image src={capturedImage || "/placeholder.svg"} alt="Image analysee" fill className="object-contain" />
+                    </div>
+                  </div>
+                )}
 
-              <canvas ref={canvasRef} className="hidden" />
+                {/* Video et canvas caches */}
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  onClick={capturePhoto}
+                  className={`w-full rounded-xl bg-slate-900 cursor-pointer ${
+                    searchMode === "camera" && isCameraActive && !capturedImage ? "block" : "hidden"
+                  }`}
+                  style={{ aspectRatio: "4/3" }}
+                />
+                <canvas ref={canvasRef} className="hidden" />
 
-              {/* Etape 1: Selection de la methode */}
-              {!searchMode && !capturedImage && !isSearching && (
+                {/* Selection methode */}
+                {!searchMode && !capturedImage && !isSearching && (
             <div className="space-y-4">
               <Button
                 onClick={() => {
@@ -1345,6 +1233,147 @@ export default function HomePage() {
           )}
 
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+            </div>
+          </div>
+
+          {/* === CHATBOT (DROITE) === */}
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col h-[480px] md:h-[560px] order-2">
+            {/* Header */}
+            <div className="px-5 py-4 md:px-6 md:py-5 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(139, 115, 85, 0.1)" }}>
+                    <Send className="w-5 h-5" style={{ color: "#8b7355" }} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg md:text-xl font-semibold text-slate-900">
+                      Recherche par Description
+                    </h2>
+                    <p className="text-sm text-slate-500">Decrivez ce que vous cherchez</p>
+                  </div>
+                </div>
+                {chatMessages.length > 0 && (
+                  <button 
+                    onClick={resetChat} 
+                    className="text-xs text-slate-500 hover:text-slate-700 underline"
+                  >
+                    Effacer
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Zone messages */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3">
+              {chatMessages.length === 0 && !isChatSearching && (
+                <div className="text-center py-10">
+                  <div className="w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(139, 115, 85, 0.08)" }}>
+                    <Search className="w-6 h-6" style={{ color: "#8b7355" }} />
+                  </div>
+                  <h3 className="text-base font-medium text-slate-800 mb-2">Comment puis-je vous aider ?</h3>
+                  <p className="text-sm text-slate-500 max-w-xs mx-auto">
+                    Decrivez le luminaire recherche, par exemple : "lustre art deco bronze"
+                  </p>
+                </div>
+              )}
+
+              {chatMessages.map((message) => (
+                <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div 
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                      message.role === "user" 
+                        ? "bg-slate-900 text-white" 
+                        : "bg-slate-100 text-slate-800"
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                    
+                    {message.results && message.results.length > 0 && (
+                      <div className="space-y-2 mt-3">
+                        {message.results.slice(0, 3).map((result: any, index: number) => (
+                          result.luminaireId ? (
+                            <Link key={index} href={`/luminaires/${result.luminaireId}`} className="block">
+                              <div className="flex gap-3 p-2 bg-white rounded-xl hover:bg-slate-50 transition-colors border border-slate-200">
+                                <div className="relative w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
+                                  <Image
+                                    src={result.imageUrl || "/placeholder.svg"}
+                                    alt={result.nom || "Luminaire"}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-slate-900 text-sm truncate">{result.nom || "Luminaire"}</p>
+                                  <p className="text-xs text-slate-500">{result.artiste}</p>
+                                  {result.similarity && (
+                                    <p className="text-xs font-medium mt-0.5" style={{ color: "#8b7355" }}>
+                                      {Math.round(result.similarity * 100)}% similaire
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </Link>
+                          ) : null
+                        ))}
+                      </div>
+                    )}
+                    
+                    <p className="text-[10px] opacity-60 mt-2">
+                      {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+              {isChatSearching && (
+                <div className="flex justify-start">
+                  <div className="bg-slate-100 rounded-2xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#8b7355" }} />
+                      <span className="text-sm text-slate-600">Recherche...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatMessagesEndRef} />
+            </div>
+
+            {/* Zone saisie */}
+            <div className="border-t border-slate-100 bg-slate-50/50 p-3 md:p-4">
+              <div className="flex gap-2">
+                <Input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault()
+                      handleChatSearch()
+                    }
+                  }}
+                  placeholder="Decrivez le luminaire..."
+                  className="flex-1 h-11 rounded-xl text-sm bg-white border-slate-200 focus:border-[#8b7355] focus:ring-[#8b7355]/20"
+                  disabled={isChatSearching}
+                />
+                <Button
+                  onClick={handleChatSearch}
+                  disabled={!chatInput.trim() || isChatSearching}
+                  className="h-11 w-11 rounded-xl text-white p-0"
+                  style={{ backgroundColor: chatInput.trim() && !isChatSearching ? "#8b7355" : "#ccc" }}
+                >
+                  {isChatSearching ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </Button>
+              </div>
+              {!user && (
+                <p className="text-[10px] text-slate-400 mt-2 text-center">
+                  Connectez-vous pour utiliser la recherche
+                </p>
+              )}
             </div>
           </div>
         </div>{/* End grid */}
