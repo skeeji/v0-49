@@ -2,7 +2,9 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Camera, Upload, X, Lamp, Users, Clock, CreditCard, ArrowRight, Search, Grid3x3, ChevronLeft, ChevronRight } from "lucide-react"
+import { Camera, Upload, X, Lamp, Users, Clock, CreditCard, ArrowRight, Search, Grid3x3, ChevronLeft, ChevronRight, Send, ImageIcon, Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Card } from "@/components/ui/card"
 import { ChronoCarousel } from "@/components/chrono-carousel"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -15,6 +17,15 @@ import { CorridorGallery } from "@/components/CorridorGallery"
 
 // URL correcte de l'API
 const apiUrl = "https://image-similarity-api-590690354412.us-central1.run.app/api/search"
+const API_BASE_URL_TEXT = "https://chatbot-984654216979.europe-west1.run.app"
+
+interface ChatMessage {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  results?: any[]
+  timestamp: Date
+}
 
 export default function HomePage() {
   const [isSearching, setIsSearching] = useState(false)
@@ -38,6 +49,13 @@ export default function HomePage() {
   const [selectedImageForSearch, setSelectedImageForSearch] = useState<File | null>(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [zoomLevel, setZoomLevel] = useState(1)
+  
+  // États chatbot
+  const [chatInput, setChatInput] = useState("")
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [isChatSearching, setIsChatSearching] = useState(false)
+  const [chatSearchContext, setChatSearchContext] = useState("")
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null)
 
   // États pour les restrictions
   // const [searchCount, setSearchCount] = useState(0)
@@ -541,6 +559,139 @@ export default function HomePage() {
     }
   }
 
+  // === FONCTIONS CHATBOT ===
+  const enrichChatResultsWithIds = async (results: any[]) => {
+    const enriched = await Promise.all(
+      results.map(async (result) => {
+        const luminaireId = result.luminaireId || result.luminaire_id
+        const fileName = luminaireId?.split("/").pop()?.toLowerCase() || luminaireId
+        let mongoId = null
+
+        if (fileName) {
+          try {
+            const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
+            if (response.ok) {
+              const data = await response.json()
+              if (data.success && data.found) {
+                mongoId = data.luminaireId
+              }
+            }
+          } catch (error) {
+            console.error("[v0] Error fetching MongoDB ID:", error)
+          }
+        }
+
+        const imageUrl = result.imageUrl || result.image_url || `/api/images/filename/${fileName}`
+
+        return {
+          imageUrl,
+          luminaireUrl: mongoId ? `/luminaires/${mongoId}` : null,
+          luminaireId: mongoId,
+          nom: result.nom || "Sans nom",
+          artiste: result.artiste || "Inconnu",
+          annee: result.annee === null || result.annee === "" ? "Non spécifié" : String(result.annee),
+          similarity: result.similarity || 0,
+        }
+      }),
+    )
+    return enriched
+  }
+
+  const handleChatSearch = async () => {
+    if (!chatInput.trim()) return
+
+    if (!user) {
+      toast.error("Connexion requise pour utiliser la recherche")
+      setShowLoginModal(true)
+      return
+    }
+
+    if (userData?.role !== "premium" && userData?.role !== "admin") {
+      toast.error("Cette fonctionnalité est réservée aux membres Premium")
+      return
+    }
+
+    const newContext = chatSearchContext ? `${chatSearchContext}, ${chatInput}` : chatInput
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: chatInput,
+      timestamp: new Date(),
+    }
+
+    setChatMessages((prev) => [...prev, userMessage])
+    setChatInput("")
+    setIsChatSearching(true)
+
+    try {
+      const response = await fetch(`${API_BASE_URL_TEXT}/api/search_text`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: newContext, top_k: 3 }),
+      })
+
+      if (!response.ok) throw new Error("Erreur lors de la recherche")
+
+      const text = await response.text()
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = JSON.parse(text.replace(/:\s*NaN/g, ": null"))
+      }
+
+      if (data.results && data.results.length > 0) {
+        const enrichedResults = await enrichChatResultsWithIds(data.results)
+
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `J'ai trouvé ${enrichedResults.length} luminaire(s) correspondant à votre recherche :`,
+          results: enrichedResults,
+          timestamp: new Date(),
+        }
+
+        setChatMessages((prev) => [...prev, assistantMessage])
+        setChatSearchContext(newContext)
+        toast.success(`${enrichedResults.length} luminaire(s) trouvé(s)`)
+      } else {
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Je n'ai trouvé aucun luminaire correspondant à votre recherche. Essayez une autre description.",
+          timestamp: new Date(),
+        }
+
+        setChatMessages((prev) => [...prev, assistantMessage])
+        setChatSearchContext(newContext)
+        toast.info("Aucun résultat trouvé")
+      }
+    } catch (error) {
+      console.error("[v0] Chat search error:", error)
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.",
+        timestamp: new Date(),
+      }
+      setChatMessages((prev) => [...prev, assistantMessage])
+      toast.error("Erreur lors de la recherche")
+    } finally {
+      setIsChatSearching(false)
+    }
+  }
+
+  const resetChat = () => {
+    setChatMessages([])
+    setChatInput("")
+    setChatSearchContext("")
+  }
+
+  useEffect(() => {
+    chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [chatMessages])
+
   useEffect(() => {
     // Charger les luminaires depuis l'API MongoDB
     const loadLuminaires = async () => {
@@ -697,80 +848,199 @@ export default function HomePage() {
       {/* ========== GALERIE IMMERSIVE 3D ========== */}
       <CorridorGallery videoUrl={welcomeVideo} />
 
-      {/* Hero section - Recherche par image */}
-      <div className="relative min-h-screen">
-      {/* Video de fond */}
-      {welcomeVideo && (
-        <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
-          <source src={welcomeVideo} type="video/mp4" />
-        </video>
-      )}
-
-      {/* Overlay plus clair */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-orange-50/60 to-yellow-50/40" />
+      {/* Hero section - Recherche IA */}
+      <div className="relative py-16 md:py-24 bg-gradient-to-br from-[#f5f1e8] via-[#faf8f5] to-[#f5f1e8]">
 
       {/* Contenu principal */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
+      <div className="relative z-10 px-4">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-serif leading-tight" style={{ color: "#8b7355" }}>
-            Recherche par Image
-            <br />
-            <span className="text-2xl md:text-3xl font-light">Intelligence Artificielle</span>
+          <h1 className="text-3xl md:text-5xl font-serif leading-tight mb-4" style={{ color: "#8b7355" }}>
+            Recherche Intelligence Artificielle
           </h1>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Trouvez des luminaires par image ou par description textuelle
+          </p>
         </div>
 
-        {/* Zone de recherche par image */}
-        <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-10 max-w-lg w-full shadow-2xl border border-white/20">
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center mb-4">
-              <h2 className="text-2xl md:text-3xl font-serif" style={{ color: "#8b7355" }}>
-                Recherche IA
-              </h2>
-            </div>
-            <p className="text-slate-600 leading-relaxed">
-              Photographiez ou téléversez une image pour découvrir des luminaires similaires dans notre collection
-            </p>
-          </div>
-
-          {/* Appel à l'action pour les comptes premium */}
-          {(!user || userData?.role === "free") && (
-            <div className="mt-4 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800 font-medium">
-                🌟 Passez à Premium pour des recherches illimitées et la suppression d'arrière-plan !
-                <Link href="/pricing" className="ml-1 underline font-bold hover:no-underline">
-                  Découvrir Premium
-                </Link>
-              </p>
-            </div>
-          )}
-
-          {/* Affichage de l'image après recherche */}
-          {capturedImage && !isSearching && searchResults.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-lg font-medium text-slate-700 mb-4 text-center">Image analysée :</h3>
-              <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden max-w-64 mx-auto shadow-lg">
-                <Image src={capturedImage || "/placeholder.svg"} alt="Image analysée" fill className="object-contain" />
+        {/* Grid avec Chatbot et Recherche Image */}
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+          
+          {/* === CHATBOT === */}
+          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-[500px] md:h-[600px]">
+            <div className="p-4 md:p-6 border-b border-slate-200 bg-gradient-to-r from-amber-50 to-orange-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-serif" style={{ color: "#8b7355" }}>
+                    Recherche par Description
+                  </h2>
+                  <p className="text-sm text-slate-600 mt-1">Decrivez le luminaire que vous recherchez</p>
+                </div>
+                {chatMessages.length > 0 && (
+                  <Button onClick={resetChat} variant="outline" size="sm" className="text-xs">
+                    Nouvelle conversation
+                  </Button>
+                )}
               </div>
             </div>
-          )}
 
-          {/* Éléments vidéo et canvas toujours présents mais cachés */}
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            onClick={capturePhoto}
-            className={`w-full rounded-2xl bg-slate-900 cursor-pointer shadow-lg ${
-              searchMode === "camera" && isCameraActive && !capturedImage ? "block" : "hidden"
-            }`}
-            style={{ aspectRatio: "4/3" }}
-          />
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+              {chatMessages.length === 0 && !isChatSearching && (
+                <div className="text-center py-8 md:py-12">
+                  <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                    <ImageIcon className="w-7 h-7 md:w-8 md:h-8" style={{ color: "#8b7355" }} />
+                  </div>
+                  <h3 className="text-lg font-serif text-slate-800 mb-2">Comment puis-je vous aider ?</h3>
+                  <p className="text-sm text-slate-600 px-4">
+                    Exemple : "lustre art deco en bronze" ou "lampe de bureau annees 50"
+                  </p>
+                </div>
+              )}
 
-          <canvas ref={canvasRef} className="hidden" />
+              {chatMessages.map((message) => (
+                <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] ${message.role === "user" ? "bg-amber-100" : "bg-slate-100"} rounded-2xl p-3 md:p-4`}>
+                    <p className="text-sm md:text-base text-slate-800">{message.content}</p>
+                    
+                    {message.results && message.results.length > 0 && (
+                      <div className="grid grid-cols-1 gap-3 mt-3">
+                        {message.results.slice(0, 3).map((result: any, index: number) => (
+                          result.luminaireId ? (
+                            <Link key={index} href={`/luminaires/${result.luminaireId}`} className="block">
+                              <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                                <div className="flex gap-3 p-2">
+                                  <div className="relative w-16 h-16 md:w-20 md:h-20 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
+                                    <Image
+                                      src={result.imageUrl || "/placeholder.svg"}
+                                      alt={result.nom || "Luminaire"}
+                                      fill
+                                      className="object-cover"
+                                      unoptimized
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-slate-900 text-sm line-clamp-1">{result.nom || "Luminaire"}</h4>
+                                    <p className="text-xs text-slate-600">{result.artiste}</p>
+                                    {result.similarity && (
+                                      <p className="text-xs font-medium mt-1" style={{ color: "#8b7355" }}>
+                                        {Math.round(result.similarity * 100)}% similaire
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </Card>
+                            </Link>
+                          ) : null
+                        ))}
+                      </div>
+                    )}
+                    
+                    <p className="text-[10px] text-slate-500 mt-2">
+                      {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              ))}
 
-          {/* Étape 1: Sélection de la méthode */}
-          {!searchMode && !capturedImage && !isSearching && (
+              {isChatSearching && (
+                <div className="flex justify-start">
+                  <div className="bg-slate-100 rounded-2xl p-4">
+                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#8b7355" }} />
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatMessagesEndRef} />
+            </div>
+
+            {/* Input area */}
+            <div className="border-t border-slate-200 bg-white p-3 md:p-4">
+              <div className="flex gap-2">
+                <Input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault()
+                      handleChatSearch()
+                    }
+                  }}
+                  placeholder="Decrivez le luminaire..."
+                  className="flex-1 h-10 md:h-12 rounded-xl text-sm"
+                  disabled={isChatSearching}
+                />
+                <Button
+                  onClick={handleChatSearch}
+                  disabled={!chatInput.trim() || isChatSearching}
+                  className="h-10 md:h-12 px-4 rounded-xl text-white"
+                  style={{ backgroundColor: "#8b7355" }}
+                >
+                  {isChatSearching ? (
+                    <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 md:w-5 md:h-5" />
+                  )}
+                </Button>
+              </div>
+              {!user && (
+                <p className="text-[10px] text-slate-500 mt-2 text-center">
+                  Connectez-vous pour utiliser la recherche
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* === RECHERCHE PAR IMAGE === */}
+          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="p-4 md:p-6 border-b border-slate-200 bg-gradient-to-r from-amber-50 to-orange-50">
+              <h2 className="text-xl md:text-2xl font-serif" style={{ color: "#8b7355" }}>
+                Recherche par Image
+              </h2>
+              <p className="text-sm text-slate-600 mt-1">
+                Photographiez ou televersez une image
+              </p>
+            </div>
+            
+            <div className="p-4 md:p-6">
+              {/* Appel a l'action pour les comptes premium */}
+              {(!user || userData?.role === "free") && (
+                <div className="mb-4 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800 font-medium">
+                    Passez a Premium pour des recherches illimitees !
+                    <Link href="/pricing" className="ml-1 underline font-bold hover:no-underline">
+                      Decouvrir Premium
+                    </Link>
+                  </p>
+                </div>
+              )}
+
+              {/* Affichage de l'image apres recherche */}
+              {capturedImage && !isSearching && searchResults.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-slate-700 mb-3 text-center">Image analysee :</h3>
+                  <div className="aspect-square relative bg-slate-100 rounded-2xl overflow-hidden max-w-48 mx-auto shadow-lg">
+                    <Image src={capturedImage || "/placeholder.svg"} alt="Image analysee" fill className="object-contain" />
+                  </div>
+                </div>
+              )}
+
+              {/* Elements video et canvas toujours presents mais caches */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                onClick={capturePhoto}
+                className={`w-full rounded-2xl bg-slate-900 cursor-pointer shadow-lg ${
+                  searchMode === "camera" && isCameraActive && !capturedImage ? "block" : "hidden"
+                }`}
+                style={{ aspectRatio: "4/3" }}
+              />
+
+              <canvas ref={canvasRef} className="hidden" />
+
+              {/* Etape 1: Selection de la methode */}
+              {!searchMode && !capturedImage && !isSearching && (
             <div className="space-y-4">
               <Button
                 onClick={() => {
@@ -1075,14 +1345,16 @@ export default function HomePage() {
           )}
 
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-        </div>
+            </div>
+          </div>
+        </div>{/* End grid */}
 
-        {/* Résultats de recherche */}
+        {/* Resultats de recherche - pleine largeur */}
         {searchResults.length > 0 && (
-          <div className="mt-8 bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-8 max-w-7xl w-full shadow-2xl border border-white/20">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-              <h3 className="text-2xl md:text-3xl font-serif text-slate-800 text-center md:text-left">
-                🎯 Top {searchResults.length} luminaires similaires
+          <div className="mt-8 bg-white rounded-3xl p-6 md:p-8 max-w-6xl mx-auto shadow-xl border border-slate-200">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+              <h3 className="text-xl md:text-2xl font-serif text-slate-800 text-center md:text-left">
+                Top {searchResults.length} luminaires similaires
               </h3>
               <div className="flex gap-3 justify-center md:justify-end">
                 <Button
@@ -1097,7 +1369,7 @@ export default function HomePage() {
                   {isSearching ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>
                   ) : (
-                    <span>🔄 Refaire la recherche</span>
+                    <span>Refaire la recherche</span>
                   )}
                 </Button>
                 <Button
@@ -1116,15 +1388,14 @@ export default function HomePage() {
               {searchResults.map((result: any, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-2xl p-4 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200"
+                  className="bg-white rounded-2xl p-3 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200"
                 >
-                  {/* Image cliquable */}
                   {result.hasLocalMatch && result.luminaireUrl ? (
                     <Link href={result.luminaireUrl}>
-                      <div className="relative w-full h-32 md:h-40 mb-4 cursor-pointer hover:scale-105 transition-transform duration-200">
+                      <div className="relative w-full h-28 md:h-36 mb-3 cursor-pointer hover:scale-105 transition-transform duration-200">
                         <Image
                           src={result.imageUrl || "/placeholder.svg"}
-                          alt={result.imageId || `Résultat ${index + 1}`}
+                          alt={result.imageId || `Resultat ${index + 1}`}
                           fill
                           className="object-cover rounded-xl"
                           onError={(e) => {
@@ -1135,10 +1406,10 @@ export default function HomePage() {
                       </div>
                     </Link>
                   ) : (
-                    <div className="relative w-full h-32 md:h-40 mb-4">
+                    <div className="relative w-full h-28 md:h-36 mb-3">
                       <Image
                         src={result.imageUrl || "/placeholder.svg"}
-                        alt={result.imageId || `Résultat ${index + 1}`}
+                        alt={result.imageId || `Resultat ${index + 1}`}
                         fill
                         className="object-cover rounded-xl"
                         onError={(e) => {
@@ -1149,33 +1420,24 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  <p className="text-sm font-medium text-slate-800 truncate mb-2">
-                    {result.localMatch?.nom || result.imageId || `Résultat ${index + 1}`}
+                  <p className="text-xs md:text-sm font-medium text-slate-800 truncate mb-1">
+                    {result.localMatch?.nom || result.imageId || `Resultat ${index + 1}`}
                   </p>
 
-                  <p className="text-sm text-slate-600 mb-3">Similarité: {Math.round(result.similarity * 100)}%</p>
+                  <p className="text-xs text-slate-600 mb-2">Similarite: {Math.round(result.similarity * 100)}%</p>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[10px] text-slate-500">
                     {result.hasLocalMatch ? "Fiche disponible" : "Image similaire"}
                   </p>
                 </div>
               ))}
             </div>
 
-            <div className="mt-6 text-center text-sm text-slate-600">
-              Cliquez sur une image pour voir la fiche détaillée
+            <div className="mt-4 text-center text-sm text-slate-600">
+              Cliquez sur une image pour voir la fiche detaillee
             </div>
           </div>
         )}
-      </div>
-      {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-bounce">
-        <div className="flex flex-col items-center gap-1 text-[#8b7355]/60">
-          <span className="text-xs font-medium">Decouvrir</span>
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
       </div>
       </div>{/* End hero section */}
 
