@@ -407,7 +407,7 @@ export default function HomePage() {
 
       // Vérifier l'état de la vidéo
       console.log(`📊 État vidéo: readyState=${video.readyState}, paused=${video.paused}`)
-      console.log(`���� Dimensions vidéo: ${video.videoWidth} x ${video.videoHeight}`)
+      console.log(`������ Dimensions vidéo: ${video.videoWidth} x ${video.videoHeight}`)
 
       if (video.readyState < 2) {
         throw new Error("Vidéo pas encore prête (readyState < 2)")
@@ -1236,8 +1236,100 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* === RESULTATS RECHERCHE IMAGE (ordre 2 sur mobile, pleine largeur sur desktop) === */}
+          {searchResults.length > 0 && (
+            <div className="order-2 lg:order-3 lg:col-span-2 bg-white rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg border border-slate-100">
+              {/* Header des resultats */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 md:mb-6 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "rgba(139, 115, 85, 0.1)" }}>
+                    <Search className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: "#8b7355" }} />
+                  </div>
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-900">
+                    {searchResults.length} luminaires trouves
+                  </h3>
+                </div>
+                <div className="flex gap-2 sm:gap-3">
+                  <Button
+                    onClick={searchAgain}
+                    className="flex-1 sm:flex-none text-white rounded-lg text-xs sm:text-sm h-9 sm:h-10"
+                    style={{ backgroundColor: "#8b7355" }}
+                    disabled={isSearching}
+                  >
+                    {isSearching ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Relancer"
+                    )}
+                  </Button>
+                  <Button
+                    onClick={resetSearch}
+                    variant="outline"
+                    className="flex-1 sm:flex-none rounded-lg text-xs sm:text-sm h-9 sm:h-10 border-slate-200"
+                  >
+                    <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    Nouveau
+                  </Button>
+                </div>
+              </div>
+
+              {/* Grille des resultats - responsive */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
+                {searchResults.map((result: any, index) => {
+                  const cardContent = (
+                    <>
+                      <div className="relative w-full aspect-square mb-2 sm:mb-3 overflow-hidden rounded-lg bg-slate-50">
+                        <Image
+                          src={result.imageUrl || "/placeholder.svg"}
+                          alt={result.imageId || `Resultat ${index + 1}`}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder.svg"
+                          }}
+                        />
+                        {/* Badge similarite */}
+                        <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium text-white" style={{ backgroundColor: "#8b7355" }}>
+                          {Math.round(result.similarity * 100)}%
+                        </div>
+                      </div>
+                      <p className="text-xs sm:text-sm font-medium text-slate-900 line-clamp-2 leading-tight">
+                        {result.localMatch?.nom || result.imageId || `Luminaire ${index + 1}`}
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-slate-500 mt-1">
+                        {result.hasLocalMatch ? "Voir la fiche" : "Image similaire"}
+                      </p>
+                    </>
+                  )
+
+                  return result.hasLocalMatch && result.luminaireUrl ? (
+                    <Link 
+                      key={index} 
+                      href={result.luminaireUrl}
+                      className="group bg-white rounded-xl p-2 sm:p-3 border border-slate-100 hover:border-slate-200 hover:shadow-md transition-all duration-200"
+                    >
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <div 
+                      key={index}
+                      className="bg-white rounded-xl p-2 sm:p-3 border border-slate-100"
+                    >
+                      {cardContent}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <p className="mt-4 md:mt-5 text-center text-xs sm:text-sm text-slate-500">
+                Cliquez sur un luminaire pour voir sa fiche detaillee
+              </p>
+            </div>
+          )}
+
           {/* === CHATBOT (DROITE) === */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col h-[480px] md:h-[560px] order-2">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col h-[480px] md:h-[560px] order-3 lg:order-2">
             {/* Header */}
             <div className="px-5 py-4 md:px-6 md:py-5 border-b border-slate-100">
               <div className="flex items-center justify-between">
@@ -1377,98 +1469,6 @@ export default function HomePage() {
             </div>
           </div>
         </div>{/* End grid */}
-
-        {/* Resultats de recherche - pleine largeur */}
-        {searchResults.length > 0 && (
-          <div className="mt-8 md:mt-10 bg-white rounded-2xl p-4 sm:p-6 md:p-8 max-w-6xl mx-auto shadow-lg border border-slate-100">
-            {/* Header des resultats */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 md:mb-6 gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "rgba(139, 115, 85, 0.1)" }}>
-                  <Search className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: "#8b7355" }} />
-                </div>
-                <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-900">
-                  {searchResults.length} luminaires trouves
-                </h3>
-              </div>
-              <div className="flex gap-2 sm:gap-3">
-                <Button
-                  onClick={searchAgain}
-                  className="flex-1 sm:flex-none text-white rounded-lg text-xs sm:text-sm h-9 sm:h-10"
-                  style={{ backgroundColor: "#8b7355" }}
-                  disabled={isSearching}
-                >
-                  {isSearching ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Relancer"
-                  )}
-                </Button>
-                <Button
-                  onClick={resetSearch}
-                  variant="outline"
-                  className="flex-1 sm:flex-none rounded-lg text-xs sm:text-sm h-9 sm:h-10 border-slate-200"
-                >
-                  <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                  Nouveau
-                </Button>
-              </div>
-            </div>
-
-            {/* Grille des resultats - responsive */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
-              {searchResults.map((result: any, index) => {
-                const cardContent = (
-                  <>
-                    <div className="relative w-full aspect-square mb-2 sm:mb-3 overflow-hidden rounded-lg bg-slate-50">
-                      <Image
-                        src={result.imageUrl || "/placeholder.svg"}
-                        alt={result.imageId || `Resultat ${index + 1}`}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                        onError={(e) => {
-                          e.currentTarget.src = "/placeholder.svg"
-                        }}
-                      />
-                      {/* Badge similarite */}
-                      <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium text-white" style={{ backgroundColor: "#8b7355" }}>
-                        {Math.round(result.similarity * 100)}%
-                      </div>
-                    </div>
-                    <p className="text-xs sm:text-sm font-medium text-slate-900 line-clamp-2 leading-tight">
-                      {result.localMatch?.nom || result.imageId || `Luminaire ${index + 1}`}
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-slate-500 mt-1">
-                      {result.hasLocalMatch ? "Voir la fiche" : "Image similaire"}
-                    </p>
-                  </>
-                )
-
-                return result.hasLocalMatch && result.luminaireUrl ? (
-                  <Link 
-                    key={index} 
-                    href={result.luminaireUrl}
-                    className="group bg-white rounded-xl p-2 sm:p-3 border border-slate-100 hover:border-slate-200 hover:shadow-md transition-all duration-200"
-                  >
-                    {cardContent}
-                  </Link>
-                ) : (
-                  <div 
-                    key={index}
-                    className="bg-white rounded-xl p-2 sm:p-3 border border-slate-100"
-                  >
-                    {cardContent}
-                  </div>
-                )
-              })}
-            </div>
-
-            <p className="mt-4 md:mt-5 text-center text-xs sm:text-sm text-slate-500">
-              Cliquez sur un luminaire pour voir sa fiche detaillee
-            </p>
-          </div>
-        )}
       </div>
       </div>{/* End hero section */}
 
