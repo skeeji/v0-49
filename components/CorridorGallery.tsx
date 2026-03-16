@@ -24,6 +24,7 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
   const targetCameraZ = useRef(0)
   const isFetching = useRef(false)
   const framesRef = useRef<LuminaireFrame[]>([])
+  const loadedIds = useRef<Set<string>>(new Set()) // Track loaded IDs to prevent duplicates
   const sceneRef = useRef<HTMLDivElement>(null)
   const galleryRef = useRef<HTMLDivElement>(null)
   const rafId = useRef<number>(0)
@@ -66,17 +67,28 @@ export function CorridorGallery({ videoUrl }: CorridorGalleryProps) {
 
       if (data.success && data.luminaires.length > 0) {
         const newFrames: LuminaireFrame[] = data.luminaires
-          .filter((l: any) => l.filename)
-          .map((l: any) => ({
-            _id: l._id,
-            imageUrl: `/api/images/filename/${l.filename}`,
-            nom: l.nom || l["Nom luminaire"] || ""
-          }))
+          .filter((l: any) => {
+            // Only include luminaires with filename that haven't been loaded yet
+            if (!l.filename || !l._id) return false
+            if (loadedIds.current.has(l._id)) return false
+            return true
+          })
+          .map((l: any) => {
+            // Add to loaded IDs set
+            loadedIds.current.add(l._id)
+            return {
+              _id: l._id,
+              imageUrl: `/api/images/filename/${l.filename}`,
+              nom: l.nom || l["Nom luminaire"] || ""
+            }
+          })
 
-        framesRef.current = [...framesRef.current, ...newFrames]
-        maxZ.current = framesRef.current.length * FRAME_SPACING
+        if (newFrames.length > 0) {
+          framesRef.current = [...framesRef.current, ...newFrames]
+          maxZ.current = framesRef.current.length * FRAME_SPACING
+          setFrames([...framesRef.current])
+        }
         pageRef.current += 1
-        setFrames([...framesRef.current])
       }
     } catch (error) {
       console.error("Error fetching luminaires for corridor:", error)
