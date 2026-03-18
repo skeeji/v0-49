@@ -13,6 +13,7 @@ import { Loader2, Home, Users, Grid3x3, Mail, User, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
 import MobileFooter from "@/components/MobileFooter"
+import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrollRestoration"
 
 export default function LuminairesPage() {
   const searchParams = useSearchParams()
@@ -470,8 +471,12 @@ export default function LuminairesPage() {
     setDisplayOffset(50)
   }, [selectedDesigner, sliderModified, yearRange])
 
-  const pathname = usePathname()
+const pathname = usePathname()
 
+  // Scroll restoration
+  const { saveScrollPosition } = useScrollRestoration("luminaires-page")
+  const { saveForRestoration } = useMarkScrollRestoration()
+  
   if (loading && luminaires.length === 0) {
     return (
       <div className="min-h-screen bg-[#f5f1e8] pb-20">
@@ -760,7 +765,16 @@ export default function LuminairesPage() {
             const LuminaireCard = isAccessible ? Link : "div"
 
             return (
-              <LuminaireCard key={luminaire._id} {...(isAccessible ? { href: `/luminaires/${luminaire._id}` } : {})}>
+              <LuminaireCard 
+                key={luminaire._id} 
+                {...(isAccessible ? { href: `/luminaires/${luminaire._id}` } : {})}
+                onClick={() => {
+                  if (isAccessible) {
+                    saveScrollPosition()
+                    saveForRestoration()
+                  }
+                }}
+              >
                 <div
                   className={`bg-white rounded-xl overflow-hidden transition-shadow border border-gray-200 flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"

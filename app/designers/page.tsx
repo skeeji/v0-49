@@ -9,6 +9,7 @@ import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { Loader2, Users } from "lucide-react"
 import { MobileFooter } from "@/components/MobileFooter"
+import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrollRestoration"
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")
 
@@ -28,6 +29,10 @@ export default function DesignersPage() {
   const [periodFilter, setPeriodFilter] = useState("")
   const [activeLetter, setActiveLetter] = useState<string | null>(null)
   const yearFilter = ["modern", "contemporary", "art-deco"] // Declare yearFilter variable
+
+  // Scroll restoration
+  const { saveScrollPosition } = useScrollRestoration("designers-page")
+  const { saveForRestoration } = useMarkScrollRestoration()
 
   // Compute available letters from filtered designers
   const availableLetters = useMemo(() => {
@@ -404,6 +409,12 @@ export default function DesignersPage() {
                 <DesignerCard
                 {...(isAccessible ? { href: `/designers/${designer.slug}` } : {})}
                 className="block"
+                onClick={() => {
+                  if (isAccessible) {
+                    saveScrollPosition()
+                    saveForRestoration()
+                  }
+                }}
               >
                 <div
                   className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow flex flex-col h-full ${
