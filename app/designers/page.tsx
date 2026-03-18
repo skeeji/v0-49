@@ -31,20 +31,45 @@ export default function DesignersPage() {
   const yearFilter = ["modern", "contemporary", "art-deco"] // Declare yearFilter variable
 
   // Scroll restoration
-  const { saveScrollPosition } = useScrollRestoration("designers-page")
+  const { saveScrollPosition } = useScrollRestoration("designers-page", displayedDesigners.length)
   const { saveForRestoration } = useMarkScrollRestoration()
 
-  // Compute available letters from filtered designers
+  // Compute available letters from displayed designers (what's actually rendered)
   const availableLetters = useMemo(() => {
     const letters = new Set<string>()
-    filteredDesigners.forEach((designer: any) => {
+    displayedDesigners.forEach((designer: any) => {
       const firstLetter = designer.name.charAt(0).toUpperCase()
       if (ALPHABET.includes(firstLetter)) {
         letters.add(firstLetter)
       }
     })
     return letters
-  }, [filteredDesigners])
+  }, [displayedDesigners])
+
+  // Track active letter based on scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY + 150 // Offset for header
+      
+      // Find which letter section is currently visible
+      for (const letter of ALPHABET) {
+        const element = document.getElementById(`designer-${letter}`)
+        if (element) {
+          const rect = element.getBoundingClientRect()
+          const elementTop = rect.top + window.scrollY
+          const elementBottom = elementTop + rect.height
+          
+          if (scrollPosition >= elementTop && scrollPosition < elementBottom + 200) {
+            setActiveLetter(letter)
+            break
+          }
+        }
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [displayedDesigners])
 
   // Scroll to letter section
   const scrollToLetter = (letter: string) => {
@@ -401,11 +426,11 @@ export default function DesignersPage() {
             const DesignerCard = isAccessible ? Link : "div"
 
             return (
-              <div key={index}>
-                {/* Letter anchor for scroll navigation */}
-                {isFirstOfLetter && ALPHABET.includes(firstLetter) && (
-                  <div id={`designer-${firstLetter}`} className="scroll-mt-4" />
-                )}
+              <div 
+                key={index}
+                id={isFirstOfLetter && ALPHABET.includes(firstLetter) ? `designer-${firstLetter}` : undefined}
+                className="scroll-mt-20"
+              >
                 <DesignerCard
                 {...(isAccessible ? { href: `/designers/${designer.slug}` } : {})}
                 className="block"

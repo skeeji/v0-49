@@ -473,8 +473,19 @@ export default function LuminairesPage() {
 
 const pathname = usePathname()
 
-  // Scroll restoration
-  const { saveScrollPosition } = useScrollRestoration("luminaires-page")
+  // Scroll restoration - pass displayedLuminaires length for proper restoration timing
+  const displayedCount = useMemo(() => {
+    const filtered = luminaires.filter((luminaire) => {
+      if (!allLuminairesLoaded) return true
+      const matchesDesigner = !selectedDesigner || luminaire["Artiste / Dates"]?.includes(selectedDesigner) || luminaire.designer?.includes(selectedDesigner)
+      const luminaireYear = luminaire["Date / période"] ? Number.parseInt(luminaire["Date / période"]) : null
+      const matchesYear = !luminaireYear || (luminaireYear >= yearRange[0] && luminaireYear <= yearRange[1])
+      return matchesDesigner && matchesYear
+    })
+    return Math.min(filtered.length, displayOffset)
+  }, [luminaires, selectedDesigner, yearRange, allLuminairesLoaded, displayOffset])
+  
+  const { saveScrollPosition } = useScrollRestoration("luminaires-page", displayedCount)
   const { saveForRestoration } = useMarkScrollRestoration()
   
   if (loading && luminaires.length === 0) {

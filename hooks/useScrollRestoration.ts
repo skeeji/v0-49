@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
-import { usePathname } from "next/navigation"
+import { useEffect, useCallback, useRef } from "react"
 
 const SCROLL_STORAGE_KEY = "scroll_positions"
+const SHOULD_RESTORE_KEY = "should_restore_scroll"
 
 interface ScrollData {
   position: number
   timestamp: number
+  itemCount: number
 }
 
 // Get scroll positions from sessionStorage
@@ -31,8 +32,33 @@ function saveScrollPositions(positions: Record<string, ScrollData>) {
   }
 }
 
-export function useScrollRestoration(pageKey: string) {
-  const pathname = usePathname()
+// Check if we should restore scroll
+function getShouldRestore(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return sessionStorage.getItem(SHOULD_RESTORE_KEY) === "true"
+  } catch {
+    return false
+  }
+}
+
+// Set restore flag
+function setShouldRestore(value: boolean) {
+  if (typeof window === "undefined") return
+  try {
+    if (value) {
+      sessionStorage.setItem(SHOULD_RESTORE_KEY, "true")
+    } else {
+      sessionStorage.removeItem(SHOULD_RESTORE_KEY)
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function useScrollRestoration(pageKey: string, itemCount: number = 0) {
+  const hasRestored = useRef(false)
+  const restorationAttempts = useRef(0)
 
   // Save scroll position before navigating away
   const saveScrollPosition = useCallback(() => {
@@ -40,103 +66,77 @@ export function useScrollRestoration(pageKey: string) {
     positions[pageKey] = {
       position: window.scrollY,
       timestamp: Date.now(),
+      itemCount: itemCount,
     }
     saveScrollPositions(positions)
-  }, [pageKey])
+    setShouldRestore(true)
+  }, [pageKey, itemCount])
 
-  // Restore scroll position when returning to the page
+  // Restore scroll position
   const restoreScrollPosition = useCallback(() => {
     const positions = getScrollPositions()
     const savedData = positions[pageKey]
     
-    if (savedData) {
+    if (savedData && !hasRestored.current) {
       // Only restore if saved within last 30 minutes
       const thirtyMinutes = 30 * 60 * 1000
       if (Date.now() - savedData.timestamp < thirtyMinutes) {
-        // Use requestAnimationFrame to ensure DOM is ready
+        hasRestored.current = true
+        
+        // Use requestAnimationFrame for smooth restoration
         requestAnimationFrame(() => {
           window.scrollTo({
             top: savedData.position,
             behavior: "instant",
           })
         })
+        
+        // Clear the restore flag
+        setShouldRestore(false)
+        return true
       }
     }
+    return false
   }, [pageKey])
 
-  // Clear saved position for this page
-  const clearScrollPosition = useCallback(() => {
-    const positions = getScrollPositions()
-    delete positions[pageKey]
-    saveScrollPositions(positions)
-  }, [pageKey])
-
-  // Restore on mount if coming back
+  // Try to restore when items are loaded
   useEffect(() => {
-    // Check if we're coming back from a detail page
-    const navEntries = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[]
-    const isBackNavigation = navEntries.length > 0 && navEntries[0].type === "back_forward"
+    const shouldRestore = getShouldRestore()
     
-    // Also check history state
-    const historyState = window.history.state
-    const shouldRestore = isBackNavigation || historyState?.scrollRestoration === true
-
-    if (shouldRestore) {
-      // Small delay to ensure content is loaded
-      const timeoutId = setTimeout(() => {
-        restoreScrollPosition()
-      }, 100)
-      return () => clearTimeout(timeoutId)
+    if (shouldRestore && itemCount > 0 && !hasRestored.current) {
+      const positions = getScrollPositions()
+      const savedData = positions[pageKey]
+      
+      if (savedData) {
+        // Wait a bit for content to render
+        const timeoutId = setTimeout(() => {
+          if (restorationAttempts.current < 5) {
+            restorationAttempts.current++
+            restoreScrollPosition()
+          }
+        }, 100)
+        
+        return () => clearTimeout(timeoutId)
+      }
     }
-  }, [restoreScrollPosition])
+  }, [pageKey, itemCount, restoreScrollPosition])
 
-  // Save position on scroll (throttled)
+  // Reset restoration state on mount
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout
-
-    const handleScroll = () => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        saveScrollPosition()
-      }, 200)
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    
-    return () => {
-      window.removeEventListener("scroll", handleScroll)
-      clearTimeout(timeoutId)
-    }
-  }, [saveScrollPosition])
-
-  // Save position before navigation
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      saveScrollPosition()
-    }
-
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload)
-    }
-  }, [saveScrollPosition])
+    hasRestored.current = false
+    restorationAttempts.current = 0
+  }, [])
 
   return {
     saveScrollPosition,
     restoreScrollPosition,
-    clearScrollPosition,
   }
 }
 
 // Hook to mark that we should restore scroll when going back
 export function useMarkScrollRestoration() {
   const saveForRestoration = useCallback(() => {
-    // Set history state to indicate scroll should be restored
-    window.history.replaceState(
-      { ...window.history.state, scrollRestoration: true },
-      ""
-    )
+    setShouldRestore(true)
   }, [])
 
   return { saveForRestoration }
