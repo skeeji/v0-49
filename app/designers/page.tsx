@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useInView } from "react-intersection-observer"
 import Image from "next/image"
 import Link from "next/link"
@@ -9,6 +9,8 @@ import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 import { Loader2, Users } from "lucide-react"
 import { MobileFooter } from "@/components/MobileFooter"
+
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")
 
 export default function DesignersPage() {
   const [allDesigners, setAllDesigners] = useState([])
@@ -24,7 +26,29 @@ export default function DesignersPage() {
   const pathname = usePathname()
   const [filterMode, setFilterMode] = useState<"period" | "az">("period")
   const [periodFilter, setPeriodFilter] = useState("")
+  const [activeLetter, setActiveLetter] = useState<string | null>(null)
   const yearFilter = ["modern", "contemporary", "art-deco"] // Declare yearFilter variable
+
+  // Compute available letters from filtered designers
+  const availableLetters = useMemo(() => {
+    const letters = new Set<string>()
+    filteredDesigners.forEach((designer: any) => {
+      const firstLetter = designer.name.charAt(0).toUpperCase()
+      if (ALPHABET.includes(firstLetter)) {
+        letters.add(firstLetter)
+      }
+    })
+    return letters
+  }, [filteredDesigners])
+
+  // Scroll to letter section
+  const scrollToLetter = (letter: string) => {
+    setActiveLetter(letter)
+    const element = document.getElementById(`designer-${letter}`)
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }
 
   const ITEMS_PER_PAGE = 50
 
@@ -310,14 +334,74 @@ export default function DesignersPage() {
       </div>
 
       <div className="px-4 py-4">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {displayedDesigners.map((designer, index) => {
+        <div className="flex gap-4">
+          {/* Alphabet Navigation - Left Column */}
+          <nav className="hidden md:flex flex-col items-center gap-1 sticky top-4 h-fit py-2 px-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+            {ALPHABET.map((letter) => {
+              const isAvailable = availableLetters.has(letter)
+              const isActive = activeLetter === letter
+              return (
+                <button
+                  key={letter}
+                  onClick={() => isAvailable && scrollToLetter(letter)}
+                  disabled={!isAvailable}
+                  className={`w-8 h-8 flex items-center justify-center text-sm font-medium rounded-lg transition-all
+                    ${isActive 
+                      ? "bg-[#8b7355] text-white" 
+                      : isAvailable 
+                        ? "text-gray-700 hover:bg-[#f5f1e8] hover:text-[#8b7355]" 
+                        : "text-gray-300 cursor-not-allowed"
+                    }`}
+                >
+                  {letter}
+                </button>
+              )
+            })}
+          </nav>
+
+          {/* Mobile Alphabet Navigation - Horizontal */}
+          <div className="md:hidden fixed bottom-20 left-0 right-0 z-40 px-2">
+            <nav className="flex items-center justify-center gap-0.5 py-2 px-2 bg-white/95 backdrop-blur-sm rounded-full border border-gray-200 shadow-lg mx-auto max-w-fit overflow-x-auto">
+              {ALPHABET.map((letter) => {
+                const isAvailable = availableLetters.has(letter)
+                const isActive = activeLetter === letter
+                return (
+                  <button
+                    key={letter}
+                    onClick={() => isAvailable && scrollToLetter(letter)}
+                    disabled={!isAvailable}
+                    className={`w-6 h-6 flex-shrink-0 flex items-center justify-center text-xs font-medium rounded-full transition-all
+                      ${isActive 
+                        ? "bg-[#8b7355] text-white" 
+                        : isAvailable 
+                          ? "text-gray-700 hover:bg-[#f5f1e8]" 
+                          : "text-gray-300"
+                      }`}
+                  >
+                    {letter}
+                  </button>
+                )
+              })}
+            </nav>
+          </div>
+
+          {/* Designers Grid */}
+          <div className="flex-1">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {displayedDesigners.map((designer, index) => {
+                const firstLetter = designer.name.charAt(0).toUpperCase()
+                const isFirstOfLetter = index === 0 || 
+                  displayedDesigners[index - 1]?.name.charAt(0).toUpperCase() !== firstLetter
             const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
             const DesignerCard = isAccessible ? Link : "div"
 
             return (
-              <DesignerCard
-                key={index}
+              <div key={index}>
+                {/* Letter anchor for scroll navigation */}
+                {isFirstOfLetter && ALPHABET.includes(firstLetter) && (
+                  <div id={`designer-${firstLetter}`} className="scroll-mt-4" />
+                )}
+                <DesignerCard
                 {...(isAccessible ? { href: `/designers/${designer.slug}` } : {})}
                 className="block"
               >
@@ -396,21 +480,24 @@ export default function DesignersPage() {
                   </div>
                 </div>
               </DesignerCard>
+              </div>
             )
           })}
         </div>
 
-        {/* Loading indicator */}
-        {hasMore && (
-          <div ref={ref} className="text-center py-8">
-            {isLoadingMore && (
-              <div className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-gray-600">Chargement...</span>
+            {/* Loading indicator */}
+            {hasMore && (
+              <div ref={ref} className="text-center py-8">
+                {isLoadingMore && (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-gray-600">Chargement...</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
 
       <MobileFooter />
