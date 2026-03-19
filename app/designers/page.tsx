@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useInView } from "react-intersection-observer"
 import Image from "next/image"
 import Link from "next/link"
@@ -33,6 +33,34 @@ export default function DesignersPage() {
   // Scroll restoration
   const { saveScrollPosition } = useScrollRestoration("designers-page", displayedDesigners.length)
   const { saveForRestoration } = useMarkScrollRestoration()
+
+  // Item-level restoration (scroll to + highlight specific card)
+  const [highlightedDesigner, setHighlightedDesigner] = useState<string | null>(null)
+  const restorationItemRef = useRef<string | null>(null)
+  const restorationDoneRef = useRef(false)
+
+  useEffect(() => {
+    const lastId = sessionStorage.getItem("restore_item_designers")
+    if (lastId) {
+      sessionStorage.removeItem("restore_item_designers")
+      restorationItemRef.current = lastId
+    }
+  }, [])
+
+  useEffect(() => {
+    if (restorationDoneRef.current || !restorationItemRef.current) return
+    if (displayedDesigners.length === 0) return
+    const timeout = setTimeout(() => {
+      const el = document.querySelector(`[data-item-id="${restorationItemRef.current}"]`)
+      if (el) {
+        restorationDoneRef.current = true
+        el.scrollIntoView({ behavior: "instant", block: "center" })
+        setHighlightedDesigner(restorationItemRef.current)
+        setTimeout(() => setHighlightedDesigner(null), 1500)
+      }
+    }, 150)
+    return () => clearTimeout(timeout)
+  }, [displayedDesigners.length])
 
   // Compute available letters from displayed designers (what's actually rendered)
   const availableLetters = useMemo(() => {
@@ -389,9 +417,9 @@ export default function DesignersPage() {
             })}
           </nav>
 
-          {/* Mobile Alphabet Navigation - Horizontal */}
-          <div className="md:hidden fixed bottom-20 left-0 right-0 z-40 px-2">
-            <nav className="flex items-center justify-center gap-0.5 py-2 px-2 bg-white/95 backdrop-blur-sm rounded-full border border-gray-200 shadow-lg mx-auto max-w-fit overflow-x-auto">
+          {/* Mobile Alphabet Navigation - Bottom Right */}
+          <div className="md:hidden fixed bottom-20 right-2 z-40">
+            <nav className="grid grid-cols-4 gap-0.5 py-2 px-1.5 bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg">
               {ALPHABET.map((letter) => {
                 const isAvailable = availableLetters.has(letter)
                 const isActive = activeLetter === letter
@@ -400,11 +428,11 @@ export default function DesignersPage() {
                     key={letter}
                     onClick={() => isAvailable && scrollToLetter(letter)}
                     disabled={!isAvailable}
-                    className={`w-6 h-6 flex-shrink-0 flex items-center justify-center text-xs font-medium rounded-full transition-all
-                      ${isActive 
-                        ? "bg-[#8b7355] text-white" 
-                        : isAvailable 
-                          ? "text-gray-700 hover:bg-[#f5f1e8]" 
+                    className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all
+                      ${isActive
+                        ? "bg-[#8b7355] text-white"
+                        : isAvailable
+                          ? "text-gray-700 hover:bg-[#f5f1e8]"
                           : "text-gray-300"
                       }`}
                   >
@@ -426,9 +454,10 @@ export default function DesignersPage() {
             const DesignerCard = isAccessible ? Link : "div"
 
             return (
-              <div 
+              <div
                 key={index}
                 id={isFirstOfLetter && ALPHABET.includes(firstLetter) ? `designer-${firstLetter}` : undefined}
+                data-item-id={designer.slug}
                 className="scroll-mt-20"
               >
                 <DesignerCard
@@ -438,13 +467,14 @@ export default function DesignersPage() {
                   if (isAccessible) {
                     saveScrollPosition()
                     saveForRestoration()
+                    sessionStorage.setItem("restore_item_designers", designer.slug)
                   }
                 }}
               >
                 <div
-                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow flex flex-col h-full ${
+                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-all flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
-                  }`}
+                  } ${highlightedDesigner === designer.slug ? "ring-2 ring-[#8b7355] ring-offset-1 shadow-lg" : ""}`}
                 >
                   <div className="p-3 flex flex-col flex-1">
                     <div className="flex gap-2 mb-3">

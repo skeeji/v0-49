@@ -473,6 +473,34 @@ export default function LuminairesPage() {
 
 const pathname = usePathname()
 
+  // Item-level restoration (scroll to + highlight specific card)
+  const [highlightedLuminaire, setHighlightedLuminaire] = useState<string | null>(null)
+  const restorationItemRef = useRef<string | null>(null)
+  const restorationDoneRef = useRef(false)
+
+  useEffect(() => {
+    const lastId = sessionStorage.getItem("restore_item_luminaires")
+    if (lastId) {
+      sessionStorage.removeItem("restore_item_luminaires")
+      restorationItemRef.current = lastId
+    }
+  }, [])
+
+  useEffect(() => {
+    if (restorationDoneRef.current || !restorationItemRef.current) return
+    if (displayedLuminaires.length === 0) return
+    const timeout = setTimeout(() => {
+      const el = document.querySelector(`[data-item-id="${restorationItemRef.current}"]`)
+      if (el) {
+        restorationDoneRef.current = true
+        el.scrollIntoView({ behavior: "instant", block: "center" })
+        setHighlightedLuminaire(restorationItemRef.current)
+        setTimeout(() => setHighlightedLuminaire(null), 1500)
+      }
+    }, 150)
+    return () => clearTimeout(timeout)
+  }, [displayedLuminaires.length])
+
   // Scroll restoration - pass displayedLuminaires length for proper restoration timing
   const displayedCount = useMemo(() => {
     const filtered = luminaires.filter((luminaire) => {
@@ -776,20 +804,22 @@ const pathname = usePathname()
             const LuminaireCard = isAccessible ? Link : "div"
 
             return (
-              <LuminaireCard 
-                key={luminaire._id} 
+              <LuminaireCard
+                key={luminaire._id}
+                data-item-id={String(luminaire._id)}
                 {...(isAccessible ? { href: `/luminaires/${luminaire._id}` } : {})}
                 onClick={() => {
                   if (isAccessible) {
                     saveScrollPosition()
                     saveForRestoration()
+                    sessionStorage.setItem("restore_item_luminaires", String(luminaire._id))
                   }
                 }}
               >
                 <div
-                  className={`bg-white rounded-xl overflow-hidden transition-shadow border border-gray-200 flex flex-col h-full ${
+                  className={`bg-white rounded-xl overflow-hidden transition-all border border-gray-200 flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
-                  }`}
+                  } ${highlightedLuminaire === String(luminaire._id) ? "ring-2 ring-[#8b7355] ring-offset-1 shadow-lg" : ""}`}
                 >
                   <div className="aspect-square relative bg-white overflow-hidden flex-shrink-0">
                     {luminaire.filename ? (
