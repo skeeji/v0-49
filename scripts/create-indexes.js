@@ -163,7 +163,7 @@ async function main() {
     await client.connect()
     console.log("✅  Connecté")
 
-    const db = client.db("luminaires")
+    const db = client.db("gersaint")
 
     await luminaires(db)
     await designers(db)
