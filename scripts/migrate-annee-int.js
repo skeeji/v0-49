@@ -86,7 +86,7 @@ async function main() {
     await client.connect()
     console.log("✅  Connecté\n")
 
-    const db  = client.db("luminaires")
+    const db  = client.db()
     const col = db.collection("luminaires")
 
     const totalDocs = await col.countDocuments()
