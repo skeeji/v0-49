@@ -12,6 +12,7 @@ import { MobileFooter } from "@/components/MobileFooter"
 import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrollRestoration"
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")
+const ITEMS_PER_PAGE = 50
 
 export default function DesignersPage() {
   const [allDesigners, setAllDesigners] = useState([])
@@ -70,19 +71,21 @@ export default function DesignersPage() {
     return () => clearTimeout(timeout)
   }, [displayedDesigners.length])
 
-  // Compute available letters from displayed designers (what's actually rendered)
+  // Compute available letters from ALL filtered designers (not just displayed batches)
+  // so letters P, Q, R… are clickable immediately, even before their batch loads
   const availableLetters = useMemo(() => {
     const letters = new Set<string>()
-    displayedDesigners.forEach((designer: any) => {
+    filteredDesigners.forEach((designer: any) => {
       const firstLetter = designer.name.charAt(0).toUpperCase()
       if (ALPHABET.includes(firstLetter)) {
         letters.add(firstLetter)
       }
     })
     return letters
-  }, [displayedDesigners])
+  }, [filteredDesigners])
 
-  // Track active letter based on scroll position — RAF-throttled, no deps on React state
+  // Track active letter — RAF-throttled, only setState when letter actually changes
+  const activeLetterRef = useRef<string | null>(null)
   useEffect(() => {
     let rafId = 0
     const handleScroll = () => {
@@ -97,7 +100,10 @@ export default function DesignersPage() {
             const elementTop = rect.top + window.scrollY
             const elementBottom = elementTop + rect.height
             if (scrollPosition >= elementTop && scrollPosition < elementBottom + 200) {
-              setActiveLetter(letter)
+              if (letter !== activeLetterRef.current) {
+                activeLetterRef.current = letter
+                setActiveLetter(letter)
+              }
               break
             }
           }
@@ -109,18 +115,31 @@ export default function DesignersPage() {
       window.removeEventListener("scroll", handleScroll)
       if (rafId) cancelAnimationFrame(rafId)
     }
-  }, []) // Reads DOM directly — no React state dependency needed
+  }, [])
 
-  // Scroll to letter section
-  const scrollToLetter = (letter: string) => {
+  // Scroll to letter — loads missing batches if the letter isn't in the DOM yet
+  const scrollToLetter = useCallback((letter: string) => {
+    activeLetterRef.current = letter
     setActiveLetter(letter)
     const element = document.getElementById(`designer-${letter}`)
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" })
+      return
     }
-  }
-
-  const ITEMS_PER_PAGE = 50
+    // Letter not yet rendered — find first designer with that letter and load up to it
+    const targetIndex = filteredDesigners.findIndex(
+      (d: any) => d.name.charAt(0).toUpperCase() === letter
+    )
+    if (targetIndex === -1) return
+    const newPage = Math.ceil((targetIndex + 1) / ITEMS_PER_PAGE)
+    setDisplayedDesigners(filteredDesigners.slice(0, newPage * ITEMS_PER_PAGE))
+    setPage(newPage)
+    setHasMore(newPage * ITEMS_PER_PAGE < filteredDesigners.length)
+    setTimeout(() => {
+      const el = document.getElementById(`designer-${letter}`)
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 100)
+  }, [filteredDesigners])
 
   const { ref, inView } = useInView({
     threshold: 0,
@@ -429,8 +448,8 @@ export default function DesignersPage() {
             })}
           </nav>
 
-          {/* Alphabet Navigation - Mobile right column, full height */}
-          <nav className="md:hidden fixed right-0 top-0 h-screen z-40 flex flex-col items-center py-2 px-0.5 bg-white/95 backdrop-blur-sm border-l border-gray-200 shadow-sm w-6">
+          {/* Alphabet Navigation - Mobile left column, full height */}
+          <nav className="md:hidden fixed left-0 top-0 h-screen z-40 flex flex-col items-center py-2 px-0.5 bg-white/95 backdrop-blur-sm border-r border-gray-200 shadow-sm w-6">
             {ALPHABET.map((letter) => {
               const isAvailable = availableLetters.has(letter)
               const isActive = activeLetter === letter
@@ -453,8 +472,8 @@ export default function DesignersPage() {
             })}
           </nav>
 
-          {/* Designers Grid — pr-7 on mobile to avoid overlap with right nav */}
-          <div className="flex-1 pr-7 md:pr-0">
+          {/* Designers Grid — pl-7 on mobile to avoid overlap with left nav */}
+          <div className="flex-1 pl-7 md:pl-0">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {displayedDesigners.map((designer, index) => {
                 const firstLetter = designer.name.charAt(0).toUpperCase()
@@ -484,7 +503,7 @@ export default function DesignersPage() {
                 }}
               >
                 <div
-                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-all flex flex-col h-full ${
+                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
                   } ${highlightedDesigner === designer.slug ? "ring-2 ring-[#8b7355] ring-offset-1 shadow-lg" : ""}`}
                 >
