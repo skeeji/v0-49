@@ -41,6 +41,10 @@ export default function DesignersPage() {
   const restorationDoneRef = useRef(false)
 
   useEffect(() => {
+    // Restore only when coming back from an individual designer page, not from menu navigation
+    const comingFromDesigner = document.referrer.includes("/designers/")
+    if (!comingFromDesigner) return
+
     // Primary: sessionStorage. Fallback: ?restore= URL param (survives tab changes)
     let lastId = sessionStorage.getItem("restore_item_designers")
     if (!lastId) {
@@ -59,6 +63,8 @@ export default function DesignersPage() {
   useEffect(() => {
     if (restorationDoneRef.current || !restorationItemRef.current) return
     if (displayedDesigners.length === 0) return
+    // Give more time on mobile for layout to settle
+    const delay = window.innerWidth < 768 ? 300 : 150
     const timeout = setTimeout(() => {
       const el = document.querySelector(`[data-item-id="${restorationItemRef.current}"]`)
       if (el) {
@@ -67,7 +73,7 @@ export default function DesignersPage() {
         setHighlightedDesigner(restorationItemRef.current)
         setTimeout(() => setHighlightedDesigner(null), 1500)
       }
-    }, 150)
+    }, delay)
     return () => clearTimeout(timeout)
   }, [displayedDesigners.length])
 
@@ -424,8 +430,8 @@ export default function DesignersPage() {
 
       <div className="px-4 py-4">
         <div className="flex gap-4">
-          {/* Alphabet Navigation - Desktop left column, full height */}
-          <nav className="hidden md:flex flex-col items-center sticky top-0 h-screen py-3 px-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm flex-shrink-0">
+          {/* Alphabet Navigation - Desktop left column, full height below header */}
+          <nav className="hidden md:flex flex-col items-center sticky top-[60px] h-[calc(100vh-60px)] py-3 px-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm flex-shrink-0">
             {ALPHABET.map((letter) => {
               const isAvailable = availableLetters.has(letter)
               const isActive = activeLetter === letter
@@ -448,8 +454,8 @@ export default function DesignersPage() {
             })}
           </nav>
 
-          {/* Alphabet Navigation - Mobile left column, full height */}
-          <nav className="md:hidden fixed left-0 top-0 h-screen z-40 flex flex-col items-center py-2 px-0.5 bg-white/95 backdrop-blur-sm border-r border-gray-200 shadow-sm w-6">
+          {/* Alphabet Navigation - Mobile left column, between header and footer */}
+          <nav className="md:hidden fixed left-0 top-[60px] h-[calc(100vh-120px)] z-40 flex flex-col items-center py-2 px-0.5 bg-white/95 backdrop-blur-sm border-r border-gray-200 shadow-sm w-6">
             {ALPHABET.map((letter) => {
               const isAvailable = availableLetters.has(letter)
               const isActive = activeLetter === letter
