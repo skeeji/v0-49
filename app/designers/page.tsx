@@ -41,11 +41,14 @@ export default function DesignersPage() {
   const restorationDoneRef = useRef(false)
 
   useEffect(() => {
-    // Restore only when coming back from an individual designer page, not from menu navigation
-    const comingFromDesigner = document.referrer.includes("/designers/")
-    if (!comingFromDesigner) return
+    // Restore only when explicitly flagged from a designer card click
+    // (more reliable than document.referrer which is inconsistent on mobile)
+    const fromDesigner = sessionStorage.getItem("restore_from_designer") === "true"
+    if (!fromDesigner) return
 
-    // Primary: sessionStorage. Fallback: ?restore= URL param (survives tab changes)
+    sessionStorage.removeItem("restore_from_designer")
+
+    // Primary: sessionStorage slug. Fallback: ?restore= URL param
     let lastId = sessionStorage.getItem("restore_item_designers")
     if (!lastId) {
       const params = new URLSearchParams(window.location.search)
@@ -503,6 +506,7 @@ export default function DesignersPage() {
                     saveScrollPosition()
                     saveForRestoration()
                     sessionStorage.setItem("restore_item_designers", designer.slug)
+                    sessionStorage.setItem("restore_from_designer", "true")
                     // URL fallback: update current history entry so Back button restores position
                     window.history.replaceState({}, "", `/designers?restore=${encodeURIComponent(designer.slug)}`)
                   }
