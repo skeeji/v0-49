@@ -15,19 +15,32 @@ export async function GET(request: NextRequest) {
     const client = await clientPromise
     const db = client.db(DBNAME)
 
-    const luminaire = await db.collection("luminaires").findOne({
+    const collection = db.collection("luminaires")
+
+    // Tentative 1 : comparaisons exactes (utilise les index)
+    let luminaire = await collection.findOne({
       $or: [
         { filename: filename },
-        { filename: { $regex: new RegExp(`^${filename}$`, "i") } },
         { "Nom du fichier": filename },
-        { "Nom du fichier": { $regex: new RegExp(`^${filename}$`, "i") } },
         { "Image luminaire (Nom du fichier)": filename },
-        { "Image luminaire (Nom du fichier)": { $regex: new RegExp(`^${filename}$`, "i") } },
         { image_principale: filename },
         { images: filename },
-        { image_principale: { $regex: new RegExp(`^${filename}$`, "i") } },
       ],
     })
+
+    // Tentative 2 : fallback regex case-insensitive si aucun résultat exact
+    if (!luminaire) {
+      const regex = new RegExp(`^${filename}$`, "i")
+      luminaire = await collection.findOne({
+        $or: [
+          { filename: regex },
+          { "Nom du fichier": regex },
+          { "Image luminaire (Nom du fichier)": regex },
+          { image_principale: regex },
+          { images: regex },
+        ],
+      })
+    }
 
     if (luminaire) {
       return NextResponse.json({
