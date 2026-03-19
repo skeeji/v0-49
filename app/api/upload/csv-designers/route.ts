@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
     let imported = 0
     let processed = 0
     const errors: string[] = []
+    const designersToInsert: any[] = []
 
     // Traiter chaque ligne de données
     for (let i = 1; i < lines.length; i++) {
@@ -106,12 +107,18 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Insérer en base
+        /* ANCIENNE LOGIQUE (N+1 — un insertOne par designer) :
         await db.collection("designers").insertOne(designer)
         imported++
-
         if (imported % 100 === 0) {
           console.log(`📊 Progression designers: ${imported} importés`)
+        }
+        */
+
+        // NOUVELLE LOGIQUE : collecte pour insertMany batch ci-dessous
+        designersToInsert.push(designer)
+        if (designersToInsert.length % 100 === 0) {
+          console.log(`📊 Progression parsing: ${designersToInsert.length} designers parsés`)
         }
       } catch (error: any) {
         const errorMsg = `Ligne ${i + 1}: ${error.message}`
@@ -121,6 +128,32 @@ export async function POST(request: NextRequest) {
         if (errors.length > 50) {
           console.log("⚠️ Trop d'erreurs designers, arrêt de l'import")
           break
+        }
+      }
+    }
+
+    /* ANCIENNE LOGIQUE (N+1 — maintenu ici comme fallback uniquement) :
+    for (const designer of designersToInsert) {
+      await db.collection("designers").insertOne(designer)
+      imported++
+    }
+    */
+
+    // NOUVELLE LOGIQUE : insertMany en une seule requête batch
+    try {
+      if (designersToInsert.length > 0) {
+        const bulkResult = await db.collection("designers").insertMany(designersToInsert, { ordered: false })
+        imported = bulkResult.insertedCount
+        console.log(`📊 insertMany: ${imported} designers insérés en une seule requête`)
+      }
+    } catch (bulkError: any) {
+      console.warn(`⚠️ insertMany échoué (${bulkError.message}), fallback insertOne séquentiel`)
+      for (const designer of designersToInsert) {
+        try {
+          await db.collection("designers").insertOne(designer)
+          imported++
+        } catch (insertError: any) {
+          errors.push(`insertOne fallback: ${insertError.message}`)
         }
       }
     }

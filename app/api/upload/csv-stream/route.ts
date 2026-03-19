@@ -21,6 +21,57 @@ export async function POST(request: NextRequest) {
     let skipped = 0
     const errors: string[] = []
 
+    /* ANCIENNE LOGIQUE (N+1 — un findOne par ligne CSV pour vérifier les doublons) :
+    for (let i = 0; i < csvData.length; i++) {
+      const existing = await collection.findOne({ $or: [{ filename }, { "Nom du fichier" }, { "Image luminaire" }] })
+      if (existing) { skipped++; continue }
+      ...
+    }
+    */
+
+    // NOUVELLE LOGIQUE : pré-chargement de tous les filenames existants en une seule requête
+    let existingFilenamesSet: Set<string> | null = null
+    try {
+      const allFilenamesInChunk: string[] = []
+      for (const row of csvData) {
+        const lData: CSVRow = {}
+        headers.forEach((h: string, idx: number) => { lData[h] = row[idx] || "" })
+        const fn = (
+          lData["Image luminaire (Nom du fichier)"] ||
+          lData["Nom du fichier"] ||
+          lData.filename ||
+          ""
+        ).trim()
+        if (fn) allFilenamesInChunk.push(fn)
+      }
+
+      if (allFilenamesInChunk.length > 0) {
+        const existingDocs = await collection.find(
+          {
+            $or: [
+              { filename: { $in: allFilenamesInChunk } },
+              { "Nom du fichier": { $in: allFilenamesInChunk } },
+              { "Image luminaire (Nom du fichier)": { $in: allFilenamesInChunk } },
+            ],
+          },
+          { projection: { filename: 1, "Nom du fichier": 1, "Image luminaire (Nom du fichier)": 1 } },
+        ).toArray()
+
+        existingFilenamesSet = new Set<string>()
+        for (const doc of existingDocs) {
+          if (doc.filename) existingFilenamesSet.add(doc.filename.toLowerCase())
+          if (doc["Nom du fichier"]) existingFilenamesSet.add(doc["Nom du fichier"].toLowerCase())
+          if (doc["Image luminaire (Nom du fichier)"]) existingFilenamesSet.add(doc["Image luminaire (Nom du fichier)"].toLowerCase())
+        }
+        console.log(`🔍 Pré-chargement: ${existingDocs.length} doublons potentiels détectés pour ce chunk`)
+      } else {
+        existingFilenamesSet = new Set<string>()
+      }
+    } catch (prefetchError: any) {
+      console.warn(`⚠️ Pré-chargement échoué (${prefetchError.message}), fallback findOne par ligne`)
+      existingFilenamesSet = null
+    }
+
     for (let i = 0; i < csvData.length; i++) {
       const row = csvData[i]
 
@@ -48,6 +99,7 @@ export async function POST(request: NextRequest) {
         }
 
         // VÉRIFICATION DES DOUBLONS PAR NOM DE FICHIER IMAGE
+        /* ANCIENNE LOGIQUE (N+1 — un findOne par ligne) :
         const existing = await collection.findOne({
           $or: [
             { filename: cleanFilename },
@@ -55,11 +107,30 @@ export async function POST(request: NextRequest) {
             { "Image luminaire (Nom du fichier)": cleanFilename },
           ],
         })
+        if (existing) { skipped++; continue }
+        */
 
-        if (existing) {
-          console.log(`⏭️ Luminaire avec image "${cleanFilename}" déjà existant, skipped`)
-          skipped++
-          continue
+        // NOUVELLE LOGIQUE : vérification en mémoire via Set pré-chargé
+        if (existingFilenamesSet !== null) {
+          if (existingFilenamesSet.has(cleanFilename.toLowerCase())) {
+            console.log(`⏭️ Luminaire avec image "${cleanFilename}" déjà existant, skipped`)
+            skipped++
+            continue
+          }
+        } else {
+          // Ancienne logique (fallback) : un findOne par ligne
+          const existing = await collection.findOne({
+            $or: [
+              { filename: cleanFilename },
+              { "Nom du fichier": cleanFilename },
+              { "Image luminaire (Nom du fichier)": cleanFilename },
+            ],
+          })
+          if (existing) {
+            console.log(`⏭️ Luminaire avec image "${cleanFilename}" déjà existant, skipped`)
+            skipped++
+            continue
+          }
         }
 
         // Extraire les champs principaux

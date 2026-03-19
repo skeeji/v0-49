@@ -35,34 +35,79 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
       { designer: { $regex: `^${designerName.split(" ")[0]}`, $options: "i" } },
     ]
 
+    /* ANCIENNE LOGIQUE (N+1 — jusqu'à 10 find() séquentiels + 1 broad search) :
     let luminaires = []
     let searchUsed = ""
-
     for (let i = 0; i < searchPatterns.length; i++) {
-      const pattern = searchPatterns[i]
-      luminaires = await db.collection("luminaires").find(pattern).toArray()
-      if (luminaires.length > 0) {
-        searchUsed = `Pattern ${i + 1}`
+      luminaires = await db.collection("luminaires").find(searchPatterns[i]).toArray()
+      if (luminaires.length > 0) { searchUsed = `Pattern ${i + 1}`; break }
+    }
+    if (luminaires.length === 0) {
+      const broadSearch = await db.collection("luminaires").find({ $or: [firstWord regex x2] }).toArray()
+      return 404 avec broadSearch.length et suggestions
+    }
+    */
+
+    // NOUVELLE LOGIQUE : 1-2 requêtes $or consolidées, fallback sur la boucle séquentielle si erreur
+    let luminaires: any[] = []
+    let searchUsed = ""
+    let broadResults: any[] = [] // conservé pour le debug de la réponse 404
+
+    try {
+      const escaped = designerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      const stripped = designerName.replace(/[^a-zA-Z0-9\s]/g, "")
+      const firstWord = designerName.split(" ")[0]
+
+      // Requête 1 : correspondances exactes + insensibles à la casse (haute précision)
+      const preciseResults = await db.collection("luminaires").find({
+        $or: [
+          { "Artiste / Dates": designerName },
+          { designer: designerName },
+          { "Artiste / Dates": { $regex: `^${escaped}$`, $options: "i" } },
+          { designer: { $regex: `^${escaped}$`, $options: "i" } },
+        ],
+      }).toArray()
+
+      if (preciseResults.length > 0) {
+        luminaires = preciseResults
+        searchUsed = "Batch-précis (Pattern 1-4)"
         console.log(`✅ Trouvé avec ${searchUsed}: ${luminaires.length} luminaires`)
-        break
+      } else {
+        // Requête 2 : correspondances partielles + premier mot (patterns 5-10 + broad search original)
+        broadResults = await db.collection("luminaires").find({
+          $or: [
+            { "Artiste / Dates": { $regex: escaped, $options: "i" } },
+            { designer: { $regex: escaped, $options: "i" } },
+            { "Artiste / Dates": { $regex: stripped, $options: "i" } },
+            { designer: { $regex: stripped, $options: "i" } },
+            { "Artiste / Dates": { $regex: `^${firstWord}`, $options: "i" } },
+            { designer: { $regex: `^${firstWord}`, $options: "i" } },
+          ],
+        }).toArray()
+
+        if (broadResults.length > 0) {
+          luminaires = broadResults
+          searchUsed = "Batch-large (Pattern 5-10)"
+          console.log(`✅ Trouvé avec ${searchUsed}: ${luminaires.length} luminaires`)
+        }
+      }
+    } catch (batchError: any) {
+      // Fallback : ancienne logique séquentielle
+      console.warn("⚠️ Batch search échoué, fallback séquentiel:", batchError.message)
+      for (let i = 0; i < searchPatterns.length; i++) {
+        luminaires = await db.collection("luminaires").find(searchPatterns[i]).toArray()
+        if (luminaires.length > 0) {
+          searchUsed = `Pattern ${i + 1} (fallback)`
+          console.log(`✅ Trouvé avec ${searchUsed}: ${luminaires.length} luminaires`)
+          break
+        }
       }
     }
 
     console.log(`📊 ${luminaires.length} luminaires trouvés pour "${designerName}"`)
 
     if (luminaires.length === 0) {
-      // Essayer une recherche encore plus large avec $or
-      const broadSearch = await db
-        .collection("luminaires")
-        .find({
-          $or: [
-            { "Artiste / Dates": { $regex: designerName.split(" ")[0], $options: "i" } },
-            { designer: { $regex: designerName.split(" ")[0], $options: "i" } },
-          ],
-        })
-        .toArray()
-
-      console.log(`🔍 Recherche large: ${broadSearch.length} résultats`)
+      console.log(`🔍 Recherche large: ${broadResults.length} résultats`)
 
       return NextResponse.json(
         {
@@ -70,8 +115,8 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
           error: "Designer non trouvé",
           debug: {
             searchTerm: designerName,
-            broadResults: broadSearch.length,
-            suggestions: broadSearch.slice(0, 5).map((l) => l["Artiste / Dates"] || l["designer"]),
+            broadResults: broadResults.length,
+            suggestions: broadResults.slice(0, 5).map((l: any) => l["Artiste / Dates"] || l["designer"]),
           },
         },
         { status: 404 },
@@ -90,13 +135,35 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
         { Nom: { $regex: designerName.split(" ")[0], $options: "i" } },
       ]
 
+      /* ANCIENNE LOGIQUE (N+1 — jusqu'à 4 findOne séquentiels sur designers) :
       for (const query of designerQueries) {
         const designerDoc = await db.collection("designers").findOne(query)
         if (designerDoc && designerDoc.imagedesigner) {
           designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
           imagedesigner = designerDoc.imagedesigner
-          console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
           break
+        }
+      }
+      */
+
+      // NOUVELLE LOGIQUE : une seule requête $or, fallback sur la boucle séquentielle si erreur
+      try {
+        const designerDoc = await db.collection("designers").findOne({ $or: designerQueries })
+        if (designerDoc?.imagedesigner) {
+          designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
+          imagedesigner = designerDoc.imagedesigner
+          console.log(`✅ Image designer trouvée: ${designerDoc.imagedesigner}`)
+        }
+      } catch (orError: any) {
+        console.warn("⚠️ Batch designer image search échoué, fallback séquentiel:", orError.message)
+        for (const query of designerQueries) {
+          const designerDoc = await db.collection("designers").findOne(query)
+          if (designerDoc?.imagedesigner) {
+            designerImage = `/api/images/filename/${designerDoc.imagedesigner}`
+            imagedesigner = designerDoc.imagedesigner
+            console.log(`✅ Image designer trouvée (fallback): ${designerDoc.imagedesigner}`)
+            break
+          }
         }
       }
     } catch (error) {

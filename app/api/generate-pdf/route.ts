@@ -115,6 +115,40 @@ async function fetchLuminaireFromMongoDB(imageId: string): Promise<any | null> {
   }
 }
 
+// NOUVELLE LOGIQUE — récupère tous les luminaires en une seule requête $in
+// Remplace les N appels séquentiels à fetchLuminaireFromMongoDB (7 findOne par item)
+async function fetchAllLuminairesFromMongoDB(imageIds: string[]): Promise<Map<string, any>> {
+  console.log("[PDF] Batch fetch pour", imageIds.length, "image_ids")
+  const client = await clientPromise
+  const db = client.db(DBNAME)
+  const collection = db.collection("luminaires")
+
+  const docs = await collection.find({
+    $or: [
+      { filename: { $in: imageIds } },
+      { "Nom du fichier": { $in: imageIds } },
+      { "Image luminaire (Nom du fichier)": { $in: imageIds } },
+      { image_principale: { $in: imageIds } },
+      { imageId: { $in: imageIds } },
+    ],
+  }).toArray()
+
+  // Construire une Map avec toutes les variantes de clés pour un lookup O(1)
+  const map = new Map<string, any>()
+  const fields = ["filename", "Nom du fichier", "Image luminaire (Nom du fichier)", "image_principale", "imageId"]
+  for (const doc of docs) {
+    for (const field of fields) {
+      const val = doc[field]
+      if (val) {
+        map.set(val, doc)                // correspondance exacte
+        map.set(val.toLowerCase(), doc)  // insensible à la casse
+      }
+    }
+  }
+  console.log("[PDF] Batch fetch: ", docs.length, "docs trouvés,", map.size, "clés dans la map")
+  return map
+}
+
 // Fonction pour extraire les dimensions
 function extractDimensions(luminaire: any): string {
   // Champs possibles pour dimensions combinées
@@ -181,13 +215,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No items provided" }, { status: 400 })
     }
 
-    // Enrichir chaque item avec les données MongoDB
+    /* ANCIENNE LOGIQUE (N+1 — un fetchLuminaireFromMongoDB par item, jusqu'à 7 findOne chacun) :
     const enrichedItems = []
     for (const item of items) {
       console.log("[PDF] Processing:", item.image_id)
-      
       const dbData = await fetchLuminaireFromMongoDB(item.image_id)
-      
+      // ... enrichissement identique ...
+    }
+    */
+
+    // NOUVELLE LOGIQUE : une seule requête batch pour tous les items, fallback séquentiel si erreur
+    let dbDataMap: Map<string, any> | null = null
+    try {
+      const imageIds = items.map((item: LuminaireItem) => item.image_id).filter(Boolean)
+      dbDataMap = await fetchAllLuminairesFromMongoDB(imageIds)
+    } catch (batchError: any) {
+      console.warn("[PDF] Batch fetch échoué, fallback séquentiel par item:", batchError.message)
+      dbDataMap = null
+    }
+
+    const enrichedItems = []
+    for (const item of items) {
+      console.log("[PDF] Processing:", item.image_id)
+
+      let dbData: any = null
+      if (dbDataMap !== null) {
+        // Nouvelle logique : lookup en mémoire O(1)
+        dbData = dbDataMap.get(item.image_id) ?? dbDataMap.get(item.image_id?.toLowerCase()) ?? null
+      } else {
+        // Ancienne logique (fallback) : un findOne par item
+        dbData = await fetchLuminaireFromMongoDB(item.image_id)
+      }
+
       // Priority: frontend values (edited by user) > database values
       const nom = item.nom || (dbData ? (dbData.nom || dbData.Nom || dbData["Nom luminaire"] || dbData["Nom du luminaire"]) : null) || item.image_id || "Luminaire"
       const artiste = item.artiste || (dbData ? (dbData.designer || dbData.Designer || dbData["Artiste / Dates"] || dbData["Artiste, ca année"] || dbData.artiste) : null) || ""
