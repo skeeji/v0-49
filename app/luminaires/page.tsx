@@ -479,9 +479,21 @@ const pathname = usePathname()
   const restorationDoneRef = useRef(false)
 
   useEffect(() => {
-    const lastId = sessionStorage.getItem("restore_item_luminaires")
+    const fromLuminaire = sessionStorage.getItem("restore_from_luminaires") === "true"
+    if (!fromLuminaire) return
+
+    sessionStorage.removeItem("restore_from_luminaires")
+
+    let lastId = sessionStorage.getItem("restore_item_luminaires")
+    if (!lastId) {
+      const params = new URLSearchParams(window.location.search)
+      lastId = params.get("restore")
+    }
     if (lastId) {
       sessionStorage.removeItem("restore_item_luminaires")
+      if (window.location.search.includes("restore=")) {
+        window.history.replaceState({}, "", window.location.pathname)
+      }
       restorationItemRef.current = lastId
     }
   }, [])
@@ -489,6 +501,7 @@ const pathname = usePathname()
   useEffect(() => {
     if (restorationDoneRef.current || !restorationItemRef.current) return
     if (displayedLuminaires.length === 0) return
+    const delay = window.innerWidth < 768 ? 300 : 150
     const timeout = setTimeout(() => {
       const el = document.querySelector(`[data-item-id="${restorationItemRef.current}"]`)
       if (el) {
@@ -497,7 +510,7 @@ const pathname = usePathname()
         setHighlightedLuminaire(restorationItemRef.current)
         setTimeout(() => setHighlightedLuminaire(null), 1500)
       }
-    }, 150)
+    }, delay)
     return () => clearTimeout(timeout)
   }, [displayedLuminaires.length])
 
@@ -813,6 +826,8 @@ const pathname = usePathname()
                     saveScrollPosition()
                     saveForRestoration()
                     sessionStorage.setItem("restore_item_luminaires", String(luminaire._id))
+                    sessionStorage.setItem("restore_from_luminaires", "true")
+                    window.history.replaceState({}, "", `/luminaires?restore=${encodeURIComponent(String(luminaire._id))}`)
                   }
                 }}
               >
