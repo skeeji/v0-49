@@ -151,11 +151,10 @@ export default function ChronologiePage() {
     async function fetchAndProcessData() {
       setIsLoading(true)
       try {
-        const response = await fetch("/api/luminaires?limit=10000")
-        const data = await response.json()
-
-        const imagesResponse = await fetch("/api/period-images")
-        const imagesData = await imagesResponse.json()
+        const [data, imagesData] = await Promise.all([
+          fetch("/api/luminaires-chrono").then((r) => r.json()),
+          fetch("/api/period-images").then((r) => r.json()),
+        ])
 
         if (imagesData.success) {
           setPeriodImages(imagesData.images)
