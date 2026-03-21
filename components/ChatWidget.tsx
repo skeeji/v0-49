@@ -75,7 +75,7 @@ export default function ChatWidget() {
       try {
         const allLuminaires: any[] = []
 
-        const response = await fetch("/api/luminaires?limit=10000")
+        const response = await fetch("/api/luminaires-light")
         if (response.ok) {
           const data = await response.json()
           allLuminaires.push(...data.luminaires)
