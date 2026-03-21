@@ -74,21 +74,11 @@ export default function ChatWidget() {
     const fetchAllLuminaires = async () => {
       try {
         const allLuminaires: any[] = []
-        let page = 1
-        let hasMore = true
-        const limit = 50
 
-        // Faire des appels paginés jusqu'à récupérer tous les luminaires
-        while (hasMore) {
-          const response = await fetch(`/api/luminaires?page=${page}&limit=${limit}`)
-          if (response.ok) {
-            const data = await response.json()
-            allLuminaires.push(...data.luminaires)
-            hasMore = data.pagination.hasMore
-            page++
-          } else {
-            break
-          }
+        const response = await fetch("/api/luminaires?limit=10000")
+        if (response.ok) {
+          const data = await response.json()
+          allLuminaires.push(...data.luminaires)
         }
 
         console.log("Total luminaires fetched:", allLuminaires.length)
