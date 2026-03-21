@@ -28,23 +28,47 @@ export default function DesignersPage() {
   const [filterMode, setFilterMode] = useState<"period" | "az">("period")
   const [periodFilter, setPeriodFilter] = useState("")
   const [activeLetter, setActiveLetter] = useState<string | null>(null)
+  const [highlightedDesigner, setHighlightedDesigner] = useState<string | null>(null)
+  const [pendingHighlightSlug, setPendingHighlightSlug] = useState<string | null>(null)
   const yearFilter = ["modern", "contemporary", "art-deco"] // Declare yearFilter variable
 
   // Scroll restoration
   const { saveScrollPosition } = useScrollRestoration("designers-page", displayedDesigners.length)
   const { saveForRestoration } = useMarkScrollRestoration()
 
-  // Compute available letters from displayed designers (what's actually rendered)
+  // Retour arrière — lecture sessionStorage au montage
+  useEffect(() => {
+    const shouldRestore = sessionStorage.getItem("restore_from_designers")
+    if (shouldRestore !== "true") return
+    const slug = sessionStorage.getItem("restore_item_designers")
+    sessionStorage.removeItem("restore_from_designers")
+    sessionStorage.removeItem("restore_item_designers")
+    if (slug) setPendingHighlightSlug(slug)
+  }, [])
+
+  // Surbrillance — déclenché quand les données sont chargées
+  useEffect(() => {
+    if (!pendingHighlightSlug || displayedDesigners.length === 0) return
+    const el = document.querySelector(`[data-item-id="${pendingHighlightSlug}"]`)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+      setHighlightedDesigner(pendingHighlightSlug)
+      setPendingHighlightSlug(null)
+      setTimeout(() => setHighlightedDesigner(null), 1500)
+    }
+  }, [displayedDesigners, pendingHighlightSlug])
+
+  // Compute available letters from all filtered designers (not just displayed batch)
   const availableLetters = useMemo(() => {
     const letters = new Set<string>()
-    displayedDesigners.forEach((designer: any) => {
+    filteredDesigners.forEach((designer: any) => {
       const firstLetter = designer.name.charAt(0).toUpperCase()
       if (ALPHABET.includes(firstLetter)) {
         letters.add(firstLetter)
       }
     })
     return letters
-  }, [displayedDesigners])
+  }, [filteredDesigners])
 
   // Track active letter based on scroll position
   useEffect(() => {
@@ -71,12 +95,26 @@ export default function DesignersPage() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [displayedDesigners])
 
-  // Scroll to letter section
+  // Scroll to letter section — charge les batches manquants si nécessaire
   const scrollToLetter = (letter: string) => {
     setActiveLetter(letter)
     const element = document.getElementById(`designer-${letter}`)
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" })
+    } else {
+      const targetIndex = filteredDesigners.findIndex(
+        (d: any) => d.name.charAt(0).toUpperCase() === letter
+      )
+      if (targetIndex > -1) {
+        const newPage = Math.ceil((targetIndex + 1) / ITEMS_PER_PAGE)
+        setDisplayedDesigners(filteredDesigners.slice(0, newPage * ITEMS_PER_PAGE))
+        setPage(newPage)
+        setHasMore(newPage * ITEMS_PER_PAGE < filteredDesigners.length)
+        setTimeout(() => {
+          document.getElementById(`designer-${letter}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }, 100)
+      }
     }
   }
 
@@ -368,8 +406,8 @@ export default function DesignersPage() {
 
       <div className="px-4 py-4">
         <div className="flex gap-4">
-          {/* Alphabet Navigation - Left Column */}
-          <nav className="hidden md:flex flex-col items-center gap-1 sticky top-4 h-fit py-2 px-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+          {/* Alphabet Navigation - Left Column Desktop */}
+          <nav className="hidden md:flex flex-col items-center sticky top-[60px] h-[calc(100vh-60px)] py-2 px-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             {ALPHABET.map((letter) => {
               const isAvailable = availableLetters.has(letter)
               const isActive = activeLetter === letter
@@ -378,11 +416,11 @@ export default function DesignersPage() {
                   key={letter}
                   onClick={() => isAvailable && scrollToLetter(letter)}
                   disabled={!isAvailable}
-                  className={`w-8 h-8 flex items-center justify-center text-sm font-medium rounded-lg transition-all
-                    ${isActive 
-                      ? "bg-[#8b7355] text-white" 
-                      : isAvailable 
-                        ? "text-gray-700 hover:bg-[#f5f1e8] hover:text-[#8b7355]" 
+                  className={`flex-1 w-8 flex items-center justify-center text-sm font-medium rounded-lg transition-all
+                    ${isActive
+                      ? "bg-[#8b7355] text-white"
+                      : isAvailable
+                        ? "text-gray-700 hover:bg-[#f5f1e8] hover:text-[#8b7355]"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
                 >
@@ -392,35 +430,33 @@ export default function DesignersPage() {
             })}
           </nav>
 
-          {/* Mobile Alphabet Navigation - Horizontal */}
-          <div className="md:hidden fixed bottom-20 left-0 right-0 z-40 px-2">
-            <nav className="flex items-center justify-center gap-0.5 py-2 px-2 bg-white/95 backdrop-blur-sm rounded-full border border-gray-200 shadow-lg mx-auto max-w-fit overflow-x-auto">
-              {ALPHABET.map((letter) => {
-                const isAvailable = availableLetters.has(letter)
-                const isActive = activeLetter === letter
-                return (
-                  <button
-                    key={letter}
-                    onClick={() => isAvailable && scrollToLetter(letter)}
-                    disabled={!isAvailable}
-                    className={`w-6 h-6 flex-shrink-0 flex items-center justify-center text-xs font-medium rounded-full transition-all
-                      ${isActive 
-                        ? "bg-[#8b7355] text-white" 
-                        : isAvailable 
-                          ? "text-gray-700 hover:bg-[#f5f1e8]" 
-                          : "text-gray-300"
-                      }`}
-                  >
-                    {letter}
-                  </button>
-                )
-              })}
-            </nav>
-          </div>
+          {/* Mobile Alphabet Navigation - Left Column */}
+          <nav className="md:hidden fixed left-0 top-[60px] h-[calc(100vh-120px)] z-40 flex flex-col py-1 px-0.5 bg-white/95 backdrop-blur-sm border-r border-gray-200 shadow-sm overflow-hidden">
+            {ALPHABET.map((letter) => {
+              const isAvailable = availableLetters.has(letter)
+              const isActive = activeLetter === letter
+              return (
+                <button
+                  key={letter}
+                  onClick={() => isAvailable && scrollToLetter(letter)}
+                  disabled={!isAvailable}
+                  className={`flex-1 flex items-center justify-center text-xs font-medium transition-all
+                    ${isActive
+                      ? "bg-[#8b7355] text-white"
+                      : isAvailable
+                        ? "text-gray-700 hover:bg-[#f5f1e8]"
+                        : "text-gray-300"
+                    }`}
+                >
+                  {letter}
+                </button>
+              )
+            })}
+          </nav>
 
           {/* Designers Grid */}
           <div className="flex-1">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pl-8 md:pl-0">
               {displayedDesigners.map((designer, index) => {
                 const firstLetter = designer.name.charAt(0).toUpperCase()
                 const isFirstOfLetter = index === 0 || 
@@ -429,9 +465,10 @@ export default function DesignersPage() {
             const DesignerCard = isAccessible ? Link : "div"
 
             return (
-              <div 
+              <div
                 key={index}
                 id={isFirstOfLetter && ALPHABET.includes(firstLetter) ? `designer-${firstLetter}` : undefined}
+                data-item-id={designer.slug}
                 className="scroll-mt-20"
               >
                 <DesignerCard
@@ -439,6 +476,8 @@ export default function DesignersPage() {
                 className="block"
                 onClick={() => {
                   if (isAccessible) {
+                    sessionStorage.setItem("restore_item_designers", designer.slug)
+                    sessionStorage.setItem("restore_from_designers", "true")
                     saveScrollPosition()
                     saveForRestoration()
                   }
@@ -447,7 +486,7 @@ export default function DesignersPage() {
                 <div
                   className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
-                  }`}
+                  } ${highlightedDesigner === designer.slug ? "ring-2 ring-[#8b7355]" : ""}`}
                 >
                   <div className="p-3 flex flex-col flex-1">
                     <div className="flex gap-2 mb-3">
