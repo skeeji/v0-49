@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useInView } from "react-intersection-observer"
 import Image from "next/image"
 import Link from "next/link"
@@ -266,12 +266,15 @@ export default function DesignersPage() {
     }, 300)
   }, [page, filteredDesigners, isLoadingMore, hasMore])
 
+  const loadMoreRef = useRef(loadMore)
+  useEffect(() => { loadMoreRef.current = loadMore }, [loadMore])
+
   // Charger plus quand on arrive en bas
   useEffect(() => {
     if (inView && !isLoadingMore && hasMore) {
-      loadMore()
+      loadMoreRef.current()
     }
-  }, [inView, loadMore, isLoadingMore, hasMore])
+  }, [inView, isLoadingMore, hasMore])
 
   // Charger la première page
   useEffect(() => {
