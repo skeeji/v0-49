@@ -229,6 +229,9 @@ export default function LuminairesPage() {
     }
   }, [loadingMore, hasMore, loading, currentPage, fetchLuminaires, showFavorites, selectedDesigner, sliderModified])
 
+  const loadMoreRef = useRef(loadMore)
+  useEffect(() => { loadMoreRef.current = loadMore }, [loadMore])
+
   useEffect(() => {
     if (showFavorites) return
 
@@ -238,7 +241,7 @@ export default function LuminairesPage() {
       const clientHeight = document.documentElement.clientHeight
 
       if (scrollTop + clientHeight >= scrollHeight - 1000) {
-        loadMore()
+        loadMoreRef.current()
       }
     }
 
@@ -255,7 +258,7 @@ export default function LuminairesPage() {
       window.removeEventListener("scroll", throttledHandleScroll)
       clearTimeout(timeoutId)
     }
-  }, [loadMore, showFavorites])
+  }, [showFavorites])
 
   useEffect(() => {
     const handleResize = () => {
