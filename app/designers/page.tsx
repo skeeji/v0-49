@@ -30,6 +30,7 @@ export default function DesignersPage() {
   const [activeLetter, setActiveLetter] = useState<string | null>(null)
   const [highlightedDesigner, setHighlightedDesigner] = useState<string | null>(null)
   const [pendingHighlightSlug, setPendingHighlightSlug] = useState<string | null>(null)
+  const restorationDoneRef = useRef(false)
   const yearFilter = ["modern", "contemporary", "art-deco"] // Declare yearFilter variable
 
   // Scroll restoration
@@ -48,13 +49,17 @@ export default function DesignersPage() {
 
   // Surbrillance — déclenché quand les données sont chargées
   useEffect(() => {
-    if (!pendingHighlightSlug || displayedDesigners.length === 0) return
+    if (!pendingHighlightSlug || displayedDesigners.length === 0 || restorationDoneRef.current) return
     const el = document.querySelector(`[data-item-id="${pendingHighlightSlug}"]`)
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" })
-      setHighlightedDesigner(pendingHighlightSlug)
-      setPendingHighlightSlug(null)
-      setTimeout(() => setHighlightedDesigner(null), 1500)
+      restorationDoneRef.current = true
+      const delay = window.innerWidth < 768 ? 400 : 100
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+        setHighlightedDesigner(pendingHighlightSlug)
+        setPendingHighlightSlug(null)
+        setTimeout(() => setHighlightedDesigner(null), 1500)
+      }, delay)
     }
   }, [displayedDesigners, pendingHighlightSlug])
 
