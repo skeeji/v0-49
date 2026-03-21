@@ -18,12 +18,17 @@ export async function GET() {
           "Image luminaire (Nom du fichier)": 1,
           image_principale: 1,
           nom: 1,
+          "Artiste / Dates": 1,
+          designer: 1,
+          designerImageFilename: 1,
+          imageId: 1,
+          "Nom luminaire": 1,
         },
       })
       .toArray()
 
     return NextResponse.json(
-      { luminaires },
+      { success: true, luminaires },
       {
         headers: {
           "Cache-Control": "public, s-maxage=300",
