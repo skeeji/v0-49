@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { Camera, Upload, X, Lamp, Users, Clock, CreditCard, ArrowRight, Search, Grid3x3, ChevronLeft, ChevronRight, Send, ImageIcon, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -66,6 +66,16 @@ export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const { user, userData, incrementSearchCount } = useAuth()
+
+  // Map filename → luminaire pour éviter O(n) dans processApiResults
+  const luminairesMap = useMemo(() => {
+    const map = new Map<string, any>()
+    for (const l of luminaires) {
+      const fn = (l.filename || l["Nom du fichier"] || "").toLowerCase()
+      if (fn) map.set(fn, l)
+    }
+    return map
+  }, [luminaires])
 
   const callImageSimilarityAPI = async (file: File) => {
     try {
@@ -136,13 +146,8 @@ export default function HomePage() {
         }
       }
 
-      // Chercher par filename dans la base MongoDB (même nom d'image)
-      const localMatch = luminaires.find((luminaire: any) => {
-        const localFilename = (luminaire.filename || luminaire["Nom du fichier"] || "").toLowerCase()
-        const searchFilename = cleanImageId.toLowerCase()
-        // Correspondance exacte par nom de fichier
-        return localFilename === searchFilename
-      })
+      // Chercher par filename dans la base MongoDB via Map O(1)
+      const localMatch = luminairesMap.get(cleanImageId.toLowerCase())
 
       console.log(`🔍 Recherche: "${cleanImageId}" → ${localMatch ? `✅ Trouvé: ${localMatch._id}` : "❌ Pas trouvé"}`)
 
@@ -696,7 +701,7 @@ export default function HomePage() {
     // Charger les luminaires depuis l'API MongoDB
     const loadLuminaires = async () => {
       try {
-        const response = await fetch("/api/luminaires?limit=10000") // Charger tous les luminaires
+        const response = await fetch("/api/luminaires-light") // Payload optimisé (filename, _id)
         if (response.ok) {
           const data = await response.json()
           if (data.success) {
@@ -715,20 +720,21 @@ export default function HomePage() {
     // Chercher des designers connus et recents
     const knownNames = ["Starck", "Tom Dixon", "Royere", "Ingo Maurer", "Flos", "Artemide", "Le Corbusier", "Charlotte Perriand", "Serge Mouille", "Jean Prouve"]
     const results: any[] = []
-    for (const name of knownNames) {
-      if (results.length >= 6) break
-      try {
-        const res = await fetch(`/api/designers?search=${encodeURIComponent(name)}&limit=1`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.success && data.designers.length > 0) {
-            const d = data.designers[0]
-            if (d.image && !results.find((r: any) => r.id === d.id)) {
-              results.push(d)
-            }
+    const allResponses = await Promise.all(
+      knownNames.map(async (name) => {
+        try {
+          const res = await fetch(`/api/designers?search=${encodeURIComponent(name)}&limit=1`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data.success && data.designers.length > 0) return data.designers[0]
           }
-        }
-      } catch {}
+        } catch {}
+        return null
+      })
+    )
+    for (const d of allResponses) {
+      if (results.length >= 6) break
+      if (d && d.image && !results.find((r: any) => r.id === d.id)) results.push(d)
     }
     // Si pas assez, completer avec le fetch classique
     if (results.length < 6) {
