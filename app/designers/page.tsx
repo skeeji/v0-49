@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useInView } from "react-intersection-observer"
 import Image from "next/image"
 import Link from "next/link"
@@ -12,7 +12,6 @@ import { MobileFooter } from "@/components/MobileFooter"
 import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrollRestoration"
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")
-const ITEMS_PER_PAGE = 50
 
 export default function DesignersPage() {
   const [allDesigners, setAllDesigners] = useState([])
@@ -35,120 +34,53 @@ export default function DesignersPage() {
   const { saveScrollPosition } = useScrollRestoration("designers-page", displayedDesigners.length)
   const { saveForRestoration } = useMarkScrollRestoration()
 
-  // Item-level restoration (scroll to + highlight specific card)
-  const [highlightedDesigner, setHighlightedDesigner] = useState<string | null>(null)
-  const restorationItemRef = useRef<string | null>(null)
-  const restorationDoneRef = useRef(false)
-
-  useEffect(() => {
-    // Restore only when explicitly flagged from a designer card click
-    // (more reliable than document.referrer which is inconsistent on mobile)
-    const fromDesigner = sessionStorage.getItem("restore_from_designer") === "true"
-    if (!fromDesigner) return
-
-    sessionStorage.removeItem("restore_from_designer")
-
-    // Primary: sessionStorage slug. Fallback: ?restore= URL param
-    let lastId = sessionStorage.getItem("restore_item_designers")
-    if (!lastId) {
-      const params = new URLSearchParams(window.location.search)
-      lastId = params.get("restore")
-    }
-    if (lastId) {
-      sessionStorage.removeItem("restore_item_designers")
-      if (window.location.search.includes("restore=")) {
-        window.history.replaceState({}, "", window.location.pathname)
-      }
-      restorationItemRef.current = lastId
-    }
-  }, [])
-
-  useEffect(() => {
-    if (restorationDoneRef.current || !restorationItemRef.current) return
-    if (displayedDesigners.length === 0) return
-    // Give more time on mobile for layout to settle
-    const delay = window.innerWidth < 768 ? 300 : 150
-    const timeout = setTimeout(() => {
-      const el = document.querySelector(`[data-item-id="${restorationItemRef.current}"]`)
-      if (el) {
-        restorationDoneRef.current = true
-        el.scrollIntoView({ behavior: "instant", block: "center" })
-        setHighlightedDesigner(restorationItemRef.current)
-        setTimeout(() => setHighlightedDesigner(null), 1500)
-      }
-    }, delay)
-    return () => clearTimeout(timeout)
-  }, [displayedDesigners.length])
-
-  // Compute available letters from ALL filtered designers (not just displayed batches)
-  // so letters P, Q, R… are clickable immediately, even before their batch loads
+  // Compute available letters from displayed designers (what's actually rendered)
   const availableLetters = useMemo(() => {
     const letters = new Set<string>()
-    filteredDesigners.forEach((designer: any) => {
+    displayedDesigners.forEach((designer: any) => {
       const firstLetter = designer.name.charAt(0).toUpperCase()
       if (ALPHABET.includes(firstLetter)) {
         letters.add(firstLetter)
       }
     })
     return letters
-  }, [filteredDesigners])
+  }, [displayedDesigners])
 
-  // Track active letter — RAF-throttled, only setState when letter actually changes
-  const activeLetterRef = useRef<string | null>(null)
+  // Track active letter based on scroll position
   useEffect(() => {
-    let rafId = 0
     const handleScroll = () => {
-      if (rafId) return
-      rafId = requestAnimationFrame(() => {
-        rafId = 0
-        const scrollPosition = window.scrollY + 150
-        for (const letter of ALPHABET) {
-          const element = document.getElementById(`designer-${letter}`)
-          if (element) {
-            const rect = element.getBoundingClientRect()
-            const elementTop = rect.top + window.scrollY
-            const elementBottom = elementTop + rect.height
-            if (scrollPosition >= elementTop && scrollPosition < elementBottom + 200) {
-              if (letter !== activeLetterRef.current) {
-                activeLetterRef.current = letter
-                setActiveLetter(letter)
-              }
-              break
-            }
+      const scrollPosition = window.scrollY + 150 // Offset for header
+      
+      // Find which letter section is currently visible
+      for (const letter of ALPHABET) {
+        const element = document.getElementById(`designer-${letter}`)
+        if (element) {
+          const rect = element.getBoundingClientRect()
+          const elementTop = rect.top + window.scrollY
+          const elementBottom = elementTop + rect.height
+          
+          if (scrollPosition >= elementTop && scrollPosition < elementBottom + 200) {
+            setActiveLetter(letter)
+            break
           }
         }
-      })
+      }
     }
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => {
-      window.removeEventListener("scroll", handleScroll)
-      if (rafId) cancelAnimationFrame(rafId)
-    }
-  }, [])
 
-  // Scroll to letter — loads missing batches if the letter isn't in the DOM yet
-  const scrollToLetter = useCallback((letter: string) => {
-    activeLetterRef.current = letter
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [displayedDesigners])
+
+  // Scroll to letter section
+  const scrollToLetter = (letter: string) => {
     setActiveLetter(letter)
     const element = document.getElementById(`designer-${letter}`)
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" })
-      return
     }
-    // Letter not yet rendered — find first designer with that letter and load up to it
-    const targetIndex = filteredDesigners.findIndex(
-      (d: any) => d.name.charAt(0).toUpperCase() === letter
-    )
-    if (targetIndex === -1) return
-    const newPage = Math.ceil((targetIndex + 1) / ITEMS_PER_PAGE)
-    setDisplayedDesigners(filteredDesigners.slice(0, newPage * ITEMS_PER_PAGE))
-    setPage(newPage)
-    setHasMore(newPage * ITEMS_PER_PAGE < filteredDesigners.length)
-    setTimeout(() => {
-      const el = document.getElementById(`designer-${letter}`)
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
-    }, 100)
-  }, [filteredDesigners])
+  }
+
+  const ITEMS_PER_PAGE = 50
 
   const { ref, inView } = useInView({
     threshold: 0,
@@ -433,8 +365,8 @@ export default function DesignersPage() {
 
       <div className="px-4 py-4">
         <div className="flex gap-4">
-          {/* Alphabet Navigation - Desktop left column, full height below header */}
-          <nav className="hidden md:flex flex-col items-center sticky top-[60px] h-[calc(100vh-60px)] py-3 px-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm flex-shrink-0">
+          {/* Alphabet Navigation - Left Column */}
+          <nav className="hidden md:flex flex-col items-center gap-1 sticky top-4 h-fit py-2 px-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
             {ALPHABET.map((letter) => {
               const isAvailable = availableLetters.has(letter)
               const isActive = activeLetter === letter
@@ -443,11 +375,11 @@ export default function DesignersPage() {
                   key={letter}
                   onClick={() => isAvailable && scrollToLetter(letter)}
                   disabled={!isAvailable}
-                  className={`w-7 flex-1 min-h-0 flex items-center justify-center text-xs font-medium rounded-lg transition-all
-                    ${isActive
-                      ? "bg-[#8b7355] text-white"
-                      : isAvailable
-                        ? "text-gray-700 hover:bg-[#f5f1e8] hover:text-[#8b7355]"
+                  className={`w-8 h-8 flex items-center justify-center text-sm font-medium rounded-lg transition-all
+                    ${isActive 
+                      ? "bg-[#8b7355] text-white" 
+                      : isAvailable 
+                        ? "text-gray-700 hover:bg-[#f5f1e8] hover:text-[#8b7355]" 
                         : "text-gray-300 cursor-not-allowed"
                     }`}
                 >
@@ -457,32 +389,34 @@ export default function DesignersPage() {
             })}
           </nav>
 
-          {/* Alphabet Navigation - Mobile left column, between header and footer */}
-          <nav className="md:hidden fixed left-0 top-[60px] h-[calc(100vh-120px)] z-40 flex flex-col items-center py-2 px-0.5 bg-white/95 backdrop-blur-sm border-r border-gray-200 shadow-sm w-6">
-            {ALPHABET.map((letter) => {
-              const isAvailable = availableLetters.has(letter)
-              const isActive = activeLetter === letter
-              return (
-                <button
-                  key={letter}
-                  onClick={() => isAvailable && scrollToLetter(letter)}
-                  disabled={!isAvailable}
-                  className={`w-5 flex-1 min-h-0 flex items-center justify-center text-[10px] font-medium rounded transition-all
-                    ${isActive
-                      ? "bg-[#8b7355] text-white"
-                      : isAvailable
-                        ? "text-gray-700"
-                        : "text-gray-300"
-                    }`}
-                >
-                  {letter}
-                </button>
-              )
-            })}
-          </nav>
+          {/* Mobile Alphabet Navigation - Horizontal */}
+          <div className="md:hidden fixed bottom-20 left-0 right-0 z-40 px-2">
+            <nav className="flex items-center justify-center gap-0.5 py-2 px-2 bg-white/95 backdrop-blur-sm rounded-full border border-gray-200 shadow-lg mx-auto max-w-fit overflow-x-auto">
+              {ALPHABET.map((letter) => {
+                const isAvailable = availableLetters.has(letter)
+                const isActive = activeLetter === letter
+                return (
+                  <button
+                    key={letter}
+                    onClick={() => isAvailable && scrollToLetter(letter)}
+                    disabled={!isAvailable}
+                    className={`w-6 h-6 flex-shrink-0 flex items-center justify-center text-xs font-medium rounded-full transition-all
+                      ${isActive 
+                        ? "bg-[#8b7355] text-white" 
+                        : isAvailable 
+                          ? "text-gray-700 hover:bg-[#f5f1e8]" 
+                          : "text-gray-300"
+                      }`}
+                  >
+                    {letter}
+                  </button>
+                )
+              })}
+            </nav>
+          </div>
 
-          {/* Designers Grid — pl-7 on mobile to avoid overlap with left nav */}
-          <div className="flex-1 pl-7 md:pl-0">
+          {/* Designers Grid */}
+          <div className="flex-1">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {displayedDesigners.map((designer, index) => {
                 const firstLetter = designer.name.charAt(0).toUpperCase()
@@ -492,10 +426,9 @@ export default function DesignersPage() {
             const DesignerCard = isAccessible ? Link : "div"
 
             return (
-              <div
+              <div 
                 key={index}
                 id={isFirstOfLetter && ALPHABET.includes(firstLetter) ? `designer-${firstLetter}` : undefined}
-                data-item-id={designer.slug}
                 className="scroll-mt-20"
               >
                 <DesignerCard
@@ -505,17 +438,13 @@ export default function DesignersPage() {
                   if (isAccessible) {
                     saveScrollPosition()
                     saveForRestoration()
-                    sessionStorage.setItem("restore_item_designers", designer.slug)
-                    sessionStorage.setItem("restore_from_designer", "true")
-                    // URL fallback: update current history entry so Back button restores position
-                    window.history.replaceState({}, "", `/designers?restore=${encodeURIComponent(designer.slug)}`)
                   }
                 }}
               >
                 <div
                   className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
-                  } ${highlightedDesigner === designer.slug ? "ring-2 ring-[#8b7355] ring-offset-1 shadow-lg" : ""}`}
+                  }`}
                 >
                   <div className="p-3 flex flex-col flex-1">
                     <div className="flex gap-2 mb-3">
