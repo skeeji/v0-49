@@ -96,7 +96,7 @@ export default function DesignersPage() {
       setIsLoading(true)
       try {
         // Charger tous les luminaires pour extraire TOUS les designers
-        const luminairesResponse = await fetch("/api/luminaires?limit=10000")
+        const luminairesResponse = await fetch("/api/luminaires-light")
         const luminairesData = await luminairesResponse.json()
 
         if (luminairesData.success) {
@@ -159,7 +159,7 @@ export default function DesignersPage() {
 
           // Essayer aussi l'ancienne méthode en fallback
           try {
-            const designersResponse = await fetch("/api/designers-data")
+            const designersResponse = await fetch("/api/designers-list")
             const designersResult = await designersResponse.json()
 
             if (designersResult.success && designersResult.designers) {
