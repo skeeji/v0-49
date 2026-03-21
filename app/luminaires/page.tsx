@@ -43,6 +43,9 @@ export default function LuminairesPage() {
 
   const [selectedDesigner, setSelectedDesigner] = useState("")
   const [displayOffset, setDisplayOffset] = useState(50)
+  const [highlightedLuminaire, setHighlightedLuminaire] = useState<string | null>(null)
+  const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(null)
+  const restorationDoneRef = useRef(false)
 
   const yearRangeRef = useRef(yearRange)
   const sliderModifiedRef = useRef(sliderModified)
@@ -490,7 +493,33 @@ const pathname = usePathname()
   
   const { saveScrollPosition } = useScrollRestoration("luminaires-page", displayedCount)
   const { saveForRestoration } = useMarkScrollRestoration()
-  
+
+  // Retour arrière — lecture sessionStorage au montage
+  useEffect(() => {
+    const fromCard = sessionStorage.getItem("restore_from_luminaires")
+    if (fromCard !== "true") return
+    const id = sessionStorage.getItem("restore_item_luminaires")
+    sessionStorage.removeItem("restore_from_luminaires")
+    sessionStorage.removeItem("restore_item_luminaires")
+    if (id) setPendingHighlightId(id)
+  }, [])
+
+  // Surbrillance — déclenché quand les données sont chargées
+  useEffect(() => {
+    if (!pendingHighlightId || displayedLuminaires.length === 0 || restorationDoneRef.current) return
+    const el = document.querySelector(`[data-item-id="${pendingHighlightId}"]`)
+    if (el) {
+      restorationDoneRef.current = true
+      const delay = window.innerWidth < 768 ? 400 : 100
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+        setHighlightedLuminaire(pendingHighlightId)
+        setPendingHighlightId(null)
+        setTimeout(() => setHighlightedLuminaire(null), 1500)
+      }, delay)
+    }
+  }, [displayedLuminaires, pendingHighlightId])
+
   if (loading && luminaires.length === 0) {
     return (
       <div className="min-h-screen bg-[#f5f1e8] pb-20">
@@ -779,11 +808,14 @@ const pathname = usePathname()
             const LuminaireCard = isAccessible ? Link : "div"
 
             return (
-              <LuminaireCard 
-                key={luminaire._id} 
+              <LuminaireCard
+                key={luminaire._id}
+                data-item-id={String(luminaire._id)}
                 {...(isAccessible ? { href: `/luminaires/${luminaire._id}` } : {})}
                 onClick={() => {
                   if (isAccessible) {
+                    sessionStorage.setItem("restore_item_luminaires", String(luminaire._id))
+                    sessionStorage.setItem("restore_from_luminaires", "true")
                     saveScrollPosition()
                     saveForRestoration()
                   }
@@ -792,7 +824,7 @@ const pathname = usePathname()
                 <div
                   className={`bg-white rounded-xl overflow-hidden transition-shadow border border-gray-200 flex flex-col h-full ${
                     isAccessible ? "hover:shadow-lg cursor-pointer" : "opacity-50 grayscale cursor-not-allowed"
-                  }`}
+                  } ${highlightedLuminaire === String(luminaire._id) ? "ring-2 ring-[#8b7355]" : ""}`}
                 >
                   <div className="aspect-square relative bg-white overflow-hidden flex-shrink-0">
                     {luminaire.filename ? (
