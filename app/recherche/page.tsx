@@ -89,6 +89,10 @@ export default function RecherchePage() {
           })),
         }))
         setConversations(hydrated)
+        const lastActive = [...hydrated].sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        )[0]
+        if (lastActive) setCurrentConversation(lastActive)
       }
     }
   }, [user])
@@ -619,6 +623,8 @@ export default function RecherchePage() {
                                               imageUrl: result.imageUrl || "/placeholder.svg",
                                               nom: result.nom || extractedImageId || "Luminaire",
                                               artiste: result.artiste || "Inconnu",
+                                              annee: result.annee ? String(result.annee) : "",
+                                              dimensions: result.dimensions || "",
                                             })
                                             toast.success("Ajouté à la sélection")
                                           }
