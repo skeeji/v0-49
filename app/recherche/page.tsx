@@ -637,21 +637,41 @@ export default function RecherchePage() {
                                     <div key={index} className="relative group">
                                       {/* Add to selection button */}
                                       <button
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           if (!isSelected) {
+                                            let fullData = {
+                                              dimensions: result.dimensions || "",
+                                              materiaux: result.materiaux || "",
+                                              puissance: result.puissance || "",
+                                              prixHT: result.prixHT || "",
+                                              annee: result.annee ? String(result.annee) : "",
+                                            }
+                                            if (result.luminaireId) {
+                                              try {
+                                                const res = await fetch(`/api/luminaires/${result.luminaireId}`)
+                                                if (res.ok) {
+                                                  const d = await res.json()
+                                                  if (d.data) {
+                                                    fullData.dimensions = d.data.dimensions || d.data["Dimensions"] || fullData.dimensions
+                                                    fullData.materiaux = Array.isArray(d.data.materiaux)
+                                                      ? d.data.materiaux.join(", ")
+                                                      : d.data.materiaux || d.data["Matériaux"] || fullData.materiaux
+                                                    fullData.puissance = d.data.puissance || d.data["Puissance"] || fullData.puissance
+                                                    fullData.prixHT = d.data.prixHT || d.data["Prix HT"] || fullData.prixHT
+                                                    fullData.annee = d.data.annee || d.data["Année"] || fullData.annee
+                                                  }
+                                                }
+                                              } catch {}
+                                            }
                                             addToSelection({
                                               id: itemId,
                                               imageId: extractedImageId,
                                               imageUrl: result.imageUrl || "/placeholder.svg",
                                               nom: result.nom || extractedImageId || "Luminaire",
                                               artiste: result.artiste || "Inconnu",
-                                              annee: result.annee ? String(result.annee) : "",
-                                              dimensions: result.dimensions || "",
-                                              materiaux: result.materiaux || "",
-                                              puissance: result.puissance || "",
-                                              prixHT: result.prixHT || "",
+                                              ...fullData,
                                             })
                                             toast.success("Ajouté à la sélection")
                                           }
