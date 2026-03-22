@@ -400,6 +400,13 @@ export default function RecherchePage() {
 
         const fileName = imageId.toLowerCase()
         let luminaireId = null
+        let nomFromDb = ""
+        let artisteFromDb = ""
+        let anneeFromDb = ""
+        let dimensionsFromDb = ""
+        let materiauxFromDb = ""
+        let puissanceFromDb = ""
+        let prixHTFromDb = ""
 
         if (fileName) {
           try {
@@ -408,6 +415,13 @@ export default function RecherchePage() {
               const data = await response.json()
               if (data.success && data.found) {
                 luminaireId = data.luminaireId
+                nomFromDb = data.nom || ""
+                artisteFromDb = data.artiste || ""
+                anneeFromDb = data.annee || ""
+                dimensionsFromDb = data.dimensions || ""
+                materiauxFromDb = data.materiaux || ""
+                puissanceFromDb = data.puissance || ""
+                prixHTFromDb = data.estimation || data.prixHT || ""
               }
             }
           } catch (error) {
@@ -421,6 +435,13 @@ export default function RecherchePage() {
           luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
           luminaireId,
           similarity: result.similarity || 0,
+          nom: nomFromDb,
+          artiste: artisteFromDb,
+          annee: anneeFromDb,
+          dimensions: dimensionsFromDb,
+          materiaux: materiauxFromDb,
+          puissance: puissanceFromDb,
+          prixHT: prixHTFromDb,
         }
       }),
     )
