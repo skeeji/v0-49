@@ -341,6 +341,13 @@ export default function RecherchePage() {
               const data = await response.json()
               if (data.success && data.found) {
                 mongoId = data.luminaireId
+                result.nom = result.nom || data.nom || ""
+                result.artiste = result.artiste || data.artiste || ""
+                result.annee = result.annee || data.annee || ""
+                result.dimensions = data.dimensions || ""
+                result.materiaux = data.materiaux || ""
+                result.puissance = data.puissance || ""
+                result.prixHT = data.prixHT || ""
               }
             }
           } catch (error) {
@@ -625,6 +632,9 @@ export default function RecherchePage() {
                                               artiste: result.artiste || "Inconnu",
                                               annee: result.annee ? String(result.annee) : "",
                                               dimensions: result.dimensions || "",
+                                              materiaux: result.materiaux || "",
+                                              puissance: result.puissance || "",
+                                              prixHT: result.prixHT || "",
                                             })
                                             toast.success("Ajouté à la sélection")
                                           }

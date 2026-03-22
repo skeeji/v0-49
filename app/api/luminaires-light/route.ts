@@ -23,6 +23,9 @@ export async function GET() {
           designerImageFilename: 1,
           imageId: 1,
           "Nom luminaire": 1,
+          annee: 1,
+          "Année": 1,
+          year: 1,
         },
       })
       .toArray()
