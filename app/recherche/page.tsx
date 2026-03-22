@@ -362,6 +362,11 @@ export default function RecherchePage() {
             console.error("[v0] Error fetching MongoDB ID:", error)
           }
         }
+        console.log("[debug] fileName:", fileName, "| data:", JSON.stringify({
+          dimensions: result.dimensions,
+          materiaux: result.materiaux,
+          prixHT: result.prixHT,
+        }))
 
         const imageUrl = result.imageUrl || result.image_url || `/api/images/filename/${fileName}`
 
