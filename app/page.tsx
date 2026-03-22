@@ -694,6 +694,7 @@ export default function HomePage() {
   }
 
   useEffect(() => {
+    if (chatMessages.length === 0) return
     chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [chatMessages])
 
