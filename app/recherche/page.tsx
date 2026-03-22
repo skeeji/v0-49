@@ -365,6 +365,10 @@ export default function RecherchePage() {
           artiste: result.artiste || "Inconnu",
           annee: result.annee === null || result.annee === "" ? "Non spécifié" : String(result.annee),
           similarity: result.similarity || 0,
+          dimensions: result.dimensions || "",
+          materiaux: result.materiaux || "",
+          puissance: result.puissance || "",
+          prixHT: result.prixHT || "",
         }
       }),
     )
