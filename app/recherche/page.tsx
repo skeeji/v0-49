@@ -352,10 +352,10 @@ export default function RecherchePage() {
                 result.nom = result.nom || data.nom || ""
                 result.artiste = result.artiste || data.artiste || ""
                 result.annee = result.annee || data.annee || ""
-                result.dimensions = data.dimensions || ""
-                result.materiaux = data.materiaux || ""
-                result.puissance = data.puissance || ""
-                result.prixHT = data.prixHT || ""
+                result.dimensions = result.dimensions || data.dimensions || ""
+                result.materiaux = result.materiaux || data.materiaux || ""
+                result.puissance = result.puissance || data.puissance || ""
+                result.prixHT = result.prixHT || data.prixHT || ""
               }
             }
           } catch (error) {
