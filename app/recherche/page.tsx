@@ -327,9 +327,17 @@ export default function RecherchePage() {
     const enriched = await Promise.all(
       results.map(async (result) => {
         const luminaireId = result.luminaireId || result.luminaire_id
+        let fileName = luminaireId?.split("/").pop()?.toLowerCase() || luminaireId
 
-        // Extract filename from luminaireId (e.g., "luminaire_3725.jpg")
-        const fileName = luminaireId?.split("/").pop()?.toLowerCase() || luminaireId
+        // Fallback : extraire depuis imageUrl si luminaireId absent
+        if (!fileName && result.imageUrl) {
+          const urlParts = result.imageUrl.split("/")
+          fileName = urlParts[urlParts.length - 1]?.toLowerCase() || ""
+        }
+        if (!fileName && result.image_url) {
+          const urlParts = result.image_url.split("/")
+          fileName = urlParts[urlParts.length - 1]?.toLowerCase() || ""
+        }
 
         let mongoId = null
 
