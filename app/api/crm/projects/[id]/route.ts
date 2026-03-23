@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+const DBNAME = "luminaires"
 
 export async function GET(
   request: NextRequest,
