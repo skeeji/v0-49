@@ -62,6 +62,7 @@ export default function RecherchePage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const currentConversationRef = useRef<Conversation | null>(null)
 
   useEffect(() => {
     if (!user) {
@@ -96,6 +97,10 @@ export default function RecherchePage() {
       }
     }
   }, [user])
+
+  useEffect(() => {
+    currentConversationRef.current = currentConversation
+  }, [currentConversation])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -147,11 +152,12 @@ export default function RecherchePage() {
 
     let updatedConversation: Conversation
 
-    if (currentConversation) {
+    const activeConv = currentConversationRef.current
+    if (activeConv) {
       updatedConversation = {
-        ...currentConversation,
-        messages: [...currentConversation.messages, message],
-        searchContext: newSearchContext !== undefined ? newSearchContext : currentConversation.searchContext,
+        ...activeConv,
+        messages: [...activeConv.messages, message],
+        searchContext: newSearchContext !== undefined ? newSearchContext : activeConv.searchContext,
         updatedAt: new Date(),
       }
     } else {
@@ -166,6 +172,7 @@ export default function RecherchePage() {
     }
 
     setCurrentConversation(updatedConversation)
+    currentConversationRef.current = updatedConversation
 
     const convIndex = conversations.findIndex((c) => c.id === updatedConversation.id)
     let updatedConversations: Conversation[]
