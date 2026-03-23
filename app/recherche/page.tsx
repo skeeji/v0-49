@@ -236,9 +236,31 @@ export default function RecherchePage() {
         const enrichedResults = await enrichResultsWithIds(data.results)
         console.log("[v0] Enriched results:", enrichedResults)
 
+        let groqMessage: string | null = null
+        try {
+          const groqRes = await fetch("/api/groq", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: inputValue,
+              searchContext: newSearchContext,
+              results: enrichedResults.map(r => ({
+                nom: r.nom,
+                artiste: r.artiste,
+                annee: r.annee,
+                dimensions: r.dimensions
+              }))
+            })
+          })
+          if (groqRes.ok) {
+            const groqData = await groqRes.json()
+            groqMessage = groqData.message || null
+          }
+        } catch {}
+
         addMessage(
           "assistant",
-          `J'ai trouvé ${enrichedResults.length} luminaire(s) correspondant à votre recherche :`,
+          groqMessage || `J'ai trouvé ${enrichedResults.length} luminaire(s) correspondant à votre recherche :`,
           undefined,
           enrichedResults,
           newSearchContext,

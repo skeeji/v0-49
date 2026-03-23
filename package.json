@@ -50,6 +50,7 @@
     "firebase": "latest",
     "fs": "^0.0.1-security",
     "gcp-metadata": "^7.0.1",
+    "groq-sdk": "^1.1.1",
     "input-otp": "latest",
     "jspdf": "latest",
     "jszip": "3.10.1",
