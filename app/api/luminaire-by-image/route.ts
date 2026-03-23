@@ -45,8 +45,17 @@ export async function GET(request: NextRequest) {
     if (luminaire) {
       return NextResponse.json({
         success: true,
-        luminaireId: luminaire._id.toString(),
         found: true,
+        luminaireId: luminaire._id.toString(),
+        nom: luminaire.nom || luminaire["Nom luminaire"] || "",
+        artiste: luminaire["Artiste / Dates"] || luminaire.designer || "",
+        annee: luminaire.annee || luminaire["Année"] || luminaire.year || "",
+        dimensions: luminaire.dimensions || "",
+        materiaux: Array.isArray(luminaire.materiaux)
+          ? luminaire.materiaux.join(", ")
+          : luminaire.materiaux || "",
+        puissance: luminaire.puissance || "",
+        prixHT: luminaire.estimation || luminaire.prixHT || "",
       })
     }
 
