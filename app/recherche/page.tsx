@@ -324,9 +324,31 @@ export default function RecherchePage() {
       if (data.results && data.results.length > 0) {
         const enrichedResults = await enrichImageResultsWithIds(data.results)
 
+        let groqMessage: string | null = null
+        try {
+          const groqRes = await fetch("/api/groq", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: "Recherche par image",
+              searchContext: "Recherche par similarité visuelle",
+              results: enrichedResults.map(r => ({
+                nom: r.nom,
+                artiste: r.artiste,
+                annee: r.annee,
+                dimensions: r.dimensions
+              }))
+            })
+          })
+          if (groqRes.ok) {
+            const groqData = await groqRes.json()
+            groqMessage = groqData.message || null
+          }
+        } catch {}
+
         addMessage(
           "assistant",
-          `J'ai trouvé ${enrichedResults.length} luminaire(s) similaire(s) :`,
+          groqMessage || `J'ai trouvé ${enrichedResults.length} luminaire(s) similaire(s) :`,
           undefined,
           enrichedResults,
         )
@@ -665,8 +687,6 @@ export default function RecherchePage() {
                                       extractedImageId = filename // e.g., "luminaire_4428.jpg"
                                     }
                                   }
-                                  console.log("[v0] Result imageUrl:", result.imageUrl, "-> extractedImageId:", extractedImageId)
-                                  
                                   const itemId = result.luminaireId || extractedImageId || `result-${index}`
                                   const isSelected = isInSelection(itemId)
 
