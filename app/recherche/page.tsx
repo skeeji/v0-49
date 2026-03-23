@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { Upload, Send, ImageIcon, Loader2, Trash2, Plus, ShoppingBag, Check } from "lucide-react"
+import { Upload, Send, ImageIcon, Loader2, Trash2, Plus, ShoppingBag, Check, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -58,11 +58,15 @@ export default function RecherchePage() {
 
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [showHistory, setShowHistory] = useState(true)
+  const [showHistory, setShowHistory] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const currentConversationRef = useRef<Conversation | null>(null)
+
+  useEffect(() => {
+    if (window.innerWidth >= 768) setShowHistory(true)
+  }, [])
 
   useEffect(() => {
     if (!user) {
@@ -535,7 +539,7 @@ export default function RecherchePage() {
       <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
         <div
           className={`${
-            showHistory ? "h-48 md:h-auto md:w-80" : "h-0 md:w-0"
+            showHistory ? "h-48 md:h-auto md:w-64" : "h-0 md:w-0"
           } transition-all duration-300 bg-white border-b md:border-b-0 md:border-r border-slate-200 overflow-hidden flex flex-col`}
         >
           <div className="p-2 md:p-4 border-b border-slate-200">
@@ -599,19 +603,27 @@ export default function RecherchePage() {
         </div>
 
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="p-3 md:p-6 bg-white border-b border-slate-200">
-            <div className="max-w-4xl mx-auto flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-xl md:text-3xl font-serif text-slate-800 mb-1 md:mb-2" style={{ color: "#8b7355" }}>
-                  Recherche de Luminaires
-                </h1>
-                <p className="text-xs md:text-base text-slate-600">
-                  {currentConversation
-                    ? "Continuez votre recherche ou affinez les résultats"
-                    : "Commencez une nouvelle recherche par texte ou par image"}
-                </p>
+          <div className="p-3 md:p-4 bg-white border-b border-slate-200">
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowHistory((v) => !v)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  title="Afficher/masquer l'historique"
+                >
+                  <Menu className="w-5 h-5 text-slate-500" />
+                </button>
+                <div>
+                  <h1 className="text-lg md:text-2xl font-serif" style={{ color: "#8b7355" }}>
+                    Recherche de Luminaires
+                  </h1>
+                  <p className="text-xs text-slate-500 hidden md:block">
+                    {currentConversation
+                      ? "Continuez votre recherche ou affinez les résultats"
+                      : "Commencez une nouvelle recherche par texte ou par image"}
+                  </p>
+                </div>
               </div>
-              {/* Selection toggle button */}
               <button
                 onClick={() => setIsSelectionOpen(true)}
                 className="relative flex items-center gap-2 px-3 py-2 bg-[#faf8f5] hover:bg-[#f5f1e8] border border-stone-200 rounded-lg transition-colors"
@@ -637,9 +649,20 @@ export default function RecherchePage() {
                   <h2 className="text-xl md:text-2xl font-serif text-slate-800 mb-2 md:mb-3">
                     Comment puis-je vous aider ?
                   </h2>
-                  <p className="text-sm md:text-base text-slate-600 mb-4 md:mb-8 px-4">
+                  <p className="text-sm md:text-base text-slate-600 mb-6 px-4">
                     Décrivez le luminaire que vous recherchez ou téléversez une image
                   </p>
+                  <div className="flex flex-wrap justify-center gap-2 px-4">
+                    {["Lustre Art Déco doré", "Applique moderniste 1950s", "Suspension en verre de Murano", "Lampadaire design scandinave"].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        onClick={() => setInputValue(suggestion)}
+                        className="px-3 py-1.5 text-sm border border-stone-300 rounded-full hover:bg-[#8b7355] hover:text-white hover:border-[#8b7355] transition-colors text-stone-600 bg-white"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -650,14 +673,15 @@ export default function RecherchePage() {
                       key={message.id}
                       className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                     >
+                      <div className={`flex flex-col max-w-[75%] ${message.role === "user" ? "items-end" : "items-start"}`}>
                       <div
-                        className={`max-w-[85%] md:max-w-[80%] ${message.role === "user" ? "bg-amber-100" : "bg-white border border-slate-200"} rounded-2xl p-3 md:p-4`}
+                        className={`${message.role === "user" ? "bg-[#8b7355] text-white" : "bg-white shadow-sm"} rounded-2xl p-3 md:p-4 w-full`}
                       >
                         {message.role === "user" && (
                           <>
                             {message.imageUrl ? (
                               <div className="space-y-2">
-                                <p className="text-xs md:text-sm text-slate-600">Image uploadée :</p>
+                                <p className="text-xs md:text-sm text-white/80">Image uploadée :</p>
                                 <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden">
                                   <Image
                                     src={message.imageUrl || "/placeholder.svg"}
@@ -668,11 +692,8 @@ export default function RecherchePage() {
                                 </div>
                               </div>
                             ) : (
-                              <p className="text-sm md:text-base text-slate-800">{message.content}</p>
+                              <p className="text-sm md:text-base">{message.content}</p>
                             )}
-                            <p className="text-[10px] md:text-xs text-slate-500 mt-2">
-                              {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                            </p>
                           </>
                         )}
 
@@ -761,7 +782,7 @@ export default function RecherchePage() {
                                         className="block"
                                       >
                                         <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
-                                          <div className="relative w-full h-48 md:h-64 bg-slate-100">
+                                          <div className="relative w-full h-40 bg-slate-100">
                                             <Image
                                               src={result.imageUrl || "/placeholder.svg"}
                                               alt={result.nom || result.imageId || "Luminaire"}
@@ -770,20 +791,20 @@ export default function RecherchePage() {
                                               unoptimized
                                             />
                                           </div>
-                                          <div className="p-3 md:p-4 space-y-1 md:space-y-2">
-                                            <h4 className="font-semibold text-slate-900 text-sm md:text-lg line-clamp-2">
+                                          <div className="p-3 space-y-1">
+                                            <h4 className="text-sm font-semibold text-slate-900 line-clamp-2">
                                               {result.nom || result.imageId || "Luminaire"}
                                             </h4>
                                             {result.artiste && (
-                                              <p className="text-xs md:text-sm text-slate-600">
+                                              <p className="text-xs text-slate-600">
                                                 {result.artiste}
                                                 {result.annee && ` • ${result.annee}`}
                                               </p>
                                             )}
                                             {result.similarity && (
-                                              <p className="text-xs md:text-sm font-medium" style={{ color: "#8b7355" }}>
+                                              <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: "#f5f1e8", color: "#8b7355" }}>
                                                 {Math.round(result.similarity * 100)}% similaire
-                                              </p>
+                                              </span>
                                             )}
                                           </div>
                                         </Card>
@@ -794,11 +815,12 @@ export default function RecherchePage() {
                               </div>
                             )}
 
-                            <p className="text-[10px] md:text-xs text-slate-500 mt-2">
-                              {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                            </p>
                           </>
                         )}
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1 px-1">
+                        {message.timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
                       </div>
                     </div>
                   ))}
@@ -837,7 +859,7 @@ export default function RecherchePage() {
                       }
                     }}
                     placeholder="Décrivez le luminaire..."
-                    className="pr-10 md:pr-12 h-10 md:h-12 rounded-xl text-sm md:text-base"
+                    className="pr-10 md:pr-12 h-12 rounded-2xl text-sm md:text-base"
                     disabled={isSearching}
                   />
                   <button
@@ -852,7 +874,7 @@ export default function RecherchePage() {
                 <Button
                   onClick={handleTextSearch}
                   disabled={!inputValue.trim() || isSearching}
-                  className="h-10 md:h-12 px-4 md:px-6 rounded-xl text-white"
+                  className="h-12 px-4 rounded-xl text-white"
                   style={{ backgroundColor: "#8b7355" }}
                 >
                   {isSearching ? (

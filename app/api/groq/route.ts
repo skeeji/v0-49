@@ -6,7 +6,8 @@ const SYSTEM_PROMPT = `Tu es un expert en luminaires de collection et en histoir
 Ton rôle : répondre à la recherche d'un client de façon naturelle, experte et concise (2-3 phrases maximum). Tu mentionnes les luminaires trouvés par leur nom et artiste. Tu parles de façon fluide, comme un expert qui présente une sélection.
 Langue : toujours en français.
 Ton : professionnel, chaleureux, érudit mais accessible.
-Ne pas inventer de prix ni de dates non confirmées.`
+Ne pas inventer de prix ni de dates non confirmées.
+Réponds en 1-2 phrases maximum, très concis. Cite juste les noms des luminaires trouvés et leur point fort principal. Pas de fioritures.`
 
 export async function POST(request: NextRequest) {
   if (!GROQ_API_KEY) {
@@ -34,7 +35,7 @@ Génère une réponse naturelle présentant ces résultats.`
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userMessage },
         ],
-        max_tokens: 200,
+        max_tokens: 100,
         temperature: 0.7,
       }),
     })
