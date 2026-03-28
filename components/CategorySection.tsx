@@ -25,7 +25,7 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
     if (!el) return
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setVisible(true) },
-      { threshold: 0.15 }
+      { threshold: 0.2 }
     )
     observer.observe(el)
     return () => observer.disconnect()
@@ -34,20 +34,21 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
   return (
     <>
       <style>{`
-        /* ── Animation atterrissage ── */
-        @keyframes drop-in {
-          0%   { transform: translateY(-80px); opacity: 0; }
-          75%  { transform: translateY(6px);   opacity: 1; }
-          90%  { transform: translateY(-4px);  opacity: 1; }
-          100% { transform: translateY(0px);   opacity: 1; }
+        /* ── Animation atterrissage depuis FloatingGallery ── */
+        @keyframes cat-drop {
+          0%   { transform: translateY(-60px) scale(0.95); opacity: 0; }
+          70%  { transform: translateY(5px)   scale(1.01); opacity: 1; }
+          85%  { transform: translateY(-3px)  scale(1.00); opacity: 1; }
+          100% { transform: translateY(0px)   scale(1.00); opacity: 1; }
         }
 
         /* ── Wrapper animé (séparé du hover pour éviter conflits) ── */
         .cat-card {
-          /* état invisible avant déclenchement */
+          opacity: 0;
+          transform: translateY(-60px);
         }
         .cat-card.animate {
-          animation: drop-in 0.8s ease-out both;
+          animation: cat-drop 0.7s ease-out both;
         }
 
         /* ── Couche visuelle (hover isolé) ── */
@@ -128,20 +129,18 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
                style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px" }}>
             {CATEGORIES.map((cat, i) => {
               const overrideImg = homepageImages[`homepage_luminaire_${i}`]
-              const match = luminaires.find((l: any) =>
-                ((l.categorie || "").toLowerCase().includes(cat.toLowerCase()) ||
-                 (l["Catégorie"] || "").toLowerCase().includes(cat.toLowerCase())) &&
-                l.filename
-              )
-              const imgSrc = overrideImg || (match ? `/api/images/filename/${match.filename}` : null)
+              // luminaires-light n'a pas de champ categorie → sélection par tranche d'index
+              const step  = luminaires.length > 0 ? Math.floor(luminaires.length / 6) : 0
+              const pick  = step > 0 ? luminaires[i * step] : null
+              const imgSrc = overrideImg || (pick?.filename ? `/api/images/filename/${pick.filename}` : null)
 
               return (
                 <div
                   key={cat}
                   className={`cat-card${visible ? " animate" : ""}`}
                   style={visible
-                    ? { animationDelay: `${i * 150}ms` }
-                    : { opacity: 0 }
+                    ? { animationDelay: `${i * 120}ms` }
+                    : undefined
                   }
                 >
                   <div

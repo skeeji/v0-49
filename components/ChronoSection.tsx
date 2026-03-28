@@ -59,6 +59,7 @@ export function ChronoSection({ luminaires }: { luminaires: any[] }) {
 
   const [activeIndex,     setActiveIndex]     = useState(6)   // Art Déco default
   const [displayIdx,      setDisplayIdx]      = useState(6)
+  const [animKey,         setAnimKey]         = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [imgScale,        setImgScale]        = useState(1)
 
@@ -81,8 +82,9 @@ export function ChronoSection({ luminaires }: { luminaires: any[] }) {
     setActiveIndex(i)
     setTimeout(() => {
       setDisplayIdx(i)
+      setAnimKey(k => k + 1)   // remonte les images → animation repart de 0
       setIsTransitioning(false)
-    }, 300)
+    }, 250)
   }, [activeIndex, isTransitioning])
 
   const period     = PERIODS[displayIdx]
@@ -102,18 +104,13 @@ export function ChronoSection({ luminaires }: { luminaires: any[] }) {
           60%  { transform: translate(var(--ex), var(--ey)) scale(1.05); opacity: 1; }
           100% { transform: translate(var(--ex), var(--ey)) scale(1);    opacity: 1; }
         }
-        @keyframes explode-in {
-          0%   { transform: translate(var(--ex), var(--ey)) scale(1);   opacity: 1; }
-          100% { transform: translate(0, 0) scale(0.3); opacity: 0; }
-        }
         .cw-img {
           position: absolute;
           border-radius: 10px;
           overflow: hidden;
-          transform: translate(var(--ex), var(--ey));
+          animation: explode-out 0.5s ease-out both;
+          animation-play-state: running;
         }
-        .cw-img.out { animation: explode-out 0.5s ease-out both; }
-        .cw-img.in  { animation: explode-in  0.3s ease-in  both; }
 
         /* ── Layout ── */
         .cw-content {
@@ -286,7 +283,10 @@ export function ChronoSection({ luminaires }: { luminaires: any[] }) {
             </div>
 
             {/* Scène d'explosion */}
-            <div className="cw-stage">
+            <div
+              className="cw-stage"
+              style={{ opacity: isTransitioning ? 0 : 1, transition: "opacity 0.25s ease" }}
+            >
               {IMG_OFFSETS.map(({ ex, ey }, idx) => {
                 const lum      = periodLums[idx]
                 const scaledEx = Math.round(ex * imgScale)
@@ -296,14 +296,14 @@ export function ChronoSection({ luminaires }: { luminaires: any[] }) {
 
                 return (
                   <div
-                    key={`${displayIdx}-${idx}`}
-                    className={`cw-img ${isTransitioning ? "in" : "out"}`}
+                    key={`${animKey}-${idx}`}
+                    className="cw-img"
                     style={{
                       "--ex": `${scaledEx}px`,
                       "--ey": `${scaledEy}px`,
                       width:  `${w}px`,
                       height: `${h}px`,
-                      animationDelay: isTransitioning ? "0ms" : `${idx * 80}ms`,
+                      animationDelay: `${idx * 80}ms`,
                       cursor: lum ? "pointer" : "default",
                     } as React.CSSProperties}
                     onClick={() => lum && router.push(`/luminaires/${lum._id}`)}
