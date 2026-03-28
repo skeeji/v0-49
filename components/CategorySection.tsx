@@ -17,14 +17,14 @@ const BROWN     = "#8b7355"
 const TEXT_DARK = "#3d2b1f"
 const TEXT_MID  = "#7a6654"
 
-// Trajectoires de départ fixes (déterministes) — simulant la dérive FloatingGallery
+// Trajectoires de départ — seed fixe, déterministe
 const OFFSETS = [
-  { x: -200, y: -150, rot: -8  },  // 0 : haut gauche
-  { x:   80, y: -200, rot:  5  },  // 1 : haut centre
-  { x:  250, y: -100, rot: -4  },  // 2 : haut droite
-  { x: -150, y:  -80, rot:  6  },  // 3 : milieu gauche
-  { x:   50, y: -180, rot: -3  },  // 4 : haut centre
-  { x:  200, y: -120, rot:  8  },  // 5 : droite
+  { x: -120, y: -280, rot: -6 },
+  { x:   60, y: -320, rot:  4 },
+  { x:  180, y: -240, rot: -3 },
+  { x:  -80, y: -300, rot:  7 },
+  { x:   30, y: -260, rot: -5 },
+  { x:  140, y: -290, rot:  3 },
 ]
 
 export function CategorySection({ luminaires, homepageImages }: CategorySectionProps) {
@@ -36,8 +36,13 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
     const el = sectionRef.current
     if (!el) return
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true) },
-      { threshold: 0.1 }
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.05, rootMargin: "0px 0px -50px 0px" }
     )
     observer.observe(el)
     return () => observer.disconnect()
@@ -48,29 +53,29 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
   return (
     <>
       <style>{`
-        /* ── Keyframes individuels — une trajectoire par carte ── */
+        /* ── Keyframe par carte : scale 0.18 → 1 (taille FG → taille carte) ── */
         ${OFFSETS.map(({ x, y, rot }, i) => `
           @keyframes card-settle-${i} {
-            0%   { transform: translate(${x}px, ${y}px) scale(0.85) rotate(${rot}deg); opacity: 0; }
-            70%  { transform: translate(0, 8px) scale(1.02) rotate(0deg); opacity: 1; }
-            85%  { transform: translate(0, -4px) scale(0.99) rotate(0deg); opacity: 1; }
-            100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+            0%   { transform: translate(${x}px, ${y}px) scale(0.18) rotate(${rot}deg); opacity: 0.7; }
+            60%  { transform: translate(0px,  12px) scale(1.04) rotate(0deg); opacity: 1; }
+            80%  { transform: translate(0px,  -5px) scale(0.98) rotate(0deg); opacity: 1; }
+            100% { transform: translate(0px,   0px) scale(1)    rotate(0deg); opacity: 1; }
           }
         `).join("")}
 
-        /* ── Wrapper : gère l'animation d'arrivée ── */
+        /* ── Wrapper par carte : état initial + animation ── */
         ${OFFSETS.map(({ x, y, rot }, i) => `
           .cat-wrapper-${i} {
-            opacity: 0;
-            transform: translate(${x}px, ${y}px) scale(0.85) rotate(${rot}deg);
+            opacity: 0.7;
+            transform: translate(${x}px, ${y}px) scale(0.18) rotate(${rot}deg);
           }
           .cat-wrapper-${i}.animate {
-            animation: card-settle-${i} 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-            animation-delay: ${i * 100}ms;
+            animation: card-settle-${i} 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+            animation-delay: ${i * 130}ms;
           }
         `).join("")}
 
-        /* ── Inner : gère le hover (indépendant de l'animation) ── */
+        /* ── Inner : hover uniquement, sans conflit animation ── */
         .cat-inner {
           height: 340px;
           border-radius: 14px;
