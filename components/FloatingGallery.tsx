@@ -857,7 +857,7 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
         {/* ── Overlay central ── */}
         <div className="fg-center">
 
-          <h2 className="fg-title">Nos Luminaires</h2>
+          <h2 className="fg-title">Luminaires</h2>
           <p  className="fg-subtitle">Du Moyen-Âge à nos jours</p>
 
           {/* Deux boutons pill */}
@@ -866,13 +866,13 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
               className={`fg-pill-btn${searchMode === "text"  ? " fg-active" : ""}`}
               onClick={() => { resetSearch(); if (searchMode !== "text")  setSearchMode("text")  }}
             >
-              🔍 Recherche texte
+              Recherche texte
             </button>
             <button
               className={`fg-pill-btn${searchMode === "image" ? " fg-active" : ""}`}
               onClick={() => { resetSearch(); if (searchMode !== "image") setSearchMode("image") }}
             >
-              📷 Par image
+              Par image
             </button>
           </div>
 
@@ -908,10 +908,10 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
               {!capturedImage && !isCameraActive && !isCameraLoading && (
                 <div style={{ display: "flex", gap: "0.6rem", justifyContent: "center", flexWrap: "wrap" }}>
                   <button className="fg-pill-sm" onClick={() => fileInputRef.current?.click()}>
-                    📁 Uploader
+                    Uploader
                   </button>
                   <button className="fg-pill-sm" onClick={handleCameraCapture}>
-                    📸 Caméra
+                    Caméra
                   </button>
                 </div>
               )}
@@ -994,8 +994,8 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
           )}
 
           {/* Lien discret */}
-          <Link href="/luminaires" className="fg-see-all">
-            Voir tous les luminaires →
+          <Link href="/recherche" className="fg-see-all">
+            Rechercher un luminaire →
           </Link>
 
         </div>
@@ -1046,10 +1046,13 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
                     key={i}
                     className="fg-result-card"
                     title={result.nom || ""}
+                    style={{ cursor: "pointer" }}
                     onClick={() => {
-                      if (result.luminaireUrl) router.push(result.luminaireUrl)
-                      else if ((result as any)._id) router.push(`/luminaires/${(result as any)._id}`)
-                      else if ((result as any).image_id) router.push(`/luminaires/${(result as any).image_id}`)
+                      console.log("[FG] result clicked:", result)
+                      const id = (result as any)._id || (result as any).luminaireId || (result as any).id
+                      const url = result.luminaireUrl
+                      if (url) router.push(url)
+                      else if (id) router.push(`/luminaires/${id}`)
                     }}
                   >
                     <img
