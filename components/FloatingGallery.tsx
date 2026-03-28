@@ -261,30 +261,48 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
   // ─── Fonctions recherche ──────────────────────────────────────────────────
 
   function processApiResults(apiResults: any[]): SearchResult[] {
+    // Map multi-clés pour maximiser les chances de correspondance
+    const itemsMap = new Map<string, LuminaireItem>()
+    items.forEach(item => {
+      if (!item.filename) return
+      const fn = item.filename
+      itemsMap.set(fn, item)
+      itemsMap.set(fn.replace(/\.[^/.]+$/, ""), item)
+      itemsMap.set(fn.toLowerCase(), item)
+      itemsMap.set(fn.toLowerCase().replace(/\.[^/.]+$/, ""), item)
+    })
+
     return apiResults.map((result, index) => {
       const rawId   = String(result.image_id || `result_${index}`)
-      const cleanId = rawId.split("#")[0].split("?")[0]
-      const noExt   = cleanId.replace(/\.[^/.]+$/, "")
+      const cleanId = rawId.split("#")[0].split("?")[0].trim()
 
-      const localMatch = itemsFilenameMap.get(cleanId.toLowerCase())
-        ?? itemsFilenameMap.get(noExt.toLowerCase())
+      const localMatch =
+        itemsMap.get(cleanId) ||
+        itemsMap.get(cleanId.toLowerCase()) ||
+        itemsMap.get(cleanId.replace(/\.[^/.]+$/, "")) ||
+        itemsMap.get(cleanId.toLowerCase().replace(/\.[^/.]+$/, "")) ||
+        null
 
-      // Construction URL image
-      let imageUrl = "/placeholder.svg"
-      const raw    = String(result.image_url || "").trim()
+      if (!localMatch) {
+        console.warn("[FG] no match for:", cleanId)
+      }
+
+      // Construction URL image externe (fallback)
+      let externalUrl = "/placeholder.svg"
+      const raw = String(result.image_url || "").trim()
       if (raw) {
         if (raw.startsWith("http://") || raw.startsWith("https://")) {
-          imageUrl = raw.split("#")[0]
+          externalUrl = raw.split("#")[0]
         } else if (raw.startsWith("/")) {
-          imageUrl = `https://image-similarity-api-590690354412.us-central1.run.app${raw.split("#")[0]}`
+          externalUrl = `https://image-similarity-api-590690354412.us-central1.run.app${raw.split("#")[0]}`
         } else {
-          imageUrl = `https://image-similarity-api-590690354412.us-central1.run.app/images/${raw.split("#")[0]}`
+          externalUrl = `https://image-similarity-api-590690354412.us-central1.run.app/images/${raw.split("#")[0]}`
         }
       }
 
       return {
         imageId:       cleanId,
-        imageUrl:      localMatch ? `/api/images/filename/${localMatch.filename}` : imageUrl,
+        imageUrl:      localMatch ? `/api/images/filename/${localMatch.filename}` : externalUrl,
         luminaireUrl:  localMatch ? `/luminaires/${localMatch._id}` : null,
         nom:           localMatch?.nom || cleanId,
         similarity:    result.similarity ?? null,
@@ -1048,7 +1066,6 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
                     title={result.nom || ""}
                     style={{ cursor: "pointer" }}
                     onClick={() => {
-                      console.log("[FG] result clicked:", result)
                       const id = (result as any)._id || (result as any).luminaireId || (result as any).id
                       const url = result.luminaireUrl
                       if (url) router.push(url)
