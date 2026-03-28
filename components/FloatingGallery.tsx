@@ -701,15 +701,19 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
         }
         .fg-results-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
           gap: 12px;
           margin-top: 0.75rem;
         }
-        .fg-result-card { transition: transform 0.2s ease; }
+        .fg-result-card { max-width: 130px; transition: transform 0.2s ease; cursor: pointer; }
         .fg-result-card:hover { transform: scale(1.03); }
         .fg-result-card img {
           width: 100%; aspect-ratio: 3/4; object-fit: cover;
           border-radius: 10px; display: block;
+        }
+        .fg-result-card p {
+          font-size: 0.7rem; overflow: hidden;
+          text-overflow: ellipsis; white-space: nowrap;
         }
 
         /* ── Bouton fermer ── */
@@ -987,16 +991,19 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
                   <div
                     key={i}
                     className="fg-result-card"
-                    onClick={() => result.luminaireUrl && router.push(result.luminaireUrl)}
-                    style={{ cursor: result.luminaireUrl ? "pointer" : "default" }}
+                    title={result.nom || ""}
+                    onClick={() => {
+                      if (result.luminaireUrl) router.push(result.luminaireUrl)
+                      else if ((result as any)._id) router.push(`/luminaires/${(result as any)._id}`)
+                      else if ((result as any).image_id) router.push(`/luminaires/${(result as any).image_id}`)
+                    }}
                   >
                     <img
                       src={result.imageUrl}
                       alt={result.nom}
                       onError={e => { e.currentTarget.src = "/placeholder.svg" }}
                     />
-                    <p style={{ fontSize:"0.75rem", color:TEXT_DARK, margin:"0.3rem 0 0",
-                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    <p style={{ color:TEXT_DARK, margin:"0.3rem 0 0" }}>
                       {result.nom}
                     </p>
                     {result.similarity !== null && (
