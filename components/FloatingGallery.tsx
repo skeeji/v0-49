@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
@@ -13,22 +13,22 @@ interface LuminaireItem {
 }
 
 interface CardData {
-  id:        string
-  startX:    number   // px depuis le centre de la section
-  startY:    number   // px depuis le centre de la section
-  driftX:    number   // px — valeur de --tx dans @keyframes
-  driftY:    number   // px — valeur de --ty dans @keyframes
-  width:     number   // px
-  height:    number   // px
-  duration:  number   // s
-  delay:     number   // s (négatif → démarre en cours de cycle)
-  maxOpacity: number  // 0.75 / 0.90 / 1.00 selon couche — valeur de --op
-  zIndex:    number
-  itemIndex: number   // round-robin dans items[]
+  id:         string
+  startX:     number   // px depuis le centre
+  startY:     number   // px depuis le centre
+  driftX:     number   // px — CSS --tx
+  driftY:     number   // px — CSS --ty
+  width:      number   // px
+  height:     number   // px
+  duration:   number   // s
+  delay:      number   // s (négatif)
+  maxOpacity: number   // CSS --op
+  zIndex:     number
+  format:     number   // 0=portrait 1=carré 2=paysage (pour la hauteur)
 }
 
 // ─── PRNG déterministe (mulberry32) ───────────────────────────────────────────
-// Zéro Math.random() direct → pas de hydration mismatch Next.js
+// Zéro Math.random() → résultat identique serveur/client
 
 function makePRNG(seed: number) {
   let s = seed | 0
@@ -40,12 +40,11 @@ function makePRNG(seed: number) {
   }
 }
 
-// ─── Mélange déterministe (Fisher-Yates + PRNG seed 99) ──────────────────────
-// Zéro Math.random() → résultat identique serveur/client
+// ─── Mélange Fisher-Yates déterministe ────────────────────────────────────────
 
-function shuffleWithSeed(arr: LuminaireItem[], seed: number): LuminaireItem[] {
+function shuffleIds(ids: string[], seed: number): string[] {
   const rand   = makePRNG(seed)
-  const result = [...arr]
+  const result = [...ids]
   for (let i = result.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [result[i], result[j]] = [result[j], result[i]]
@@ -53,16 +52,16 @@ function shuffleWithSeed(arr: LuminaireItem[], seed: number): LuminaireItem[] {
   return result
 }
 
-// ─── Définition des 3 couches ─────────────────────────────────────────────────
+// ─── Config des 3 couches ─────────────────────────────────────────────────────
 
-const ANGLES_DEG = [0, 45, 90, 135, 180, 225, 270, 315] // 8 directions en étoile
+const ANGLES_DEG = [0, 45, 90, 135, 180, 225, 270, 315]
 
 interface LayerDef {
   seed:       number
-  imgWidth:   number  // largeur des cartes (px)
-  duration:   number  // durée d'un cycle (s)
-  maxOpacity: number  // opacité maximale pendant le plateau
-  driftMag:   number  // distance totale de dérive (px)
+  imgWidth:   number
+  duration:   number
+  maxOpacity: number
+  driftMag:   number
   zIdx:       number
 }
 
@@ -72,8 +71,8 @@ const LAYERS: LayerDef[] = [
   { seed: 44, imgWidth: 210, duration: 10, maxOpacity: 1.00, driftMag: 1500, zIdx: 3 },
 ]
 
-// ─── Génération des 24 cartes (3 couches × 8 angles) ─────────────────────────
-// Résultat identique côté serveur et côté client (seed fixe)
+// ─── Génération des 24 configs de cartes (déterministe) ───────────────────────
+// Ne contient plus d'itemIndex — l'image est gérée par cardItems state
 
 function buildCards(): CardData[] {
   const cards: CardData[] = []
@@ -84,35 +83,30 @@ function buildCards(): CardData[] {
 
     ANGLES_DEG.forEach((angleDeg, ai) => {
       const rad         = (angleDeg * Math.PI) / 180
-      const startOffset = 100 + rand() * 80             // 100–180 px depuis centre
+      const startOffset = 100 + rand() * 80
 
-      // Position de départ : centre + offset dans la direction de dérive
       const startX = Math.cos(rad) * startOffset
       const startY = Math.sin(rad) * startOffset
-
-      // Destination finale (hors écran dans la même direction)
       const driftX = Math.cos(rad) * layer.driftMag
       const driftY = Math.sin(rad) * layer.driftMag
 
-      // Format portrait / carré / paysage selon index global
-      const fmt = globalIdx % 3
-      const w   = layer.imgWidth
+      const w      = layer.imgWidth
+      const format = globalIdx % 3
       const height =
-        fmt === 0 ? Math.round(w * 1.5)  // portrait
-      : fmt === 1 ? w                    // carré
-      :             Math.round(w * 0.7)  // paysage
+        format === 0 ? Math.round(w * 1.5)
+      : format === 1 ? w
+      :                Math.round(w * 0.7)
 
-      const delay = -(rand() * layer.duration) // départ désynchronisé
+      const delay = -(rand() * layer.duration)
 
       cards.push({
-        id:         `l${li}-a${ai}`,
+        id: `l${li}-a${ai}`,
         startX, startY, driftX, driftY,
-        width: w, height,
+        width: w, height, format,
         duration:   layer.duration,
         delay,
         maxOpacity: layer.maxOpacity,
         zIndex:     layer.zIdx,
-        itemIndex:  globalIdx,
       })
       globalIdx++
     })
@@ -137,6 +131,14 @@ export function FloatingGallery() {
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(false)
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
+
+  // card.id → _id du luminaire actuellement affiché sur cette carte
+  const [cardItems, setCardItems] = useState<Record<string, string>>({})
+
+  // File d'attente : _id à distribuer aux prochaines rotations
+  const queueRef     = useRef<string[]>([])
+  // Seed courant pour le prochain mélange (incrémenté à chaque fois)
+  const shuffleSeed  = useRef(99)
 
   // ── Fetch luminaires ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -166,12 +168,52 @@ export function FloatingGallery() {
     load()
   }, [])
 
-  // Configs stables grâce au seed fixe (useMemo évite tout recalcul)
+  // Configs de cartes stables (seed fixe)
   const cards = useMemo(() => buildCards(), [])
 
-  // Items mélangés de façon déterministe — seed 99, zéro Math.random()
-  // Chaque carte reçoit un luminaire unique tant que items.length >= 24
-  const shuffledItems = useMemo(() => shuffleWithSeed(items, 99), [items])
+  // Index rapide _id → LuminaireItem (évite items.find() à chaque render)
+  const itemsById = useMemo(() => {
+    const map = new Map<string, LuminaireItem>()
+    items.forEach(i => map.set(i._id, i))
+    return map
+  }, [items])
+
+  // Tableau plat des IDs (stable tant que items ne change pas)
+  const allIds = useMemo(() => items.map(i => i._id), [items])
+
+  // ── Initialisation de la queue et assignation initiale ────────────────────
+  // S'exécute une seule fois après le fetch
+  useEffect(() => {
+    if (allIds.length === 0) return
+
+    // Mélange initial avec seed 99
+    const shuffled = shuffleIds(allIds, shuffleSeed.current)
+    queueRef.current = shuffled
+
+    // Assigne un luminaire unique à chacune des 24 cartes
+    const initial: Record<string, string> = {}
+    cards.forEach(card => {
+      if (queueRef.current.length === 0) {
+        // Queue épuisée → remélanger avec seed suivant
+        shuffleSeed.current++
+        queueRef.current = shuffleIds(allIds, shuffleSeed.current)
+      }
+      initial[card.id] = queueRef.current.shift()!
+    })
+    setCardItems(initial)
+  }, [allIds, cards])
+
+  // ── Rotation au cycle suivant ──────────────────────────────────────────────
+  // Appelé via onAnimationIteration sur chaque carte
+  // Functional update → pas de stale closure sur cardItems
+  const handleAnimationIteration = useCallback((cardId: string) => {
+    if (queueRef.current.length === 0) {
+      shuffleSeed.current++
+      queueRef.current = shuffleIds(allIds, shuffleSeed.current)
+    }
+    const nextId = queueRef.current.shift()!
+    setCardItems(prev => ({ ...prev, [cardId]: nextId }))
+  }, [allIds])
 
   // ── États intermédiaires ───────────────────────────────────────────────────
 
@@ -215,18 +257,7 @@ export function FloatingGallery() {
 
   return (
     <>
-      {/* ── CSS animations pures — aucune lib externe ── */}
       <style>{`
-
-        /*
-         * Animation principale : dérive radiale depuis le centre.
-         *
-         * --tx, --ty  : déplacement final en px (défini par carte via inline style)
-         * --op        : opacité maximale du plateau (0.75 / 0.90 / 1.00 par couche)
-         *
-         * La propriété CSS custom property est lue au moment de l'exécution
-         * de l'animation — valeur constante par élément, ce qui est voulu.
-         */
         @keyframes fg-drift {
           0% {
             transform : translate(0px, 0px) scale(0.9);
@@ -252,11 +283,6 @@ export function FloatingGallery() {
           }
         }
 
-        /*
-         * .fg-card — wrapper animé (position absolue + dérive)
-         * Gère uniquement l'animation ; aucun transform au hover
-         * pour ne pas entrer en conflit avec @keyframes.
-         */
         .fg-card {
           position                  : absolute;
           animation-name            : fg-drift;
@@ -266,12 +292,6 @@ export function FloatingGallery() {
           will-change               : transform, opacity;
         }
 
-        /*
-         * .fg-inner — couche visuelle imbriquée
-         * Gère le rendu (border-radius, overflow, ombre, hover scale).
-         * Séparé du wrapper animé pour que scale(1.04) ne
-         * pertube pas le transform du keyframe.
-         */
         .fg-inner {
           width         : 100%;
           height        : 100%;
@@ -296,26 +316,12 @@ export function FloatingGallery() {
           -webkit-user-drag: none;
         }
 
-        /* Fades sur les 4 bords — z-index 10 (au-dessus des cartes) */
         .fg-fade { position: absolute; pointer-events: none; z-index: 10; }
-        .fg-fade-top {
-          top: 0; left: 0; right: 0; height: 18%;
-          background: linear-gradient(to bottom, ${CREAM} 0%, transparent 100%);
-        }
-        .fg-fade-bottom {
-          bottom: 0; left: 0; right: 0; height: 18%;
-          background: linear-gradient(to top, ${CREAM} 0%, transparent 100%);
-        }
-        .fg-fade-left {
-          left: 0; top: 0; bottom: 0; width: 18%;
-          background: linear-gradient(to right, ${CREAM} 0%, transparent 100%);
-        }
-        .fg-fade-right {
-          right: 0; top: 0; bottom: 0; width: 18%;
-          background: linear-gradient(to left, ${CREAM} 0%, transparent 100%);
-        }
+        .fg-fade-top    { top: 0;    left: 0; right: 0;  height: 18%; background: linear-gradient(to bottom, ${CREAM} 0%, transparent 100%); }
+        .fg-fade-bottom { bottom: 0; left: 0; right: 0;  height: 18%; background: linear-gradient(to top,    ${CREAM} 0%, transparent 100%); }
+        .fg-fade-left   { left: 0;   top: 0;  bottom: 0; width: 18%;  background: linear-gradient(to right,  ${CREAM} 0%, transparent 100%); }
+        .fg-fade-right  { right: 0;  top: 0;  bottom: 0; width: 18%;  background: linear-gradient(to left,   ${CREAM} 0%, transparent 100%); }
 
-        /* Overlay central — z-index 20 */
         .fg-center {
           position               : absolute;
           top                    : 50%;
@@ -381,12 +387,12 @@ export function FloatingGallery() {
         background: CREAM,
       }}>
 
-        {/* ── 24 cartes dérivantes (3 couches × 8 directions) ── */}
         {cards.map((card) => {
-          // Luminaire unique si possible, round-robin seulement si items.length < 24
-          const item = card.itemIndex < shuffledItems.length
-            ? shuffledItems[card.itemIndex]
-            : shuffledItems[card.itemIndex % shuffledItems.length]
+          // Luminaire assigné à cette carte (null avant l'init → on ne rend pas la carte)
+          const itemId = cardItems[card.id]
+          const item   = itemId ? itemsById.get(itemId) : undefined
+          if (!item) return null
+
           const isPaused = hoveredCard === card.id
 
           return (
@@ -394,25 +400,22 @@ export function FloatingGallery() {
               key={card.id}
               className="fg-card"
               style={{
-                // Centrage : 50%/50% de la section + offset de départ
                 left      : `calc(50% + ${card.startX}px)`,
                 top       : `calc(50% + ${card.startY}px)`,
                 width     : `${card.width}px`,
                 height    : `${card.height}px`,
-                // Recentre la carte sur son point d'ancrage
                 marginLeft: `${-card.width  / 2}px`,
                 marginTop : `${-card.height / 2}px`,
                 zIndex    : card.zIndex,
-                // CSS custom properties consommées par @keyframes fg-drift
                 "--tx": `${card.driftX}px`,
                 "--ty": `${card.driftY}px`,
                 "--op": String(card.maxOpacity),
-                // Timing
                 animationDuration : `${card.duration}s`,
                 animationDelay    : `${card.delay}s`,
-                // Pause individuelle au hover sur CETTE carte uniquement
                 animationPlayState: isPaused ? "paused" : "running",
               } as React.CSSProperties}
+              // Déclenché à chaque fin de cycle → rotation vers le luminaire suivant
+              onAnimationIteration={() => handleAnimationIteration(card.id)}
             >
               <div
                 className="fg-inner"
@@ -423,7 +426,7 @@ export function FloatingGallery() {
               >
                 <img
                   src={item.imageUrl}
-                  alt={item.nom || `Luminaire ${(card.itemIndex % items.length) + 1}`}
+                  alt={item.nom || "Luminaire"}
                   loading="lazy"
                   draggable={false}
                 />
@@ -432,13 +435,11 @@ export function FloatingGallery() {
           )
         })}
 
-        {/* ── Fades 4 bords ── */}
         <div className="fg-fade fg-fade-top"    />
         <div className="fg-fade fg-fade-bottom" />
         <div className="fg-fade fg-fade-left"   />
         <div className="fg-fade fg-fade-right"  />
 
-        {/* ── Overlay central ── */}
         <div className="fg-center">
           <h2 className="fg-title">Nos Luminaires</h2>
           <p  className="fg-subtitle">Du Moyen-Âge à nos jours</p>
