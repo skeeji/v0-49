@@ -40,6 +40,19 @@ function makePRNG(seed: number) {
   }
 }
 
+// ─── Mélange déterministe (Fisher-Yates + PRNG seed 99) ──────────────────────
+// Zéro Math.random() → résultat identique serveur/client
+
+function shuffleWithSeed(arr: LuminaireItem[], seed: number): LuminaireItem[] {
+  const rand   = makePRNG(seed)
+  const result = [...arr]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
 // ─── Définition des 3 couches ─────────────────────────────────────────────────
 
 const ANGLES_DEG = [0, 45, 90, 135, 180, 225, 270, 315] // 8 directions en étoile
@@ -54,9 +67,9 @@ interface LayerDef {
 }
 
 const LAYERS: LayerDef[] = [
-  { seed: 42, imgWidth: 160, duration: 40, maxOpacity: 0.75, driftMag: 1200, zIdx: 1 },
-  { seed: 43, imgWidth: 220, duration: 30, maxOpacity: 0.90, driftMag: 1350, zIdx: 2 },
-  { seed: 44, imgWidth: 280, duration: 22, maxOpacity: 1.00, driftMag: 1500, zIdx: 3 },
+  { seed: 42, imgWidth: 110, duration: 18, maxOpacity: 0.75, driftMag: 1200, zIdx: 1 },
+  { seed: 43, imgWidth: 160, duration: 14, maxOpacity: 0.90, driftMag: 1350, zIdx: 2 },
+  { seed: 44, imgWidth: 210, duration: 10, maxOpacity: 1.00, driftMag: 1500, zIdx: 3 },
 ]
 
 // ─── Génération des 24 cartes (3 couches × 8 angles) ─────────────────────────
@@ -155,6 +168,10 @@ export function FloatingGallery() {
 
   // Configs stables grâce au seed fixe (useMemo évite tout recalcul)
   const cards = useMemo(() => buildCards(), [])
+
+  // Items mélangés de façon déterministe — seed 99, zéro Math.random()
+  // Chaque carte reçoit un luminaire unique tant que items.length >= 24
+  const shuffledItems = useMemo(() => shuffleWithSeed(items, 99), [items])
 
   // ── États intermédiaires ───────────────────────────────────────────────────
 
@@ -366,7 +383,10 @@ export function FloatingGallery() {
 
         {/* ── 24 cartes dérivantes (3 couches × 8 directions) ── */}
         {cards.map((card) => {
-          const item     = items[card.itemIndex % items.length]
+          // Luminaire unique si possible, round-robin seulement si items.length < 24
+          const item = card.itemIndex < shuffledItems.length
+            ? shuffledItems[card.itemIndex]
+            : shuffledItems[card.itemIndex % shuffledItems.length]
           const isPaused = hoveredCard === card.id
 
           return (
