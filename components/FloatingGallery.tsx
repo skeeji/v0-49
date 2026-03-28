@@ -26,7 +26,7 @@ interface CardConfig {
 
 // ─── Constantes de design ────────────────────────────────────────────────────
 
-const CARD_COUNT = 28
+const CARD_COUNT = 12
 const SEED       = 42           // seed fixe → même résultat serveur/client
 const CREAM      = "#f5f1e8"
 const BROWN      = "#8b7355"
@@ -46,21 +46,21 @@ function makePRNG(seed: number) {
   }
 }
 
-// ─── Génération des 28 cartes (déterministe) ─────────────────────────────────
+// ─── Génération des 12 cartes (déterministe) ─────────────────────────────────
 
 function generateCards(count: number): CardConfig[] {
   const rand  = makePRNG(SEED)
   const cards: CardConfig[] = []
 
   for (let i = 0; i < count; i++) {
-    // Position de départ proche du centre
-    const startX = 30 + rand() * 40   // 30 – 70 %
-    const startY = 25 + rand() * 50   // 25 – 75 %
+    // Position de départ élargie autour du centre
+    const startX = 20 + rand() * 60   // 20 – 80 %
+    const startY = 15 + rand() * 70   // 15 – 85 %
 
     // Direction : radiale depuis le centre (50 %, 50 %) + bruit angulaire
-    const cx        = startX - 50          // -20 … +20
-    const cy        = startY - 50          // -25 … +25
-    const magnitude = 500 + rand() * 350   // 500 – 850 px
+    const cx        = startX - 50          // -30 … +30
+    const cy        = startY - 50          // -35 … +35
+    const magnitude = 600 + rand() * 400   // 600 – 1000 px
     const noise     = (rand() - 0.5) * 0.7 // bruit angulaire ± 0.35 rad
     const angle     = Math.atan2(cy, cx) + noise
     const driftX    = Math.cos(angle) * magnitude
@@ -74,7 +74,7 @@ function generateCards(count: number): CardConfig[] {
       : Math.floor(width * (0.55 + rand() * 0.25))     // 0.55× – 0.8×
 
     // Vitesse et décalage
-    const duration = 6  + rand() * 12    // 6 – 18 s
+    const duration = 12 + rand() * 10    // 12 – 22 s
     const delay    = -(rand() * duration) // négatif → pas de "départ à zéro" synchronisé
 
     cards.push({ itemIndex: i, startX, startY, driftX, driftY, width, height, duration, delay })
@@ -87,10 +87,10 @@ function generateCards(count: number): CardConfig[] {
 export function FloatingGallery() {
   const router = useRouter()
 
-  const [items,    setItems]    = useState<LuminaireItem[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState(false)
-  const [isPaused, setIsPaused] = useState(false)
+  const [items,       setItems]       = useState<LuminaireItem[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState(false)
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null)
 
   // ── Fetch luminaires ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -222,11 +222,6 @@ export function FloatingGallery() {
           -webkit-user-drag: none;
         }
 
-        /* Pause globale au survol de la section */
-        .fg-section.fg-paused .fg-card {
-          animation-play-state : paused !important;
-        }
-
         /* Fades sur les 4 bords */
         .fg-fade          { position: absolute; pointer-events: none; z-index: 5; }
         .fg-fade-top      { top: 0; left: 0; right: 0; height: 20%;
@@ -300,16 +295,14 @@ export function FloatingGallery() {
       `}</style>
 
       <section
-        className={`fg-section${isPaused ? " fg-paused" : ""}`}
+        className="fg-section"
         style={{
-          width    : "100%",
-          height   : "100vh",
-          position : "relative",
-          overflow : "hidden",
+          width     : "100%",
+          height    : "100vh",
+          position  : "relative",
+          overflow  : "hidden",
           background: CREAM,
         }}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
       >
 
         {/* ── 28 cartes dérivantes ── */}
@@ -320,20 +313,24 @@ export function FloatingGallery() {
               key={i}
               className="fg-card"
               style={{
-                left      : `${card.startX}%`,
-                top       : `${card.startY}%`,
-                width     : `${card.width}px`,
-                height    : `${card.height}px`,
+                left             : `${card.startX}%`,
+                top              : `${card.startY}%`,
+                width            : `${card.width}px`,
+                height           : `${card.height}px`,
                 // Centre la carte sur son point de départ
-                marginLeft: `${-card.width  / 2}px`,
-                marginTop : `${-card.height / 2}px`,
+                marginLeft       : `${-card.width  / 2}px`,
+                marginTop        : `${-card.height / 2}px`,
                 // CSS custom properties utilisées dans @keyframes fg-drift
-                "--tx": `${card.driftX}px`,
-                "--ty": `${card.driftY}px`,
+                "--tx"           : `${card.driftX}px`,
+                "--ty"           : `${card.driftY}px`,
                 animationDuration: `${card.duration}s`,
                 animationDelay   : `${card.delay}s`,
+                // Pause uniquement sur cette carte au hover
+                animationPlayState: hoveredCard === i ? "paused" : "running",
               } as React.CSSProperties}
               onClick={() => router.push(`/luminaires/${item._id}`)}
+              onMouseEnter={() => setHoveredCard(i)}
+              onMouseLeave={() => setHoveredCard(null)}
               title={item.nom || undefined}
             >
               <img
