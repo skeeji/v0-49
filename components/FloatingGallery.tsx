@@ -842,11 +842,14 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
         }
       `}</style>
 
-      <section style={{
-        width: "100%", height: "100vh",
-        position: "relative", overflow: "hidden",
-        background: CREAM,
-      }}>
+      <section
+        id="floating-gallery"
+        style={{
+          width: "100%", height: "100vh",
+          position: "relative", overflow: "hidden",
+          background: CREAM,
+        }}
+      >
 
         {/* ── 24 cartes dérivantes ── */}
         {cards.map(card => {
