@@ -165,49 +165,32 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
   const [showLoginModal, setShowLoginModal] = useState(false)
 
   // ── Refs ──────────────────────────────────────────────────────────────────
-  const videoRef       = useRef<HTMLVideoElement>(null)
-  const canvasRef      = useRef<HTMLCanvasElement>(null)
-  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const videoRef        = useRef<HTMLVideoElement>(null)
+  const canvasRef       = useRef<HTMLCanvasElement>(null)
+  const fileInputRef    = useRef<HTMLInputElement>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchInputRef  = useRef<HTMLInputElement>(null)
+  const allItemsMapRef  = useRef<Map<string, any> | null>(null)
 
-  // ── Fetch luminaires (toutes pages) ──────────────────────────────────────
+  // ── Fetch luminaires (animation uniquement, 100 items) ───────────────────
   useEffect(() => {
     async function load() {
       try {
-        // Page 1 — récupère aussi le total
-        const res1  = await fetch("/api/luminaires?page=1&limit=100")
-        const data1 = await res1.json()
-        if (!data1.success) { setError(true); return }
-
-        const total         = data1.pagination?.total || 0
-        const allLuminaires = [...data1.luminaires]
-
-        // Pages restantes en parallèle si total > 100
-        if (total > 100) {
-          const totalPages   = Math.ceil(total / 100)
-          const pagePromises = []
-          for (let p = 2; p <= totalPages; p++) {
-            pagePromises.push(
-              fetch(`/api/luminaires?page=${p}&limit=100`)
-                .then(r => r.json())
-                .then(d => d.success ? d.luminaires : [])
-            )
-          }
-          const pages = await Promise.all(pagePromises)
-          pages.forEach(page => allLuminaires.push(...page))
+        const res  = await fetch("/api/luminaires?page=1&limit=100")
+        const data = await res.json()
+        if (data.success && data.luminaires?.length > 0) {
+          const filtered: LuminaireItem[] = data.luminaires
+            .filter((l: any) => l.filename && l._id)
+            .map((l: any) => ({
+              _id:      l._id,
+              filename: l.filename,
+              imageUrl: `/api/images/filename/${l.filename}`,
+              nom:      l.nom || l["Nom luminaire"] || "",
+            }))
+          filtered.length > 0 ? setItems(filtered) : setError(true)
+        } else {
+          setError(true)
         }
-
-        const filtered: LuminaireItem[] = allLuminaires
-          .filter((l: any) => l.filename && l._id)
-          .map((l: any) => ({
-            _id:      l._id,
-            filename: l.filename,
-            imageUrl: `/api/images/filename/${l.filename}`,
-            nom:      l.nom || l["Nom luminaire"] || "",
-          }))
-
-        filtered.length > 0 ? setItems(filtered) : setError(true)
       } catch {
         setError(true)
       } finally {
@@ -278,27 +261,50 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
 
   // ─── Fonctions recherche ──────────────────────────────────────────────────
 
+  async function buildFullMap() {
+    if (allItemsMapRef.current) return // déjà en cache
+    const res1  = await fetch("/api/luminaires?page=1&limit=100")
+    const data1 = await res1.json()
+    if (!data1.success) return
+    const total = data1.pagination?.total || 0
+    const all   = [...data1.luminaires]
+    if (total > 100) {
+      const totalPages = Math.ceil(total / 100)
+      const promises   = []
+      for (let p = 2; p <= totalPages; p++) {
+        promises.push(
+          fetch(`/api/luminaires?page=${p}&limit=100`)
+            .then(r => r.json())
+            .then(d => d.success ? d.luminaires : [])
+        )
+      }
+      const pages = await Promise.all(promises)
+      pages.forEach(p => all.push(...p))
+    }
+    const map = new Map<string, any>()
+    all.filter((l: any) => l.filename && l._id)
+       .forEach((l: any) => {
+         map.set(l.filename, l)
+         map.set(l.filename.toLowerCase(), l)
+         map.set(l.filename.replace(/\.[^/.]+$/, ""), l)
+         map.set(l.filename.toLowerCase().replace(/\.[^/.]+$/, ""), l)
+       })
+    allItemsMapRef.current = map
+  }
+
   function processApiResults(apiResults: any[]): SearchResult[] {
-    // Map multi-clés pour maximiser les chances de correspondance
-    const itemsMap = new Map<string, LuminaireItem>()
-    items.forEach(item => {
-      if (!item.filename) return
-      const fn = item.filename
-      itemsMap.set(fn, item)
-      itemsMap.set(fn.replace(/\.[^/.]+$/, ""), item)
-      itemsMap.set(fn.toLowerCase(), item)
-      itemsMap.set(fn.toLowerCase().replace(/\.[^/.]+$/, ""), item)
-    })
+    const map = allItemsMapRef.current
+    if (!map) return []
 
     return apiResults.map((result, index) => {
       const rawId   = String(result.image_id || `result_${index}`)
       const cleanId = rawId.split("#")[0].split("?")[0].trim()
 
       const localMatch =
-        itemsMap.get(cleanId) ||
-        itemsMap.get(cleanId.toLowerCase()) ||
-        itemsMap.get(cleanId.replace(/\.[^/.]+$/, "")) ||
-        itemsMap.get(cleanId.toLowerCase().replace(/\.[^/.]+$/, "")) ||
+        map.get(cleanId) ||
+        map.get(cleanId.toLowerCase()) ||
+        map.get(cleanId.replace(/\.[^/.]+$/, "")) ||
+        map.get(cleanId.toLowerCase().replace(/\.[^/.]+$/, "")) ||
         null
 
 
@@ -358,7 +364,8 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
     setSearchError(null)
     setSearchResults([])
     try {
-      const res = await callImageSimilarityAPI(file)
+      // buildFullMap et callImageSimilarityAPI en parallèle
+      const [res] = await Promise.all([callImageSimilarityAPI(file), buildFullMap()])
       if (res.success && res.data.length > 0) {
         const results = processApiResults(res.data)
         setSearchResults(results)
