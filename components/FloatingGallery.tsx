@@ -390,20 +390,66 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
       setShowLoginModal(true)
       return
     }
+
+    // P1 — Guard disponibilité API
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setSearchError("Caméra non disponible sur cet appareil")
+      return
+    }
+
     setIsCameraLoading(true)
+    // Nettoyer tout flux existant
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(t => t.stop())
+      cameraStreamRef.current = null
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: "environment" }, frameRate: { ideal: 30 } },
+        audio: false,
       })
       cameraStreamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
+
+      // P0 — Ordre correct : setActive AVANT d'attacher, puis setTimeout
       setIsCameraActive(true)
-    } catch {
-      setSearchError("Impossible d'accéder à la caméra")
-    } finally {
+      setIsCameraLoading(false)
+      setZoomLevel(1)
+
+      setTimeout(() => {
+        if (videoRef.current && stream) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play().catch(console.error)
+        }
+      }, 100)
+    } catch (err: any) {
+      // P1 — 5 types d'erreurs nommées
+      let msg = "Erreur caméra"
+      if (err.name === "NotAllowedError")       msg = "Accès caméra refusé"
+      else if (err.name === "NotFoundError")    msg = "Aucune caméra détectée"
+      else if (err.name === "NotReadableError") msg = "Caméra déjà utilisée"
+      else if (err.name === "OverconstrainedError") {
+        // Retry sans contraintes avancées
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+          cameraStreamRef.current = stream
+          setIsCameraActive(true)
+          setIsCameraLoading(false)
+          setZoomLevel(1)
+          setTimeout(() => {
+            if (videoRef.current && stream) {
+              videoRef.current.srcObject = stream
+              videoRef.current.play().catch(console.error)
+            }
+          }, 100)
+          return
+        } catch {
+          msg = "Contraintes caméra non supportées"
+        }
+      } else if (err.message) {
+        msg = "Erreur caméra : " + err.message
+      }
+      setSearchError(msg)
       setIsCameraLoading(false)
     }
   }
@@ -460,6 +506,11 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
         setSelectedImageForSearch(pngFile)
         toast.success("Arrière-plan supprimé !")
         return pngFile
+      } else {
+        const errorText = await response.text()
+        console.error("remove.bg error:", errorText)
+        setSearchError("Erreur suppression arrière-plan (crédits épuisés ?)")
+        return null
       }
     } catch {
       toast.error("Erreur lors de la suppression d'arrière-plan")
@@ -876,15 +927,18 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
               {/* Caméra active — flux vidéo */}
               {isCameraActive && (
                 <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"0.6rem" }}>
-                  <video
-                    ref={videoRef}
-                    autoPlay playsInline muted
-                    style={{
-                      width: "200px", height: "150px", borderRadius: "12px",
-                      objectFit: "cover", display: "block",
-                      transform: `scale(${zoomLevel})`, transformOrigin: "center",
-                    }}
-                  />
+                  {/* P3 — conteneur overflow hidden pour isoler le zoom CSS */}
+                  <div style={{ width:"200px", height:"150px", borderRadius:"12px", overflow:"hidden" }}>
+                    <video
+                      ref={videoRef}
+                      autoPlay playsInline muted
+                      style={{
+                        width: "100%", height: "100%",
+                        objectFit: "cover", display: "block",
+                        transform: `scale(${zoomLevel})`, transformOrigin: "center",
+                      }}
+                    />
+                  </div>
                   <input
                     type="range" min={1} max={3} step={0.1}
                     value={zoomLevel}
