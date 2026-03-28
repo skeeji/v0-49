@@ -171,25 +171,43 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
   const cameraStreamRef = useRef<MediaStream | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Fetch luminaires ──────────────────────────────────────────────────────
+  // ── Fetch luminaires (toutes pages) ──────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
-        const res  = await fetch("/api/luminaires?page=1&limit=100")
-        const data = await res.json()
-        if (data.success && data.luminaires?.length > 0) {
-          const filtered: LuminaireItem[] = data.luminaires
-            .filter((l: any) => l.filename && l._id)
-            .map((l: any) => ({
-              _id:      l._id,
-              imageUrl: `/api/images/filename/${l.filename}`,
-              nom:      l.nom || l["Nom luminaire"] || "",
-              filename: l.filename,
-            }))
-          filtered.length > 0 ? setItems(filtered) : setError(true)
-        } else {
-          setError(true)
+        // Page 1 — récupère aussi le total
+        const res1  = await fetch("/api/luminaires?page=1&limit=100")
+        const data1 = await res1.json()
+        if (!data1.success) { setError(true); return }
+
+        const total         = data1.pagination?.total || 0
+        const allLuminaires = [...data1.luminaires]
+
+        // Pages restantes en parallèle si total > 100
+        if (total > 100) {
+          const totalPages   = Math.ceil(total / 100)
+          const pagePromises = []
+          for (let p = 2; p <= totalPages; p++) {
+            pagePromises.push(
+              fetch(`/api/luminaires?page=${p}&limit=100`)
+                .then(r => r.json())
+                .then(d => d.success ? d.luminaires : [])
+            )
+          }
+          const pages = await Promise.all(pagePromises)
+          pages.forEach(page => allLuminaires.push(...page))
         }
+
+        const filtered: LuminaireItem[] = allLuminaires
+          .filter((l: any) => l.filename && l._id)
+          .map((l: any) => ({
+            _id:      l._id,
+            filename: l.filename,
+            imageUrl: `/api/images/filename/${l.filename}`,
+            nom:      l.nom || l["Nom luminaire"] || "",
+          }))
+
+        filtered.length > 0 ? setItems(filtered) : setError(true)
       } catch {
         setError(true)
       } finally {
@@ -283,9 +301,6 @@ export function FloatingGallery({ apiUrl }: FloatingGalleryProps) {
         itemsMap.get(cleanId.toLowerCase().replace(/\.[^/.]+$/, "")) ||
         null
 
-      if (!localMatch) {
-        console.warn("[FG] no match for:", cleanId)
-      }
 
       // Construction URL image externe (fallback)
       let externalUrl = "/placeholder.svg"
