@@ -1,65 +1,97 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 interface CategorySectionProps {
-  luminaires: any[]
+  luminaires:    any[]
   homepageImages: Record<string, string>
 }
 
 const CATEGORIES = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe", "Lanterne"]
-
 const CREAM      = "#f5f1e8"
 const BROWN      = "#8b7355"
 const TEXT_DARK  = "#3d2b1f"
 const TEXT_MID   = "#7a6654"
 
 export function CategorySection({ luminaires, homepageImages }: CategorySectionProps) {
-  const router = useRouter()
+  const router     = useRouter()
+  const sectionRef = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setVisible(true) },
+      { threshold: 0.15 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <>
       <style>{`
-        @keyframes cat-drop {
-          from { transform: translateY(-120px); opacity: 0; }
-          to   { transform: translateY(0);      opacity: 1; }
+        /* ── Animation atterrissage ── */
+        @keyframes drop-in {
+          0%   { transform: translateY(-80px); opacity: 0; }
+          75%  { transform: translateY(6px);   opacity: 1; }
+          90%  { transform: translateY(-4px);  opacity: 1; }
+          100% { transform: translateY(0px);   opacity: 1; }
         }
+
+        /* ── Wrapper animé (séparé du hover pour éviter conflits) ── */
         .cat-card {
+          /* état invisible avant déclenchement */
+        }
+        .cat-card.animate {
+          animation: drop-in 0.8s ease-out both;
+        }
+
+        /* ── Couche visuelle (hover isolé) ── */
+        .cat-inner {
+          height: 320px;
           border-radius: 16px;
           overflow: hidden;
           position: relative;
           cursor: pointer;
-          height: 320px;
-          animation: cat-drop 0.6s ease-out both;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+          background: #e8e0d0;
         }
         @media (max-width: 767px) {
-          .cat-card { height: 220px; }
-          .cat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .cat-inner { height: 200px; }
+          .cat-grid  { grid-template-columns: repeat(2, 1fr) !important; }
         }
-        .cat-card img {
+        .cat-inner:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 16px 40px rgba(0,0,0,0.15);
+        }
+        .cat-inner img {
           width: 100%; height: 100%;
-          object-fit: cover;
+          object-fit: cover; display: block;
           transition: transform 0.3s ease;
-          display: block;
         }
-        .cat-card:hover img { transform: scale(1.03); }
+        .cat-inner:hover img { transform: scale(1.03); }
+
+        /* ── Overlay + label ── */
         .cat-overlay {
           position: absolute; inset: 0;
-          background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%);
+          background: linear-gradient(to top, rgba(0,0,0,0.50) 0%, transparent 55%);
+          pointer-events: none;
         }
         .cat-label {
           position: absolute; bottom: 1rem; left: 1rem;
           font-family: "Playfair Display", Georgia, serif;
-          font-size: 1.3rem; font-weight: 600;
+          font-size: 1.4rem; font-weight: 600;
           color: #fff;
-          text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+          text-shadow: 0 1px 6px rgba(0,0,0,0.45);
           pointer-events: none;
         }
-        .cat-empty {
-          width: 100%; height: 100%;
-          background: #e8e0d0;
-        }
+
+        /* ── Bouton CTA ── */
         .cat-cta {
           display: inline-flex; align-items: center; gap: 0.5rem;
           padding: 0.75rem 2rem;
@@ -70,7 +102,7 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
         .cat-cta:hover { background: #75614a; }
       `}</style>
 
-      <section style={{ background: CREAM, padding: "5rem 2rem" }}>
+      <section ref={sectionRef} style={{ background: CREAM, padding: "5rem 2rem" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
 
           {/* En-tête */}
@@ -91,30 +123,35 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
             </p>
           </div>
 
-          {/* Grille 3 cols */}
+          {/* Grille */}
           <div className="cat-grid"
                style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px" }}>
             {CATEGORIES.map((cat, i) => {
-              const overrideImg = homepageImages[`homepage_cat_${i}`]
+              const overrideImg = homepageImages[`homepage_luminaire_${i}`]
               const match = luminaires.find((l: any) =>
-                (l.categorie || l["Catégorie"] || l.nom || "")
-                  .toLowerCase().includes(cat.toLowerCase()) && l.filename
+                ((l.categorie || "").toLowerCase().includes(cat.toLowerCase()) ||
+                 (l["Catégorie"] || "").toLowerCase().includes(cat.toLowerCase())) &&
+                l.filename
               )
               const imgSrc = overrideImg || (match ? `/api/images/filename/${match.filename}` : null)
 
               return (
                 <div
                   key={cat}
-                  className="cat-card"
-                  style={{ animationDelay: `${i * 120}ms` }}
-                  onClick={() => router.push(`/luminaires?categorie=${encodeURIComponent(cat)}`)}
-                >
-                  {imgSrc
-                    ? <img src={imgSrc} alt={cat} loading="lazy" />
-                    : <div className="cat-empty" />
+                  className={`cat-card${visible ? " animate" : ""}`}
+                  style={visible
+                    ? { animationDelay: `${i * 150}ms` }
+                    : { opacity: 0 }
                   }
-                  <div className="cat-overlay" />
-                  <span className="cat-label">{cat}s</span>
+                >
+                  <div
+                    className="cat-inner"
+                    onClick={() => router.push(`/luminaires?categorie=${encodeURIComponent(cat)}`)}
+                  >
+                    {imgSrc && <img src={imgSrc} alt={cat} loading="lazy" />}
+                    <div className="cat-overlay" />
+                    <span className="cat-label">{cat}s</span>
+                  </div>
                 </div>
               )
             })}
