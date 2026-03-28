@@ -13,7 +13,8 @@ import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
 import MobileFooter from "@/components/MobileFooter" // Import MobileFooter
-import { CorridorGallery } from "@/components/CorridorGallery"
+// import { CorridorGallery } from "@/components/CorridorGallery"  // ← rollback: décommenter cette ligne et commenter la suivante
+import { FloatingGallery } from "@/components/FloatingGallery"
 
 // URL correcte de l'API
 const apiUrl = "https://image-similarity-api-590690354412.us-central1.run.app/api/search"
@@ -852,8 +853,9 @@ export default function HomePage() {
 
   return (
     <div className="bg-[#f5f1e8]">
-      {/* ========== GALERIE IMMERSIVE 3D ========== */}
-      <CorridorGallery videoUrl={welcomeVideo} />
+      {/* ========== GALERIE FLOTTANTE ========== */}
+      {/* rollback → remplacer FloatingGallery par : <CorridorGallery videoUrl={welcomeVideo} /> */}
+      <FloatingGallery />
 
       {/* Hero section - Recherche IA */}
       <div className="relative py-12 md:py-20">
