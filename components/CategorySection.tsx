@@ -9,116 +9,133 @@ interface CategorySectionProps {
   homepageImages: Record<string, string>
 }
 
-interface CloneState {
-  id:         number
-  top:        number   // px dans le viewport
-  left:       number   // px dans le viewport
-  width:      number   // px
-  height:     number   // px
-  rot:        number   // degrés
-  flying:     boolean
-  destTop:    number
-  destLeft:   number
-  destWidth:  number
-  destHeight: number
-  imgSrc:     string | null
-}
-
-const CATEGORIES = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe", "Lanterne"]
-const LABELS     = ["Lustres", "Appliques", "Suspensions", "Lampadaires", "Lampes", "Lanternes"]
+const CATEGORIES    = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe", "Lanterne"]
+const LABELS        = ["Lustres", "Appliques", "Suspensions", "Lampadaires", "Lampes", "Lanternes"]
+const ANGLES_6      = [0, 45, 135, 180, 225, 315]
+const START_OFFSETS = [120, 140, 130, 150, 110, 160]
+const WIDTH_STARTS  = [160, 160, 160, 160, 160, 160]
+const HEIGHT_STARTS = [240, 160, 112, 240, 160, 112]  // portrait / carré / paysage
 
 const CREAM     = "#f5f1e8"
 const BROWN     = "#8b7355"
 const TEXT_DARK = "#3d2b1f"
 const TEXT_MID  = "#7a6654"
 
-// Positions de départ fixes dans le viewport (seed déterministe)
-const CLONE_CONFIGS = [
-  { top: 20, left: 15, width: 180, rot: -5 },
-  { top: 55, left: 60, width: 160, rot:  4 },
-  { top: 30, left: 75, width: 200, rot: -3 },
-  { top: 65, left: 25, width: 170, rot:  6 },
-  { top: 40, left: 45, width: 190, rot: -4 },
-  { top: 25, left: 80, width: 165, rot:  3 },
-]
-
 export function CategorySection({ luminaires, homepageImages }: CategorySectionProps) {
-  const router    = useRouter()
-  const sectionRef = useRef<HTMLDivElement>(null)
-  const cardsRef  = useRef<(HTMLDivElement | null)[]>([])
-  const triggered = useRef(false)
-  const imgSrcsRef = useRef<(string | null)[]>([])
+  const router = useRouter()
 
-  const [clones,      setClones]      = useState<CloneState[]>([])
+  const cardsRef       = useRef<(HTMLDivElement | null)[]>([])
+  const cloneRefs      = useRef<(HTMLDivElement | null)[]>([])
+  const destPagePos    = useRef<{ x: number; y: number; w: number; h: number }[]>([])
+  const animFrameRef   = useRef<number>()
+  const cardVisibleRef = useRef<boolean[]>(Array(6).fill(false))
+
   const [cardVisible, setCardVisible] = useState<boolean[]>(Array(6).fill(false))
 
-  // Maintenir imgSrcs à jour à chaque render
-  const step = luminaires.length > 0 ? Math.floor(luminaires.length / 6) : 0
-  imgSrcsRef.current = CATEGORIES.map((_, i) => {
+  // Calcul des sources d'images (inline pour réactivité aux re-renders)
+  const step    = luminaires.length > 0 ? Math.floor(luminaires.length / 6) : 0
+  const imgSrcs = CATEGORIES.map((_, i) => {
     const override = homepageImages[`homepage_luminaire_${i}`]
     const pick     = step > 0 ? luminaires[i * step] : null
     return override || (pick?.filename ? `/api/images/filename/${pick.filename}` : null)
   })
 
+  // Mesurer les positions absolues (page) des cases de destination
   useEffect(() => {
-    const handler = () => {
-      if (triggered.current) return
-      if (window.scrollY < 30) return
-      const sectionEl = sectionRef.current
-      if (!sectionEl) return
-      const rect = sectionEl.getBoundingClientRect()
-      if (rect.top > window.innerHeight * 0.9) return
-
-      triggered.current = true
-      window.removeEventListener("scroll", handler)
-
-      CLONE_CONFIGS.forEach((cfg, i) => {
-        setTimeout(() => {
-          const imgSrc   = imgSrcsRef.current[i]
-          const initTop  = (cfg.top  / 100) * window.innerHeight
-          const initLeft = (cfg.left / 100) * window.innerWidth
-          const height   = cfg.width * 1.4
-
-          // Phase A — clone apparaît à sa position FG
-          setClones(prev => [...prev, {
-            id: i,
-            top: initTop, left: initLeft,
-            width: cfg.width, height,
-            rot: cfg.rot,
-            flying: false,
-            destTop: 0, destLeft: 0, destWidth: 0, destHeight: 0,
-            imgSrc,
-          }])
-
-          // Phase B — vol vers la case (150ms après apparition)
-          setTimeout(() => {
-            const cardEl = cardsRef.current[i]
-            if (!cardEl) return
-            const dest = cardEl.getBoundingClientRect()
-            setClones(prev => prev.map(c =>
-              c.id === i
-                ? { ...c, flying: true,
-                    destTop: dest.top, destLeft: dest.left,
-                    destWidth: dest.width, destHeight: dest.height }
-                : c
-            ))
-
-            // Phase C — atterrissage : supprimer clone, révéler vraie carte
-            setTimeout(() => {
-              setClones(prev => prev.filter(c => c.id !== i))
-              setCardVisible(prev => {
-                const next = [...prev]
-                next[i] = true
-                return next
-              })
-            }, 950)
-          }, 150)
-        }, i * 800)
+    const measure = () => {
+      destPagePos.current = cardsRef.current.map(el => {
+        if (!el) return { x: 0, y: 0, w: 0, h: 0 }
+        const rect = el.getBoundingClientRect()
+        return {
+          x: rect.left + window.scrollX,
+          y: rect.top  + window.scrollY,
+          w: rect.width,
+          h: rect.height,
+        }
       })
     }
+    const timer = setTimeout(measure, 150)
+    window.addEventListener("resize", measure)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener("resize", measure)
+    }
+  }, [luminaires])
 
-    window.addEventListener("scroll", handler, { passive: true })
-    return () => window.removeEventListener("scroll", handler)
+  // RAF scroll-driven : anime les clones vers leurs cases
+  useEffect(() => {
+    const update = () => {
+      const scrollY  = window.scrollY
+      const vh       = window.innerHeight
+      const vw       = window.innerWidth
+      const progress = Math.min(scrollY / vh, 1)
+
+      ANGLES_6.forEach((angleDeg, i) => {
+        const el = cloneRefs.current[i]
+        if (!el) return
+
+        const rad    = (angleDeg * Math.PI) / 180
+        const offset = START_OFFSETS[i]
+        const wStart = WIDTH_STARTS[i]
+        const hStart = HEIGHT_STARTS[i]
+
+        const leftStart = vw / 2 + Math.cos(rad) * offset - wStart / 2
+        const topStart  = vh / 2 + Math.sin(rad) * offset - hStart / 2
+
+        const dest = destPagePos.current[i]
+        const hasDest = dest && dest.w > 0
+
+        if (!hasDest) {
+          // Pas encore mesuré : carte au repos en position FG
+          el.style.display   = "block"
+          el.style.transform = `translate(${leftStart}px, ${topStart}px)`
+          el.style.width     = `${wStart}px`
+          el.style.height    = `${hStart}px`
+          el.style.opacity   = "0.9"
+          return
+        }
+
+        // Smoothstep sur la plage de progress de cette carte
+        const startP = i * 0.12
+        const p      = Math.max(0, Math.min(1, (progress - startP) / 0.40))
+        const ease   = p * p * (3 - 2 * p)
+
+        if (ease >= 1) {
+          el.style.display = "none"
+          if (!cardVisibleRef.current[i]) {
+            cardVisibleRef.current[i] = true
+            setCardVisible(prev => { const n = [...prev]; n[i] = true; return n })
+          }
+        } else {
+          // Viewport position de la destination (suit le scroll)
+          const destLeft = dest.x - window.scrollX
+          const destTop  = dest.y - window.scrollY
+
+          const x  = leftStart + (destLeft - leftStart) * ease
+          const y  = topStart  + (destTop  - topStart)  * ease
+          const w  = wStart    + (dest.w   - wStart)    * ease
+          const h  = hStart    + (dest.h   - hStart)    * ease
+          const op = 0.90      + 0.10 * ease
+
+          el.style.display   = "block"
+          el.style.transform = `translate(${x}px, ${y}px)`
+          el.style.width     = `${w}px`
+          el.style.height    = `${h}px`
+          el.style.opacity   = String(op)
+
+          // Si on recule au-delà du seuil → cacher la vraie carte
+          if (cardVisibleRef.current[i]) {
+            cardVisibleRef.current[i] = false
+            setCardVisible(prev => { const n = [...prev]; n[i] = false; return n })
+          }
+        }
+      })
+
+      animFrameRef.current = requestAnimationFrame(update)
+    }
+
+    animFrameRef.current = requestAnimationFrame(update)
+    return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current) }
   }, [])
 
   return (
@@ -129,12 +146,14 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
           border-radius: 14px;
           overflow: hidden;
           position: relative;
-          cursor: pointer;
           background: #faf8f4;
           box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        }
+        .cat-inner.ready {
+          cursor: pointer;
           transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .cat-inner:hover {
+        .cat-inner.ready:hover {
           transform: translateY(-6px);
           box-shadow: 0 12px 36px rgba(0,0,0,0.12);
         }
@@ -143,8 +162,7 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
           object-fit: cover; display: block;
           transition: transform 0.35s ease;
         }
-        .cat-inner:hover img { transform: scale(1.04); }
-
+        .cat-inner.ready:hover img { transform: scale(1.04); }
         .cat-overlay {
           position: absolute; inset: 0;
           background: linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 55%);
@@ -153,12 +171,10 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
         .cat-label {
           position: absolute; bottom: 1rem; left: 1rem;
           font-family: "Playfair Display", Georgia, serif;
-          font-size: 1.3rem; font-weight: 600;
-          color: #fff;
+          font-size: 1.3rem; font-weight: 600; color: #fff;
           text-shadow: 0 1px 6px rgba(0,0,0,0.4);
           pointer-events: none;
         }
-
         .cat-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -168,7 +184,6 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
           .cat-grid  { grid-template-columns: repeat(2, 1fr); }
           .cat-inner { height: 220px; }
         }
-
         .cat-cta {
           display: inline-flex; align-items: center; gap: 0.5rem;
           padding: 0.75rem 2rem;
@@ -179,36 +194,29 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
         .cat-cta:hover { background: #75614a; }
       `}</style>
 
-      {/* ── Clones FIXED — volent depuis la FG vers leurs cases ── */}
-      {clones.map(clone => (
+      {/* ── Clones FIXED scroll-driven ── */}
+      {CATEGORIES.map((cat, i) => (
         <div
-          key={clone.id}
+          key={`clone-${cat}`}
+          ref={el => { cloneRefs.current[i] = el }}
           style={{
-            position:     "fixed",
-            top:          clone.flying ? `${clone.destTop}px`    : `${clone.top}px`,
-            left:         clone.flying ? `${clone.destLeft}px`   : `${clone.left}px`,
-            width:        clone.flying ? `${clone.destWidth}px`  : `${clone.width}px`,
-            height:       clone.flying ? `${clone.destHeight}px` : `${clone.height}px`,
-            borderRadius: "14px",
-            overflow:     "hidden",
-            boxShadow:    "0 4px 20px rgba(0,0,0,0.10)",
-            transform:    clone.flying ? "rotate(0deg)" : `rotate(${clone.rot}deg)`,
-            transition:   clone.flying
-              ? [
-                  "top 0.9s cubic-bezier(0.25,0.46,0.45,0.94)",
-                  "left 0.9s cubic-bezier(0.25,0.46,0.45,0.94)",
-                  "width 0.9s cubic-bezier(0.25,0.46,0.45,0.94)",
-                  "height 0.9s cubic-bezier(0.25,0.46,0.45,0.94)",
-                  "transform 0.9s cubic-bezier(0.25,0.46,0.45,0.94)",
-                ].join(", ")
-              : "none",
-            zIndex:        100,
-            pointerEvents: "none",
+            position:      "fixed",
+            top:            0,
+            left:           0,
+            width:          `${WIDTH_STARTS[i]}px`,
+            height:         `${HEIGHT_STARTS[i]}px`,
+            borderRadius:   "14px",
+            overflow:       "hidden",
+            boxShadow:      "0 4px 20px rgba(0,0,0,0.06)",
+            zIndex:         50,
+            pointerEvents:  "none",
+            willChange:     "transform, width, height, opacity",
+            display:        "none",
           }}
         >
-          {clone.imgSrc && (
+          {imgSrcs[i] && (
             <img
-              src={clone.imgSrc}
+              src={imgSrcs[i]!}
               alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
@@ -216,7 +224,7 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
         </div>
       ))}
 
-      <section ref={sectionRef} style={{ background: CREAM, padding: "5rem 2rem" }}>
+      <section style={{ background: CREAM, padding: "5rem 2rem" }}>
         <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
 
           {/* En-tête */}
@@ -237,30 +245,28 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
             </p>
           </div>
 
-          {/* Grille — cartes invisibles jusqu'à l'atterrissage du clone */}
+          {/* Grille — cases invisibles jusqu'à l'atterrissage */}
           <div className="cat-grid">
-            {CATEGORIES.map((cat, i) => {
-              const imgSrc = imgSrcsRef.current[i]
-              return (
+            {CATEGORIES.map((cat, i) => (
+              <div
+                key={cat}
+                ref={el => { cardsRef.current[i] = el }}
+                style={{
+                  opacity:    cardVisible[i] ? 1 : 0,
+                  visibility: cardVisible[i] ? "visible" : "hidden",
+                  transition: cardVisible[i] ? "opacity 0.15s ease" : "none",
+                }}
+              >
                 <div
-                  key={cat}
-                  ref={el => { cardsRef.current[i] = el }}
-                  style={{
-                    opacity:    cardVisible[i] ? 1 : 0,
-                    transition: cardVisible[i] ? "opacity 0.2s ease" : "none",
-                  }}
+                  className={`cat-inner${cardVisible[i] ? " ready" : ""}`}
+                  onClick={() => cardVisible[i] && router.push(`/luminaires?categorie=${encodeURIComponent(cat)}`)}
                 >
-                  <div
-                    className="cat-inner"
-                    onClick={() => router.push(`/luminaires?categorie=${encodeURIComponent(cat)}`)}
-                  >
-                    {imgSrc && <img src={imgSrc} alt={LABELS[i]} loading="lazy" />}
-                    <div className="cat-overlay" />
-                    <span className="cat-label">{LABELS[i]}</span>
-                  </div>
+                  {imgSrcs[i] && <img src={imgSrcs[i]!} alt={LABELS[i]} loading="lazy" />}
+                  <div className="cat-overlay" />
+                  <span className="cat-label">{LABELS[i]}</span>
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
 
           {/* Bouton */}
