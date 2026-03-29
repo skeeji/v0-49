@@ -333,102 +333,157 @@ export default function LuminaireDetailPage() {
       const pdf = new jsPDF("p", "mm", "a4")
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
-      const margin = 20
+      const marginX = 15
 
-      pdf.setFillColor(245, 241, 232) // #f5f1e8
+      // Fond crème
+      pdf.setFillColor(245, 241, 232)
       pdf.rect(0, 0, pageWidth, pageHeight, "F")
 
-      pdf.setFont("times", "bold")
-      pdf.setFontSize(24)
-      pdf.setTextColor(60, 60, 60)
-      pdf.text("GERSAINT", margin, margin)
+      // ── 1. LOGO ──
+      let logoLoaded = false
+      try {
+        const logoUrl = `${window.location.origin}/images/gersaint-logo.png`
+        const logoResponse = await fetch(logoUrl)
+        const logoBlob = await logoResponse.blob()
+        const logoBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.readAsDataURL(logoBlob)
+        })
+        const logoW = 50
+        const logoH = 25
+        pdf.addImage(logoBase64, "PNG", (pageWidth - logoW) / 2, 15, logoW, logoH)
+        logoLoaded = true
+      } catch {
+        // fallback ci-dessous
+      }
+      if (!logoLoaded) {
+        pdf.setFont("times", "bold")
+        pdf.setFontSize(24)
+        pdf.setTextColor(60, 60, 60)
+        pdf.text("GERSAINT", pageWidth / 2, 30, { align: "center" })
+      }
 
-      // Luminaire name
+      // Ligne dorée à 45mm
+      pdf.setDrawColor(139, 115, 85)
+      pdf.setLineWidth(0.5)
+      pdf.line(marginX, 45, pageWidth - marginX, 45)
+
+      // ── 2. NOM + DESIGNER (sans année) ──
+      pdf.setFont("times", "bold")
       pdf.setFontSize(18)
       pdf.setTextColor(40, 40, 40)
-      const nameY = margin + 15
-      pdf.text(luminaire.name || "Sans nom", margin, nameY)
+      pdf.text(luminaire.name || "Sans nom", marginX, 54)
 
-      // Artist and year
       pdf.setFont("times", "italic")
       pdf.setFontSize(12)
       pdf.setTextColor(100, 100, 100)
-      pdf.text(`${luminaire.artist}${luminaire.year ? `, ${luminaire.year}` : ""}`, margin, nameY + 8)
+      pdf.text(luminaire.artist || "", marginX, 62)
 
-      let yPosition = nameY + 20
-
+      // ── 3. IMAGE ──
+      let yAfterImage = 70
       if (luminaire.filename) {
         try {
           const imageUrl = `/api/images/filename/${luminaire.filename}`
-          const img = await fetch(imageUrl)
-          const blob = await img.blob()
-          const reader = new FileReader()
-
-          await new Promise((resolve) => {
-            reader.onloadend = () => {
-              const base64data = reader.result as string
-              const imgWidth = 80
-              const imgHeight = 80
-              const imgX = (pageWidth - imgWidth) / 2
-
-              pdf.addImage(base64data, "JPEG", imgX, yPosition, imgWidth, imgHeight)
-              yPosition += imgHeight + 15
-              resolve(null)
-            }
-            reader.readAsDataURL(blob)
+          const imgBlob = await (await fetch(imageUrl)).blob()
+          const imgBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(imgBlob)
           })
-        } catch (error) {
-          console.error("Error loading image for PDF:", error)
+          const imgW = 80
+          const imgH = 80
+          pdf.addImage(imgBase64, "JPEG", (pageWidth - imgW) / 2, 68, imgW, imgH)
+          yAfterImage = 68 + imgH + 10
+        } catch {
+          // pas d'image
         }
       }
 
-      pdf.setDrawColor(139, 115, 85) // #8b7355
+      // Ligne séparatrice après image
+      pdf.setDrawColor(139, 115, 85)
       pdf.setLineWidth(0.5)
-      pdf.line(margin, yPosition, pageWidth - margin, yPosition)
-      yPosition += 10
+      pdf.line(marginX, yAfterImage, pageWidth - marginX, yAfterImage)
 
-      pdf.setFont("times", "normal")
-      pdf.setFontSize(11)
-      pdf.setTextColor(60, 60, 60)
+      // ── 4. DEUX COLONNES ──
+      const colLeftX  = 15
+      const colRightX = 110
+      const colWidth  = 85
+      let yLeft  = yAfterImage + 8
+      let yRight = yAfterImage + 8
 
-      const addField = (label: string, value: string) => {
-        if (value && value.trim()) {
-          pdf.setFont("times", "bold")
-          pdf.text(`${label}:`, margin, yPosition)
-          pdf.setFont("times", "normal")
-          const splitText = pdf.splitTextToSize(value, pageWidth - margin * 2 - 30)
-          pdf.text(splitText, margin + 30, yPosition)
-          yPosition += splitText.length * 6 + 3
-        }
+      const drawField = (x: number, y: number, label: string, value: string): number => {
+        pdf.setFont("times", "bold")
+        pdf.setFontSize(10)
+        pdf.setTextColor(61, 43, 31)   // #3d2b1f
+        pdf.text(label, x, y)
+        const labelH = 4.5
+        pdf.setFont("times", "normal")
+        pdf.setTextColor(85, 85, 85)   // #555555
+        const lines = pdf.splitTextToSize(value, colWidth)
+        pdf.text(lines, x, y + labelH)
+        return y + labelH + lines.length * 3.8 + 3.5
       }
 
-      addField("Signé", luminaire.signed || "Non")
-      addField("Année", luminaire.year || "Inconnue")
-      addField("Catégorie", luminaire.categorie || "")
-      addField("Éditeur", luminaire.editeur || "")
-      addField("Matériaux", luminaire.materials || "")
-      addField("Dimensions", luminaire.dimensions || "")
-
-      if (canSeeEstimation && luminaire.estimation) {
-        addField("Estimation", luminaire.estimation)
+      const addLeft = (label: string, value: string | undefined) => {
+        if (!value || !value.trim()) return
+        yLeft = drawField(colLeftX, yLeft, label, value)
       }
 
-      addField("Bibliographie", luminaire.bibliographie || "")
-      addField("Lien site marchand", luminaire.lienSiteMarchand || "")
+      const addRight = (label: string, value: string | undefined) => {
+        if (!value || !value.trim()) return
+        yRight = drawField(colRightX, yRight, label, value)
+      }
+
+      // Colonne gauche
+      addLeft("Éditeur",    luminaire.editeur)
+      addLeft("Année",      luminaire.year)
+      addLeft("Signé",      luminaire.signed)
+      if (canSeeEstimation) addLeft("Estimation", luminaire.estimation)
+
+      // Colonne droite
+      addRight("Catégorie", luminaire.categorie)
+      addRight("Dimensions", luminaire.dimensions)
+      addRight("Matériaux", luminaire.materials)
+      addRight("Puissance", luminaire.puissance || luminaire.power)
+
+      // ── 5. DESCRIPTION + BIBLIOGRAPHIE ──
+      const yBelowCols = Math.max(yLeft, yRight) + 4
+
+      pdf.setDrawColor(139, 115, 85)
+      pdf.setLineWidth(0.5)
+      pdf.line(marginX, yBelowCols, pageWidth - marginX, yBelowCols)
+
+      let yText = yBelowCols + 8
 
       if (luminaire.description && luminaire.description.trim()) {
-        yPosition += 5
         pdf.setFont("times", "bold")
         pdf.setFontSize(12)
-        pdf.text("Description", margin, yPosition)
-        yPosition += 7
-
+        pdf.setTextColor(61, 43, 31)
+        pdf.text("Description", marginX, yText)
+        yText += 6
         pdf.setFont("times", "normal")
         pdf.setFontSize(10)
-        const descLines = pdf.splitTextToSize(luminaire.description, pageWidth - margin * 2)
-        pdf.text(descLines, margin, yPosition)
+        pdf.setTextColor(85, 85, 85)
+        const descLines = pdf.splitTextToSize(luminaire.description, pageWidth - marginX * 2)
+        pdf.text(descLines, marginX, yText)
+        yText += descLines.length * 3.8 + 6
       }
 
+      if (luminaire.bibliographie && luminaire.bibliographie.trim()) {
+        pdf.setFont("times", "bold")
+        pdf.setFontSize(12)
+        pdf.setTextColor(61, 43, 31)
+        pdf.text("Bibliographie", marginX, yText)
+        yText += 6
+        pdf.setFont("times", "normal")
+        pdf.setFontSize(10)
+        pdf.setTextColor(85, 85, 85)
+        const biblioLines = pdf.splitTextToSize(luminaire.bibliographie, pageWidth - marginX * 2)
+        pdf.text(biblioLines, marginX, yText)
+      }
+
+      // Footer
       pdf.setFontSize(9)
       pdf.setTextColor(139, 115, 85)
       pdf.text("www.gersaintparis.com", pageWidth / 2, pageHeight - 10, { align: "center" })
