@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
@@ -30,9 +30,6 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
   const overlayRef     = useRef<HTMLDivElement | null>(null)
   const destPagePos    = useRef<{ x: number; y: number; w: number; h: number }[]>([])
   const animFrameRef   = useRef<number>()
-  const cardVisibleRef = useRef<boolean[]>(Array(6).fill(false))
-
-  const [cardVisible, setCardVisible] = useState<boolean[]>(Array(6).fill(false))
 
   const step    = luminaires.length > 0 ? Math.floor(luminaires.length / 6) : 0
   const imgSrcs = CATEGORIES.map((_, i) => {
@@ -80,6 +77,16 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
         overlay.style.width  = `${fgRect.width}px`
         overlay.style.height = `${fgRect.height}px`
         overlay.style.display = fgRect.bottom < 0 ? "none" : "block"
+      }
+
+      console.log("RAF running, scrollY:", scrollY)
+      console.log("dest[0]:", destPagePos.current[0])
+      console.log("clone[0] display:", cloneRefs.current[0]?.style.display)
+
+      if (scrollY > 5) {
+        cloneRefs.current.forEach(el => {
+          if (el) el.style.display = "block"
+        })
       }
 
       ANGLES_6.forEach((angleDeg, i) => {
@@ -131,17 +138,6 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
         el.style.height    = `${h}px`
         el.style.opacity   = String(op)
         el.style.display   = "block"
-
-        // Révéler vraie carte quand clone presque disparu
-        if (ease >= 0.85 && !cardVisibleRef.current[i]) {
-          cardVisibleRef.current[i] = true
-          setCardVisible(prev => { const n = [...prev]; n[i] = true; return n })
-        }
-        // Cacher vraie carte si on recule
-        if (ease < 0.85 && cardVisibleRef.current[i]) {
-          cardVisibleRef.current[i] = false
-          setCardVisible(prev => { const n = [...prev]; n[i] = false; return n })
-        }
       })
 
       animFrameRef.current = requestAnimationFrame(update)
@@ -274,23 +270,19 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
             </p>
           </div>
 
-          {/* Masonry — cases invisibles jusqu'à l'atterrissage */}
+          {/* Masonry */}
           <div className="cat-masonry">
             {CATEGORIES.map((cat, i) => (
               <div
                 key={cat}
                 className="cat-masonry-item"
                 ref={el => { cardsRef.current[i] = el }}
-                style={{
-                  opacity:    cardVisible[i] ? 1 : 0,
-                  visibility: cardVisible[i] ? "visible" : "hidden",
-                  transition: cardVisible[i] ? "opacity 0.2s ease" : "none",
-                }}
+                style={{ opacity: 1, visibility: "visible" }}
               >
                 <div
-                  className={`cat-inner${cardVisible[i] ? " ready" : ""}`}
+                  className="cat-inner ready"
                   style={{ height: `${CARD_HEIGHTS[i]}px` }}
-                  onClick={() => cardVisible[i] && router.push(`/luminaires?categorie=${encodeURIComponent(cat)}`)}
+                  onClick={() => router.push(`/luminaires?categorie=${encodeURIComponent(cat)}`)}
                 >
                   {imgSrcs[i] && <img src={imgSrcs[i]!} alt={LABELS[i]} loading="lazy" />}
                   <div className="cat-overlay" />
