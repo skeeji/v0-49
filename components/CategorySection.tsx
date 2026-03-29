@@ -13,8 +13,9 @@ const CATEGORIES    = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe"
 const LABELS        = ["Lustres", "Appliques", "Suspensions", "Lampadaires", "Lampes", "Lanternes"]
 const ANGLES_6      = [0, 45, 135, 180, 225, 315]
 const START_OFFSETS = [120, 140, 130, 150, 110, 160]
-const WIDTH_STARTS  = [160, 160, 160, 160, 160, 160]
-const HEIGHT_STARTS = [240, 160, 112, 240, 160, 112]  // portrait / carré / paysage
+const WIDTH_STARTS  = [110, 110, 110, 110, 110, 110]
+const HEIGHT_STARTS = [165, 110,  77, 165, 110,  77]
+const CARD_HEIGHTS  = [320, 240, 280, 260, 300, 220]
 
 const CREAM     = "#f5f1e8"
 const BROWN     = "#8b7355"
@@ -26,13 +27,13 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
 
   const cardsRef       = useRef<(HTMLDivElement | null)[]>([])
   const cloneRefs      = useRef<(HTMLDivElement | null)[]>([])
+  const overlayRef     = useRef<HTMLDivElement | null>(null)
   const destPagePos    = useRef<{ x: number; y: number; w: number; h: number }[]>([])
   const animFrameRef   = useRef<number>()
   const cardVisibleRef = useRef<boolean[]>(Array(6).fill(false))
 
   const [cardVisible, setCardVisible] = useState<boolean[]>(Array(6).fill(false))
 
-  // Calcul des sources d'images (inline pour réactivité aux re-renders)
   const step    = luminaires.length > 0 ? Math.floor(luminaires.length / 6) : 0
   const imgSrcs = CATEGORIES.map((_, i) => {
     const override = homepageImages[`homepage_luminaire_${i}`]
@@ -54,7 +55,7 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
         }
       })
     }
-    const timer = setTimeout(measure, 150)
+    const timer = setTimeout(measure, 200)
     window.addEventListener("resize", measure)
     return () => {
       clearTimeout(timer)
@@ -62,72 +63,84 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
     }
   }, [luminaires])
 
-  // RAF scroll-driven : anime les clones vers leurs cases
+  // RAF scroll-driven : overlay + clones
   useEffect(() => {
     const update = () => {
       const scrollY  = window.scrollY
       const vh       = window.innerHeight
-      const vw       = window.innerWidth
       const progress = Math.min(scrollY / vh, 1)
+
+      const fgEl   = document.getElementById("floating-gallery")
+      const fgRect = fgEl?.getBoundingClientRect()
+      const overlay = overlayRef.current
+
+      if (overlay && fgRect) {
+        overlay.style.top    = `${fgRect.top}px`
+        overlay.style.left   = `${fgRect.left}px`
+        overlay.style.width  = `${fgRect.width}px`
+        overlay.style.height = `${fgRect.height}px`
+        overlay.style.display = fgRect.bottom < 0 ? "none" : "block"
+      }
 
       ANGLES_6.forEach((angleDeg, i) => {
         const el = cloneRefs.current[i]
-        if (!el) return
+        if (!el || !fgRect) return
 
-        const rad    = (angleDeg * Math.PI) / 180
+        const rad    = angleDeg * Math.PI / 180
         const offset = START_OFFSETS[i]
         const wStart = WIDTH_STARTS[i]
         const hStart = HEIGHT_STARTS[i]
 
-        const leftStart = vw / 2 + Math.cos(rad) * offset - wStart / 2
-        const topStart  = vh / 2 + Math.sin(rad) * offset - hStart / 2
+        // Position départ dans l'overlay (relatif au coin haut-gauche de la FG)
+        const cx = fgRect.width  / 2
+        const cy = fgRect.height / 2
+        const sx = cx + Math.cos(rad) * offset - wStart / 2
+        const sy = cy + Math.sin(rad) * offset - hStart / 2
 
-        const dest = destPagePos.current[i]
-        const hasDest = dest && dest.w > 0
-
-        if (!hasDest) {
-          // Pas encore mesuré : carte au repos en position FG
-          el.style.display   = "block"
-          el.style.transform = `translate(${leftStart}px, ${topStart}px)`
-          el.style.width     = `${wStart}px`
-          el.style.height    = `${hStart}px`
-          el.style.opacity   = "0.9"
-          return
-        }
-
-        // Smoothstep sur la plage de progress de cette carte
         const startP = i * 0.12
         const p      = Math.max(0, Math.min(1, (progress - startP) / 0.40))
         const ease   = p * p * (3 - 2 * p)
 
-        if (ease >= 1) {
-          el.style.display = "none"
-          if (!cardVisibleRef.current[i]) {
-            cardVisibleRef.current[i] = true
-            setCardVisible(prev => { const n = [...prev]; n[i] = true; return n })
-          }
-        } else {
-          // Viewport position de la destination (suit le scroll)
-          const destLeft = dest.x - window.scrollX
-          const destTop  = dest.y - window.scrollY
-
-          const x  = leftStart + (destLeft - leftStart) * ease
-          const y  = topStart  + (destTop  - topStart)  * ease
-          const w  = wStart    + (dest.w   - wStart)    * ease
-          const h  = hStart    + (dest.h   - hStart)    * ease
-          const op = 0.90      + 0.10 * ease
-
+        const dest = destPagePos.current[i]
+        if (!dest || dest.w === 0) {
+          el.style.transform = `translate(${sx}px, ${sy}px)`
+          el.style.width     = `${wStart}px`
+          el.style.height    = `${hStart}px`
+          el.style.opacity   = scrollY > 0 ? "0.75" : "0"
           el.style.display   = "block"
-          el.style.transform = `translate(${x}px, ${y}px)`
-          el.style.width     = `${w}px`
-          el.style.height    = `${h}px`
-          el.style.opacity   = String(op)
+          return
+        }
 
-          // Si on recule au-delà du seuil → cacher la vraie carte
-          if (cardVisibleRef.current[i]) {
-            cardVisibleRef.current[i] = false
-            setCardVisible(prev => { const n = [...prev]; n[i] = false; return n })
-          }
+        // Destination en coordonnées overlay
+        const dx = (dest.x - window.scrollX) - fgRect.left
+        const dy = (dest.y - window.scrollY) - fgRect.top
+
+        const x = sx + (dx - sx) * ease
+        const y = sy + (dy - sy) * ease
+        const w = wStart + (dest.w - wStart) * ease
+        const h = hStart + (dest.h - hStart) * ease
+
+        // Opacity : 0 si scroll=0, sinon 0.75→1, fondu sortie quand ease > 0.85
+        const opBase = scrollY > 0 ? (0.75 + 0.25 * ease) : 0
+        const op     = ease > 0.85
+          ? opBase * (1 - (ease - 0.85) / 0.15)
+          : opBase
+
+        el.style.transform = `translate(${x}px, ${y}px)`
+        el.style.width     = `${w}px`
+        el.style.height    = `${h}px`
+        el.style.opacity   = String(op)
+        el.style.display   = "block"
+
+        // Révéler vraie carte quand clone presque disparu
+        if (ease >= 0.85 && !cardVisibleRef.current[i]) {
+          cardVisibleRef.current[i] = true
+          setCardVisible(prev => { const n = [...prev]; n[i] = true; return n })
+        }
+        // Cacher vraie carte si on recule
+        if (ease < 0.85 && cardVisibleRef.current[i]) {
+          cardVisibleRef.current[i] = false
+          setCardVisible(prev => { const n = [...prev]; n[i] = false; return n })
         }
       })
 
@@ -141,21 +154,32 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
   return (
     <>
       <style>{`
+        .cat-masonry {
+          columns: 3;
+          column-gap: 20px;
+        }
+        @media (max-width: 767px) {
+          .cat-masonry { columns: 2; }
+        }
+        .cat-masonry-item {
+          break-inside: avoid;
+          margin-bottom: 20px;
+        }
         .cat-inner {
-          height: 340px;
           border-radius: 14px;
           overflow: hidden;
           position: relative;
           background: #faf8f4;
           box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+          pointer-events: auto;
         }
         .cat-inner.ready {
           cursor: pointer;
           transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
         .cat-inner.ready:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 12px 36px rgba(0,0,0,0.12);
+          transform: translateY(-4px);
+          box-shadow: 0 12px 36px rgba(0,0,0,0.14);
         }
         .cat-inner img {
           width: 100%; height: 100%;
@@ -175,15 +199,6 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
           text-shadow: 0 1px 6px rgba(0,0,0,0.4);
           pointer-events: none;
         }
-        .cat-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 20px;
-        }
-        @media (max-width: 767px) {
-          .cat-grid  { grid-template-columns: repeat(2, 1fr); }
-          .cat-inner { height: 220px; }
-        }
         .cat-cta {
           display: inline-flex; align-items: center; gap: 0.5rem;
           padding: 0.75rem 2rem;
@@ -194,35 +209,49 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
         .cat-cta:hover { background: #75614a; }
       `}</style>
 
-      {/* ── Clones FIXED scroll-driven ── */}
-      {CATEGORIES.map((cat, i) => (
-        <div
-          key={`clone-${cat}`}
-          ref={el => { cloneRefs.current[i] = el }}
-          style={{
-            position:      "fixed",
-            top:            0,
-            left:           0,
-            width:          `${WIDTH_STARTS[i]}px`,
-            height:         `${HEIGHT_STARTS[i]}px`,
-            borderRadius:   "14px",
-            overflow:       "hidden",
-            boxShadow:      "0 4px 20px rgba(0,0,0,0.06)",
-            zIndex:         50,
-            pointerEvents:  "none",
-            willChange:     "transform, width, height, opacity",
-            display:        "none",
-          }}
-        >
-          {imgSrcs[i] && (
-            <img
-              src={imgSrcs[i]!}
-              alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          )}
-        </div>
-      ))}
+      {/* ── Overlay fixed couvrant la FloatingGallery ── */}
+      <div
+        ref={overlayRef}
+        style={{
+          position:      "fixed",
+          top:           0,
+          left:          0,
+          width:         0,
+          height:        0,
+          overflow:      "hidden",
+          pointerEvents: "none",
+          zIndex:        40,
+          display:       "none",
+        }}
+      >
+        {CATEGORIES.map((cat, i) => (
+          <div
+            key={`clone-${cat}`}
+            ref={el => { cloneRefs.current[i] = el }}
+            style={{
+              position:    "absolute",
+              top:         0,
+              left:        0,
+              width:       `${WIDTH_STARTS[i]}px`,
+              height:      `${HEIGHT_STARTS[i]}px`,
+              borderRadius: "14px",
+              overflow:    "hidden",
+              boxShadow:   "0 4px 20px rgba(0,0,0,0.06)",
+              willChange:  "transform, width, height, opacity",
+              opacity:     0,
+              display:     "none",
+            }}
+          >
+            {imgSrcs[i] && (
+              <img
+                src={imgSrcs[i]!}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
 
       <section style={{ background: CREAM, padding: "5rem 2rem" }}>
         <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
@@ -245,20 +274,22 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
             </p>
           </div>
 
-          {/* Grille — cases invisibles jusqu'à l'atterrissage */}
-          <div className="cat-grid">
+          {/* Masonry — cases invisibles jusqu'à l'atterrissage */}
+          <div className="cat-masonry">
             {CATEGORIES.map((cat, i) => (
               <div
                 key={cat}
+                className="cat-masonry-item"
                 ref={el => { cardsRef.current[i] = el }}
                 style={{
                   opacity:    cardVisible[i] ? 1 : 0,
                   visibility: cardVisible[i] ? "visible" : "hidden",
-                  transition: cardVisible[i] ? "opacity 0.15s ease" : "none",
+                  transition: cardVisible[i] ? "opacity 0.2s ease" : "none",
                 }}
               >
                 <div
                   className={`cat-inner${cardVisible[i] ? " ready" : ""}`}
+                  style={{ height: `${CARD_HEIGHTS[i]}px` }}
                   onClick={() => cardVisible[i] && router.push(`/luminaires?categorie=${encodeURIComponent(cat)}`)}
                 >
                   {imgSrcs[i] && <img src={imgSrcs[i]!} alt={LABELS[i]} loading="lazy" />}
