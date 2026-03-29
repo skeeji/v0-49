@@ -335,8 +335,8 @@ export default function LuminaireDetailPage() {
       const pageHeight = pdf.internal.pageSize.getHeight()
       const marginX = 15
 
-      // Fond crème
-      pdf.setFillColor(245, 241, 232)
+      // Fond blanc
+      pdf.setFillColor(255, 255, 255)
       pdf.rect(0, 0, pageWidth, pageHeight, "F")
 
       // ── 1. LOGO ──
@@ -363,11 +363,6 @@ export default function LuminaireDetailPage() {
         pdf.setTextColor(60, 60, 60)
         pdf.text("GERSAINT", pageWidth / 2, 30, { align: "center" })
       }
-
-      // Ligne dorée à 45mm
-      pdf.setDrawColor(139, 115, 85)
-      pdf.setLineWidth(0.5)
-      pdf.line(marginX, 45, pageWidth - marginX, 45)
 
       // ── 2. NOM + DESIGNER (sans année) ──
       pdf.setFont("times", "bold")
@@ -399,11 +394,6 @@ export default function LuminaireDetailPage() {
           // pas d'image
         }
       }
-
-      // Ligne séparatrice après image
-      pdf.setDrawColor(139, 115, 85)
-      pdf.setLineWidth(0.5)
-      pdf.line(marginX, yAfterImage, pageWidth - marginX, yAfterImage)
 
       // ── 4. DEUX COLONNES ──
       const colLeftX  = 15
@@ -450,10 +440,6 @@ export default function LuminaireDetailPage() {
       // ── 5. DESCRIPTION + BIBLIOGRAPHIE ──
       const yBelowCols = Math.max(yLeft, yRight) + 4
 
-      pdf.setDrawColor(139, 115, 85)
-      pdf.setLineWidth(0.5)
-      pdf.line(marginX, yBelowCols, pageWidth - marginX, yBelowCols)
-
       let yText = yBelowCols + 8
 
       if (luminaire.description && luminaire.description.trim()) {
@@ -485,8 +471,10 @@ export default function LuminaireDetailPage() {
 
       // Footer
       pdf.setFontSize(9)
-      pdf.setTextColor(139, 115, 85)
-      pdf.text("www.gersaintparis.com", pageWidth / 2, pageHeight - 10, { align: "center" })
+      pdf.setTextColor(60, 60, 60)
+      pdf.text("GERSAINT PARIS", pageWidth / 2, pageHeight - 18, { align: "center" })
+      pdf.text("42 rue de Maubeuge, 75009", pageWidth / 2, pageHeight - 13, { align: "center" })
+      pdf.text("contact@gersaintparis.fr", pageWidth / 2, pageHeight - 8, { align: "center" })
 
       pdf.save(`${luminaire.name || "luminaire"}.pdf`)
     } catch (error) {
