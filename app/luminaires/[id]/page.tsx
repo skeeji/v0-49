@@ -412,7 +412,7 @@ export default function LuminaireDetailPage() {
         pdf.setTextColor(85, 85, 85)   // #555555
         const lines = pdf.splitTextToSize(value, colWidth)
         pdf.text(lines, x, y + labelH)
-        return y + labelH + lines.length * 3.8 + 3.5
+        return y + labelH + lines.length * 3.8 + 2
       }
 
       const addLeft = (label: string, value: string | undefined) => {
@@ -438,7 +438,7 @@ export default function LuminaireDetailPage() {
       addRight("Puissance", luminaire.puissance || luminaire.power)
 
       // ── 5. DESCRIPTION + BIBLIOGRAPHIE ──
-      const yBelowCols = Math.max(yLeft, yRight) + 4
+      const yBelowCols = Math.max(yLeft, yRight) + 1
 
       let yText = yBelowCols + 8
 
@@ -472,9 +472,11 @@ export default function LuminaireDetailPage() {
       // Footer
       pdf.setFontSize(9)
       pdf.setTextColor(60, 60, 60)
-      pdf.text("GERSAINT PARIS", pageWidth / 2, pageHeight - 18, { align: "center" })
-      pdf.text("42 rue de Maubeuge, 75009", pageWidth / 2, pageHeight - 13, { align: "center" })
-      pdf.text("contact@gersaintparis.fr", pageWidth / 2, pageHeight - 8, { align: "center" })
+      pdf.setFont("times", "bold")
+      pdf.text("GERSAINT PARIS", pageWidth / 2, pageHeight - 14, { align: "center" })
+      pdf.setFont("times", "normal")
+      pdf.text("42 rue de Maubeuge, 75009", pageWidth / 2, pageHeight - 10, { align: "center" })
+      pdf.text("contact@gersaintparis.fr", pageWidth / 2, pageHeight - 6, { align: "center" })
 
       pdf.save(`${luminaire.name || "luminaire"}.pdf`)
     } catch (error) {
