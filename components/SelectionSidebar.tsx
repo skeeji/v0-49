@@ -187,6 +187,13 @@ export function SelectionSidebar() {
                       {item.nom}
                     </h4>
                     <p className="text-sm text-stone-500 mt-0.5 italic">{item.artiste}</p>
+                    {(item.dimensions || item.materiaux || item.prixHT) && (
+                      <div className="mt-1 space-y-0.5">
+                        {item.dimensions && <p className="text-xs text-stone-400">{item.dimensions}</p>}
+                        {item.materiaux && <p className="text-xs text-stone-400">{item.materiaux}</p>}
+                        {item.prixHT && <p className="text-xs text-stone-400">Prix HT : {item.prixHT}</p>}
+                      </div>
+                    )}
                     <button
                       onClick={() => toggleExpand(item.id)}
                       className="flex items-center gap-1 text-xs text-[#8b7355] mt-2 hover:underline font-medium"

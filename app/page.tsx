@@ -5,14 +5,13 @@ import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
 import MobileFooter from "@/components/MobileFooter"
-// import { CorridorGallery } from "@/components/CorridorGallery"  // ← rollback: décommenter cette ligne et commenter la suivante
-import { FloatingGallery } from "@/components/FloatingGallery"
+// import { CorridorGallery } from "@/components/CorridorGallery"  // ← rollback v1: décommenter et commenter FloatingGallery
+// import { FloatingGallery } from "@/components/FloatingGallery"  // ← rollback v2: décommenter et commenter PaintingGallery
+import { PaintingGallery } from "@/components/PaintingGallery"
 import { CategorySection } from "@/components/CategorySection"
 import { DesignerCarousel } from "@/components/DesignerCarousel"
 import { ChronoSection } from "@/components/ChronoSection"
 import { PricingSection } from "@/components/PricingSection"
-
-const apiUrl = "https://image-similarity-api-590690354412.us-central1.run.app/api/search"
 
 export default function HomePage() {
   const [luminaires,      setLuminaires]      = useState<any[]>([])
@@ -92,9 +91,9 @@ export default function HomePage() {
   return (
     <div className="bg-[#f5f1e8]">
 
-      {/* ── Galerie flottante ── */}
-      {/* rollback → remplacer FloatingGallery par : <CorridorGallery videoUrl="" /> */}
-      <FloatingGallery apiUrl={apiUrl} />
+      {/* ── Galerie tableau peinture ── */}
+      {/* rollback v2 → <FloatingGallery apiUrl={apiUrl} />  |  rollback v1 → <CorridorGallery videoUrl="" /> */}
+      <PaintingGallery paintingUrl={homepageImages["homepage_painting_0"]} />
 
       {/* ── Sections principales ── */}
       <div className="relative z-10 bg-[#f5f1e8]">

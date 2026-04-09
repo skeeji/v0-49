@@ -98,6 +98,7 @@ export default function ImportPage() {
     reset?: ImportResult
     periodImages?: { [key: string]: ImportResult }
     homepageImages?: { [key: string]: ImportResult }
+    painting?: ImportResult
   }>({})
   const [exportingCSV, setExportingCSV] = useState(false)
   const [exportingImages, setExportingImages] = useState(false)
@@ -114,6 +115,7 @@ export default function ImportPage() {
   const logoFileRef = useRef<HTMLInputElement>(null)
   const periodImageFileRef = useRef<HTMLInputElement>(null)
   const homepageImageFileRef = useRef<HTMLInputElement>(null)
+  const paintingFileRef = useRef<HTMLInputElement>(null)
 
   const { toast } = useToast()
 
@@ -695,6 +697,44 @@ export default function ImportPage() {
       setUploadProgress(0)
       setCurrentStep("")
       if (homepageImageFileRef.current) homepageImageFileRef.current.value = ""
+    }
+  }
+
+  const handlePaintingUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    setCurrentStep("Upload du tableau de fond...")
+    setUploadProgress(10)
+
+    try {
+      const formData = new FormData()
+      formData.append("image", file)
+      formData.append("section", "painting")
+      formData.append("index", "0")
+
+      const response = await fetch("/api/upload/homepage-images", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      setResults((prev) => ({ ...prev, painting: result }))
+
+      if (result.success) {
+        toast({ title: "Tableau uploadé", description: "L'image de fond de la galerie a été mise à jour" })
+      } else {
+        toast({ title: "Erreur upload", description: result.message, variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Erreur critique", description: "Impossible d'uploader le tableau", variant: "destructive" })
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+      setCurrentStep("")
+      if (paintingFileRef.current) paintingFileRef.current.value = ""
     }
   }
 
@@ -1524,6 +1564,52 @@ export default function ImportPage() {
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileImage className="w-5 h-5" />
+                  Tableau de fond (Galerie)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-gray-500">
+                  Image PNG/JPG avec zones chroma key (vert) — remplace l'arrière-plan de la galerie d'accueil
+                </p>
+                <input
+                  ref={paintingFileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePaintingUpload}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => paintingFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Sélectionner Tableau
+                </Button>
+
+                {results.painting && (
+                  <div className="text-sm">
+                    {results.painting.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Tableau uploadé</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" />
+                        <span>Erreur upload tableau</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
