@@ -53,6 +53,36 @@ const periods = [
   "Contemporain",
 ]
 
+// ── Compression d'image côté client (canvas) ──────────────────────────────────
+// Réduit une image à max maxWidth px et l'exporte en JPEG pour rester sous 4 MB
+function compressImage(file: File, maxWidth = 1920, quality = 0.82): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      let { width, height } = img
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width)
+        width = maxWidth
+      }
+      const canvas = document.createElement("canvas")
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext("2d")
+      if (!ctx) { reject(new Error("Canvas non supporté")); return }
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("Compression échouée"))),
+        "image/jpeg",
+        quality
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Lecture image échouée")) }
+    img.src = objectUrl
+  })
+}
+
 function parseCSVLine(line: string): string[] {
   const result: string[] = []
   let current = ""
@@ -705,12 +735,34 @@ export default function ImportPage() {
     if (!file) return
 
     setIsUploading(true)
-    setCurrentStep("Upload du tableau de fond...")
-    setUploadProgress(10)
+    setUploadProgress(5)
+    setCurrentStep("Compression de l'image...")
 
     try {
+      // Compresser l'image côté client pour rester sous la limite de 4 MB du serveur
+      const originalMB = (file.size / 1_048_576).toFixed(1)
+      let uploadBlob: Blob = file
+
+      if (file.size > 3 * 1_048_576) {
+        // > 3 MB → compresser
+        setCurrentStep(`Compression (${originalMB} MB → JPEG 1920px)...`)
+        uploadBlob = await compressImage(file, 1920, 0.82)
+        const compressedMB = (uploadBlob.size / 1_048_576).toFixed(1)
+        setCurrentStep(`Compression OK (${originalMB} MB → ${compressedMB} MB) — Upload en cours...`)
+      } else {
+        setCurrentStep("Upload du tableau en cours...")
+      }
+
+      setUploadProgress(40)
+
+      const compressedFile = new File(
+        [uploadBlob],
+        file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+        { type: "image/jpeg" }
+      )
+
       const formData = new FormData()
-      formData.append("image", file)
+      formData.append("image", compressedFile)
       formData.append("section", "painting")
       formData.append("index", "0")
 
@@ -719,17 +771,26 @@ export default function ImportPage() {
         body: formData,
       })
 
-      const result = await response.json()
+      setUploadProgress(90)
 
+      if (!response.ok) {
+        const errText = await response.text()
+        throw new Error(`Erreur serveur ${response.status}: ${errText.slice(0, 120)}`)
+      }
+
+      const result = await response.json()
+      setUploadProgress(100)
       setResults((prev) => ({ ...prev, painting: result }))
 
       if (result.success) {
-        toast({ title: "Tableau uploadé", description: "L'image de fond de la galerie a été mise à jour" })
+        toast({ title: "✅ Tableau uploadé", description: "L'image de fond de la galerie a été mise à jour. Rechargez l'accueil pour voir le résultat." })
       } else {
         toast({ title: "Erreur upload", description: result.message, variant: "destructive" })
       }
-    } catch {
-      toast({ title: "Erreur critique", description: "Impossible d'uploader le tableau", variant: "destructive" })
+    } catch (err: any) {
+      console.error("❌ Erreur upload tableau:", err)
+      setResults((prev) => ({ ...prev, painting: { success: false, message: err.message } }))
+      toast({ title: "❌ Erreur upload", description: err.message || "Impossible d'uploader le tableau", variant: "destructive" })
     } finally {
       setIsUploading(false)
       setUploadProgress(0)
@@ -1594,20 +1655,35 @@ export default function ImportPage() {
                   variant="outline"
                 >
                   <Upload className="w-4 h-4 mr-2" />
-                  Sélectionner Tableau
+                  {isUploading && currentStep.includes("tableau") ? currentStep : "Sélectionner Tableau"}
                 </Button>
 
-                {results.painting && (
+                {isUploading && currentStep && (currentStep.includes("Compression") || currentStep.includes("tableau") || currentStep.includes("Upload")) && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-amber-600">{currentStep}</p>
+                    <Progress value={uploadProgress} className="h-1" />
+                  </div>
+                )}
+
+                {results.painting && !isUploading && (
                   <div className="text-sm">
                     {results.painting.success ? (
-                      <div className="flex items-center gap-2 text-green-600">
-                        <CheckCircle className="w-4 h-4" />
-                        <span>Tableau uploadé</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-green-600">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="font-medium">Tableau uploadé avec succès</span>
+                        </div>
+                        <p className="text-xs text-gray-500 pl-6">Rechargez la page d'accueil pour voir le résultat</p>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-red-600">
-                        <XCircle className="w-4 h-4" />
-                        <span>Erreur upload tableau</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-red-600">
+                          <XCircle className="w-4 h-4" />
+                          <span className="font-medium">Erreur upload</span>
+                        </div>
+                        {results.painting.message && (
+                          <p className="text-xs text-red-500 pl-6">{results.painting.message}</p>
+                        )}
                       </div>
                     )}
                   </div>
