@@ -195,7 +195,32 @@ async function compositeZone(
   const ctx = oc.getContext("2d")!
   // Étirement direct — l'image remplit exactement le bounding box
   ctx.drawImage(img, 0, 0, w, h)
-  const lumD = ctx.getImageData(0, 0, w, h).data
+
+  // ── Suppression du fond blanc (sur le canvas off-screen uniquement) ──────────
+  // Remplace les pixels blancs/quasi-blancs par le gris-bleu galerie #8a9aaa
+  // Opération : APRÈS drawImage, AVANT getImageData → jamais sur le canvas principal
+  const ocImgData = ctx.getImageData(0, 0, w, h)
+  const d = ocImgData.data
+  const BG_R = 138, BG_G = 154, BG_B = 170   // #8a9aaa
+
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2]
+    if (r > 220 && g > 220 && b > 220) {
+      // Pixel blanc ou quasi-blanc → remplacement direct
+      d[i] = BG_R; d[i + 1] = BG_G; d[i + 2] = BG_B
+    } else {
+      // Blending proportionnel pour les bords antialiasés semi-blancs
+      const minCh = Math.min(r, g, b)
+      if (minCh > 180) {
+        const t = (minCh - 180) / 40   // 0 (à 180) → 1 (à 220)
+        d[i]     = Math.round(r + (BG_R - r) * t)
+        d[i + 1] = Math.round(g + (BG_G - g) * t)
+        d[i + 2] = Math.round(b + (BG_B - b) * t)
+      }
+    }
+  }
+
+  const lumD = d   // données modifiées (fond blanc → #8a9aaa)
 
   for (let zi = 0; zi < zone.pixels.length; zi++) {
     const pi = zone.pixels[zi]
