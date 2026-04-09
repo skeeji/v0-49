@@ -120,30 +120,17 @@ async function compositeZone(
   try {
     img = await loadImg(lumUrl)
   } catch {
-    // Luminaire non chargé → laisser le fond sombre
-    for (let zi = 0; zi < zone.pixels.length; zi++) {
-      const pi = zone.pixels[zi]
-      const bi = pi * 4
-      base[bi] = 17; base[bi+1] = 24; base[bi+2] = 39; base[bi+3] = 255
-    }
+    // Luminaire non chargé → laisser les pixels verts tels quels
     return
   }
 
-  // Canvas off-screen : fond galerie + luminaire centré avec padding
+  // Canvas off-screen : image étirée exactement à la taille de la zone
   const oc = document.createElement("canvas")
   oc.width = w; oc.height = h
   const ctx = oc.getContext("2d")!
 
-  // Fond ardoise sombre (slate-900)
-  ctx.fillStyle = "#0f172a"
-  ctx.fillRect(0, 0, w, h)
-
-  // Luminaire avec 8 % de marge interne, centré, conserve les proportions
-  const pad = 0.08
-  const s   = Math.min((w * (1 - 2 * pad)) / img.naturalWidth, (h * (1 - 2 * pad)) / img.naturalHeight)
-  const lx  = (w - img.naturalWidth  * s) / 2
-  const ly  = (h - img.naturalHeight * s) / 2
-  ctx.drawImage(img, lx, ly, img.naturalWidth * s, img.naturalHeight * s)
+  // Étirement direct — remplit le bounding box pixel pour pixel, sans fond, sans marge
+  ctx.drawImage(img, 0, 0, w, h)
 
   const lumD = ctx.getImageData(0, 0, w, h).data
 
