@@ -93,7 +93,10 @@ export default function HomePage() {
 
       {/* ── Galerie tableau peinture ── */}
       {/* rollback v2 → <FloatingGallery apiUrl={apiUrl} />  |  rollback v1 → <CorridorGallery videoUrl="" /> */}
-      <PaintingGallery paintingUrl={homepageImages["homepage_painting_0"]} />
+      <PaintingGallery
+        paintingUrl={homepageImages["homepage_painting_0"]}
+        transparentUrl={homepageImages["homepage_painting_transparent"]}
+      />
 
       {/* ── Sections principales ── */}
       <div className="relative z-10 bg-[#f5f1e8]">
