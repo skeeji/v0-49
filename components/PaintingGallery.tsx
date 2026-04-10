@@ -23,21 +23,29 @@ interface FrameZone {
 
 const ROTATION_INTERVAL = 30_000
 const MIN_ZONE_PIXELS   = 400
-const MAX_ZONE_FRACTION = 0.30   // ignore zones couvrant >30% de l'image (fond)
+const MAX_ZONE_FRACTION = 0.30
 
-// ─── Utilitaires purs ───────────────────────────────────────────────────────────
+// Cible beige pour remplacement fond blanc
+const TR = 0xe8, TG = 0xe0, TB = 0xd0   // #e8e0d0
+
+// ─── Fix 3 : pickRandom sans doublons garantis ──────────────────────────────────
 
 function pickRandom(pool: GalleryLuminaire[], n: number): GalleryLuminaire[] {
   if (pool.length === 0) return []
+  // Shuffle complet Fisher-Yates
   const copy = [...pool]
   for (let i = copy.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
     [copy[i], copy[j]] = [copy[j], copy[i]]
   }
+  // pool >= n : les n premiers sont tous distincts
+  // pool < n  : doublons acceptés uniquement pour compléter
   const result: GalleryLuminaire[] = []
   for (let i = 0; i < n; i++) result.push(copy[i % copy.length])
   return result
 }
+
+// ─── Chargement image ───────────────────────────────────────────────────────────
 
 function loadImg(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -45,22 +53,64 @@ function loadImg(src: string): Promise<HTMLImageElement> {
     img.crossOrigin = "anonymous"
     img.onload  = () => resolve(img)
     img.onerror = () => reject(new Error(`Cannot load: ${src}`))
-    img.src     = src
+    img.src = src
   })
 }
 
-// ─── Détection des zones transparentes (canal alpha) ────────────────────────────
+// ─── Fix 2 : suppression fond blanc sur canvas off-screen ───────────────────────
+
+async function processLuminaireImage(url: string): Promise<string | null> {
+  try {
+    const img = await loadImg(url)
+    const oc  = document.createElement("canvas")
+    oc.width  = img.naturalWidth
+    oc.height = img.naturalHeight
+    const ctx = oc.getContext("2d")!
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = "high"
+    ctx.drawImage(img, 0, 0)
+
+    // Traitement pixel-par-pixel UNIQUEMENT sur ce canvas off-screen
+    const id = ctx.getImageData(0, 0, oc.width, oc.height)
+    const d  = id.data
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2]
+      if (r > 220 && g > 220 && b > 220) {
+        // Blanc pur → beige cible
+        d[i] = TR; d[i + 1] = TG; d[i + 2] = TB
+      } else {
+        const m = Math.min(r, g, b)
+        if (m > 190) {
+          // Zone de transition (190-220) → blend progressif pour éviter les bords durs
+          const t  = (m - 190) / 30
+          d[i]     = Math.round(r * (1 - t) + TR * t)
+          d[i + 1] = Math.round(g * (1 - t) + TG * t)
+          d[i + 2] = Math.round(b * (1 - t) + TB * t)
+        }
+      }
+    }
+    ctx.putImageData(id, 0, 0)
+
+    return new Promise<string | null>((res) => {
+      oc.toBlob(blob => res(blob ? URL.createObjectURL(blob) : null), "image/png")
+    })
+  } catch {
+    return null
+  }
+}
+
+// ─── Fix 1 : détection zones transparentes + suppression englobantes ─────────────
 
 function detectTransparentZones(data: Uint8ClampedArray, W: number, H: number): FrameZone[] {
-  const visited = new Uint8Array(W * H)
+  const visited  = new Uint8Array(W * H)
   const rawZones: FrameZone[] = []
-  const totalPx = W * H
+  const totalPx  = W * H
 
   for (let sy = 0; sy < H; sy++) {
     for (let sx = 0; sx < W; sx++) {
       const si = sy * W + sx
       if (visited[si]) continue
-      if (data[si * 4 + 3] >= 128) continue   // pixel opaque → pas un cadre
+      if (data[si * 4 + 3] >= 128) continue
 
       const pixels: number[] = []
       const q: number[] = [si]
@@ -79,7 +129,7 @@ function detectTransparentZones(data: Uint8ClampedArray, W: number, H: number): 
       }
 
       if (pixels.length < MIN_ZONE_PIXELS) continue
-      if (pixels.length > totalPx * MAX_ZONE_FRACTION) continue  // ignore le fond global
+      if (pixels.length > totalPx * MAX_ZONE_FRACTION) continue
 
       let x0 = W, x1 = 0, y0 = H, y1 = 0
       for (const pi of pixels) {
@@ -92,15 +142,20 @@ function detectTransparentZones(data: Uint8ClampedArray, W: number, H: number): 
     }
   }
 
-  // Fusion des bounding-boxes qui se chevauchent (corrige le cadre ovale détecté en 2 zones)
+  // Étape 1 — fusionner les bounding-boxes qui se chevauchent
   const merged = mergeOverlappingZones(rawZones)
 
-  // Réindexation + tri top→bottom, left→right
-  return merged
+  // Étape 2 — supprimer les zones englobantes (arrière-plan détecté comme "grand cadre")
+  const filtered = removeContainerZones(merged)
+
+  console.log("[PaintingGallery] ZONES:", JSON.stringify(filtered))
+
+  return filtered
     .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
     .map((z, i) => ({ ...z, id: i }))
 }
 
+/** Fusionne les zones dont les bounding-boxes se chevauchent réellement */
 function mergeOverlappingZones(zones: FrameZone[]): FrameZone[] {
   const list = zones.map(z => ({ ...z, bbox: { ...z.bbox } }))
   let changed = true
@@ -109,12 +164,9 @@ function mergeOverlappingZones(zones: FrameZone[]): FrameZone[] {
     outer: for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
         const a = list[i].bbox, b = list[j].bbox
-        // Les deux bounding-boxes se chevauchent ?
         if (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y) {
-          const x0 = Math.min(a.x, b.x)
-          const y0 = Math.min(a.y, b.y)
-          const x1 = Math.max(a.x + a.w, b.x + b.w)
-          const y1 = Math.max(a.y + a.h, b.y + b.h)
+          const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y)
+          const x1 = Math.max(a.x + a.w, b.x + b.w), y1 = Math.max(a.y + a.h, b.y + b.h)
           list[i] = { id: list[i].id, bbox: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } }
           list.splice(j, 1)
           changed = true
@@ -126,13 +178,36 @@ function mergeOverlappingZones(zones: FrameZone[]): FrameZone[] {
   return list
 }
 
+/**
+ * Supprime les zones "englobantes" : si la bbox de A contient strictement la bbox de B,
+ * A est considérée comme un fond/arrière-plan, pas un cadre → on la retire.
+ */
+function removeContainerZones(zones: FrameZone[]): FrameZone[] {
+  return zones.filter((z, i) => {
+    const a = z.bbox
+    const aArea = a.w * a.h
+    const isContainer = zones.some((other, j) => {
+      if (i === j) return false
+      const b = other.bbox
+      const bArea = b.w * b.h
+      // 'other' est à l'intérieur de 'z' et représente moins de 70% de sa surface
+      return (
+        b.x >= a.x && b.y >= a.y &&
+        b.x + b.w <= a.x + a.w &&
+        b.y + b.h <= a.y + a.h &&
+        bArea < aArea * 0.70
+      )
+    })
+    return !isContainer
+  })
+}
+
 // ─── Museum label ────────────────────────────────────────────────────────────────
 
 function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: boolean; below: boolean }) {
   const pos = below
     ? { top: "calc(100% + 6px)", bottom: "auto" }
     : { bottom: "calc(100% + 6px)", top: "auto" }
-
   const arrowOuter = below
     ? { top: -7, bottom: "auto", borderBottom: "7px solid #b8974a", borderTop: "none" }
     : { bottom: -7, top: "auto", borderTop: "7px solid #b8974a", borderBottom: "none" }
@@ -168,23 +243,25 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
 // ─── Composant principal ─────────────────────────────────────────────────────────
 
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
-  const paintingUrl = transparentUrl   // alias interne
+  const paintingUrl = transparentUrl
 
-  const [pool,     setPool]     = useState<GalleryLuminaire[]>([])
-  const [current,  setCurrent]  = useState<GalleryLuminaire[]>([])
-  const [zones,    setZones]    = useState<FrameZone[]>([])
-  const [imgSize,  setImgSize]  = useState({ w: 1330, h: 876 })
-  const [phase,    setPhase]    = useState<"idle"|"loading"|"detecting"|"ready"|"error">("idle")
-  const [hovZone,  setHovZone]  = useState<number | null>(null)
-  const [hovering, setHovering] = useState(false)
-  const [hasPrev,  setHasPrev]  = useState(false)
+  const [pool,          setPool]          = useState<GalleryLuminaire[]>([])
+  const [current,       setCurrent]       = useState<GalleryLuminaire[]>([])
+  const [processedUrls, setProcessedUrls] = useState<(string | null)[]>([])
+  const [zones,         setZones]         = useState<FrameZone[]>([])
+  const [imgSize,       setImgSize]       = useState({ w: 1330, h: 876 })
+  const [phase,         setPhase]         = useState<"idle"|"loading"|"detecting"|"ready"|"error">("idle")
+  const [hovZone,       setHovZone]       = useState<number | null>(null)
+  const [hovering,      setHovering]      = useState(false)
+  const [hasPrev,       setHasPrev]       = useState(false)
 
-  const historyRef = useRef<GalleryLuminaire[][]>([])
-  const currentRef = useRef<GalleryLuminaire[]>([])
-  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
-  const zonesRef   = useRef<FrameZone[]>([])
+  const historyRef   = useRef<GalleryLuminaire[][]>([])
+  const currentRef   = useRef<GalleryLuminaire[]>([])
+  const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null)
+  const zonesRef     = useRef<FrameZone[]>([])
+  const prevBlobUrls = useRef<string[]>([])   // pour révoquer les blob URLs précédentes
 
-  // Chargement du pool de luminaires
+  // ── Pool de luminaires ──────────────────────────────────────────────────────────
   useEffect(() => {
     fetch("/api/luminaires-gallery")
       .then(r => r.json())
@@ -192,7 +269,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       .catch(() => {})
   }, [])
 
-  // Chargement + détection des zones transparentes
+  // ── Chargement + détection zones ────────────────────────────────────────────────
   useEffect(() => {
     if (!paintingUrl) return
     let cancelled = false
@@ -200,7 +277,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     ;(async () => {
       try {
         setPhase("loading")
-
         const img = await loadImg(paintingUrl)
         if (cancelled) return
 
@@ -214,7 +290,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
         setPhase("detecting")
         const detectedZones = detectTransparentZones(data, W, H)
-        console.log(`[PaintingGallery] ${detectedZones.length} zone(s)`, detectedZones.map(z => `#${z.id} ${z.bbox.w}×${z.bbox.h}`))
 
         if (cancelled) return
         zonesRef.current = detectedZones
@@ -229,17 +304,40 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { cancelled = true }
   }, [paintingUrl])
 
-  // Sélection initiale dès que pool ET zones sont prêts
+  // ── Fix 3 : sélection initiale avec log de vérification ─────────────────────────
   useEffect(() => {
     if (pool.length === 0 || zonesRef.current.length === 0 || currentRef.current.length > 0) return
     const sel = pickRandom(pool, zonesRef.current.length)
+    console.log("zones:", zonesRef.current.length, "lums:", sel.length, sel.map(l => l?._id))
     currentRef.current = sel
     historyRef.current = [sel]
     setCurrent(sel)
     setHasPrev(false)
   }, [pool, zones])
 
-  // Rotation suivant / précédent
+  // ── Fix 2 : traitement canvas off-screen quand les luminaires changent ───────────
+  useEffect(() => {
+    if (current.length === 0) { setProcessedUrls([]); return }
+    let cancelled = false
+
+    ;(async () => {
+      const urls = await Promise.all(
+        current.map(lum => lum ? processLuminaireImage(lum.imageUrl).catch(() => null) : Promise.resolve(null))
+      )
+      if (cancelled) {
+        urls.forEach(u => u && URL.revokeObjectURL(u))
+        return
+      }
+      // Révoquer les blob URLs précédentes pour libérer la mémoire
+      prevBlobUrls.current.forEach(u => URL.revokeObjectURL(u))
+      prevBlobUrls.current = urls.filter((u): u is string => u !== null)
+      setProcessedUrls(urls)
+    })()
+
+    return () => { cancelled = true }
+  }, [current])
+
+  // ── Rotation ─────────────────────────────────────────────────────────────────────
   const doRotate = useCallback((dir: "next" | "prev") => {
     const zns = zonesRef.current
     if (zns.length === 0 || pool.length === 0) return
@@ -253,6 +351,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       sel = h.length > 1 ? h[h.length - 2] : currentRef.current
       historyRef.current = h.length > 1 ? h.slice(0, -1) : h
     }
+    console.log("zones:", zns.length, "lums:", sel.length, sel.map(l => l?._id))
     setHasPrev(historyRef.current.length > 1)
     currentRef.current = sel
     setCurrent(sel)
@@ -269,7 +368,12 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [phase, pool.length, resetTimer])
 
-  // ── Rendu ─────────────────────────────────────────────────────────────────────────
+  // ── Nettoyage blob URLs au démontage ─────────────────────────────────────────────
+  useEffect(() => {
+    return () => { prevBlobUrls.current.forEach(u => URL.revokeObjectURL(u)) }
+  }, [])
+
+  // ─────────────────────────────────────────────────────────────────────────────────
 
   if (!paintingUrl) {
     return (
@@ -287,12 +391,12 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
-      {/* Conteneur principal — overflow-hidden pour clipper les cadres */}
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}` }}>
 
-        {/* ── Cadres (frame-slot) positionnés DERRIÈRE le tableau ── */}
+        {/* ── Fix 1 : cadres avec bordure rouge DEBUG + une seule zone par cadre ── */}
         {zones.map((zone, i) => {
           const lum = current[i]
+          const src = processedUrls[i] ?? lum?.imageUrl
           return (
             <div
               key={zone.id}
@@ -304,20 +408,21 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
                 height:          `${(zone.bbox.h / iH) * 100}%`,
                 backgroundColor: "#f5f0e8",
                 zIndex:          1,
+                border:          "3px solid red",   // ← DEBUG : visualiser les zones
+                boxSizing:       "border-box",
               }}
             >
-              {lum && (
+              {lum && src && (
                 <img
                   key={lum._id}
-                  src={lum.imageUrl}
+                  src={src}
                   alt={lum.nom}
                   style={{
-                    mixBlendMode: "multiply",
-                    objectFit:    "contain",
-                    width:        "100%",
-                    height:       "100%",
-                    padding:      "10%",
-                    display:      "block",
+                    objectFit: "contain",
+                    width:     "100%",
+                    height:    "100%",
+                    padding:   "10%",
+                    display:   "block",
                   }}
                 />
               )}
@@ -325,8 +430,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
           )
         })}
 
-        {/* ── Tableau (RGBA, alpha natif) positionné AU-DESSUS des cadres ── */}
-        {/* Les zones transparentes révèlent les cadres beiges avec luminaires */}
+        {/* ── Tableau RGBA au-dessus : les zones transparentes révèlent les cadres ── */}
         <img
           src={paintingUrl}
           alt="Tableau L'Enseigne de Gersaint"
@@ -334,11 +438,10 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
           style={{ objectFit: "fill", zIndex: 2 }}
         />
 
-        {/* ── États de chargement ── */}
         {(phase === "loading" || phase === "detecting") && (
           <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: "rgba(245,241,232,0.75)" }}>
             <p className="font-serif text-sm italic text-stone-600">
-              {phase === "loading"   ? "Chargement du tableau…" : "Détection des cadres…"}
+              {phase === "loading" ? "Chargement du tableau…" : "Détection des cadres…"}
             </p>
           </div>
         )}
@@ -351,7 +454,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
       </div>
 
-      {/* ── Zones interactives (hors overflow-hidden pour que les tooltips ne soient pas clippés) ── */}
+      {/* ── Zones interactives hors overflow-hidden (tooltips non clippés) ── */}
       {phase === "ready" && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
           {zones.map((zone, i) => {
@@ -378,7 +481,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         </div>
       )}
 
-      {/* ── Boutons de navigation ── */}
       <button
         onClick={() => { resetTimer(); doRotate("prev") }}
         disabled={!hasPrev}
