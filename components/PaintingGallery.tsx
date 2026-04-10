@@ -66,7 +66,7 @@ function detectTransparentZones(data: Uint8ClampedArray, W: number, H: number): 
     for (let sx = 0; sx < W; sx++) {
       const si = sy * W + sx
       if (visited[si]) continue
-      if (data[si * 4 + 3] > 64) continue   // pixel opaque → pas une zone
+      if (data[si * 4 + 3] > 128) continue  // pixel opaque → pas une zone
 
       let x0 = W, x1 = 0, y0 = H, y1 = 0
       let count = 0
@@ -81,10 +81,10 @@ function detectTransparentZones(data: Uint8ClampedArray, W: number, H: number): 
         if (cx < x0) x0 = cx; if (cx > x1) x1 = cx
         if (cy < y0) y0 = cy; if (cy > y1) y1 = cy
 
-        if (cx > 0)     { const n = ci - 1; if (!visited[n] && data[n * 4 + 3] <= 64) { visited[n] = 1; q.push(n) } }
-        if (cx < W - 1) { const n = ci + 1; if (!visited[n] && data[n * 4 + 3] <= 64) { visited[n] = 1; q.push(n) } }
-        if (cy > 0)     { const n = ci - W; if (!visited[n] && data[n * 4 + 3] <= 64) { visited[n] = 1; q.push(n) } }
-        if (cy < H - 1) { const n = ci + W; if (!visited[n] && data[n * 4 + 3] <= 64) { visited[n] = 1; q.push(n) } }
+        if (cx > 0)     { const n = ci - 1; if (!visited[n] && data[n * 4 + 3] <= 128) { visited[n] = 1; q.push(n) } }
+        if (cx < W - 1) { const n = ci + 1; if (!visited[n] && data[n * 4 + 3] <= 128) { visited[n] = 1; q.push(n) } }
+        if (cy > 0)     { const n = ci - W; if (!visited[n] && data[n * 4 + 3] <= 128) { visited[n] = 1; q.push(n) } }
+        if (cy < H - 1) { const n = ci + W; if (!visited[n] && data[n * 4 + 3] <= 128) { visited[n] = 1; q.push(n) } }
       }
 
       if (count < MIN_ZONE_PIXELS) continue
@@ -185,20 +185,18 @@ export function PaintingGallery({
         const W = img.naturalWidth, H = img.naturalHeight
         setImgSize({ w: W, h: H })
 
-        // Détection uniquement si on a un PNG transparent
-        if (transparentUrl) {
-          setPhase("detecting")
-          const tmp = document.createElement("canvas")
-          tmp.width = W; tmp.height = H
-          tmp.getContext("2d")!.drawImage(img, 0, 0)
-          const data = tmp.getContext("2d")!.getImageData(0, 0, W, H).data
-          if (cancelled) return
+        // Détection des zones transparentes — toujours depuis l'overlay (transparentUrl ou paintingUrl)
+        setPhase("detecting")
+        const tmp = document.createElement("canvas")
+        tmp.width = W; tmp.height = H
+        tmp.getContext("2d")!.drawImage(img, 0, 0)
+        const data = tmp.getContext("2d")!.getImageData(0, 0, W, H).data
+        if (cancelled) return
 
-          const detected = detectTransparentZones(data, W, H)
-          console.log(`[PaintingGallery] ${detected.length} zone(s) transparente(s)`, detected.map(z => `#${z.id} ${z.w}×${z.h} @(${z.x},${z.y})`))
-          zonesRef.current = detected
-          setZones(detected)
-        }
+        const detected = detectTransparentZones(data, W, H)
+        console.log(`[PaintingGallery] ${detected.length} zone(s) transparente(s)`, detected.map(z => `#${z.id} ${z.w}×${z.h} @(${z.x},${z.y})`))
+        zonesRef.current = detected
+        setZones(detected)
 
         if (!cancelled) setPhase("ready")
       } catch (e) {
