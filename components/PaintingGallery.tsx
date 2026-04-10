@@ -24,19 +24,27 @@ interface GreenZone {
 
 const ROTATION_INTERVAL = 30_000
 const MIN_ZONE_PIXELS   = 400
-// Fond neutre pour les zones vertes dans canvasBase (#b8a898 beige-gris chaud)
-const BASE_R = 184, BASE_G = 168, BASE_B = 152
+const BASE_R = 184, BASE_G = 168, BASE_B = 152   // #b8a898
+
+// Correction 3 — offsets en cercle de rayon 3px pour le feathering
+const FEATHER_OFFSETS: [number, number][] = (() => {
+  const offs: [number, number][] = []
+  for (let dy = -3; dy <= 3; dy++)
+    for (let dx = -3; dx <= 3; dx++)
+      if ((dx !== 0 || dy !== 0) && dx * dx + dy * dy <= 9)
+        offs.push([dx, dy])
+  return offs
+})()
 
 // ─── Utilitaires purs ───────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
-/** Fix 3 — seuil élargi pour capturer les pixels anti-aliasés en bordure */
+/** Correction 3 — seuil élargi pour capturer les pixels anti-aliasés */
 function isGreenPx(r: number, g: number, b: number): boolean {
-  return g > 80 && g > r * 1.3 && g > b * 1.3
+  return g > 75 && g > r * 1.25 && g > b * 1.25
 }
 
-/** Retourne exactement n items en cyclant sur le pool si nécessaire */
 function pickRandom(pool: GalleryLuminaire[], n: number): GalleryLuminaire[] {
   if (pool.length === 0) return []
   const copy = [...pool]
@@ -58,7 +66,7 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// ─── Détection des zones vertes par BFS ─────────────────────────────────────────
+// ─── Détection BFS — non modifiée ───────────────────────────────────────────────
 
 function detectGreenZones(data: Uint8ClampedArray, W: number, H: number): GreenZone[] {
   const visited = new Uint8Array(W * H)
@@ -107,22 +115,21 @@ function detectGreenZones(data: Uint8ClampedArray, W: number, H: number): GreenZ
   return zones.sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
 }
 
-// ─── Fix 2 + 3 + 4 — Composite un luminaire dans le buffer de sortie ─────────────
+// ─── Composite une zone dans le buffer partagé ───────────────────────────────────
 
 async function compositeZone(
-  output: Uint8ClampedArray,      // buffer transparent W×H (toutes zones partagées)
-  zone: GreenZone,
-  lumUrl: string,
-  W: number,
-  H: number,
-  origData: Uint8ClampedArray     // fond de base (vert→beige) pour le feathering
+  output:   Uint8ClampedArray,
+  zone:     GreenZone,
+  lumUrl:   string,
+  W:        number,
+  H:        number,
+  origData: Uint8ClampedArray
 ): Promise<void> {
   const { x, y, w, h } = zone.bbox
 
   let img: HTMLImageElement
   try { img = await loadImg(lumUrl) } catch { return }
 
-  // Fix 2 — canvas off-screen avec imageSmoothingQuality 'high'
   const oc = document.createElement("canvas")
   oc.width = w; oc.height = h
   const ctx = oc.getContext("2d")!
@@ -132,7 +139,7 @@ async function compositeZone(
 
   const d = ctx.getImageData(0, 0, w, h).data
 
-  // Fix 4 — suppression fond blanc avec transition douce vers #b8a898
+  // Suppression fond blanc → #b8a898 avec transition douce
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i + 1], b = d[i + 2]
     const whiteness = Math.min(r, g, b) / 255
@@ -146,36 +153,40 @@ async function compositeZone(
     }
   }
 
-  // Fix 3 — masque bbox pour détection des pixels de bordure
+  // Masque bbox pour détection des pixels de bordure
   const mask = new Uint8Array(w * h)
   for (let k = 0; k < zone.pixels.length; k++) {
     const pi = zone.pixels[k]
     mask[(((pi / W) | 0) - y) * w + (pi % W - x)] = 1
   }
 
-  // Écriture dans le buffer de sortie + feathering sur les bords
+  // Écriture dans output + correction 3 : feathering rayon 3px, blend 60/40
   for (let zi = 0; zi < zone.pixels.length; zi++) {
-    const pi  = zone.pixels[zi]
-    const px  = pi % W
-    const py  = (pi / W) | 0
-    const lx  = px - x
-    const ly  = py - y
-    const li  = (ly * w + lx) * 4
-    const bi  = pi * 4
+    const pi = zone.pixels[zi]
+    const px = pi % W
+    const py = (pi / W) | 0
+    const lx = px - x
+    const ly = py - y
+    const li = (ly * w + lx) * 4
+    const bi = pi * 4
 
-    // Pixel de bordure = au moins un voisin hors du masque
-    const isBorder =
-      (lx === 0 || !mask[ly * w + lx - 1]) ||
-      (lx === w - 1 || !mask[ly * w + lx + 1]) ||
-      (ly === 0 || !mask[(ly - 1) * w + lx]) ||
-      (ly === h - 1 || !mask[(ly + 1) * w + lx])
+    // Pixel de bordure : au moins un voisin dans le cercle r=3 hors du masque
+    let isBorder = false
+    for (let oi = 0; oi < FEATHER_OFFSETS.length; oi++) {
+      const [dx, dy] = FEATHER_OFFSETS[oi]
+      const nx = lx + dx, ny = ly + dy
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h || !mask[ny * w + nx]) {
+        isBorder = true
+        break
+      }
+    }
 
     if (isBorder) {
-      // Fix 3 — feathering : 50% luminaire + 50% fond original
-      output[bi]     = (d[li]     + origData[bi])     >> 1
-      output[bi + 1] = (d[li + 1] + origData[bi + 1]) >> 1
-      output[bi + 2] = (d[li + 2] + origData[bi + 2]) >> 1
-      output[bi + 3] = 180
+      // Correction 3 — blend progressif : luminaire 60% + fond original 40%
+      output[bi]     = Math.round(d[li]     * 0.6 + origData[bi]     * 0.4)
+      output[bi + 1] = Math.round(d[li + 1] * 0.6 + origData[bi + 1] * 0.4)
+      output[bi + 2] = Math.round(d[li + 2] * 0.6 + origData[bi + 2] * 0.4)
+      output[bi + 3] = 255
     } else {
       output[bi]     = d[li]
       output[bi + 1] = d[li + 1]
@@ -185,20 +196,19 @@ async function compositeZone(
   }
 }
 
-// ─── Fix 2 — helper : dessiner un ImageData sur un canvas DPR-scalé ──────────────
+// ─── Helper : dessiner un ImageData sur un canvas DPR-scalé ─────────────────────
 
 function putImageDataDPR(
-  canvas: HTMLCanvasElement,
-  data: Uint8ClampedArray,
-  W: number,
-  H: number,
+  canvas:      HTMLCanvasElement,
+  data:        Uint8ClampedArray,
+  W:           number,
+  H:           number,
   transparent: boolean
 ): void {
   const dpr = window.devicePixelRatio || 1
   canvas.width  = W * dpr
   canvas.height = H * dpr
 
-  // Intermédiaire CSS-resolution pour putImageData (ignore la transform)
   const tmp = document.createElement("canvas")
   tmp.width = W; tmp.height = H
   tmp.getContext("2d")!.putImageData(new ImageData(data, W, H), 0, 0)
@@ -210,17 +220,31 @@ function putImageDataDPR(
   ctx.drawImage(tmp, 0, 0, W * dpr, H * dpr)
 }
 
-// ─── Museum label tooltip ────────────────────────────────────────────────────────
+// ─── Correction 2 — Museum label : direction adaptée selon la zone ───────────────
 
-function MuseumLabel({ lum, visible }: { lum: GalleryLuminaire; visible: boolean }) {
+function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: boolean; below: boolean }) {
+  // below = true  → zone dans le tiers supérieur → tooltip sous la zone
+  // below = false → zone ailleurs               → tooltip au-dessus (défaut)
+  const pos = below
+    ? { top: "calc(100% + 6px)", bottom: "auto" }
+    : { bottom: "calc(100% + 6px)", top: "auto" }
+
+  // Flèche : pointe vers le haut quand le tooltip est en bas, vers le bas sinon
+  const arrowOuter = below
+    ? { top: -7, bottom: "auto", borderBottom: "7px solid #b8974a", borderTop: "none" }
+    : { bottom: -7, top: "auto", borderTop: "7px solid #b8974a", borderBottom: "none" }
+  const arrowInner = below
+    ? { top: -5, bottom: "auto", borderBottom: "6px solid #f0e6c0", borderTop: "none" }
+    : { bottom: -5, top: "auto", borderTop: "6px solid #f0e6c0", borderBottom: "none" }
+
   return (
     <div
       className="pointer-events-none absolute z-50"
-      style={{ bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", minWidth: 150, maxWidth: 200, opacity: visible ? 1 : 0, transition: "opacity 0.2s ease" }}
+      style={{ ...pos, left: "50%", transform: "translateX(-50%)", minWidth: 150, maxWidth: 200, opacity: visible ? 1 : 0, transition: "opacity 0.2s ease" }}
     >
       <div style={{ background: "linear-gradient(135deg,#f5e9c8,#ede0b0 60%,#f0e6c0)", border: "1px solid #b8974a", borderRadius: 2, padding: "8px 10px", boxShadow: "0 2px 10px rgba(0,0,0,.35)", position: "relative" }}>
-        <div style={{ position:"absolute",bottom:-7,left:"50%",transform:"translateX(-50%)",width:0,height:0,borderLeft:"7px solid transparent",borderRight:"7px solid transparent",borderTop:"7px solid #b8974a" }} />
-        <div style={{ position:"absolute",bottom:-5,left:"50%",transform:"translateX(-50%)",width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderTop:"6px solid #f0e6c0" }} />
+        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"7px solid transparent", borderRight:"7px solid transparent", ...arrowOuter }} />
+        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"6px solid transparent", borderRight:"6px solid transparent", ...arrowInner }} />
         <p style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:11, fontWeight:600, color:"#3d2b0a", lineHeight:1.3 }}>{lum.nom}</p>
         {lum.designer && <p style={{ fontFamily:"Georgia,serif", fontSize:10, fontStyle:"italic", color:"#6b4f1a", marginTop:2 }}>{lum.designer}</p>}
         {lum.annee    && <p style={{ fontFamily:"Georgia,serif", fontSize:9,  color:"#7a5c20",  marginTop:1  }}>{lum.annee}</p>}
@@ -242,11 +266,14 @@ function MuseumLabel({ lum, visible }: { lum: GalleryLuminaire; visible: boolean
 
 export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
 
-  // Fix 1 — deux canvas distincts : fond permanent + composite zones uniquement
-  const canvasBaseRef = useRef<HTMLCanvasElement>(null)   // z-index 1, opacity 1, ne change jamais
-  const canvasCompRef = useRef<HTMLCanvasElement>(null)   // z-index 2, crossfade uniquement ici
+  // canvasBase : fond permanent (z-1), ne change jamais
+  // canvasA/B  : correction 1 — deux canvas pour crossfade sans vider le fond (z-2)
+  const canvasBaseRef = useRef<HTMLCanvasElement>(null)
+  const canvasARef    = useRef<HTMLCanvasElement>(null)
+  const canvasBRef    = useRef<HTMLCanvasElement>(null)
+  const activeRef     = useRef<"A" | "B">("A")   // canvas actuellement affiché
 
-  const origDataRef   = useRef<Uint8ClampedArray | null>(null)  // fond base (vert→beige)
+  const origDataRef   = useRef<Uint8ClampedArray | null>(null)
   const zonesRef      = useRef<GreenZone[]>([])
   const imgSizeRef    = useRef({ w: 1330, h: 876 })
   const historyRef    = useRef<GalleryLuminaire[][]>([])
@@ -257,13 +284,13 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
   const [current,   setCurrent]   = useState<GalleryLuminaire[]>([])
   const [zones,     setZones]     = useState<GreenZone[]>([])
   const [phase,     setPhase]     = useState<"idle"|"loading"|"detecting"|"compositing"|"ready"|"error">("idle")
-  const [alphaBase, setAlphaBase] = useState(0)   // fond : 0 → 1 au chargement, ne bouge plus
-  const [alphaComp, setAlphaComp] = useState(0)   // composite : crossfade 0↔1 pour les rotations
+  const [alphaBase, setAlphaBase] = useState(0)
+  const [alphaA,    setAlphaA]    = useState(0)
+  const [alphaB,    setAlphaB]    = useState(0)
   const [hovZone,   setHovZone]   = useState<number | null>(null)
   const [hovering,  setHovering]  = useState(false)
   const [hasPrev,   setHasPrev]   = useState(false)
 
-  // ── Charger le pool ──────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch("/api/luminaires-gallery")
       .then(r => r.json())
@@ -271,17 +298,16 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
       .catch(() => {})
   }, [])
 
-  // Fix 1 — doComposite écrit uniquement les zones dans canvasComp (fond transparent)
+  // doComposite — écrit sur le canvas cible passé en paramètre
   const doComposite = useCallback(async (
-    sel: GalleryLuminaire[],
-    zns: GreenZone[],
-    W: number,
-    H: number
+    sel:    GalleryLuminaire[],
+    zns:    GreenZone[],
+    W:      number,
+    H:      number,
+    target: HTMLCanvasElement
   ) => {
-    if (!canvasCompRef.current || !origDataRef.current) return
-
-    const output = new Uint8ClampedArray(W * H * 4)  // transparent (tout à zéro)
-
+    if (!origDataRef.current) return
+    const output = new Uint8ClampedArray(W * H * 4)
     await Promise.all(
       zns.map((zone, i) =>
         sel[i]
@@ -289,12 +315,10 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
           : Promise.resolve()
       )
     )
-
-    // Fix 2 — rendu DPR via canvas intermédiaire + drawImage avec smoothing
-    putImageDataDPR(canvasCompRef.current, output, W, H, true)
+    putImageDataDPR(target, output, W, H, true)
   }, [])
 
-  // ── Charger et traiter le tableau de fond ────────────────────────────────────────
+  // Chargement initial
   useEffect(() => {
     if (!paintingUrl || !canvasBaseRef.current) return
     let cancelled = false
@@ -302,7 +326,7 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
     ;(async () => {
       try {
         setPhase("loading")
-        setAlphaBase(0); setAlphaComp(0)
+        setAlphaBase(0); setAlphaA(0); setAlphaB(0)
 
         const img = await loadImg(paintingUrl)
         if (cancelled) return
@@ -310,24 +334,22 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
         const W = img.naturalWidth, H = img.naturalHeight
         imgSizeRef.current = { w: W, h: H }
 
-        // Dessiner le tableau brut sur un canvas temporaire pour récupérer les pixels
         const tmp = document.createElement("canvas")
         tmp.width = W; tmp.height = H
-        const tmpCtx = tmp.getContext("2d")!
-        tmpCtx.drawImage(img, 0, 0)
-        const imgData = tmpCtx.getImageData(0, 0, W, H)
+        tmp.getContext("2d")!.drawImage(img, 0, 0)
+        const imgData = tmp.getContext("2d")!.getImageData(0, 0, W, H)
 
         setPhase("detecting")
         await sleep(16)
         if (cancelled) return
 
         const detectedZones = detectGreenZones(imgData.data, W, H)
-        console.log(`[PaintingGallery] ${detectedZones.length} zone(s) verte(s)`, detectedZones.map(z => `#${z.id} ${z.bbox.w}×${z.bbox.h}`))
+        console.log(`[PaintingGallery] ${detectedZones.length} zone(s)`, detectedZones.map(z => `#${z.id} ${z.bbox.w}×${z.bbox.h}`))
         zonesRef.current = detectedZones
         setZones(detectedZones)
         if (cancelled) return
 
-        // Fix 1 — remplacer les zones vertes par #b8a898 dans le fond de base
+        // Remplacer les zones vertes par #b8a898 dans le fond de base
         const baseData = new Uint8ClampedArray(imgData.data)
         for (const zone of detectedZones) {
           for (let k = 0; k < zone.pixels.length; k++) {
@@ -338,17 +360,17 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
         }
         origDataRef.current = baseData
 
-        // Fix 2 — canvasBase DPR-scalé, dessiné une seule fois, opacity permanente
         putImageDataDPR(canvasBaseRef.current!, baseData, W, H, false)
-        setAlphaBase(1)   // fond visible dès maintenant, ne change plus
+        setAlphaBase(1)
 
         if (pool.length > 0 && detectedZones.length > 0) {
           setPhase("compositing")
           const sel = pickRandom(pool, detectedZones.length)
           currentRef.current = sel; historyRef.current = [sel]
           setCurrent(sel); setHasPrev(false)
-          await doComposite(sel, detectedZones, W, H)
-          setAlphaComp(1)
+          await doComposite(sel, detectedZones, W, H, canvasARef.current!)
+          activeRef.current = "A"
+          setAlphaA(1)   // canvasB reste à 0
         }
 
         if (!cancelled) setPhase("ready")
@@ -362,7 +384,7 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paintingUrl, doComposite])
 
-  // ── Pool chargé après le tableau ─────────────────────────────────────────────────
+  // Pool chargé après le tableau
   useEffect(() => {
     if (pool.length === 0 || zonesRef.current.length === 0 || currentRef.current.length > 0) return
     ;(async () => {
@@ -371,19 +393,21 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
       currentRef.current = sel; historyRef.current = [sel]
       setCurrent(sel); setHasPrev(false)
       setPhase("compositing")
-      await doComposite(sel, zonesRef.current, W, H)
-      setAlphaComp(1)
+      await doComposite(sel, zonesRef.current, W, H, canvasARef.current!)
+      activeRef.current = "A"
+      setAlphaA(1)
       setPhase("ready")
     })()
   }, [pool, doComposite])
 
-  // Fix 1 — doRotate : fade uniquement sur canvasComp, canvasBase ne bouge jamais
+  // Correction 1 — crossfade A↔B simultané, fond permanent, jamais les deux à 0
   const doRotate = useCallback(async (dir: "next" | "prev") => {
     const zns = zonesRef.current
     if (zns.length === 0 || pool.length === 0) return
 
-    setAlphaComp(0)
-    await sleep(450)   // attendre la fin du fade-out CSS (0.4s + marge)
+    const inactive   = activeRef.current === "A" ? "B" : "A"
+    const targetCanvas = inactive === "A" ? canvasARef.current : canvasBRef.current
+    if (!targetCanvas) return
 
     let sel: GalleryLuminaire[]
     if (dir === "next") {
@@ -399,11 +423,18 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
     setCurrent(sel)
 
     const { w: W, h: H } = imgSizeRef.current
-    await doComposite(sel, zns, W, H)
-    setAlphaComp(1)
+
+    // Composer sur le canvas inactif pendant que l'actif reste pleinement visible
+    await doComposite(sel, zns, W, H, targetCanvas)
+
+    // Transition simultanée : actif 1→0, inactif 0→1 (jamais les deux à 0 en même temps)
+    if (inactive === "A") { setAlphaA(1); setAlphaB(0) }
+    else                  { setAlphaA(0); setAlphaB(1) }
+
+    await sleep(850)   // durée transition CSS 0.8s + marge
+    activeRef.current = inactive
   }, [pool, doComposite])
 
-  // ── Timer 30s ─────────────────────────────────────────────────────────────────────
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = setInterval(() => doRotate("next"), ROTATION_INTERVAL)
@@ -433,22 +464,22 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
-      {/* Fix 1 — conteneur overflow-hidden uniquement pour les canvas */}
+      {/* Canvas — overflow-hidden uniquement ici */}
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}` }}>
 
-        {/* Fix 1 — canvasBase : fond permanent, opacity 1, ne change jamais */}
-        <canvas
-          ref={canvasBaseRef}
+        {/* Fond permanent */}
+        <canvas ref={canvasBaseRef}
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaBase, transition:"opacity 0.5s ease" }}
         />
-
-        {/* Fix 1 — canvasComp : zones luminaires uniquement, crossfade ici */}
-        <canvas
-          ref={canvasCompRef}
-          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:2, opacity:alphaComp, transition:"opacity 0.4s ease" }}
+        {/* Correction 1 — canvas A (composite) */}
+        <canvas ref={canvasARef}
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:2, opacity:alphaA, transition:"opacity 0.8s ease" }}
+        />
+        {/* Correction 1 — canvas B (crossfade cible) */}
+        <canvas ref={canvasBRef}
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:2, opacity:alphaB, transition:"opacity 0.8s ease" }}
         />
 
-        {/* Overlay de chargement */}
         {(phase === "loading" || phase === "detecting" || phase === "compositing") && (
           <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background:"rgba(245,241,232,0.75)" }}>
             <p className="font-serif text-sm italic text-stone-600">
@@ -467,11 +498,13 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
 
       </div>
 
-      {/* Zones interactives EN DEHORS de overflow-hidden → tooltips non clippés */}
+      {/* Zones interactives — hors overflow-hidden pour que les tooltips ne soient pas clippés */}
       {phase === "ready" && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
           {zones.map((zone, i) => {
-            const lum = current[i]
+            const lum  = current[i]
+            // Correction 2 — tooltip en bas si zone dans le tiers supérieur
+            const below = zone.bbox.y / iH < 0.4
             return (
               <div
                 key={zone.id}
@@ -486,14 +519,13 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
                 onMouseEnter={() => setHovZone(zone.id)}
                 onMouseLeave={() => setHovZone(null)}
               >
-                {lum && <MuseumLabel lum={lum} visible={hovZone === zone.id} />}
+                {lum && <MuseumLabel lum={lum} visible={hovZone === zone.id} below={below} />}
               </div>
             )
           })}
         </div>
       )}
 
-      {/* Flèches EN DEHORS de overflow-hidden */}
       <button
         onClick={() => { resetTimer(); doRotate("prev") }}
         disabled={!hasPrev}
