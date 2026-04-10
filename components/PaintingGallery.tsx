@@ -202,14 +202,16 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const paintingRef = useRef<HTMLImageElement | null>(null)
   const imgSizeRef  = useRef({ w: 1330, h: 560 })
 
-  const [pool,     setPool]     = useState<GalleryLuminaire[]>([])
-  const [current,  setCurrent]  = useState<GalleryLuminaire[]>([])
-  const [phase,    setPhase]    = useState<"idle"|"loading"|"compositing"|"ready"|"error">("idle")
-  const [alphaA,   setAlphaA]   = useState(0)
-  const [alphaB,   setAlphaB]   = useState(0)
-  const [hovZone,  setHovZone]  = useState<number | null>(null)
-  const [hovering, setHovering] = useState(false)
-  const [hasPrev,  setHasPrev]  = useState(false)
+  const [pool,          setPool]          = useState<GalleryLuminaire[]>([])
+  const [current,       setCurrent]       = useState<GalleryLuminaire[]>([])
+  const [paintingReady, setPaintingReady] = useState(false)   // ← déclenche le re-render
+  const [imgSize,       setImgSize]       = useState({ w: 1330, h: 560 })
+  const [phase,         setPhase]         = useState<"idle"|"loading"|"compositing"|"ready"|"error">("loading")
+  const [alphaA,        setAlphaA]        = useState(0)
+  const [alphaB,        setAlphaB]        = useState(0)
+  const [hovZone,       setHovZone]       = useState<number | null>(null)
+  const [hovering,      setHovering]      = useState(false)
+  const [hasPrev,       setHasPrev]       = useState(false)
 
   const historyRef = useRef<GalleryLuminaire[][]>([])
   const currentRef = useRef<GalleryLuminaire[]>([])
@@ -223,16 +225,19 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       .catch(() => {})
   }, [])
 
-  // ── Chargement du tableau ────────────────────────────────────────────────────────
+  // ── Chargement du tableau → setState pour déclencher la composition ───────────────
   useEffect(() => {
     if (!transparentUrl) return
     let cancelled = false
     setPhase("loading")
+    setPaintingReady(false)
 
     loadImg(transparentUrl).then(img => {
       if (cancelled) return
-      paintingRef.current = img
-      imgSizeRef.current  = { w: img.naturalWidth, h: img.naturalHeight }
+      paintingRef.current   = img
+      imgSizeRef.current    = { w: img.naturalWidth, h: img.naturalHeight }
+      setImgSize({ w: img.naturalWidth, h: img.naturalHeight })
+      setPaintingReady(true)   // ← déclenche le useEffect de composition
     }).catch(() => {
       if (!cancelled) setPhase("error")
     })
@@ -240,9 +245,9 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { cancelled = true }
   }, [transparentUrl])
 
-  // ── Première composition dès que tableau + pool sont prêts ───────────────────────
+  // ── Première composition dès que tableau ET pool sont tous les deux prêts ─────────
   useEffect(() => {
-    if (pool.length === 0 || !paintingRef.current || currentRef.current.length > 0) return
+    if (!paintingReady || pool.length === 0 || currentRef.current.length > 0) return
     ;(async () => {
       const sel = pickRandom(pool, ZONES.length)
       currentRef.current = sel
@@ -258,7 +263,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       setPhase("ready")
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool])
+  }, [pool, paintingReady])
 
   // ── Rotation avec crossfade A↔B ──────────────────────────────────────────────────
   const doRotate = useCallback(async (dir: "next" | "prev") => {
@@ -312,7 +317,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     )
   }
 
-  const { w: iW, h: iH } = imgSizeRef.current
+  const { w: iW, h: iH } = imgSize
 
   return (
     <section
