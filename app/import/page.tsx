@@ -739,26 +739,15 @@ export default function ImportPage() {
     setCurrentStep("Compression de l'image...")
 
     try {
-      // Compresser l'image côté client pour rester sous la limite de 4 MB du serveur
-      const originalMB = (file.size / 1_048_576).toFixed(1)
-      let uploadBlob: Blob = file
-
-      if (file.size > 3 * 1_048_576) {
-        // > 3 MB → compresser
-        setCurrentStep(`Compression (${originalMB} MB → JPEG 1920px)...`)
-        uploadBlob = await compressImage(file, 1920, 0.82)
-        const compressedMB = (uploadBlob.size / 1_048_576).toFixed(1)
-        setCurrentStep(`Compression OK (${originalMB} MB → ${compressedMB} MB) — Upload en cours...`)
-      } else {
-        setCurrentStep("Upload du tableau en cours...")
-      }
-
+      // Le tableau DOIT rester en PNG pour conserver la transparence (alpha)
+      // Pas de conversion JPEG — on upload le fichier original tel quel
+      setCurrentStep("Upload du tableau en cours...")
       setUploadProgress(40)
 
       const compressedFile = new File(
-        [uploadBlob],
-        file.name.replace(/\.[^/.]+$/, "") + ".jpg",
-        { type: "image/jpeg" }
+        [file],
+        file.name,
+        { type: file.type }
       )
 
       const formData = new FormData()
