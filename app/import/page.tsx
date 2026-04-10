@@ -83,6 +83,33 @@ function compressImage(file: File, maxWidth = 1920, quality = 0.82): Promise<Blo
   })
 }
 
+// ── Redimensionnement PNG avec préservation de la transparence ────────────────
+// Réduit à max maxDim px et exporte en PNG (canvas + clearRect pour alpha)
+function compressPNG(file: File, maxDim = 1800): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+      const w = Math.round(img.width  * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement("canvas")
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext("2d")
+      if (!ctx) { reject(new Error("Canvas non supporté")); return }
+      ctx.clearRect(0, 0, w, h)   // fond transparent
+      ctx.drawImage(img, 0, 0, w, h)
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("Export PNG échoué"))),
+        "image/png"
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Lecture image échouée")) }
+    img.src = objectUrl
+  })
+}
+
 function parseCSVLine(line: string): string[] {
   const result: string[] = []
   let current = ""
@@ -740,14 +767,25 @@ export default function ImportPage() {
 
     try {
       // Le tableau DOIT rester en PNG pour conserver la transparence (alpha)
-      // Pas de conversion JPEG — on upload le fichier original tel quel
-      setCurrentStep("Upload du tableau en cours...")
+      // On redimensionne si > 1 MB pour passer sous la limite nginx, sans passer en JPEG
+      let uploadBlob: Blob = file
+      const originalMB = (file.size / 1_048_576).toFixed(1)
+
+      if (file.size > 4.5 * 1_048_576) {
+        setCurrentStep(`Redimensionnement PNG (${originalMB} MB) — préservation transparence...`)
+        uploadBlob = await compressPNG(file, 2400)
+        const newMB = (uploadBlob.size / 1_048_576).toFixed(1)
+        setCurrentStep(`PNG OK (${originalMB} MB → ${newMB} MB) — Upload en cours...`)
+      } else {
+        setCurrentStep("Upload du tableau en cours...")
+      }
+
       setUploadProgress(40)
 
       const compressedFile = new File(
-        [file],
-        file.name,
-        { type: file.type }
+        [uploadBlob],
+        file.name.replace(/\.[^/.]+$/, "") + ".png",
+        { type: "image/png" }
       )
 
       const formData = new FormData()
