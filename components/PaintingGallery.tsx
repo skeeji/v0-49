@@ -14,16 +14,9 @@ interface GalleryLuminaire {
   imageUrl: string
 }
 
-interface Zone {
-  id:    number
-  label: string
-  left:  number   // % depuis le bord gauche
-  top:   number   // % depuis le bord haut
-  w:     number   // % largeur
-  h:     number   // % hauteur
-}
+// ─── Zones hardcodées en % (calibrées sur le PNG transparent) ───────────────────
 
-// ─── Zones hardcodées (calibrées sur le PNG transparent) ────────────────────────
+interface Zone { id: number; label: string; left: number; top: number; w: number; h: number }
 
 const ZONES: Zone[] = [
   { id:  0, label: "Fenêtre haute gauche 1",      left:  1, top:  1, w: 10, h: 22 },
@@ -46,9 +39,14 @@ const ZONES: Zone[] = [
   { id: 17, label: "Fenêtres droite basse 2",     left: 80, top: 14, w: 10, h: 20 },
 ]
 
-const ROTATION_INTERVAL = 30_000
+// ─── Constantes ─────────────────────────────────────────────────────────────────
 
-// ─── Sélection sans doublons ─────────────────────────────────────────────────────
+const ROTATION_INTERVAL = 30_000
+const TR = 0xe8, TG = 0xe0, TB = 0xd0   // cible beige #e8e0d0
+
+// ─── Utilitaires ────────────────────────────────────────────────────────────────
+
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
 function pickRandom(pool: GalleryLuminaire[], n: number): GalleryLuminaire[] {
   if (pool.length === 0) return []
@@ -57,13 +55,10 @@ function pickRandom(pool: GalleryLuminaire[], n: number): GalleryLuminaire[] {
     const j = (Math.random() * (i + 1)) | 0;
     [copy[i], copy[j]] = [copy[j], copy[i]]
   }
-  // pool >= n → n premiers tous distincts ; pool < n → doublons pour compléter
   const result: GalleryLuminaire[] = []
   for (let i = 0; i < n; i++) result.push(copy[i % copy.length])
   return result
 }
-
-// ─── Chargement image ───────────────────────────────────────────────────────────
 
 function loadImg(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -75,55 +70,102 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// ─── Suppression fond blanc sur canvas off-screen ────────────────────────────────
+// ─── Composition canvas : fond beige → luminaires → tableau RGBA par-dessus ──────
+//
+// Principe identique au fond vert :
+//   1. Remplir le canvas de beige (#f5f0e8)
+//   2. Dessiner chaque luminaire (traitement fond blanc) dans sa zone
+//   3. Dessiner le tableau RGBA en dernier → ses pixels opaques couvrent tout,
+//      ses pixels transparents laissent apparaître les luminaires en dessous.
 
-const TR = 0xe8, TG = 0xe0, TB = 0xd0   // cible : #e8e0d0 (beige chaud)
+async function renderComposite(
+  canvas:   HTMLCanvasElement,
+  painting: HTMLImageElement,
+  sel:      GalleryLuminaire[],
+  W:        number,
+  H:        number,
+): Promise<void> {
+  canvas.width  = W
+  canvas.height = H
+  const ctx = canvas.getContext("2d")!
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = "high"
 
-async function processLuminaireImage(url: string): Promise<string | null> {
-  try {
-    const img = await loadImg(url)
-    const oc  = document.createElement("canvas")
-    oc.width  = img.naturalWidth
-    oc.height = img.naturalHeight
-    const ctx = oc.getContext("2d")!
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = "high"
-    ctx.drawImage(img, 0, 0)
+  // 1. Fond beige uniforme
+  ctx.fillStyle = "#f5f0e8"
+  ctx.fillRect(0, 0, W, H)
 
-    const id = ctx.getImageData(0, 0, oc.width, oc.height)
+  // 2. Luminaires en parallèle → canvas off-screen → composition
+  const tasks = ZONES.map(async (zone, i) => {
+    const lum = sel[i]
+    if (!lum) return
+
+    const zx = Math.round(zone.left * W / 100)
+    const zy = Math.round(zone.top  * H / 100)
+    const zw = Math.round(zone.w    * W / 100)
+    const zh = Math.round(zone.h    * H / 100)
+
+    let img: HTMLImageElement
+    try { img = await loadImg(lum.imageUrl) } catch { return }
+
+    // Canvas off-screen dédié à ce luminaire
+    const oc    = document.createElement("canvas")
+    oc.width    = zw
+    oc.height   = zh
+    const octx  = oc.getContext("2d")!
+    octx.imageSmoothingEnabled = true
+    octx.imageSmoothingQuality = "high"
+
+    // object-fit: contain avec 10 % de marge
+    const pad    = 0.10
+    const availW = zw * (1 - 2 * pad)
+    const availH = zh * (1 - 2 * pad)
+    const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
+    const dw     = img.naturalWidth  * scale
+    const dh     = img.naturalHeight * scale
+    const dx     = (zw - dw) / 2
+    const dy     = (zh - dh) / 2
+    octx.drawImage(img, dx, dy, dw, dh)
+
+    // Suppression fond blanc sur le canvas off-screen uniquement
+    const id = octx.getImageData(0, 0, zw, zh)
     const d  = id.data
-    for (let i = 0; i < d.length; i += 4) {
-      const r = d[i], g = d[i + 1], b = d[i + 2]
+    for (let j = 0; j < d.length; j += 4) {
+      const r = d[j], g = d[j + 1], b = d[j + 2]
       if (r > 220 && g > 220 && b > 220) {
-        d[i] = TR; d[i + 1] = TG; d[i + 2] = TB
+        d[j] = TR; d[j + 1] = TG; d[j + 2] = TB
       } else {
         const m = Math.min(r, g, b)
         if (m > 190) {
-          const t  = (m - 190) / 30
-          d[i]     = Math.round(r * (1 - t) + TR * t)
-          d[i + 1] = Math.round(g * (1 - t) + TG * t)
-          d[i + 2] = Math.round(b * (1 - t) + TB * t)
+          const t    = (m - 190) / 30
+          d[j]     = Math.round(r * (1 - t) + TR * t)
+          d[j + 1] = Math.round(g * (1 - t) + TG * t)
+          d[j + 2] = Math.round(b * (1 - t) + TB * t)
         }
       }
     }
-    ctx.putImageData(id, 0, 0)
+    octx.putImageData(id, 0, 0)
 
-    return new Promise<string | null>(res => {
-      oc.toBlob(blob => res(blob ? URL.createObjectURL(blob) : null), "image/png")
-    })
-  } catch {
-    return null
+    return { oc, zx, zy }
+  })
+
+  const results = await Promise.all(tasks)
+  for (const r of results) {
+    if (r) ctx.drawImage(r.oc, r.zx, r.zy)
   }
+
+  // 3. Tableau RGBA par-dessus — zones transparentes révèlent les luminaires
+  ctx.drawImage(painting, 0, 0, W, H)
 }
 
 // ─── Museum label ────────────────────────────────────────────────────────────────
 
 function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: boolean; below: boolean }) {
   const pos       = below ? { top: "calc(100% + 6px)", bottom: "auto" } : { bottom: "calc(100% + 6px)", top: "auto" }
-  const arrowOuter = below
+  const arrowOut  = below
     ? { top: -7, bottom: "auto", borderBottom: "7px solid #b8974a", borderTop: "none" }
     : { bottom: -7, top: "auto", borderTop: "7px solid #b8974a", borderBottom: "none" }
-  const arrowInner = below
+  const arrowIn   = below
     ? { top: -5, bottom: "auto", borderBottom: "6px solid #f0e6c0", borderTop: "none" }
     : { bottom: -5, top: "auto", borderTop: "6px solid #f0e6c0", borderBottom: "none" }
 
@@ -133,18 +175,14 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
       style={{ ...pos, left: "50%", transform: "translateX(-50%)", minWidth: 150, maxWidth: 200, opacity: visible ? 1 : 0, transition: "opacity 0.2s ease" }}
     >
       <div style={{ background: "linear-gradient(135deg,#f5e9c8,#ede0b0 60%,#f0e6c0)", border: "1px solid #b8974a", borderRadius: 2, padding: "8px 10px", boxShadow: "0 2px 10px rgba(0,0,0,.35)", position: "relative" }}>
-        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", ...arrowOuter }} />
-        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", ...arrowInner }} />
-        <p style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 11, fontWeight: 600, color: "#3d2b0a", lineHeight: 1.3 }}>{lum.nom}</p>
-        {lum.designer && <p style={{ fontFamily: "Georgia,serif", fontSize: 10, fontStyle: "italic", color: "#6b4f1a", marginTop: 2 }}>{lum.designer}</p>}
-        {lum.annee    && <p style={{ fontFamily: "Georgia,serif", fontSize: 9,  color: "#7a5c20",  marginTop: 1  }}>{lum.annee}</p>}
-        <Link
-          href={`/luminaires/${lum._id}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"7px solid transparent", borderRight:"7px solid transparent", ...arrowOut }} />
+        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"6px solid transparent", borderRight:"6px solid transparent", ...arrowIn }} />
+        <p style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:11, fontWeight:600, color:"#3d2b0a", lineHeight:1.3 }}>{lum.nom}</p>
+        {lum.designer && <p style={{ fontFamily:"Georgia,serif", fontSize:10, fontStyle:"italic", color:"#6b4f1a", marginTop:2 }}>{lum.designer}</p>}
+        {lum.annee    && <p style={{ fontFamily:"Georgia,serif", fontSize:9,  color:"#7a5c20",  marginTop:1  }}>{lum.annee}</p>}
+        <Link href={`/luminaires/${lum._id}`} target="_blank" rel="noopener noreferrer"
           className="pointer-events-auto block mt-1"
-          style={{ fontFamily: "Georgia,serif", fontSize: 9, color: "#5a3a10", textDecoration: "underline" }}
-        >
+          style={{ fontFamily:"Georgia,serif", fontSize:9, color:"#5a3a10", textDecoration:"underline" }}>
           Voir le produit →
         </Link>
       </div>
@@ -155,21 +193,27 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
 // ─── Composant principal ─────────────────────────────────────────────────────────
 
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
-  const paintingUrl = transparentUrl
 
-  const [pool,          setPool]          = useState<GalleryLuminaire[]>([])
-  const [current,       setCurrent]       = useState<GalleryLuminaire[]>([])
-  const [processedUrls, setProcessedUrls] = useState<(string | null)[]>([])
-  const [imgSize,       setImgSize]       = useState({ w: 1330, h: 560 })
-  const [ready,         setReady]         = useState(false)
-  const [hovZone,       setHovZone]       = useState<number | null>(null)
-  const [hovering,      setHovering]      = useState(false)
-  const [hasPrev,       setHasPrev]       = useState(false)
+  // Deux canvas pour le crossfade (comme l'approche fond vert)
+  const canvasARef  = useRef<HTMLCanvasElement>(null)
+  const canvasBRef  = useRef<HTMLCanvasElement>(null)
+  const activeRef   = useRef<"A" | "B">("A")
 
-  const historyRef   = useRef<GalleryLuminaire[][]>([])
-  const currentRef   = useRef<GalleryLuminaire[]>([])
-  const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null)
-  const prevBlobUrls = useRef<string[]>([])
+  const paintingRef = useRef<HTMLImageElement | null>(null)
+  const imgSizeRef  = useRef({ w: 1330, h: 560 })
+
+  const [pool,     setPool]     = useState<GalleryLuminaire[]>([])
+  const [current,  setCurrent]  = useState<GalleryLuminaire[]>([])
+  const [phase,    setPhase]    = useState<"idle"|"loading"|"compositing"|"ready"|"error">("idle")
+  const [alphaA,   setAlphaA]   = useState(0)
+  const [alphaB,   setAlphaB]   = useState(0)
+  const [hovZone,  setHovZone]  = useState<number | null>(null)
+  const [hovering, setHovering] = useState(false)
+  const [hasPrev,  setHasPrev]  = useState(false)
+
+  const historyRef = useRef<GalleryLuminaire[][]>([])
+  const currentRef = useRef<GalleryLuminaire[]>([])
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ── Pool ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -179,42 +223,46 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       .catch(() => {})
   }, [])
 
-  // ── Sélection initiale dès que le pool est disponible ────────────────────────────
+  // ── Chargement du tableau ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (pool.length === 0 || currentRef.current.length > 0) return
-    const sel = pickRandom(pool, ZONES.length)
-    console.log("zones:", ZONES.length, "lums:", sel.length, sel.map(l => l?._id))
-    currentRef.current = sel
-    historyRef.current = [sel]
-    setCurrent(sel)
-    setHasPrev(false)
-    setReady(true)
-  }, [pool])
-
-  // ── Traitement canvas off-screen à chaque changement de sélection ────────────────
-  useEffect(() => {
-    if (current.length === 0) { setProcessedUrls([]); return }
+    if (!transparentUrl) return
     let cancelled = false
+    setPhase("loading")
 
-    ;(async () => {
-      const urls = await Promise.all(
-        current.map(lum =>
-          lum ? processLuminaireImage(lum.imageUrl).catch(() => null) : Promise.resolve(null)
-        )
-      )
-      if (cancelled) { urls.forEach(u => u && URL.revokeObjectURL(u)); return }
-
-      prevBlobUrls.current.forEach(u => URL.revokeObjectURL(u))
-      prevBlobUrls.current = urls.filter((u): u is string => u !== null)
-      setProcessedUrls(urls)
-    })()
+    loadImg(transparentUrl).then(img => {
+      if (cancelled) return
+      paintingRef.current = img
+      imgSizeRef.current  = { w: img.naturalWidth, h: img.naturalHeight }
+    }).catch(() => {
+      if (!cancelled) setPhase("error")
+    })
 
     return () => { cancelled = true }
-  }, [current])
+  }, [transparentUrl])
 
-  // ── Rotation ──────────────────────────────────────────────────────────────────────
-  const doRotate = useCallback((dir: "next" | "prev") => {
-    if (pool.length === 0) return
+  // ── Première composition dès que tableau + pool sont prêts ───────────────────────
+  useEffect(() => {
+    if (pool.length === 0 || !paintingRef.current || currentRef.current.length > 0) return
+    ;(async () => {
+      const sel = pickRandom(pool, ZONES.length)
+      currentRef.current = sel
+      historyRef.current = [sel]
+      setCurrent(sel)
+      setHasPrev(false)
+
+      setPhase("compositing")
+      const { w: W, h: H } = imgSizeRef.current
+      await renderComposite(canvasARef.current!, paintingRef.current!, sel, W, H)
+      activeRef.current = "A"
+      setAlphaA(1); setAlphaB(0)
+      setPhase("ready")
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool])
+
+  // ── Rotation avec crossfade A↔B ──────────────────────────────────────────────────
+  const doRotate = useCallback(async (dir: "next" | "prev") => {
+    if (pool.length === 0 || !paintingRef.current) return
 
     let sel: GalleryLuminaire[]
     if (dir === "next") {
@@ -225,10 +273,22 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       sel = h.length > 1 ? h[h.length - 2] : currentRef.current
       historyRef.current = h.length > 1 ? h.slice(0, -1) : h
     }
-    console.log("zones:", ZONES.length, "lums:", sel.length, sel.map(l => l?._id))
     setHasPrev(historyRef.current.length > 1)
     currentRef.current = sel
     setCurrent(sel)
+
+    const inactive     = activeRef.current === "A" ? "B" : "A"
+    const targetCanvas = inactive === "A" ? canvasARef.current! : canvasBRef.current!
+    const { w: W, h: H } = imgSizeRef.current
+
+    await renderComposite(targetCanvas, paintingRef.current!, sel, W, H)
+
+    // Crossfade simultané : actif → 0, inactif → 1
+    if (inactive === "A") { setAlphaA(1); setAlphaB(0) }
+    else                  { setAlphaA(0); setAlphaB(1) }
+
+    await sleep(850)
+    activeRef.current = inactive
   }, [pool])
 
   const resetTimer = useCallback(() => {
@@ -237,25 +297,14 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   }, [doRotate])
 
   useEffect(() => {
-    if (!ready || pool.length === 0) return
+    if (phase !== "ready" || pool.length === 0) return
     resetTimer()
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [ready, pool.length, resetTimer])
-
-  // ── Nettoyage blob URLs ───────────────────────────────────────────────────────────
-  useEffect(() => () => { prevBlobUrls.current.forEach(u => URL.revokeObjectURL(u)) }, [])
-
-  // ── Aspect ratio depuis le tableau chargé ────────────────────────────────────────
-  const handlePaintingLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget
-    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-      setImgSize({ w: img.naturalWidth, h: img.naturalHeight })
-    }
-  }
+  }, [phase, pool.length, resetTimer])
 
   // ─────────────────────────────────────────────────────────────────────────────────
 
-  if (!paintingUrl) {
+  if (!transparentUrl) {
     return (
       <section className="w-full flex items-center justify-center bg-stone-100" style={{ minHeight: 180 }}>
         <p className="text-sm text-stone-400 font-serif italic">Uploadez le tableau depuis la page Import</p>
@@ -263,7 +312,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     )
   }
 
-  const { w: iW, h: iH } = imgSize
+  const { w: iW, h: iH } = imgSizeRef.current
 
   return (
     <section
@@ -271,71 +320,43 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
+      {/* Canvas — overflow-hidden uniquement ici */}
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}` }}>
 
-        {/* ── Cadres (frame-slot) — positionnés DERRIÈRE le tableau ── */}
-        {ZONES.map((zone, i) => {
-          const lum = current[i]
-          const src = processedUrls[i] ?? lum?.imageUrl
-          return (
-            <div
-              key={zone.id}
-              className="frame-slot absolute"
-              style={{
-                left:            `${zone.left}%`,
-                top:             `${zone.top}%`,
-                width:           `${zone.w}%`,
-                height:          `${zone.h}%`,
-                backgroundColor: "#f5f0e8",
-                zIndex:          1,
-              }}
-            >
-              {lum && src && (
-                <img
-                  key={lum._id}
-                  src={src}
-                  alt={lum.nom}
-                  style={{
-                    objectFit: "contain",
-                    width:     "100%",
-                    height:    "100%",
-                    padding:   "10%",
-                    display:   "block",
-                  }}
-                />
-              )}
-            </div>
-          )
-        })}
-
-        {/* ── Tableau RGBA au-dessus — les zones transparentes révèlent les cadres ── */}
-        <img
-          src={paintingUrl}
-          alt="Tableau L'Enseigne de Gersaint"
-          onLoad={handlePaintingLoad}
-          className="absolute inset-0 w-full h-full block"
-          style={{ objectFit: "fill", zIndex: 2 }}
+        {/* Canvas A */}
+        <canvas ref={canvasARef}
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaA, transition:"opacity 0.8s ease" }}
         />
+        {/* Canvas B */}
+        <canvas ref={canvasBRef}
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaB, transition:"opacity 0.8s ease" }}
+        />
+
+        {(phase === "loading" || phase === "compositing") && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background:"rgba(245,241,232,0.80)" }}>
+            <p className="font-serif text-sm italic text-stone-600">
+              {phase === "loading" ? "Chargement du tableau…" : "Placement des luminaires…"}
+            </p>
+          </div>
+        )}
+
+        {phase === "error" && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-stone-100">
+            <p className="font-serif text-sm italic text-red-400">Erreur de chargement du tableau</p>
+          </div>
+        )}
 
       </div>
 
-      {/* ── Zones interactives hors overflow-hidden (tooltips non clippés) ── */}
-      {ready && (
+      {/* Zones interactives — hors overflow-hidden pour que les tooltips ne soient pas clippés */}
+      {phase === "ready" && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
           {ZONES.map((zone, i) => {
             const lum   = current[i]
             const below = zone.top < 40
             return (
-              <div
-                key={zone.id}
-                className="absolute cursor-pointer"
-                style={{
-                  left:          `${zone.left}%`,
-                  top:           `${zone.top}%`,
-                  width:         `${zone.w}%`,
-                  height:        `${zone.h}%`,
-                  pointerEvents: "auto",
-                }}
+              <div key={zone.id} className="absolute cursor-pointer"
+                style={{ left:`${zone.left}%`, top:`${zone.top}%`, width:`${zone.w}%`, height:`${zone.h}%`, pointerEvents:"auto" }}
                 onMouseEnter={() => setHovZone(zone.id)}
                 onMouseLeave={() => setHovZone(null)}
               >
@@ -346,23 +367,16 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         </div>
       )}
 
-      {/* ── Boutons de navigation ── */}
-      <button
-        onClick={() => { resetTimer(); doRotate("prev") }}
-        disabled={!hasPrev}
+      {/* Boutons navigation */}
+      <button onClick={() => { resetTimer(); doRotate("prev") }} disabled={!hasPrev}
         aria-label="Sélection précédente"
-        style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 38, height: 38, borderRadius: "50%", background: "rgba(0,0,0,.28)", border: "none", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)", opacity: hovering ? (hasPrev ? 1 : 0.2) : 0, transition: "opacity .3s ease" }}
-      >
-        <ChevronLeft size={20} />
-      </button>
+        style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", zIndex:10, width:38, height:38, borderRadius:"50%", background:"rgba(0,0,0,.28)", border:"none", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", backdropFilter:"blur(4px)", opacity:hovering?(hasPrev?1:0.2):0, transition:"opacity .3s ease" }}
+      ><ChevronLeft size={20} /></button>
 
-      <button
-        onClick={() => { resetTimer(); doRotate("next") }}
+      <button onClick={() => { resetTimer(); doRotate("next") }}
         aria-label="Sélection suivante"
-        style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 38, height: 38, borderRadius: "50%", background: "rgba(0,0,0,.28)", border: "none", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)", opacity: hovering ? 1 : 0, transition: "opacity .3s ease" }}
-      >
-        <ChevronRight size={20} />
-      </button>
+        style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", zIndex:10, width:38, height:38, borderRadius:"50%", background:"rgba(0,0,0,.28)", border:"none", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", backdropFilter:"blur(4px)", opacity:hovering?1:0, transition:"opacity .3s ease" }}
+      ><ChevronRight size={20} /></button>
 
     </section>
   )
