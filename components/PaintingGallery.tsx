@@ -291,13 +291,9 @@ export function PaintingGallery({
     >
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}` }}>
 
-        {/* z-0 — tableau original en arrière-plan (visible pendant le chargement du PNG) */}
-        {paintingUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={paintingUrl} alt="" draggable={false}
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", zIndex: 0, objectFit: "cover" }}
-          />
-        )}
+        {/* z-0 — fond neutre (visible pendant le chargement, et à travers les trous avant que les luminaires chargent) */}
+        {/* Quand transparentUrl est défini, on N'affiche PAS paintingUrl ici : il serait opaque et couvrirait les luminaires en z-1 */}
+        <div style={{ position: "absolute", inset: 0, zIndex: 0, background: "#c8bfb0" }} />
 
         {/* z-1 — conteneurs de luminaires, un par zone transparente */}
         {zones.map((zone, i) => (
