@@ -764,7 +764,7 @@ export default function ImportPage() {
       const formData = new FormData()
       formData.append("image", compressedFile)
       formData.append("section", "painting")
-      formData.append("index", "0")
+      formData.append("index", "transparent")  // → clé homepage_painting_transparent
 
       const response = await fetch("/api/upload/homepage-images", {
         method: "POST",

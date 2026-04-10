@@ -82,7 +82,7 @@ export default function HomePage() {
     fetch("/api/homepage-images")
       .then(r => r.json())
       .then(data => {
-        if (data.success && data.images)   setHomepageImages(data.images)
+        if (data.success && data.images)   { console.log("[HomePage] homepageImages keys:", Object.keys(data.images)); setHomepageImages(data.images) }
         if (data.success && data.metadata) setHomepageMeta(data.metadata)
       })
       .catch(() => {})
