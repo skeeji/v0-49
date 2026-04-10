@@ -136,13 +136,7 @@ function MuseumLabel({ lum, visible, below }: {
 
 // ─── Composant principal ─────────────────────────────────────────────────────────
 
-export function PaintingGallery({
-  paintingUrl,       // tableau de fond original (affiché en arrière-plan, z-0)
-  transparentUrl,    // PNG avec zones de cadres transparentes (overlay, z-2)
-}: {
-  paintingUrl?:    string
-  transparentUrl?: string
-}) {
+export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
   const [zones,       setZones]       = useState<ZoneBBox[]>([])
   const [pool,        setPool]        = useState<GalleryLuminaire[]>([])
   // currentLums : affiché en background-image sur chaque zone (stable, pas de transition)
@@ -172,8 +166,8 @@ export function PaintingGallery({
 
   // ── Chargement + détection des zones depuis le PNG transparent ─────────────────
   useEffect(() => {
-    const url = transparentUrl || paintingUrl
-    if (!url) return
+    if (!transparentUrl) return
+    const url = transparentUrl
     let cancelled = false
 
     ;(async () => {
@@ -185,7 +179,7 @@ export function PaintingGallery({
         const W = img.naturalWidth, H = img.naturalHeight
         setImgSize({ w: W, h: H })
 
-        // Détection des zones transparentes — toujours depuis l'overlay (transparentUrl ou paintingUrl)
+        // Détection des zones transparentes depuis le canal alpha
         setPhase("detecting")
         const tmp = document.createElement("canvas")
         tmp.width = W; tmp.height = H
@@ -206,7 +200,7 @@ export function PaintingGallery({
     })()
 
     return () => { cancelled = true }
-  }, [transparentUrl, paintingUrl])
+  }, [transparentUrl])
 
   // ── Assignation initiale des luminaires (zones + pool tous deux prêts) ─────────
   useEffect(() => {
@@ -271,9 +265,7 @@ export function PaintingGallery({
 
   // ── Rendu ─────────────────────────────────────────────────────────────────────
 
-  const overlayUrl = transparentUrl || paintingUrl
-
-  if (!overlayUrl) {
+  if (!transparentUrl) {
     return (
       <section className="w-full flex items-center justify-center bg-stone-100" style={{ minHeight: 180 }}>
         <p className="text-sm text-stone-400 font-serif italic">Uploadez le tableau depuis la page Import</p>
@@ -291,8 +283,7 @@ export function PaintingGallery({
     >
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}` }}>
 
-        {/* z-0 — fond neutre (visible pendant le chargement, et à travers les trous avant que les luminaires chargent) */}
-        {/* Quand transparentUrl est défini, on N'affiche PAS paintingUrl ici : il serait opaque et couvrirait les luminaires en z-1 */}
+        {/* z-0 — fond neutre visible pendant le chargement et dans les trous avant que les luminaires chargent */}
         <div style={{ position: "absolute", inset: 0, zIndex: 0, background: "#c8bfb0" }} />
 
         {/* z-1 — conteneurs de luminaires, un par zone transparente */}
@@ -339,7 +330,7 @@ export function PaintingGallery({
         {/* z-2 — PNG transparent par-dessus tout : les dorures encadrent naturellement les luminaires */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={overlayUrl}
+          src={transparentUrl}
           alt=""
           draggable={false}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", zIndex: 2, pointerEvents: "none" }}
