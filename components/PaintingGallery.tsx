@@ -15,14 +15,13 @@ interface GalleryLuminaire {
 }
 
 interface Zone {
-  id: number
+  id:   number
   bbox: { x: number; y: number; w: number; h: number }
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const ROTATION_INTERVAL = 30_000
-const MIN_ZONE_PIXELS   = 400
 const ZONE_BG           = "#b8a898"
 
 // ─── Utilitaires ─────────────────────────────────────────────────────────────
@@ -50,51 +49,9 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// ─── Détection BFS — pixels transparents (alpha < 128) ───────────────────────
-// Même logique que la version verte, critère différent : alpha au lieu de couleur
-
-function detectTransparentZones(data: Uint8ClampedArray, W: number, H: number): Zone[] {
-  const visited = new Uint8Array(W * H)
-  const zones: Zone[] = []
-
-  for (let sy = 0; sy < H; sy++) {
-    for (let sx = 0; sx < W; sx++) {
-      const si = sy * W + sx
-      if (visited[si]) continue
-      if (data[si * 4 + 3] >= 128) continue   // pixel opaque → skip
-
-      const q: number[] = [si]
-      visited[si] = 1
-      let qi = 0
-      let x0 = sx, x1 = sx, y0 = sy, y1 = sy
-      let size = 0
-
-      while (qi < q.length) {
-        const ci = q[qi++]
-        size++
-        const cy = (ci / W) | 0
-        const cx = ci % W
-        if (cx < x0) x0 = cx; if (cx > x1) x1 = cx
-        if (cy < y0) y0 = cy; if (cy > y1) y1 = cy
-
-        if (cx > 0)     { const n = ci - 1; if (!visited[n] && data[n * 4 + 3] < 128) { visited[n] = 1; q.push(n) } }
-        if (cx < W - 1) { const n = ci + 1; if (!visited[n] && data[n * 4 + 3] < 128) { visited[n] = 1; q.push(n) } }
-        if (cy > 0)     { const n = ci - W; if (!visited[n] && data[n * 4 + 3] < 128) { visited[n] = 1; q.push(n) } }
-        if (cy < H - 1) { const n = ci + W; if (!visited[n] && data[n * 4 + 3] < 128) { visited[n] = 1; q.push(n) } }
-      }
-
-      if (size >= MIN_ZONE_PIXELS) {
-        zones.push({ id: zones.length, bbox: { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 } })
-      }
-    }
-  }
-
-  return zones.sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
-}
-
-// ─── Composite — dessine les luminaires sur un canvas (fond transparent) ─────
-// Le PNG transparent est posé PAR-DESSUS : ses zones opaques masquent,
-// ses zones transparentes révèlent les luminaires.
+// ─── Composite : dessine les luminaires sur un canvas (fond transparent) ──────
+// Le PNG transparent est posé PAR-DESSUS en HTML (z-3) :
+//   zones opaques → masquent le canvas  |  zones transparentes → révèlent le canvas
 
 async function compositeZones(
   canvas: HTMLCanvasElement,
@@ -121,14 +78,10 @@ async function compositeZones(
     const img = lumImages[i]
     if (!img) continue
     const { x, y, w, h } = zones[i].bbox
-
-    // Centré + contenu dans la bbox de la zone
     const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight)
-    const dW = img.naturalWidth  * scale
-    const dH = img.naturalHeight * scale
-    const dx = x + (w - dW) / 2
-    const dy = y + (h - dH) / 2
-    ctx.drawImage(img, dx, dy, dW, dH)
+    const dW    = img.naturalWidth  * scale
+    const dH    = img.naturalHeight * scale
+    ctx.drawImage(img, x + (w - dW) / 2, y + (h - dH) / 2, dW, dH)
   }
 
   ctx.restore()
@@ -141,11 +94,11 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
     ? { top: "calc(100% + 6px)", bottom: "auto" }
     : { bottom: "calc(100% + 6px)", top: "auto" }
   const arrowOuter = below
-    ? { top: -7, bottom: "auto", borderBottom: "7px solid #b8974a", borderTop: "none" }
-    : { bottom: -7, top: "auto", borderTop: "7px solid #b8974a", borderBottom: "none" }
+    ? { top: -7,    bottom: "auto", borderBottom: "7px solid #b8974a", borderTop: "none" }
+    : { bottom: -7, top: "auto",    borderTop: "7px solid #b8974a",    borderBottom: "none" }
   const arrowInner = below
-    ? { top: -5, bottom: "auto", borderBottom: "6px solid #f0e6c0", borderTop: "none" }
-    : { bottom: -5, top: "auto", borderTop: "6px solid #f0e6c0", borderBottom: "none" }
+    ? { top: -5,    bottom: "auto", borderBottom: "6px solid #f0e6c0", borderTop: "none" }
+    : { bottom: -5, top: "auto",    borderTop: "6px solid #f0e6c0",    borderBottom: "none" }
 
   return (
     <div className="pointer-events-none absolute z-50"
@@ -170,7 +123,6 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
 
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
 
-  // Deux canvas pour le crossfade (même logique que la version verte)
   const canvasARef  = useRef<HTMLCanvasElement>(null)
   const canvasBRef  = useRef<HTMLCanvasElement>(null)
   const activeRef   = useRef<"A" | "B">("A")
@@ -185,20 +137,53 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const [pool,     setPool]     = useState<GalleryLuminaire[]>([])
   const [current,  setCurrent]  = useState<GalleryLuminaire[]>([])
   const [zones,    setZones]    = useState<Zone[]>([])
-  const [phase,    setPhase]    = useState<"idle" | "loading" | "detecting" | "compositing" | "ready" | "error">("idle")
+  const [phase,    setPhase]    = useState<"idle" | "loading" | "compositing" | "ready" | "error">("idle")
   const [alphaA,   setAlphaA]   = useState(0)
   const [alphaB,   setAlphaB]   = useState(0)
   const [hovZone,  setHovZone]  = useState<number | null>(null)
   const [hovering, setHovering] = useState(false)
   const [hasPrev,  setHasPrev]  = useState(false)
 
-  // ── Pool ──────────────────────────────────────────────────────────────────
+  // ── 1. Charger le pool ────────────────────────────────────────────────────
   useEffect(() => {
     fetch("/api/luminaires-gallery")
       .then(r => r.json())
-      .then(d => { if (d.success) setPool(d.luminaires) })
-      .catch(() => {})
+      .then(d => {
+        if (d.success && d.luminaires.length > 0) {
+          console.log(`[PaintingGallery] Pool : ${d.luminaires.length} luminaire(s)`)
+          setPool(d.luminaires)
+        } else {
+          console.warn("[PaintingGallery] Pool vide ou erreur", d)
+        }
+      })
+      .catch(e => console.error("[PaintingGallery] Pool fetch error:", e))
   }, [])
+
+  // ── 2. Charger les zones depuis le serveur (pas de getImageData) ──────────
+  useEffect(() => {
+    if (!transparentUrl) return
+    setPhase("loading")
+    console.log("[PaintingGallery] transparentUrl:", transparentUrl)
+
+    fetch("/api/painting-zones")
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success || !data.zones?.length) {
+          console.error("[PaintingGallery] painting-zones erreur:", data)
+          setPhase("error")
+          return
+        }
+        console.log(`[PaintingGallery] ${data.zones.length} zone(s) serveur — ${data.width}×${data.height}`)
+        imgSizeRef.current = { w: data.width, h: data.height }
+        zonesRef.current   = data.zones
+        setZones(data.zones)
+        setPhase("ready")   // zones prêtes, on attend le pool
+      })
+      .catch(e => {
+        console.error("[PaintingGallery] painting-zones fetch error:", e)
+        setPhase("error")
+      })
+  }, [transparentUrl])
 
   const doComposite = useCallback(async (
     sel:    GalleryLuminaire[],
@@ -210,75 +195,25 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     await compositeZones(target, sel, zns, W, H)
   }, [])
 
-  // ── Chargement initial ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!transparentUrl) return
-    let cancelled = false
-
-    ;(async () => {
-      try {
-        setPhase("loading")
-        setAlphaA(0); setAlphaB(0)
-
-        const img = await loadImg(transparentUrl)
-        if (cancelled) return
-
-        const W = img.naturalWidth, H = img.naturalHeight
-        imgSizeRef.current = { w: W, h: H }
-
-        // Canvas temporaire pour getImageData (même origine → pas de CORS)
-        const tmp = document.createElement("canvas")
-        tmp.width = W; tmp.height = H
-        tmp.getContext("2d")!.drawImage(img, 0, 0)
-        const imgData = tmp.getContext("2d")!.getImageData(0, 0, W, H)
-
-        setPhase("detecting")
-        await sleep(16)
-        if (cancelled) return
-
-        const detectedZones = detectTransparentZones(imgData.data, W, H)
-        console.log(`[PaintingGallery] ${detectedZones.length} zone(s) transparente(s) :`,
-          detectedZones.map(z => `#${z.id} ${z.bbox.w}×${z.bbox.h}@${z.bbox.x},${z.bbox.y}`))
-        zonesRef.current = detectedZones
-        setZones(detectedZones)
-        if (cancelled) return
-
-        if (pool.length > 0 && detectedZones.length > 0) {
-          setPhase("compositing")
-          const sel = pickRandom(pool, detectedZones.length)
-          currentRef.current = sel; historyRef.current = [sel]
-          setCurrent(sel); setHasPrev(false)
-          await doComposite(sel, detectedZones, W, H, canvasARef.current!)
-          activeRef.current = "A"
-          setAlphaA(1)
-        }
-
-        if (!cancelled) setPhase("ready")
-      } catch (e) {
-        console.error("[PaintingGallery]", e)
-        if (!cancelled) setPhase("error")
-      }
-    })()
-
-    return () => { cancelled = true }
-  }, [transparentUrl, doComposite])  // pool intentionnellement absent (géré par l'effect suivant)
-
-  // ── Pool chargé après le tableau ──────────────────────────────────────────
+  // ── 3. Assignation initiale dès que pool + zones sont prêts ───────────────
   useEffect(() => {
     if (pool.length === 0 || zonesRef.current.length === 0 || currentRef.current.length > 0) return
+    if (!canvasARef.current) return
     ;(async () => {
       const { w: W, h: H } = imgSizeRef.current
       const sel = pickRandom(pool, zonesRef.current.length)
       currentRef.current = sel; historyRef.current = [sel]
       setCurrent(sel); setHasPrev(false)
       setPhase("compositing")
+      console.log("[PaintingGallery] Compositing initial…", sel.map((l, i) => `zone${i}→${l.nom}`))
       await doComposite(sel, zonesRef.current, W, H, canvasARef.current!)
-      activeRef.current = "A"; setAlphaA(1)
+      activeRef.current = "A"
+      setAlphaA(1)
       setPhase("ready")
     })()
-  }, [pool, doComposite])
+  }, [pool, zones, doComposite])   // zones dans la dep array pour retrigger si elles arrivent après le pool
 
-  // ── Rotation avec crossfade A↔B ───────────────────────────────────────────
+  // ── 4. Rotation avec crossfade A↔B ───────────────────────────────────────
   const doRotate = useCallback(async (dir: "next" | "prev") => {
     const zns = zonesRef.current
     if (zns.length === 0 || pool.length === 0 || rotatingRef.current) return
@@ -303,23 +238,22 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     const { w: W, h: H } = imgSizeRef.current
     await doComposite(sel, zns, W, H, targetCanvas)
 
-    // Crossfade simultané : actif 1→0, inactif 0→1
     if (inactive === "A") { setAlphaA(1); setAlphaB(0) }
     else                  { setAlphaA(0); setAlphaB(1) }
 
     await sleep(850)
-    activeRef.current  = inactive
+    activeRef.current   = inactive
     rotatingRef.current = false
   }, [pool, doComposite])
 
-  // ── Timer ─────────────────────────────────────────────────────────────────
+  // ── 5. Timer ──────────────────────────────────────────────────────────────
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = setInterval(() => doRotate("next"), ROTATION_INTERVAL)
   }, [doRotate])
 
   useEffect(() => {
-    if (phase !== "ready" || pool.length === 0) return
+    if (phase !== "ready" || pool.length === 0 || currentRef.current.length === 0) return
     resetTimer()
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [phase, pool.length, resetTimer])
@@ -347,41 +281,42 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         {/* z-1 — fond neutre (toujours visible) */}
         <div style={{ position: "absolute", inset: 0, zIndex: 1, background: ZONE_BG }} />
 
-        {/* z-2 — canvas A : luminaires uniquement, fond transparent */}
+        {/* z-2 — canvas A : luminaires, fond transparent */}
         <canvas ref={canvasARef}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", zIndex: 2, opacity: alphaA, transition: "opacity 0.8s ease" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block",
+                   zIndex: 2, opacity: alphaA, transition: "opacity 0.8s ease" }}
         />
-        {/* z-2 — canvas B : luminaires uniquement, fond transparent (crossfade cible) */}
+        {/* z-2 — canvas B : cible du crossfade */}
         <canvas ref={canvasBRef}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", zIndex: 2, opacity: alphaB, transition: "opacity 0.8s ease" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block",
+                   zIndex: 2, opacity: alphaB, transition: "opacity 0.8s ease" }}
         />
 
-        {/* z-3 — PNG transparent par-dessus tout : zones opaques masquent, zones transparentes révèlent */}
+        {/* z-3 — PNG transparent : zones opaques masquent les canvas, zones transparentes les révèlent */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={transparentUrl} alt="" draggable={false}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", zIndex: 3, pointerEvents: "none" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block",
+                   zIndex: 3, pointerEvents: "none" }}
         />
 
-        {(phase === "loading" || phase === "detecting" || phase === "compositing") && (
+        {(phase === "loading" || phase === "compositing") && (
           <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: "rgba(245,241,232,0.75)" }}>
             <p className="font-serif text-sm italic text-stone-600">
-              {phase === "loading"     && "Chargement du tableau…"}
-              {phase === "detecting"   && "Détection des cadres…"}
-              {phase === "compositing" && "Placement des luminaires…"}
+              {phase === "loading"     ? "Chargement du tableau…" : "Placement des luminaires…"}
             </p>
           </div>
         )}
 
         {phase === "error" && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-stone-100">
-            <p className="font-serif text-sm italic text-red-400">Erreur de chargement du tableau</p>
+            <p className="font-serif text-sm italic text-red-400">Erreur — le PNG doit être en mode RGBA</p>
           </div>
         )}
 
       </div>
 
-      {/* Zones interactives — hors overflow-hidden pour les tooltips */}
-      {phase === "ready" && (
+      {/* Zones de survol — hors overflow-hidden pour les tooltips */}
+      {phase === "ready" && zones.length > 0 && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
           {zones.map((zone, i) => {
             const lum   = current[i]
