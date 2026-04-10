@@ -1,17 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['mongodb'],
-    serverActions: {
-      bodySizeLimit: '5mb',
-    },
+    serverComponentsExternalPackages: ['mongodb']
   },
   // Configuration pour les uploads de fichiers volumineux
   api: {
     bodyParser: {
-      sizeLimit: '5mb',
+      sizeLimit: '50mb',
     },
-    responseLimit: '5mb',
   },
   // Configuration pour les requêtes
   serverRuntimeConfig: {
