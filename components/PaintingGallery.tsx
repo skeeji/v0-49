@@ -22,23 +22,13 @@ interface Zone {
   hPct: number
 }
 
-// ─── Zones (% de l'image) — à recalibrer selon le PNG réel ──────────────────
-
-const ZONES: Zone[] = [
-  { id: 0, xPct:  2.0, yPct:  3.0, wPct: 14.0, hPct: 28.0 },
-  { id: 1, xPct: 17.5, yPct:  2.0, wPct: 11.0, hPct: 22.0 },
-  { id: 2, xPct: 30.0, yPct:  4.0, wPct: 13.0, hPct: 26.0 },
-  { id: 3, xPct: 45.0, yPct:  2.0, wPct: 11.5, hPct: 20.0 },
-  { id: 4, xPct: 58.0, yPct:  3.0, wPct: 13.0, hPct: 24.0 },
-  { id: 5, xPct: 73.0, yPct:  2.5, wPct: 12.5, hPct: 22.0 },
-  { id: 6, xPct: 74.0, yPct: 27.0, wPct: 13.0, hPct: 24.0 },
-  { id: 7, xPct:  2.5, yPct: 33.0, wPct: 10.0, hPct: 20.0 },
-]
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
 const ROTATION_INTERVAL = 30_000
 const ZONE_BG           = "#b8a898"
+const N_ZONES           = 8   // nombre max de zones à détecter
 
-// ─── Utilitaires ─────────────────────────────────────────────────────────────
+// ─── Utilitaires ──────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
@@ -54,6 +44,79 @@ function pickRandom(pool: GalleryLuminaire[], n: number): GalleryLuminaire[] {
   return result
 }
 
+// ─── Détection automatique des zones transparentes ───────────────────────────
+// Downsampling en grille 80×60, BFS sur les cellules transparentes
+
+function detectTransparentZones(imgData: ImageData, W: number, H: number, nMax: number): Zone[] {
+  const GW = 80, GH = 60
+  const grid = new Uint8Array(GW * GH)
+
+  for (let gy = 0; gy < GH; gy++) {
+    for (let gx = 0; gx < GW; gx++) {
+      // Compter les pixels transparents sur 4 échantillons par cellule
+      let transparent = 0
+      for (let s = 0; s < 4; s++) {
+        const px = Math.min(W - 1, Math.floor((gx + (s & 1) * 0.5 + 0.25) * W / GW))
+        const py = Math.min(H - 1, Math.floor((gy + ((s >> 1) & 1) * 0.5 + 0.25) * H / GH))
+        if (imgData.data[(py * W + px) * 4 + 3] < 64) transparent++
+      }
+      grid[gy * GW + gx] = transparent >= 2 ? 1 : 0
+    }
+  }
+
+  // BFS pour trouver les composantes connexes
+  const visited = new Uint8Array(GW * GH)
+  const components: { minX: number; maxX: number; minY: number; maxY: number; size: number }[] = []
+
+  for (let y = 0; y < GH; y++) {
+    for (let x = 0; x < GW; x++) {
+      if (!grid[y * GW + x] || visited[y * GW + x]) continue
+      const q: [number, number][] = [[x, y]]
+      visited[y * GW + x] = 1
+      let minX = x, maxX = x, minY = y, maxY = y, size = 0, qi = 0
+      while (qi < q.length) {
+        const [cx, cy] = q[qi++]
+        size++
+        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+          const nx = cx + dx, ny = cy + dy
+          if (nx < 0 || nx >= GW || ny < 0 || ny >= GH) continue
+          if (!grid[ny * GW + nx] || visited[ny * GW + nx]) continue
+          visited[ny * GW + nx] = 1
+          q.push([nx, ny])
+          if (nx < minX) minX = nx; if (nx > maxX) maxX = nx
+          if (ny < minY) minY = ny; if (ny > maxY) maxY = ny
+        }
+      }
+      if (size >= 6) components.push({ minX, maxX, minY, maxY, size })
+    }
+  }
+
+  // Trier par taille décroissante, prendre les N premières
+  components.sort((a, b) => b.size - a.size)
+
+  return components.slice(0, nMax).map((c, id) => ({
+    id,
+    xPct: (c.minX / GW) * 100,
+    yPct: (c.minY / GH) * 100,
+    wPct: ((c.maxX - c.minX + 1) / GW) * 100,
+    hPct: ((c.maxY - c.minY + 1) / GH) * 100,
+  }))
+}
+
+// Fallback : grille uniforme si getImageData échoue
+function makeGridZones(n: number): Zone[] {
+  const cols = Math.ceil(Math.sqrt(n))
+  const rows = Math.ceil(n / cols)
+  const w = 100 / cols, h = 100 / rows
+  return Array.from({ length: n }, (_, i) => ({
+    id: i,
+    xPct: (i % cols) * w,
+    yPct: Math.floor(i / cols) * h,
+    wPct: w,
+    hPct: h,
+  }))
+}
+
 // ─── Tooltip musée ────────────────────────────────────────────────────────────
 
 function MuseumLabel({ lum, visible, below }: {
@@ -61,13 +124,13 @@ function MuseumLabel({ lum, visible, below }: {
   visible: boolean
   below:   boolean
 }) {
-  const pos       = below ? { top: "calc(100% + 6px)" } : { bottom: "calc(100% + 6px)" }
-  const arrOut    = below
-    ? { top: -7,  borderBottom: "7px solid #b8974a", borderTop: "none" }
-    : { bottom: -7, borderTop: "7px solid #b8974a",  borderBottom: "none" }
-  const arrIn     = below
-    ? { top: -5,  borderBottom: "6px solid #f0e6c0", borderTop: "none" }
-    : { bottom: -5, borderTop: "6px solid #f0e6c0",  borderBottom: "none" }
+  const pos    = below ? { top: "calc(100% + 6px)" } : { bottom: "calc(100% + 6px)" }
+  const arrOut = below
+    ? { top: -7,    borderBottom: "7px solid #b8974a", borderTop: "none" }
+    : { bottom: -7, borderTop: "7px solid #b8974a",    borderBottom: "none" }
+  const arrIn  = below
+    ? { top: -5,    borderBottom: "6px solid #f0e6c0", borderTop: "none" }
+    : { bottom: -5, borderTop: "6px solid #f0e6c0",    borderBottom: "none" }
 
   return (
     <div className="pointer-events-none absolute z-50"
@@ -108,6 +171,7 @@ function MuseumLabel({ lum, visible, below }: {
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
 
   const [pool,        setPool]        = useState<GalleryLuminaire[]>([])
+  const [zones,       setZones]       = useState<Zone[]>([])
   const [currentLums, setCurrentLums] = useState<GalleryLuminaire[]>([])
   const [nextLums,    setNextLums]    = useState<GalleryLuminaire[]>([])
   const [fadingIn,    setFadingIn]    = useState(false)
@@ -115,13 +179,14 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const [hovZone,     setHovZone]     = useState<number | null>(null)
   const [hovering,    setHovering]    = useState(false)
   const [hasPrev,     setHasPrev]     = useState(false)
+  const [zonesReady,  setZonesReady]  = useState(false)
 
   const historyRef  = useRef<GalleryLuminaire[][]>([])
   const currentRef  = useRef<GalleryLuminaire[]>([])
   const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null)
   const rotatingRef = useRef(false)
 
-  // ── 1. Charger le pool ────────────────────────────────────────────────────
+  // ── 1. Pool ────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch("/api/luminaires-gallery")
       .then(r => r.json())
@@ -134,33 +199,63 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       .catch(() => {})
   }, [])
 
-  // ── 2. Récupérer les dimensions de l'image (pour aspect-ratio) ────────────
+  // ── 2. Chargement image + détection zones transparentes ────────────────────
   useEffect(() => {
     if (!transparentUrl) return
+
     const img = new Image()
-    img.onload = () => setImgRatio(`${img.naturalWidth} / ${img.naturalHeight}`)
+    // Pas de crossOrigin : image même origine → getImageData autorisé
+    img.onload = () => {
+      const W = img.naturalWidth
+      const H = img.naturalHeight
+      setImgRatio(`${W} / ${H}`)
+      console.log(`[PaintingGallery] Image chargée : ${W}×${H}`)
+
+      // Détecter les zones via canvas
+      try {
+        const canvas = document.createElement("canvas")
+        canvas.width  = W
+        canvas.height = H
+        const ctx = canvas.getContext("2d")
+        if (!ctx) throw new Error("no ctx")
+        ctx.drawImage(img, 0, 0)
+        const data = ctx.getImageData(0, 0, W, H)
+        const detected = detectTransparentZones(data, W, H, N_ZONES)
+        console.log(`[PaintingGallery] ${detected.length} zone(s) transparente(s) détectée(s)`, detected)
+        setZones(detected.length > 0 ? detected : makeGridZones(N_ZONES))
+      } catch (e) {
+        console.warn("[PaintingGallery] getImageData échoué → grille par défaut", e)
+        setZones(makeGridZones(N_ZONES))
+      }
+      setZonesReady(true)
+    }
+    img.onerror = () => {
+      console.error("[PaintingGallery] Erreur chargement image")
+      setZones(makeGridZones(N_ZONES))
+      setZonesReady(true)
+    }
     img.src = transparentUrl
   }, [transparentUrl])
 
-  // ── 3. Assignation initiale dès que le pool est dispo ────────────────────
+  // ── 3. Assignation initiale (pool + zones prêts) ───────────────────────────
   useEffect(() => {
-    if (pool.length === 0 || currentRef.current.length > 0) return
-    const sel = pickRandom(pool, ZONES.length)
+    if (pool.length === 0 || !zonesReady || zones.length === 0 || currentRef.current.length > 0) return
+    const sel = pickRandom(pool, zones.length)
     console.log(`[PaintingGallery] Assignation : ${sel.map((l, i) => `zone${i}→${l.nom}`).join(", ")}`)
     currentRef.current = sel
     historyRef.current = [sel]
     setCurrentLums(sel)
     setHasPrev(false)
-  }, [pool])
+  }, [pool, zonesReady, zones.length])
 
-  // ── 4. Rotation ───────────────────────────────────────────────────────────
+  // ── 4. Rotation ────────────────────────────────────────────────────────────
   const doRotate = useCallback(async (dir: "next" | "prev") => {
-    if (rotatingRef.current || pool.length === 0) return
+    if (rotatingRef.current || pool.length === 0 || zones.length === 0) return
     rotatingRef.current = true
 
     let sel: GalleryLuminaire[]
     if (dir === "next") {
-      sel = pickRandom(pool, ZONES.length)
+      sel = pickRandom(pool, zones.length)
       historyRef.current = [...historyRef.current.slice(-10), sel]
     } else {
       const h = historyRef.current
@@ -178,9 +273,9 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     setFadingIn(false)
     setNextLums([])
     rotatingRef.current = false
-  }, [pool])
+  }, [pool, zones.length])
 
-  // ── 5. Timer auto ─────────────────────────────────────────────────────────
+  // ── 5. Timer auto ──────────────────────────────────────────────────────────
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = setInterval(() => doRotate("next"), ROTATION_INTERVAL)
@@ -192,7 +287,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [pool.length, resetTimer])
 
-  // ── Rendu ─────────────────────────────────────────────────────────────────
+  // ── Rendu ──────────────────────────────────────────────────────────────────
 
   if (!transparentUrl) {
     return (
@@ -211,14 +306,14 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
-      {/* Conteneur principal avec ratio de l'image */}
+      {/* Conteneur avec ratio de l'image */}
       <div className="relative w-full" style={{ aspectRatio: imgRatio }}>
 
         {/* z-0 — fond neutre */}
         <div style={{ position: "absolute", inset: 0, zIndex: 0, background: ZONE_BG }} />
 
-        {/* z-1 — luminaires dans chaque zone */}
-        {ZONES.map((zone, i) => (
+        {/* z-1 — luminaires dans les zones détectées */}
+        {zones.map((zone, i) => (
           <div key={zone.id}
             style={{
               position:        "absolute",
@@ -231,17 +326,23 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
               overflow:        "hidden",
             }}
           >
-            {/* Image courante */}
+            {/* Luminaire courant */}
             {currentLums[i] && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={currentLums[i].imageUrl}
                 alt=""
                 draggable={false}
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }}
+                style={{
+                  position:  "absolute",
+                  inset:     0,
+                  width:     "100%",
+                  height:    "100%",
+                  objectFit: "contain",
+                }}
               />
             )}
-            {/* Image suivante (crossfade) */}
+            {/* Prochain luminaire (crossfade) */}
             {nextLums[i] && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -262,7 +363,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
           </div>
         ))}
 
-        {/* z-2 — PNG transparent (le tableau par-dessus) */}
+        {/* z-2 — PNG transparent par-dessus (le tableau avec trous) */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={transparentUrl}
@@ -281,31 +382,33 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
       </div>
 
-      {/* Zones de survol (hors overflow pour que les tooltips ne soient pas clippés) */}
-      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
-        {ZONES.map((zone, i) => {
-          const lum   = currentLums[i]
-          const below = zone.yPct < 40
-          return (
-            <div key={zone.id}
-              className="absolute cursor-pointer"
-              style={{
-                left:          `${zone.xPct}%`,
-                top:           `${zone.yPct}%`,
-                width:         `${zone.wPct}%`,
-                height:        `${zone.hPct}%`,
-                pointerEvents: "auto",
-              }}
-              onMouseEnter={() => setHovZone(zone.id)}
-              onMouseLeave={() => setHovZone(null)}
-            >
-              {lum && (
-                <MuseumLabel lum={lum} visible={hovZone === zone.id} below={below} />
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {/* Zones de survol — hors overflow pour que les tooltips ne soient pas clippés */}
+      {zonesReady && (
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
+          {zones.map((zone, i) => {
+            const lum   = currentLums[i]
+            const below = zone.yPct < 40
+            return (
+              <div key={zone.id}
+                className="absolute cursor-pointer"
+                style={{
+                  left:          `${zone.xPct}%`,
+                  top:           `${zone.yPct}%`,
+                  width:         `${zone.wPct}%`,
+                  height:        `${zone.hPct}%`,
+                  pointerEvents: "auto",
+                }}
+                onMouseEnter={() => setHovZone(zone.id)}
+                onMouseLeave={() => setHovZone(null)}
+              >
+                {lum && (
+                  <MuseumLabel lum={lum} visible={hovZone === zone.id} below={below} />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Bouton précédent */}
       <button
