@@ -14,35 +14,59 @@ interface GalleryLuminaire {
   imageUrl: string
 }
 
-// ─── Zones hardcodées en % (calibrées sur le PNG transparent) ───────────────────
-
 interface Zone { id: number; label: string; left: number; top: number; w: number; h: number }
 
+// ─── Zones calibrées sur le PNG transparent (en %) ──────────────────────────────
+// Ajuster left/top/w/h pour affiner le calage sur les cadres dorés.
+
 const ZONES: Zone[] = [
-  { id:  0, label: "Fenêtre haute gauche 1",      left:  1, top:  1, w: 10, h: 22 },
-  { id:  1, label: "Fenêtre haute gauche 2",      left: 12, top:  1, w:  8, h: 22 },
-  { id:  2, label: "Grande fenêtre gauche basse", left:  1, top: 24, w: 19, h: 28 },
-  { id:  3, label: "Cadre centre-gauche haut",    left: 29, top:  1, w: 13, h: 26 },
-  { id:  4, label: "Cadre centre-gauche milieu",  left: 29, top: 28, w:  8, h: 22 },
-  { id:  5, label: "Cadre centre-gauche bas",     left: 38, top: 28, w:  7, h: 22 },
-  { id:  6, label: "Cadre centre haut",           left: 43, top:  1, w: 14, h: 18 },
-  { id:  7, label: "Fenêtre haute droite 1",      left: 61, top:  1, w:  9, h: 18 },
-  { id:  8, label: "Fenêtre haute droite 2",      left: 71, top:  1, w:  8, h: 12 },
-  { id:  9, label: "Fenêtre haute droite 3",      left: 80, top:  1, w: 10, h: 12 },
-  { id: 10, label: "Fenêtre haute droite 4",      left: 91, top:  1, w:  8, h: 12 },
-  { id: 11, label: "Cadre droite milieu",         left: 61, top: 20, w: 12, h: 20 },
-  { id: 12, label: "Cadre droite bas",            left: 74, top: 14, w: 10, h: 18 },
-  { id: 13, label: "Cadre incliné gauche",        left:  8, top: 38, w: 14, h: 22 },
-  { id: 14, label: "Miroir ovale bas gauche",     left: 13, top: 62, w: 12, h: 18 },
-  { id: 15, label: "Miroir ovale droite",         left: 59, top: 28, w: 13, h: 32 },
-  { id: 16, label: "Fenêtres droite basse 1",     left: 91, top: 14, w:  8, h: 20 },
-  { id: 17, label: "Fenêtres droite basse 2",     left: 80, top: 14, w: 10, h: 20 },
+  // ── Mur gauche – fenêtres hautes
+  { id:  0, label: "Fenêtre HG 1",         left:  1, top:  2, w:  9, h: 20 },
+  { id:  1, label: "Fenêtre HG 2",         left: 11, top:  2, w:  8, h: 20 },
+  // ── Mur gauche – grandes fenêtres basses
+  { id:  2, label: "Fenêtre BG grande",    left:  1, top: 23, w: 10, h: 30 },
+  { id:  3, label: "Fenêtre BG 2",         left: 11, top: 23, w:  8, h: 20 },
+  // ── Mur gauche – cadres sur le panneau
+  { id:  4, label: "Cadre G haut",         left: 20, top:  2, w: 10, h: 22 },
+  { id:  5, label: "Cadre G milieu",       left: 20, top: 25, w: 10, h: 20 },
+  // ── Cadre incliné (tableau posé au sol)
+  { id:  6, label: "Cadre incliné",        left:  8, top: 40, w: 14, h: 22 },
+  // ── Miroir ovale bas gauche
+  { id:  7, label: "Miroir ovale G",       left: 13, top: 63, w: 12, h: 18 },
+  // ── Mur centre-gauche
+  { id:  8, label: "Centre-G haut",        left: 29, top:  2, w: 12, h: 24 },
+  { id:  9, label: "Centre-G milieu",      left: 29, top: 27, w:  8, h: 20 },
+  { id: 10, label: "Centre-G bas",         left: 38, top: 27, w:  7, h: 20 },
+  // ── Centre haut (au-dessus de la porte)
+  { id: 11, label: "Centre haut",          left: 43, top:  2, w: 13, h: 16 },
+  { id: 12, label: "Centre haut 2",        left: 43, top: 19, w:  7, h: 10 },
+  // ── Miroir ovale droite (grand)
+  { id: 13, label: "Miroir ovale D",       left: 59, top: 28, w: 13, h: 32 },
+  // ── Mur droite – rangée haute
+  { id: 14, label: "Fenêtre HD 1",         left: 61, top:  2, w:  9, h: 16 },
+  { id: 15, label: "Fenêtre HD 2",         left: 71, top:  2, w:  8, h: 11 },
+  { id: 16, label: "Fenêtre HD 3",         left: 80, top:  2, w:  9, h: 11 },
+  { id: 17, label: "Fenêtre HD 4",         left: 90, top:  2, w:  9, h: 11 },
+  // ── Mur droite – rangée intermédiaire
+  { id: 18, label: "Cadre D inter 1",      left: 61, top: 19, w: 12, h: 19 },
+  { id: 19, label: "Cadre D inter 2",      left: 74, top: 14, w:  9, h: 17 },
+  { id: 20, label: "Cadre D inter 3",      left: 84, top: 14, w:  5, h: 17 },
+  { id: 21, label: "Cadre D inter 4",      left: 90, top: 14, w:  9, h: 17 },
+  // ── Mur droite – rangée basse
+  { id: 22, label: "Cadre D bas 1",        left: 74, top: 32, w:  9, h: 18 },
+  { id: 23, label: "Cadre D bas 2",        left: 84, top: 32, w:  5, h: 18 },
+  { id: 24, label: "Cadre D bas 3",        left: 90, top: 32, w:  9, h: 18 },
+  // ── Mur droite – extrême droite supplémentaires
+  { id: 25, label: "Cadre ED haut",        left: 90, top: 52, w:  9, h: 14 },
+  { id: 26, label: "Cadre ED bas",         left: 74, top: 51, w: 15, h: 18 },
+  // ── Panneau droit bas
+  { id: 27, label: "Panneau D bas",        left: 61, top: 52, w: 12, h: 16 },
+  // ── Fenêtres basses droite
+  { id: 28, label: "Fenêtre BD 1",         left: 80, top: 52, w:  9, h: 14 },
+  { id: 29, label: "Fenêtre BD 2",         left: 84, top: 67, w: 15, h: 14 },
 ]
 
-// ─── Constantes ─────────────────────────────────────────────────────────────────
-
 const ROTATION_INTERVAL = 30_000
-const TR = 0xe8, TG = 0xe0, TB = 0xd0   // cible beige #e8e0d0
 
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
 
@@ -70,13 +94,13 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// ─── Composition canvas : fond beige → luminaires → tableau RGBA par-dessus ──────
+// ─── Composition canvas ──────────────────────────────────────────────────────────
 //
-// Principe identique au fond vert :
-//   1. Remplir le canvas de beige (#f5f0e8)
-//   2. Dessiner chaque luminaire (traitement fond blanc) dans sa zone
-//   3. Dessiner le tableau RGBA en dernier → ses pixels opaques couvrent tout,
-//      ses pixels transparents laissent apparaître les luminaires en dessous.
+// 1. Fond beige sur le canvas principal
+// 2. Pour chaque zone : luminaire sur canvas off-screen avec globalCompositeOperation
+//    "multiply" (fond blanc → beige, pas de boucle pixel = rapide)
+// 3. Tableau RGBA par-dessus : pixels opaques couvrent tout,
+//    pixels transparents laissent apparaître les luminaires
 
 async function renderComposite(
   canvas:   HTMLCanvasElement,
@@ -91,90 +115,82 @@ async function renderComposite(
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = "high"
 
-  // 1. Fond beige uniforme
+  // 1. Fond beige
   ctx.fillStyle = "#f5f0e8"
   ctx.fillRect(0, 0, W, H)
 
-  // 2. Luminaires en parallèle → canvas off-screen → composition
-  const tasks = ZONES.map(async (zone, i) => {
-    const lum = sel[i]
-    if (!lum) return
+  // 2. Luminaires en parallèle (multiply remplace la boucle pixel → GPU)
+  await Promise.all(
+    ZONES.map(async (zone, i) => {
+      const lum = sel[i]
+      if (!lum) return
 
-    const zx = Math.round(zone.left * W / 100)
-    const zy = Math.round(zone.top  * H / 100)
-    const zw = Math.round(zone.w    * W / 100)
-    const zh = Math.round(zone.h    * H / 100)
+      const zx = Math.round(zone.left * W / 100)
+      const zy = Math.round(zone.top  * H / 100)
+      const zw = Math.round(zone.w    * W / 100)
+      const zh = Math.round(zone.h    * H / 100)
+      if (zw < 2 || zh < 2) return
 
-    let img: HTMLImageElement
-    try { img = await loadImg(lum.imageUrl) } catch { return }
+      let img: HTMLImageElement
+      try {
+        img = await Promise.race([
+          loadImg(lum.imageUrl),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000)),
+        ]) as HTMLImageElement
+      } catch { return }
 
-    // Canvas off-screen dédié à ce luminaire
-    const oc    = document.createElement("canvas")
-    oc.width    = zw
-    oc.height   = zh
-    const octx  = oc.getContext("2d")!
-    octx.imageSmoothingEnabled = true
-    octx.imageSmoothingQuality = "high"
+      // Canvas off-screen dédié à ce luminaire
+      const oc    = document.createElement("canvas")
+      oc.width    = zw
+      oc.height   = zh
+      const oc_ctx = oc.getContext("2d")!
+      oc_ctx.imageSmoothingEnabled = true
+      oc_ctx.imageSmoothingQuality = "high"
 
-    // object-fit: contain avec 10 % de marge
-    const pad    = 0.10
-    const availW = zw * (1 - 2 * pad)
-    const availH = zh * (1 - 2 * pad)
-    const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
-    const dw     = img.naturalWidth  * scale
-    const dh     = img.naturalHeight * scale
-    const dx     = (zw - dw) / 2
-    const dy     = (zh - dh) / 2
-    octx.drawImage(img, dx, dy, dw, dh)
+      // Fond beige sur le canvas off-screen
+      oc_ctx.fillStyle = "#f5f0e8"
+      oc_ctx.fillRect(0, 0, zw, zh)
 
-    // Suppression fond blanc sur le canvas off-screen uniquement
-    const id = octx.getImageData(0, 0, zw, zh)
-    const d  = id.data
-    for (let j = 0; j < d.length; j += 4) {
-      const r = d[j], g = d[j + 1], b = d[j + 2]
-      if (r > 220 && g > 220 && b > 220) {
-        d[j] = TR; d[j + 1] = TG; d[j + 2] = TB
-      } else {
-        const m = Math.min(r, g, b)
-        if (m > 190) {
-          const t    = (m - 190) / 30
-          d[j]     = Math.round(r * (1 - t) + TR * t)
-          d[j + 1] = Math.round(g * (1 - t) + TG * t)
-          d[j + 2] = Math.round(b * (1 - t) + TB * t)
-        }
-      }
-    }
-    octx.putImageData(id, 0, 0)
+      // Multiply : blanc × beige = beige, couleurs assombries légèrement
+      // → élimine les fonds blancs/clairs sans boucle pixel
+      oc_ctx.globalCompositeOperation = "multiply"
 
-    return { oc, zx, zy }
-  })
+      // object-fit: contain avec 10 % de marge
+      const pad    = 0.10
+      const availW = zw * (1 - 2 * pad)
+      const availH = zh * (1 - 2 * pad)
+      const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
+      const dw     = img.naturalWidth  * scale
+      const dh     = img.naturalHeight * scale
+      const dx     = (zw - dw) / 2
+      const dy     = (zh - dh) / 2
 
-  const results = await Promise.all(tasks)
-  for (const r of results) {
-    if (r) ctx.drawImage(r.oc, r.zx, r.zy)
-  }
+      oc_ctx.drawImage(img, dx, dy, dw, dh)
+      oc_ctx.globalCompositeOperation = "source-over"
 
-  // 3. Tableau RGBA par-dessus — zones transparentes révèlent les luminaires
+      // Copier sur le canvas principal
+      ctx.drawImage(oc, zx, zy)
+    })
+  )
+
+  // 3. Tableau RGBA par-dessus
   ctx.drawImage(painting, 0, 0, W, H)
 }
 
 // ─── Museum label ────────────────────────────────────────────────────────────────
 
 function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: boolean; below: boolean }) {
-  const pos       = below ? { top: "calc(100% + 6px)", bottom: "auto" } : { bottom: "calc(100% + 6px)", top: "auto" }
-  const arrowOut  = below
+  const pos      = below ? { top: "calc(100% + 6px)", bottom: "auto" } : { bottom: "calc(100% + 6px)", top: "auto" }
+  const arrowOut = below
     ? { top: -7, bottom: "auto", borderBottom: "7px solid #b8974a", borderTop: "none" }
     : { bottom: -7, top: "auto", borderTop: "7px solid #b8974a", borderBottom: "none" }
-  const arrowIn   = below
+  const arrowIn  = below
     ? { top: -5, bottom: "auto", borderBottom: "6px solid #f0e6c0", borderTop: "none" }
     : { bottom: -5, top: "auto", borderTop: "6px solid #f0e6c0", borderBottom: "none" }
-
   return (
-    <div
-      className="pointer-events-none absolute z-50"
-      style={{ ...pos, left: "50%", transform: "translateX(-50%)", minWidth: 150, maxWidth: 200, opacity: visible ? 1 : 0, transition: "opacity 0.2s ease" }}
-    >
-      <div style={{ background: "linear-gradient(135deg,#f5e9c8,#ede0b0 60%,#f0e6c0)", border: "1px solid #b8974a", borderRadius: 2, padding: "8px 10px", boxShadow: "0 2px 10px rgba(0,0,0,.35)", position: "relative" }}>
+    <div className="pointer-events-none absolute z-50"
+      style={{ ...pos, left:"50%", transform:"translateX(-50%)", minWidth:150, maxWidth:200, opacity:visible?1:0, transition:"opacity 0.2s ease" }}>
+      <div style={{ background:"linear-gradient(135deg,#f5e9c8,#ede0b0 60%,#f0e6c0)", border:"1px solid #b8974a", borderRadius:2, padding:"8px 10px", boxShadow:"0 2px 10px rgba(0,0,0,.35)", position:"relative" }}>
         <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"7px solid transparent", borderRight:"7px solid transparent", ...arrowOut }} />
         <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"6px solid transparent", borderRight:"6px solid transparent", ...arrowIn }} />
         <p style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:11, fontWeight:600, color:"#3d2b0a", lineHeight:1.3 }}>{lum.nom}</p>
@@ -194,19 +210,17 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
 
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
 
-  // Deux canvas pour le crossfade (comme l'approche fond vert)
-  const canvasARef  = useRef<HTMLCanvasElement>(null)
-  const canvasBRef  = useRef<HTMLCanvasElement>(null)
-  const activeRef   = useRef<"A" | "B">("A")
-
-  const paintingRef = useRef<HTMLImageElement | null>(null)
-  const imgSizeRef  = useRef({ w: 1330, h: 560 })
+  const canvasARef   = useRef<HTMLCanvasElement>(null)
+  const canvasBRef   = useRef<HTMLCanvasElement>(null)
+  const activeRef    = useRef<"A" | "B">("A")
+  const paintingRef  = useRef<HTMLImageElement | null>(null)
+  const imgSizeRef   = useRef({ w: 1330, h: 560 })
 
   const [pool,          setPool]          = useState<GalleryLuminaire[]>([])
   const [current,       setCurrent]       = useState<GalleryLuminaire[]>([])
-  const [paintingReady, setPaintingReady] = useState(false)   // ← déclenche le re-render
+  const [paintingReady, setPaintingReady] = useState(false)
   const [imgSize,       setImgSize]       = useState({ w: 1330, h: 560 })
-  const [phase,         setPhase]         = useState<"idle"|"loading"|"compositing"|"ready"|"error">("loading")
+  const [phase,         setPhase]         = useState<"loading"|"compositing"|"ready"|"error">("loading")
   const [alphaA,        setAlphaA]        = useState(0)
   const [alphaB,        setAlphaB]        = useState(0)
   const [hovZone,       setHovZone]       = useState<number | null>(null)
@@ -225,7 +239,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       .catch(() => {})
   }, [])
 
-  // ── Chargement du tableau → setState pour déclencher la composition ───────────────
+  // ── Chargement du tableau (state pour déclencher re-render) ──────────────────────
   useEffect(() => {
     if (!transparentUrl) return
     let cancelled = false
@@ -234,18 +248,16 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
     loadImg(transparentUrl).then(img => {
       if (cancelled) return
-      paintingRef.current   = img
-      imgSizeRef.current    = { w: img.naturalWidth, h: img.naturalHeight }
+      paintingRef.current = img
+      imgSizeRef.current  = { w: img.naturalWidth, h: img.naturalHeight }
       setImgSize({ w: img.naturalWidth, h: img.naturalHeight })
-      setPaintingReady(true)   // ← déclenche le useEffect de composition
-    }).catch(() => {
-      if (!cancelled) setPhase("error")
-    })
+      setPaintingReady(true)
+    }).catch(() => { if (!cancelled) setPhase("error") })
 
     return () => { cancelled = true }
   }, [transparentUrl])
 
-  // ── Première composition dès que tableau ET pool sont tous les deux prêts ─────────
+  // ── Première composition dès que tableau + pool sont prêts ───────────────────────
   useEffect(() => {
     if (!paintingReady || pool.length === 0 || currentRef.current.length > 0) return
     ;(async () => {
@@ -254,7 +266,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       historyRef.current = [sel]
       setCurrent(sel)
       setHasPrev(false)
-
       setPhase("compositing")
       const { w: W, h: H } = imgSizeRef.current
       await renderComposite(canvasARef.current!, paintingRef.current!, sel, W, H)
@@ -288,7 +299,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
     await renderComposite(targetCanvas, paintingRef.current!, sel, W, H)
 
-    // Crossfade simultané : actif → 0, inactif → 1
     if (inactive === "A") { setAlphaA(1); setAlphaB(0) }
     else                  { setAlphaA(0); setAlphaB(1) }
 
@@ -325,8 +335,17 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
-      {/* Canvas — overflow-hidden uniquement ici */}
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}` }}>
+
+        {/* Tableau affiché immédiatement en fond pendant la composition ── */}
+        {/* Invisible dès que le canvas est prêt (alphaA/B = 1 couvre tout)  */}
+        <img
+          src={transparentUrl}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full block"
+          style={{ objectFit: "fill", zIndex: 0 }}
+        />
 
         {/* Canvas A */}
         <canvas ref={canvasARef}
@@ -337,10 +356,10 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaB, transition:"opacity 0.8s ease" }}
         />
 
-        {(phase === "loading" || phase === "compositing") && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background:"rgba(245,241,232,0.80)" }}>
-            <p className="font-serif text-sm italic text-stone-600">
-              {phase === "loading" ? "Chargement du tableau…" : "Placement des luminaires…"}
+        {phase === "compositing" && (
+          <div className="absolute inset-0 z-20 flex items-end justify-center pb-6" style={{ background:"rgba(245,241,232,0.0)" }}>
+            <p className="font-serif text-xs italic text-stone-500 bg-white/60 px-3 py-1 rounded-full">
+              Placement des luminaires…
             </p>
           </div>
         )}
@@ -353,9 +372,9 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
       </div>
 
-      {/* Zones interactives — hors overflow-hidden pour que les tooltips ne soient pas clippés */}
+      {/* Zones interactives hors overflow-hidden */}
       {phase === "ready" && (
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex:5 }}>
           {ZONES.map((zone, i) => {
             const lum   = current[i]
             const below = zone.top < 40
@@ -372,7 +391,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         </div>
       )}
 
-      {/* Boutons navigation */}
       <button onClick={() => { resetTimer(); doRotate("prev") }} disabled={!hasPrev}
         aria-label="Sélection précédente"
         style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", zIndex:10, width:38, height:38, borderRadius:"50%", background:"rgba(0,0,0,.28)", border:"none", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", backdropFilter:"blur(4px)", opacity:hovering?(hasPrev?1:0.2):0, transition:"opacity .3s ease" }}
