@@ -763,11 +763,10 @@ export default function ImportPage() {
 
     setIsUploading(true)
     setUploadProgress(5)
-    setCurrentStep("Compression de l'image...")
+    setCurrentStep("Préparation du tableau PNG...")
 
     try {
-      // Le tableau DOIT rester en PNG pour conserver la transparence (alpha)
-      // On redimensionne si > 1 MB pour passer sous la limite nginx, sans passer en JPEG
+      // Redimensionner si nécessaire en préservant le canal alpha (PNG)
       let uploadBlob: Blob = file
       const originalMB = (file.size / 1_048_576).toFixed(1)
 
@@ -775,44 +774,56 @@ export default function ImportPage() {
         setCurrentStep(`Redimensionnement PNG (${originalMB} MB) — préservation transparence...`)
         uploadBlob = await compressPNG(file, 2400)
         const newMB = (uploadBlob.size / 1_048_576).toFixed(1)
-        setCurrentStep(`PNG OK (${originalMB} MB → ${newMB} MB) — Upload en cours...`)
-      } else {
-        setCurrentStep("Upload du tableau en cours...")
+        setCurrentStep(`PNG OK (${originalMB} MB → ${newMB} MB)`)
       }
 
-      setUploadProgress(40)
+      setUploadProgress(15)
 
-      const compressedFile = new File(
+      const uploadFile = new File(
         [uploadBlob],
         file.name.replace(/\.[^/.]+$/, "") + ".png",
         { type: "image/png" }
       )
 
-      const formData = new FormData()
-      formData.append("image", compressedFile)
-      formData.append("section", "painting")
-      formData.append("index", "transparent")  // → clé homepage_painting_transparent
+      // ── Upload par chunks de 512 KB pour contourner la limite nginx ──────────
+      const CHUNK_SIZE = 512 * 1024   // 512 KB
+      const totalChunks = Math.ceil(uploadFile.size / CHUNK_SIZE)
+      const progressPerChunk = 75 / totalChunks   // 15 % → 90 %
 
-      const response = await fetch("/api/upload/homepage-images", {
-        method: "POST",
-        body: formData,
-      })
+      setCurrentStep(`Upload par morceaux (${totalChunks} chunk${totalChunks > 1 ? "s" : ""})...`)
 
-      setUploadProgress(90)
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE
+        const end   = Math.min(start + CHUNK_SIZE, uploadFile.size)
+        const chunkBlob = uploadFile.slice(start, end)
 
-      if (!response.ok) {
-        const errText = await response.text()
-        throw new Error(`Erreur serveur ${response.status}: ${errText.slice(0, 120)}`)
-      }
+        const formData = new FormData()
+        formData.append("chunk",       new File([chunkBlob], uploadFile.name, { type: "image/png" }))
+        formData.append("chunkIndex",  String(i))
+        formData.append("totalChunks", String(totalChunks))
+        formData.append("fileName",    uploadFile.name)
+        formData.append("section",     "painting")
+        formData.append("index",       "transparent")   // → clé homepage_painting_transparent
 
-      const result = await response.json()
-      setUploadProgress(100)
-      setResults((prev) => ({ ...prev, painting: result }))
+        const res = await fetch("/api/upload/painting-chunks", { method: "POST", body: formData })
 
-      if (result.success) {
-        toast({ title: "✅ Tableau uploadé", description: "L'image de fond de la galerie a été mise à jour. Rechargez l'accueil pour voir le résultat." })
-      } else {
-        toast({ title: "Erreur upload", description: result.message, variant: "destructive" })
+        if (!res.ok) {
+          const errText = await res.text()
+          throw new Error(`Erreur chunk ${i + 1}: ${errText.slice(0, 120)}`)
+        }
+
+        const data = await res.json()
+        if (!data.success) throw new Error(data.error || `Erreur chunk ${i + 1}`)
+
+        setUploadProgress(Math.round(15 + (i + 1) * progressPerChunk))
+        setCurrentStep(`Envoi ${i + 1}/${totalChunks}...`)
+
+        // Résultat final sur le dernier chunk
+        if (i === totalChunks - 1) {
+          setUploadProgress(100)
+          setResults((prev) => ({ ...prev, painting: data }))
+          toast({ title: "✅ Tableau uploadé", description: "L'image de fond a été mise à jour. Rechargez l'accueil pour voir le résultat." })
+        }
       }
     } catch (err: any) {
       console.error("❌ Erreur upload tableau:", err)

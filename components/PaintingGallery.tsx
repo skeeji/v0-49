@@ -167,7 +167,8 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
 
 // ─── Composant principal ─────────────────────────────────────────────────────────
 
-export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
+export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
+  const paintingUrl = transparentUrl   // alias interne
 
   const [pool,     setPool]     = useState<GalleryLuminaire[]>([])
   const [current,  setCurrent]  = useState<GalleryLuminaire[]>([])
