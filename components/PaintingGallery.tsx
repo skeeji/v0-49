@@ -26,7 +26,7 @@ interface GreenZone {
 
 const ROTATION_INTERVAL = 30_000
 const MIN_ZONE_PIXELS   = 400
-const MERGE_GAP         = 60    // px — zones plus proches que ça sont fusionnées
+const MERGE_GAP         = 15    // px — zones plus proches que ça sont fusionnées
 const DILATE_RADIUS     = 2     // px — dilatation du masque pour couvrir l'antialiasing
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -39,12 +39,16 @@ function isGreenPx(r: number, g: number, b: number): boolean {
 }
 
 function pickRandom(pool: GalleryLuminaire[], n: number): GalleryLuminaire[] {
+  if (pool.length === 0) return []
   const copy = [...pool]
   for (let i = copy.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
     [copy[i], copy[j]] = [copy[j], copy[i]]
   }
-  return copy.slice(0, Math.min(n, copy.length))
+  // Si moins de luminaires que de zones, on cyclee pour que chaque zone soit remplie
+  const result: GalleryLuminaire[] = []
+  for (let i = 0; i < n; i++) result.push(copy[i % copy.length])
+  return result
 }
 
 function loadImg(src: string): Promise<HTMLImageElement> {
@@ -374,12 +378,14 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
         if (cancelled) return
 
         const detectedZones = detectGreenZones(imgData.data, W, H)
+        console.log(`[PaintingGallery] ${detectedZones.length} zone(s) verte(s) détectée(s)`, detectedZones.map(z => `#${z.id} ${z.bbox.w}×${z.bbox.h} @(${z.bbox.x},${z.bbox.y})`))
         zonesRef.current = detectedZones
         setZones(detectedZones)
         if (cancelled) return
 
         if (pool.length > 0 && detectedZones.length > 0) {
           setPhase("compositing")
+          console.log(`[PaintingGallery] Pool: ${pool.length} luminaires, ${detectedZones.length} zones → assignation`)
           const sel = pickRandom(pool, detectedZones.length)
           currentRef.current = sel; historyRef.current = [sel]
           setCurrent(sel); setHasPrev(false)
@@ -471,6 +477,7 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
+      {/* Canvas container — overflow-hidden uniquement ici pour ne pas clipper les tooltips */}
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}`, background: "#111" }}>
 
         {/* Canvas A */}
@@ -502,35 +509,46 @@ export function PaintingGallery({ paintingUrl }: { paintingUrl?: string }) {
           </div>
         )}
 
-        {/* Zones interactives transparentes */}
-        {phase === "ready" && zones.map((zone, i) => {
-          const lum = current[i]
-          return (
-            <div
-              key={zone.id}
-              className="absolute cursor-pointer"
-              style={{ left:`${(zone.bbox.x/iW)*100}%`, top:`${(zone.bbox.y/iH)*100}%`, width:`${(zone.bbox.w/iW)*100}%`, height:`${(zone.bbox.h/iH)*100}%`, zIndex:5 }}
-              onMouseEnter={() => setHovZone(zone.id)}
-              onMouseLeave={() => setHovZone(null)}
-            >
-              {lum && <MuseumLabel lum={lum} visible={hovZone === zone.id} />}
-            </div>
-          )
-        })}
-
-        {/* Flèche gauche */}
-        <button onClick={() => { resetTimer(); doRotate("prev") }} disabled={!hasPrev} aria-label="Précédent"
-          style={{ position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",zIndex:10,width:38,height:38,borderRadius:"50%",background:"rgba(0,0,0,.28)",border:"none",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",backdropFilter:"blur(4px)",opacity:hovering?(hasPrev?1:0.2):0,transition:"opacity .3s ease" }}>
-          <ChevronLeft size={20} />
-        </button>
-
-        {/* Flèche droite */}
-        <button onClick={() => { resetTimer(); doRotate("next") }} aria-label="Suivant"
-          style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",zIndex:10,width:38,height:38,borderRadius:"50%",background:"rgba(0,0,0,.28)",border:"none",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",backdropFilter:"blur(4px)",opacity:hovering?1:0,transition:"opacity .3s ease" }}>
-          <ChevronRight size={20} />
-        </button>
-
       </div>
+
+      {/* Zones interactives — EN DEHORS de overflow-hidden pour que les tooltips ne soient pas clippés */}
+      {phase === "ready" && (
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
+          {zones.map((zone, i) => {
+            const lum = current[i]
+            return (
+              <div
+                key={zone.id}
+                className="absolute cursor-pointer"
+                style={{
+                  left:`${(zone.bbox.x/iW)*100}%`,
+                  top:`${(zone.bbox.y/iH)*100}%`,
+                  width:`${(zone.bbox.w/iW)*100}%`,
+                  height:`${(zone.bbox.h/iH)*100}%`,
+                  pointerEvents: "auto",
+                }}
+                onMouseEnter={() => setHovZone(zone.id)}
+                onMouseLeave={() => setHovZone(null)}
+              >
+                {lum && <MuseumLabel lum={lum} visible={hovZone === zone.id} />}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Flèche gauche */}
+      <button onClick={() => { resetTimer(); doRotate("prev") }} disabled={!hasPrev} aria-label="Précédent"
+        style={{ position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",zIndex:10,width:38,height:38,borderRadius:"50%",background:"rgba(0,0,0,.28)",border:"none",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",backdropFilter:"blur(4px)",opacity:hovering?(hasPrev?1:0.2):0,transition:"opacity .3s ease" }}>
+        <ChevronLeft size={20} />
+      </button>
+
+      {/* Flèche droite */}
+      <button onClick={() => { resetTimer(); doRotate("next") }} aria-label="Suivant"
+        style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",zIndex:10,width:38,height:38,borderRadius:"50%",background:"rgba(0,0,0,.28)",border:"none",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",backdropFilter:"blur(4px)",opacity:hovering?1:0,transition:"opacity .3s ease" }}>
+        <ChevronRight size={20} />
+      </button>
+
     </section>
   )
 }

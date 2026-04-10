@@ -1,3 +1,166 @@
 git add apprecherchepage.tsx
 git commit -m fix estimation-prixHT, supprime log debug temporaire
 git push origin v11
+
+
+"fix: nom et artiste recuperes depuis API pour recherche par image
+
+
+git add .
+git commit -m "feat: nouvelle page accueil v18.2"
+git push origin v18
+
+Windows PowerShell
+Copyright (C) Microsoft Corporation. Tous droits réservés.
+
+Installez la dernière version de PowerShell pour de nouvelles fonctionnalités et améliorations ! https://aka.ms/PSWindows
+
+PS C:\Users\quent\Desktop\CLAUDE\VO> cd C:\Users\quent\Desktop\CLAUDE\VO
+PS C:\Users\quent\Desktop\CLAUDE\VO> git checkout -b v18
+Switched to a new branch 'v18'
+PS C:\Users\quent\Desktop\CLAUDE\VO> git push origin v18
+Total 0 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
+remote:
+remote: Create a pull request for 'v18' on GitHub by visiting:
+remote:      https://github.com/skeeji/v0-49/pull/new/v18
+remote:
+To https://github.com/skeeji/v0-49.git
+ * [new branch]      v18 -> v18
+PS C:\Users\quent\Desktop\CLAUDE\VO> git add .
+warning: in the working copy of 'app/import/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/SelectionSidebar.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.claude/settings.local.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/luminaires-gallery/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/PaintingGallery.tsx', LF will be replaced by CRLF the next time Git touches it
+PS C:\Users\quent\Desktop\CLAUDE\VO> git commit -m "feat: nouvelle page accueil v18"
+[v18 f4c7d0f] feat: nouvelle page accueil v18
+ 8 files changed, 1224 insertions(+), 233 deletions(-)
+ create mode 100644 .claude/settings.local.json
+ create mode 100644 PUSH OK.txt
+ create mode 100644 app/api/luminaires-gallery/route.ts
+ create mode 100644 components/PaintingGallery.tsx
+PS C:\Users\quent\Desktop\CLAUDE\VO> git push origin v18
+Enumerating objects: 25, done.
+Counting objects: 100% (25/25), done.
+Delta compression using up to 16 threads
+Compressing objects: 100% (13/13), done.
+Writing objects: 100% (16/16), 11.86 KiB | 758.00 KiB/s, done.
+Total 16 (delta 8), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (8/8), completed with 8 local objects.
+To https://github.com/skeeji/v0-49.git
+   99e8844..f4c7d0f  v18 -> v18
+PS C:\Users\quent\Desktop\CLAUDE\VO> git add .
+warning: in the working copy of 'app/import/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/PaintingGallery.tsx', LF will be replaced by CRLF the next time Git touches it
+PS C:\Users\quent\Desktop\CLAUDE\VO> git commit -m "feat: nouvelle page accueil v18"
+[v18 c1732b4] feat: nouvelle page accueil v18
+ 2 files changed, 288 insertions(+), 202 deletions(-)
+PS C:\Users\quent\Desktop\CLAUDE\VO> git push origin v18
+Enumerating objects: 13, done.
+Counting objects: 100% (13/13), done.
+Delta compression using up to 16 threads
+Compressing objects: 100% (6/6), done.
+Writing objects: 100% (7/7), 4.48 KiB | 918.00 KiB/s, done.
+Total 7 (delta 5), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (5/5), completed with 5 local objects.
+To https://github.com/skeeji/v0-49.git
+   f4c7d0f..c1732b4  v18 -> v18
+PS C:\Users\quent\Desktop\CLAUDE\VO>  git add
+Nothing specified, nothing added.
+hint: Maybe you wanted to say 'git add .'?
+hint: Disable this message with "git config set advice.addEmptyPathspec false"
+PS C:\Users\quent\Desktop\CLAUDE\VO> git add .
+warning: in the working copy of 'components/PaintingGallery.tsx', LF will be replaced by CRLF the next time Git touches it
+PS C:\Users\quent\Desktop\CLAUDE\VO> git commit -m "feat: nouvelle page accueil v18"
+[v18 9d9618b] feat: nouvelle page accueil v18
+ 1 file changed, 363 insertions(+), 266 deletions(-)
+PS C:\Users\quent\Desktop\CLAUDE\VO> git push origin v18
+Enumerating objects: 7, done.
+Counting objects: 100% (7/7), done.
+Delta compression using up to 16 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 5.69 KiB | 1.89 MiB/s, done.
+Total 4 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/skeeji/v0-49.git
+   c1732b4..9d9618b  v18 -> v18
+PS C:\Users\quent\Desktop\CLAUDE\VO> git add .
+warning: in the working copy of 'components/PaintingGallery.tsx', LF will be replaced by CRLF the next time Git touches it
+PS C:\Users\quent\Desktop\CLAUDE\VO> git commit -m "feat: nouvelle page accueil v18"
+[v18 93f9737] feat: nouvelle page accueil v18
+ 1 file changed, 4 insertions(+), 17 deletions(-)
+PS C:\Users\quent\Desktop\CLAUDE\VO> git push origin v18
+Enumerating objects: 7, done.
+Counting objects: 100% (7/7), done.
+Delta compression using up to 16 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 532 bytes | 266.00 KiB/s, done.
+Total 4 (delta 3), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (3/3), completed with 3 local objects.
+To https://github.com/skeeji/v0-49.git
+   9d9618b..93f9737  v18 -> v18
+PS C:\Users\quent\Desktop\CLAUDE\VO> git add . git commit -m "feat: nouvelle page accueil v18.2" git push origin v18
+error: unknown switch `m'
+usage: git add [<options>] [--] <pathspec>...
+
+    -n, --[no-]dry-run    dry run
+    -v, --[no-]verbose    be verbose
+
+    -i, --[no-]interactive
+                          interactive picking
+    -p, --[no-]patch      select hunks interactively
+    -e, --[no-]edit       edit current diff and apply
+    -f, --[no-]force      allow adding otherwise ignored files
+    -u, --[no-]update     update tracked files
+    --[no-]renormalize    renormalize EOL of tracked files (implies -u)
+    -N, --[no-]intent-to-add
+                          record only the fact that the path will be added later
+    -A, --[no-]all        add changes from all tracked and untracked files
+    --[no-]ignore-removal ignore paths removed in the working tree (same as --no-all)
+    --[no-]refresh        don't add, only refresh the index
+    --[no-]ignore-errors  just skip files which cannot be added because of errors
+    --[no-]ignore-missing check if - even missing - files are ignored in dry run
+    --[no-]sparse         allow updating entries outside of the sparse-checkout cone
+    --[no-]chmod (+|-)x   override the executable bit of the listed files
+    --[no-]pathspec-from-file <file>
+                          read pathspec from file
+    --[no-]pathspec-file-nul
+                          with --pathspec-from-file, pathspec elements are separated with NUL character
+
+PS C:\Users\quent\Desktop\CLAUDE\VO>
+PS C:\Users\quent\Desktop\CLAUDE\VO>
+PS C:\Users\quent\Desktop\CLAUDE\VO> git add .
+warning: in the working copy of 'components/PaintingGallery.tsx', LF will be replaced by CRLF the next time Git touches it
+PS C:\Users\quent\Desktop\CLAUDE\VO> git commit -m "feat: nouvelle page accueil v18.2"
+[v18 566ff60] feat: nouvelle page accueil v18.2
+ 1 file changed, 217 insertions(+), 161 deletions(-)
+PS C:\Users\quent\Desktop\CLAUDE\VO> git push origin v18
+Enumerating objects: 7, done.
+Counting objects: 100% (7/7), done.
+Delta compression using up to 16 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 3.87 KiB | 1.29 MiB/s, done.
+Total 4 (delta 3), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (3/3), completed with 3 local objects.
+To https://github.com/skeeji/v0-49.git
+   93f9737..566ff60  v18 -> v18
+PS C:\Users\quent\Desktop\CLAUDE\VO>
+PS C:\Users\quent\Desktop\CLAUDE\VO>
+PS C:\Users\quent\Desktop\CLAUDE\VO> git add .
+warning: in the working copy of 'components/PaintingGallery.tsx', LF will be replaced by CRLF the next time Git touches it
+PS C:\Users\quent\Desktop\CLAUDE\VO> git commit -m "feat: nouvelle page accueil v18.2"
+[v18 1e380cb] feat: nouvelle page accueil v18.2
+ 1 file changed, 26 insertions(+), 1 deletion(-)
+PS C:\Users\quent\Desktop\CLAUDE\VO> git push origin v18
+Enumerating objects: 7, done.
+Counting objects: 100% (7/7), done.
+Delta compression using up to 16 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 962 bytes | 962.00 KiB/s, done.
+Total 4 (delta 3), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (3/3), completed with 3 local objects.
+To https://github.com/skeeji/v0-49.git
+   566ff60..1e380cb  v18 -> v18
+PS C:\Users\quent\Desktop\CLAUDE\VO>
