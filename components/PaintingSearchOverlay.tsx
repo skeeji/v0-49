@@ -334,7 +334,7 @@ export function PaintingSearchOverlay() {
       <style>{`
         @keyframes pso-slidein { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
         .pso-center {
-          position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
+          position:absolute; top:28%; left:50%; transform:translate(-50%,-50%);
           z-index:20; text-align:center; padding:1.4rem 2.4rem; border-radius:16px;
           backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
           background:rgba(245,241,232,0.55); min-width:300px; pointer-events:auto;

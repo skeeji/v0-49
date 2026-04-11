@@ -54,7 +54,7 @@ export default function HomePage() {
   const { user } = useAuth()
 
   useEffect(() => {
-    // 1. Images d'accueil (priorité max — débloque PaintingGallery + CategorySection + Chrono)
+    // 1. Images d'accueil en priorité absolue — débloque PaintingGallery + CategorySection + Chrono
     fetch("/api/homepage-images")
       .then(r => r.json())
       .then(data => {
@@ -62,23 +62,26 @@ export default function HomePage() {
       })
       .catch(() => {})
 
-    // 2. Designers : UN seul appel, photos uniquement
-    fetch("/api/designers?limit=30")
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          setPreviewDesigners(
-            (data.designers as any[]).filter((d: any) => d.image).slice(0, 20)
-          )
-        }
-      })
-      .catch(() => {})
+    // 2 & 3. Designers + luminaires différés après le rendu initial pour ne pas bloquer
+    const timer = setTimeout(() => {
+      fetch("/api/designers?limit=20")
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            setPreviewDesigners(
+              (data.designers as any[]).filter((d: any) => d.image).slice(0, 16)
+            )
+          }
+        })
+        .catch(() => {})
 
-    // 3. Échantillon léger de luminaires pour CategorySection (fallback si pas d'image perso)
-    fetch("/api/luminaires-light?limit=60")
-      .then(r => r.json())
-      .then(data => { if (data.success) setLuminaireSample(data.luminaires) })
-      .catch(() => {})
+      fetch("/api/luminaires-light?limit=18")
+        .then(r => r.json())
+        .then(data => { if (data.success) setLuminaireSample(data.luminaires) })
+        .catch(() => {})
+    }, 800)
+
+    return () => clearTimeout(timer)
   }, [])
 
   return (
