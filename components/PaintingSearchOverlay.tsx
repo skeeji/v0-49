@@ -334,10 +334,11 @@ export function PaintingSearchOverlay() {
       <style>{`
         @keyframes pso-slidein { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
         .pso-center {
-          position:absolute; top:21%; left:32%;
-          z-index:20; text-align:center; padding:1.2rem 2.2rem; border-radius:16px;
+          position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+          z-index:20; text-align:center; padding:1.4rem 2.4rem; border-radius:16px;
           backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
           background:rgba(245,241,232,0.55); min-width:300px; pointer-events:auto;
+          width:max-content; max-width:90vw;
         }
         .pso-title {
           font-family:"Playfair Display",Georgia,serif; font-size:1.7rem; font-weight:600;
@@ -386,11 +387,11 @@ export function PaintingSearchOverlay() {
         }
         .pso-see-all:hover { opacity:1; text-decoration:underline; }
         .pso-results {
-          position:absolute; top:calc(21% + 145px); left:32%;
-          z-index:30; width:50vw; max-width:620px;
+          position:absolute; bottom:1.5rem; left:50%; transform:translateX(-50%);
+          z-index:30; width:min(88vw, 760px);
           background:rgba(245,241,232,0.96); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
           border-radius:18px; padding:1.25rem 1.5rem;
-          box-shadow:0 8px 40px rgba(0,0,0,0.12); max-height:42vh; overflow-y:auto;
+          box-shadow:0 8px 40px rgba(0,0,0,0.12); max-height:40vh; overflow-y:auto;
           animation:pso-slidein 0.25s ease-out; pointer-events:auto;
         }
         .pso-results-grid {
@@ -411,12 +412,27 @@ export function PaintingSearchOverlay() {
           border-radius:50%; animation:pso-spin 0.7s linear infinite; display:inline-block;
         }
         @keyframes pso-spin { to { transform:rotate(360deg); } }
-        @media (max-width:767px) {
-          .pso-center { padding:1rem 1.25rem; min-width:240px; top:8% !important; left:50% !important; transform:translateX(-50%) !important; }
-          .pso-title  { font-size:1.3rem; white-space:normal; }
-          .pso-text-input { width:190px; }
-          .pso-results { width:92vw; padding:0.8rem; top:calc(8% + 130px) !important; left:50% !important; transform:translateX(-50%) !important; }
-          .pso-results-grid { grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:6px; }
+        @media (max-width:640px) {
+          .pso-center {
+            padding:1rem 1.1rem;
+            min-width:0; width:calc(100vw - 2rem);
+            max-width:calc(100vw - 2rem);
+            top:50%; left:50%;
+            transform:translate(-50%,-50%);
+          }
+          .pso-title { font-size:1.25rem; white-space:normal; }
+          .pso-subtitle { font-size:0.65rem; }
+          .pso-pill-btn { padding:0.4rem 0.9rem; font-size:0.74rem; }
+          .pso-text-input { width:100%; max-width:240px; font-size:0.8rem; }
+          .pso-text-wrap { width:100%; justify-content:center; }
+          .pso-results {
+            bottom:0.5rem;
+            width:calc(100vw - 1.5rem);
+            padding:0.75rem;
+            max-height:35vh;
+            border-radius:12px;
+          }
+          .pso-results-grid { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); gap:8px; }
         }
       `}</style>
 
