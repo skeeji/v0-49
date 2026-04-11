@@ -19,80 +19,95 @@ interface FrameZone {
   bbox: { x: number; y: number; w: number; h: number }
 }
 
-// ─── Zones codées en dur (en % de W/H de l'image) ───────────────────────────────
-// Chaque zone correspond à un cadre/vitre transparent dans image_RGBA_final.png.
-// Format : { id, l(left%), t(top%), w(width%), h(height%) }
-// Pour calibrer : appuyer sur D sur la page pour afficher l'overlay de debug.
-
-const ZONES_PCT = [
-  // ── Fenêtres gauche (2 colonnes × 3 rangées) ──────────────────────────────
-  { id:  0, l:  1.5, t: 10.0, w:  7.0, h: 12.0 },   // fenêtre col1 rang1
-  { id:  1, l:  1.5, t: 24.0, w:  7.0, h: 12.0 },   // fenêtre col1 rang2
-  { id:  2, l:  1.5, t: 38.0, w:  7.0, h: 12.0 },   // fenêtre col1 rang3
-  { id:  3, l:  9.5, t: 10.0, w:  7.0, h: 12.0 },   // fenêtre col2 rang1
-  { id:  4, l:  9.5, t: 24.0, w:  7.0, h: 12.0 },   // fenêtre col2 rang2
-  { id:  5, l:  9.5, t: 38.0, w:  7.0, h: 12.0 },   // fenêtre col2 rang3
-
-  // ── Panneaux mur gauche ────────────────────────────────────────────────────
-  { id:  6, l: 20.5, t: 14.0, w:  7.0, h: 14.0 },   // panneau gauche haut
-  { id:  7, l: 20.5, t: 32.0, w:  7.0, h: 14.0 },   // panneau gauche bas
-
-  // ── Miroir ovale bas-gauche ────────────────────────────────────────────────
-  { id:  8, l: 21.0, t: 54.0, w: 10.0, h: 24.0 },   // miroir ovale
-
-  // ── Cadres centre-gauche ──────────────────────────────────────────────────
-  { id:  9, l: 29.5, t: 13.0, w:  8.0, h: 18.0 },   // cadre centre-gauche 1
-  { id: 10, l: 29.5, t: 36.0, w:  8.0, h: 14.0 },   // cadre centre-gauche 2
-  { id: 11, l: 38.0, t: 18.0, w:  6.0, h: 14.0 },   // cadre centre-gauche 3
-
-  // ── Cadre au-dessus de la porte ───────────────────────────────────────────
-  { id: 12, l: 44.5, t:  9.0, w: 11.0, h: 14.0 },   // cadre porte
-
-  // ── Grand ovale droite-centre ─────────────────────────────────────────────
-  { id: 13, l: 57.5, t: 24.0, w: 14.0, h: 30.0 },   // grand ovale
-
-  // ── Mur droit — rangée supérieure ─────────────────────────────────────────
-  { id: 14, l: 61.0, t:  2.0, w:  8.0, h: 12.0 },   // mur D rang1 col1
-  { id: 15, l: 69.5, t:  2.0, w:  8.0, h: 12.0 },   // mur D rang1 col2
-  { id: 16, l: 78.0, t:  2.0, w:  8.0, h: 12.0 },   // mur D rang1 col3
-  { id: 17, l: 86.5, t:  2.0, w:  9.5, h: 12.0 },   // mur D rang1 col4
-
-  // ── Mur droit — 2e rangée ─────────────────────────────────────────────────
-  { id: 18, l: 61.0, t: 16.0, w:  8.0, h: 19.0 },   // mur D rang2 col1
-  { id: 19, l: 69.5, t: 16.0, w:  8.0, h: 19.0 },   // mur D rang2 col2
-  { id: 20, l: 78.0, t: 16.0, w:  8.0, h: 19.0 },   // mur D rang2 col3
-  { id: 21, l: 86.5, t: 16.0, w:  9.5, h: 19.0 },   // mur D rang2 col4
-
-  // ── Mur droit — 3e rangée ─────────────────────────────────────────────────
-  { id: 22, l: 61.0, t: 38.0, w:  8.0, h: 19.0 },   // mur D rang3 col1
-  { id: 23, l: 69.5, t: 38.0, w:  8.0, h: 19.0 },   // mur D rang3 col2
-  { id: 24, l: 78.0, t: 38.0, w:  8.0, h: 19.0 },   // mur D rang3 col3
-  { id: 25, l: 86.5, t: 38.0, w:  9.5, h: 19.0 },   // mur D rang3 col4
-
-  // ── Mur droit — rangée basse ──────────────────────────────────────────────
-  { id: 26, l: 61.0, t: 60.0, w:  8.0, h: 19.0 },   // mur D rang4 col1
-  { id: 27, l: 69.5, t: 60.0, w:  8.0, h: 19.0 },   // mur D rang4 col2
-  { id: 28, l: 78.0, t: 60.0, w:  8.0, h: 19.0 },   // mur D rang4 col3
-  { id: 29, l: 86.5, t: 60.0, w:  9.5, h: 19.0 },   // mur D rang4 col4
-]
-
-function buildZones(W: number, H: number): FrameZone[] {
-  return ZONES_PCT.map(z => ({
-    id:   z.id,
-    bbox: {
-      x: Math.round(z.l / 100 * W),
-      y: Math.round(z.t / 100 * H),
-      w: Math.round(z.w / 100 * W),
-      h: Math.round(z.h / 100 * H),
-    },
-  }))
-}
-
 // ─── Constantes ─────────────────────────────────────────────────────────────────
 
-const ROTATION_INTERVAL = 30_000
-const ALPHA_THRESHOLD   = 128   // pixel considéré transparent si alpha < cette valeur
+const ROTATION_INTERVAL  = 30_000
+const ALPHA_THRESHOLD    = 128    // pixel transparent si alpha < cette valeur
 const BG_R = 245, BG_G = 240, BG_B = 232   // #f5f0e8 — beige de fond
+
+// ─── Détection des zones par grille ─────────────────────────────────────────────
+//
+// Principe : diviser l'image en cellules de CELL×CELL pixels.
+// Une cellule est "cadre" si > FRAME_RATIO de ses pixels ont alpha < ALPHA_THRESHOLD.
+// BFS sur les cellules (pas les pixels) → les barres entre cadres séparent naturellement.
+// Bord exclus : les zones extérieures transparentes ne se connectent plus aux cadres.
+//
+// Avantage sur BFS pixel : les fines barres entre vitres/cadres (<25px)
+// font chuter le ratio sous le seuil et séparent les zones.
+
+const CELL         = 22      // taille de cellule en pixels
+const FRAME_RATIO  = 0.55   // 55% de pixels transparents → cellule "cadre"
+const BORDER_CELLS = 2      // exclure les N premières/dernières cellules de chaque bord
+const MIN_ZONE_PX  = 1200   // surface min d'une zone (pixels)
+const MAX_ZONE_PCT = 0.18   // surface max d'une zone (fraction de l'image)
+
+function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZone[] {
+  const gW = Math.ceil(W / CELL)
+  const gH = Math.ceil(H / CELL)
+
+  // 1. Marquer chaque cellule
+  const isFrame = new Uint8Array(gW * gH)
+  for (let cy = BORDER_CELLS; cy < gH - BORDER_CELLS; cy++) {
+    for (let cx = BORDER_CELLS; cx < gW - BORDER_CELLS; cx++) {
+      let transp = 0, total = 0
+      const px0 = cx * CELL, py0 = cy * CELL
+      const px1 = Math.min(px0 + CELL, W), py1 = Math.min(py0 + CELL, H)
+      for (let py = py0; py < py1; py++) {
+        for (let px = px0; px < px1; px++) {
+          total++
+          if (data[(py * W + px) * 4 + 3] < ALPHA_THRESHOLD) transp++
+        }
+      }
+      if (total > 0 && transp / total >= FRAME_RATIO) isFrame[cy * gW + cx] = 1
+    }
+  }
+
+  // 2. BFS sur les cellules
+  const visited = new Uint8Array(gW * gH)
+  const zones: FrameZone[] = []
+  const totalPx = W * H
+
+  for (let cy = BORDER_CELLS; cy < gH - BORDER_CELLS; cy++) {
+    for (let cx = BORDER_CELLS; cx < gW - BORDER_CELLS; cx++) {
+      const ci = cy * gW + cx
+      if (visited[ci] || !isFrame[ci]) continue
+
+      const q = [ci]
+      visited[ci] = 1
+      let qi = 0, cx0 = cx, cx1 = cx, cy0 = cy, cy1 = cy
+
+      while (qi < q.length) {
+        const c = q[qi++]
+        const ccx = c % gW, ccy = (c / gW) | 0
+        if (ccx < cx0) cx0 = ccx; if (ccx > cx1) cx1 = ccx
+        if (ccy < cy0) cy0 = ccy; if (ccy > cy1) cy1 = ccy
+
+        const neighbors = [c - 1, c + 1, c - gW, c + gW]
+        for (const n of neighbors) {
+          if (n < 0 || n >= gW * gH) continue
+          const nx = n % gW, ny = (n / gW) | 0
+          if (nx < BORDER_CELLS || nx >= gW - BORDER_CELLS) continue
+          if (ny < BORDER_CELLS || ny >= gH - BORDER_CELLS) continue
+          if (!visited[n] && isFrame[n]) { visited[n] = 1; q.push(n) }
+        }
+      }
+
+      const bx = cx0 * CELL, by = cy0 * CELL
+      const bw = Math.min((cx1 + 1) * CELL, W) - bx
+      const bh = Math.min((cy1 + 1) * CELL, H) - by
+      const area = bw * bh
+
+      if (area < MIN_ZONE_PX)         continue   // trop petit (bruit)
+      if (area > totalPx * MAX_ZONE_PCT) continue   // trop grand (zone encore connectée)
+
+      zones.push({ id: zones.length, bbox: { x: bx, y: by, w: bw, h: bh } })
+    }
+  }
+
+  return zones
+    .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
+    .map((z, i) => ({ ...z, id: i }))
+}
 
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
 
@@ -122,17 +137,15 @@ function loadImg(src: string): Promise<HTMLImageElement> {
 
 // ─── Compositing d'un luminaire dans une zone (niveau pixel) ─────────────────────
 //
-// Même architecture que la version fond-vert de v18-good :
-//  - charge le luminaire dans un canvas off-screen
-//  - boucle pixel pour supprimer le fond blanc → beige
-//  - copie uniquement les pixels TRANSPARENTS de la zone (alpha < ALPHA_THRESHOLD)
-//    du tableau RGBA original → remplace dans `base`
-//
-// Résultat : base[zone transparente] = pixels luminaire, le reste = tableau + beige.
+// Copié de v18-good (fond vert), adapté pour RGBA :
+//   - charge le luminaire dans un canvas off-screen
+//   - boucle pixel : suppression fond blanc → beige
+//   - écrit uniquement les pixels TRANSPARENTS du tableau (alpha < seuil)
+//     dans le buffer de sortie `base`
 
 async function compositeZone(
-  base:     Uint8ClampedArray,   // buffer de sortie modifié en place
-  origData: Uint8ClampedArray,   // données RGBA brutes du tableau (pour tester l'alpha)
+  base:     Uint8ClampedArray,
+  origData: Uint8ClampedArray,
   bbox:     { x: number; y: number; w: number; h: number },
   lumUrl:   string,
   W:        number,
@@ -147,11 +160,11 @@ async function compositeZone(
 
   const { x: bx, y: by, w: bw, h: bh } = bbox
 
-  // Canvas off-screen : fond beige + luminaire en object-fit:contain avec 10 % de marge
-  const oc = document.createElement("canvas")
-  oc.width = bw; oc.height = bh
-  const octx = oc.getContext("2d")!
-
+  // Canvas off-screen : fond beige + luminaire en object-fit:contain 10% padding
+  const oc     = document.createElement("canvas")
+  oc.width     = bw
+  oc.height    = bh
+  const octx   = oc.getContext("2d")!
   octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
   octx.fillRect(0, 0, bw, bh)
 
@@ -163,13 +176,12 @@ async function compositeZone(
   const dh     = img.naturalHeight * scale
   const dx     = (bw - dw) / 2
   const dy     = (bh - dh) / 2
-
   octx.drawImage(img, dx, dy, dw, dh)
 
   const lumImgData = octx.getImageData(0, 0, bw, bh)
   const lumD       = lumImgData.data
 
-  // ── Suppression du fond blanc (identique à v18-good) ─────────────────────────
+  // Suppression fond blanc → beige (identique v18-good)
   for (let i = 0; i < lumD.length; i += 4) {
     const r = lumD[i], g = lumD[i + 1], b = lumD[i + 2]
     if (r > 220 && g > 220 && b > 220) {
@@ -177,7 +189,7 @@ async function compositeZone(
     } else {
       const minCh = Math.min(r, g, b)
       if (minCh > 180) {
-        const t = (minCh - 180) / 40   // 0 (à 180) → 1 (à 220)
+        const t = (minCh - 180) / 40
         lumD[i]     = Math.round(r + (BG_R - r) * t)
         lumD[i + 1] = Math.round(g + (BG_G - g) * t)
         lumD[i + 2] = Math.round(b + (BG_B - b) * t)
@@ -185,20 +197,16 @@ async function compositeZone(
     }
   }
 
-  // ── Copie dans base uniquement pour les pixels TRANSPARENTS du tableau ───────
-  // (équivalent de zone.pixels dans v18-good, mais testé via le canal alpha)
+  // Copie dans base uniquement pour les pixels transparents du tableau
   for (let row = 0; row < bh; row++) {
     for (let col = 0; col < bw; col++) {
-      const px = bx + col
-      const py = by + row
+      const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0) continue
 
-      const origIdx  = (py * W + px) * 4
+      const origIdx   = (py * W + px) * 4
       const origAlpha = origData[origIdx + 3]
-
       if (origAlpha < ALPHA_THRESHOLD) {
-        // Pixel transparent dans le tableau → c'est un cadre → afficher le luminaire
-        const lumIdx = (row * bw + col) * 4
+        const lumIdx      = (row * bw + col) * 4
         base[origIdx]     = lumD[lumIdx]
         base[origIdx + 1] = lumD[lumIdx + 1]
         base[origIdx + 2] = lumD[lumIdx + 2]
@@ -241,27 +249,23 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
 
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
 
-  // ── Deux canvas pour le crossfade (même architecture v18-good) ────────────────
   const canvasARef   = useRef<HTMLCanvasElement>(null)
   const canvasBRef   = useRef<HTMLCanvasElement>(null)
   const activeRef    = useRef<"A"|"B">("A")
-
-  // ── Données lourdes en refs (pas de re-render inutile) ────────────────────────
-  const origDataRef  = useRef<Uint8ClampedArray | null>(null)  // données alpha brutes
-  const paintingRef  = useRef<HTMLImageElement | null>(null)   // image chargée
+  const origDataRef  = useRef<Uint8ClampedArray | null>(null)
+  const paintingRef  = useRef<HTMLImageElement | null>(null)
   const imgSizeRef   = useRef({ w: 1330, h: 876 })
   const zonesRef     = useRef<FrameZone[]>([])
   const historyRef   = useRef<GalleryLuminaire[][]>([])
   const currentRef   = useRef<GalleryLuminaire[]>([])
   const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // ── État UI ───────────────────────────────────────────────────────────────────
   const [pool,          setPool]          = useState<GalleryLuminaire[]>([])
   const [current,       setCurrent]       = useState<GalleryLuminaire[]>([])
   const [zones,         setZones]         = useState<FrameZone[]>([])
   const [paintingReady, setPaintingReady] = useState(false)
   const [imgSize,       setImgSize]       = useState({ w: 1330, h: 876 })
-  const [phase,         setPhase]         = useState<"loading"|"compositing"|"ready"|"error">("loading")
+  const [phase,         setPhase]         = useState<"loading"|"detecting"|"compositing"|"ready"|"error">("loading")
   const [alphaA,        setAlphaA]        = useState(0)
   const [alphaB,        setAlphaB]        = useState(0)
   const [hovZone,       setHovZone]       = useState<number | null>(null)
@@ -277,15 +281,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       .catch(() => {})
   }, [])
 
-  // ── doComposite — même architecture que v18-good ─────────────────────────────
-  //
-  //  1. Canvas temp : fond beige + tableau RGBA par-dessus (source-over)
-  //     → les zones transparentes du tableau restent beige
-  //  2. getImageData → buffer `base` (RGBA plat, tout opaque)
-  //  3. compositeZone pour chaque zone : écrit les pixels luminaire uniquement
-  //     là où origData.alpha < ALPHA_THRESHOLD (les cadres transparents)
-  //  4. putImageData → canvas cible
-  //
+  // ── doComposite — identique v18-good adapté RGBA ──────────────────────────────
   const doComposite = useCallback(async (
     sel:    GalleryLuminaire[],
     zones:  FrameZone[],
@@ -295,19 +291,18 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   ) => {
     if (!origDataRef.current || !paintingRef.current) return
 
-    // 1. Fond beige + tableau blendé par-dessus
-    const tmp = document.createElement("canvas")
-    tmp.width = W; tmp.height = H
+    // Fond beige + tableau RGBA blendé par-dessus → zones transparentes = beige
+    const tmp    = document.createElement("canvas")
+    tmp.width    = W; tmp.height = H
     const tmpCtx = tmp.getContext("2d")!
     tmpCtx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
     tmpCtx.fillRect(0, 0, W, H)
     tmpCtx.drawImage(paintingRef.current, 0, 0, W, H)
 
-    // 2. Récupérer le buffer pixel (entièrement opaque : beige là où transparent)
     const imgData = tmpCtx.getImageData(0, 0, W, H)
     const base    = imgData.data
 
-    // 3. Insérer les luminaires dans les zones transparentes (niveau pixel)
+    // Composite luminaires (pixel level, like v18-good)
     await Promise.all(
       zones.map((zone, i) =>
         sel[i]
@@ -316,18 +311,14 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       )
     )
 
-    // 4. Afficher le résultat
     target.width  = W
     target.height = H
     target.getContext("2d")!.putImageData(imgData, 0, 0)
   }, [])
 
-  // ── Crossfade A↔B (identique v18-good) ───────────────────────────────────────
+  // ── Crossfade A↔B ─────────────────────────────────────────────────────────────
   const crossfadeTo = useCallback(async (
-    sel:  GalleryLuminaire[],
-    zns:  FrameZone[],
-    W:    number,
-    H:    number,
+    sel: GalleryLuminaire[], zns: FrameZone[], W: number, H: number,
   ) => {
     const inactive     = activeRef.current === "A" ? "B" : "A"
     const targetCanvas = inactive === "A" ? canvasARef.current : canvasBRef.current
@@ -342,7 +333,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     activeRef.current = inactive
   }, [doComposite])
 
-  // ── Chargement du tableau + extraction des données alpha ─────────────────────
+  // ── Chargement + détection ────────────────────────────────────────────────────
   useEffect(() => {
     if (!transparentUrl) return
     let cancelled = false
@@ -363,18 +354,24 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         imgSizeRef.current  = { w: W, h: H }
         setImgSize({ w: W, h: H })
 
-        // Extraire les données alpha brutes (pour tester origData[pi*4+3] dans compositeZone)
+        // Extraire données pixel brutes (pour tester alpha dans compositeZone)
         const tmp = document.createElement("canvas")
         tmp.width = W; tmp.height = H
         tmp.getContext("2d")!.drawImage(img, 0, 0)
         origDataRef.current = new Uint8ClampedArray(tmp.getContext("2d")!.getImageData(0, 0, W, H).data)
 
-        // Construire les zones depuis les pourcentages
-        const zns = buildZones(W, H)
-        zonesRef.current = zns
-        setZones(zns)
-        console.log(`[PaintingGallery] ${zns.length} zones construites (${W}×${H})`)
+        // Détection zones par grille (résistante aux zones connectées)
+        setPhase("detecting")
+        await sleep(16)   // laisser le navigateur respirer
+        if (cancelled) return
 
+        const detected = detectZonesGrid(origDataRef.current, W, H)
+        console.log(`[PaintingGallery] ${detected.length} zones détectées (grille ${CELL}px, ratio>=${FRAME_RATIO})`,
+          detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
+
+        if (cancelled) return
+        zonesRef.current = detected
+        setZones(detected)
         setPaintingReady(true)
       } catch {
         if (!cancelled) setPhase("error")
@@ -384,7 +381,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { cancelled = true }
   }, [transparentUrl])
 
-  // ── Première composition dès que tableau + pool sont prêts ───────────────────
+  // ── Première composition ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!paintingReady || pool.length === 0 || currentRef.current.length > 0) return
     ;(async () => {
@@ -424,11 +421,9 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     setHasPrev(historyRef.current.length > 1)
     currentRef.current = sel
     setCurrent(sel)
-
     await crossfadeTo(sel, zns, W, H)
   }, [pool, crossfadeTo])
 
-  // ── Timer 30 s ────────────────────────────────────────────────────────────────
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = setInterval(() => doRotate("next"), ROTATION_INTERVAL)
@@ -440,13 +435,11 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [phase, pool.length, resetTimer])
 
-  // ── Touche D → overlay de calibration ─────────────────────────────────────────
+  // ── Touche D → overlay calibration ───────────────────────────────────────────
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "d" || e.key === "D") setDebugZones(v => !v)
-    }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
+    const h = (e: KeyboardEvent) => { if (e.key === "d" || e.key === "D") setDebugZones(v => !v) }
+    window.addEventListener("keydown", h)
+    return () => window.removeEventListener("keydown", h)
   }, [])
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -469,47 +462,39 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     >
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}`, background:`rgb(${BG_R},${BG_G},${BG_B})` }}>
 
-        {/* Canvas A */}
         <canvas ref={canvasARef}
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaA, transition:"opacity 0.6s ease" }}
         />
-        {/* Canvas B */}
         <canvas ref={canvasBRef}
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaB, transition:"opacity 0.6s ease" }}
         />
 
-        {/* Overlay de calibration — touche D */}
+        {/* Overlay debug — touche D */}
         {debugZones && (
           <div className="absolute inset-0 pointer-events-none" style={{ zIndex:30 }}>
             {zones.map(zone => (
-              <div key={zone.id}
-                style={{
-                  position:       "absolute",
-                  left:           `${(zone.bbox.x / iW) * 100}%`,
-                  top:            `${(zone.bbox.y / iH) * 100}%`,
-                  width:          `${(zone.bbox.w / iW) * 100}%`,
-                  height:         `${(zone.bbox.h / iH) * 100}%`,
-                  border:         "2px solid rgba(255,80,80,0.9)",
-                  background:     "rgba(255,0,0,0.15)",
-                  boxSizing:      "border-box",
-                  display:        "flex",
-                  alignItems:     "center",
-                  justifyContent: "center",
-                }}
-              >
-                <span style={{ color:"#fff", fontSize:10, fontWeight:700, textShadow:"0 0 3px #000" }}>{zone.id}</span>
+              <div key={zone.id} style={{
+                position:"absolute",
+                left:`${(zone.bbox.x/iW)*100}%`, top:`${(zone.bbox.y/iH)*100}%`,
+                width:`${(zone.bbox.w/iW)*100}%`, height:`${(zone.bbox.h/iH)*100}%`,
+                border:"2px solid rgba(255,80,80,0.9)", background:"rgba(255,0,0,0.15)",
+                boxSizing:"border-box", display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                <span style={{ color:"#fff", fontSize:9, fontWeight:700, textShadow:"0 0 3px #000" }}>{zone.id}</span>
               </div>
             ))}
-            <div style={{ position:"absolute", top:8, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.7)", color:"#fff", fontSize:11, padding:"4px 10px", borderRadius:4, whiteSpace:"nowrap" }}>
-              DEBUG — {zones.length} zones — appuie D pour fermer
+            <div style={{ position:"absolute", top:6, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.75)", color:"#fff", fontSize:11, padding:"3px 10px", borderRadius:4, whiteSpace:"nowrap" }}>
+              DEBUG — {zones.length} zones (D pour fermer)
             </div>
           </div>
         )}
 
-        {(phase === "loading" || phase === "compositing") && (
+        {(phase === "loading" || phase === "detecting" || phase === "compositing") && (
           <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background:"rgba(245,241,232,0.75)" }}>
             <p className="font-serif text-sm italic text-stone-600">
-              {phase === "loading" ? "Chargement du tableau…" : "Placement des luminaires…"}
+              {phase === "loading"    ? "Chargement du tableau…"    :
+               phase === "detecting" ? "Détection des cadres…"     :
+                                       "Placement des luminaires…"}
             </p>
           </div>
         )}
@@ -522,7 +507,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
       </div>
 
-      {/* Zones interactives — hors overflow-hidden pour les tooltips */}
       {phase === "ready" && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex:5 }}>
           {zones.map((zone, i) => {
@@ -531,11 +515,9 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
             return (
               <div key={zone.id} className="absolute cursor-pointer"
                 style={{
-                  left:          `${(zone.bbox.x / iW) * 100}%`,
-                  top:           `${(zone.bbox.y / iH) * 100}%`,
-                  width:         `${(zone.bbox.w / iW) * 100}%`,
-                  height:        `${(zone.bbox.h / iH) * 100}%`,
-                  pointerEvents: "auto",
+                  left:`${(zone.bbox.x/iW)*100}%`, top:`${(zone.bbox.y/iH)*100}%`,
+                  width:`${(zone.bbox.w/iW)*100}%`, height:`${(zone.bbox.h/iH)*100}%`,
+                  pointerEvents:"auto",
                 }}
                 onMouseEnter={() => setHovZone(zone.id)}
                 onMouseLeave={() => setHovZone(null)}
