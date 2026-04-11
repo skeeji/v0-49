@@ -155,32 +155,12 @@ async function compositeZone(
   const dx     = (bw - dw) / 2
   const dy     = (bh - dh) / 2
 
-  // ── 1. Canvas temporaire : luminaire avec filtre ivoire chaud ──────────────
-  const lumC   = document.createElement("canvas")
-  lumC.width   = bw; lumC.height = bh
-  const lumCtx = lumC.getContext("2d")!
-  lumCtx.filter = "sepia(10%) contrast(1.05)"
-  lumCtx.drawImage(img, dx, dy, dw, dh)
-  lumCtx.filter = "none"
+  // ── Luminaire avec filtre ivoire chaud (sepia léger pour harmoniser au tableau)
+  octx.filter = "sepia(10%) contrast(1.05)"
+  octx.drawImage(img, dx, dy, dw, dh)
+  octx.filter = "none"
 
-  // ── 2. Masque radial : centre opaque, bords progressivement transparents ───
-  const cx     = dx + dw / 2
-  const cy     = dy + dh / 2
-  const rOuter = Math.max(dw, dh) / 2 * 1.05   // légèrement au-delà de l'image
-  const rInner = Math.min(dw, dh) / 2 * 0.45   // zone centrale toujours nette
-  const grad   = lumCtx.createRadialGradient(cx, cy, rInner, cx, cy, rOuter)
-  grad.addColorStop(0,    "rgba(0,0,0,1)")
-  grad.addColorStop(0.72, "rgba(0,0,0,1)")
-  grad.addColorStop(1,    "rgba(0,0,0,0)")
-  lumCtx.globalCompositeOperation = "destination-in"
-  lumCtx.fillStyle = grad
-  lumCtx.fillRect(0, 0, bw, bh)
-
-  // ── 3. Composite luminaire masqué sur fond crème ───────────────────────────
-  octx.globalCompositeOperation = "source-over"
-  octx.drawImage(lumC, 0, 0)
-
-  // ── 4. Suppression résiduelle des blancs purs au centre ────────────────────
+  // ── Suppression des blancs purs ────────────────────────────────────────────
   const lumImgData = octx.getImageData(0, 0, bw, bh)
   const lumD       = lumImgData.data
 

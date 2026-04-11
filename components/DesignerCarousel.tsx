@@ -18,88 +18,80 @@ export function DesignerCarousel({ designers }: DesignerCarouselProps) {
 
   if (designers.length === 0) return null
 
-  // Tripler pour boucle infinie (33.3334% = 1 section)
   const tripled = [...designers, ...designers, ...designers]
 
   return (
     <>
       <style>{`
-        @keyframes designer-scroll {
+        @keyframes dsg-scroll {
           from { transform: translateX(0); }
           to   { transform: translateX(-33.3334%); }
         }
         .dsg-track {
           display: flex;
           width: max-content;
-          animation: designer-scroll 35s linear infinite;
+          animation: dsg-scroll 40s linear infinite;
+          align-items: flex-end;
         }
         .dsg-track.paused { animation-play-state: paused; }
 
         .dsg-card {
-          width: 200px;
           flex-shrink: 0;
-          margin: 0 10px;
-          border-radius: 14px;
-          overflow: hidden;
-          background: #fff;
-          box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+          margin: 0 8px;
           cursor: pointer;
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
+          position: relative;
+          overflow: hidden;
         }
-        .dsg-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.14);
-        }
+        .dsg-card:hover .dsg-overlay { opacity: 1; }
+        .dsg-card:hover .dsg-photo   { transform: scale(1.04); }
+
         .dsg-photo {
-          width: 200px; height: 240px;
-          object-fit: cover; display: block;
+          display: block;
+          width: 100%; height: 100%;
+          object-fit: cover;
+          transition: transform 0.4s ease;
         }
         .dsg-empty {
-          width: 200px; height: 240px;
-          background: #e8e0d0;
+          width: 100%; height: 100%;
+          background: #ddd5c5;
           display: flex; align-items: center; justify-content: center;
           font-family: "Playfair Display", Georgia, serif;
-          font-size: 2rem; color: ${BROWN};
+          font-size: 1.6rem; color: ${BROWN};
         }
-        .dsg-info {
-          padding: 0.75rem 0.5rem 0.6rem;
+        .dsg-overlay {
+          position: absolute; inset: 0;
+          background: linear-gradient(to top, rgba(20,12,5,0.68) 0%, transparent 55%);
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          pointer-events: none;
         }
         .dsg-name {
+          position: absolute;
+          bottom: 0.7rem; left: 0.75rem; right: 0.75rem;
           font-family: "Playfair Display", Georgia, serif;
-          font-size: 1rem; font-weight: 600;
-          color: ${TEXT_DARK};
+          font-size: 0.88rem; font-weight: 600;
+          color: #fff;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+          opacity: 0;
+          transition: opacity 0.3s ease;
         }
-        .dsg-bio {
-          font-size: 0.75rem; color: ${TEXT_MID};
-          margin-top: 0.2rem;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
+        .dsg-card:hover .dsg-name { opacity: 1; }
+
         .dsg-fade-l {
-          position: absolute; left: 0; top: 0; bottom: 0; width: 15%;
-          background: linear-gradient(to right, ${CREAM} 0%, transparent 100%);
+          position: absolute; left: 0; top: 0; bottom: 0; width: 12%;
+          background: linear-gradient(to right, ${CREAM}, transparent);
           pointer-events: none; z-index: 2;
         }
         .dsg-fade-r {
-          position: absolute; right: 0; top: 0; bottom: 0; width: 15%;
-          background: linear-gradient(to left, ${CREAM} 0%, transparent 100%);
+          position: absolute; right: 0; top: 0; bottom: 0; width: 12%;
+          background: linear-gradient(to left, ${CREAM}, transparent);
           pointer-events: none; z-index: 2;
         }
-        .dsg-cta {
-          display: inline-flex; align-items: center; gap: 0.5rem;
-          padding: 0.75rem 2rem;
-          background: ${BROWN}; color: #fff;
-          border-radius: 12px; font-weight: 500; font-size: 0.95rem;
-          text-decoration: none; transition: background 0.2s;
-        }
-        .dsg-cta:hover { background: #75614a; }
       `}</style>
 
-      <section style={{ background: CREAM, padding: "5rem 0" }}>
-
-
-        {/* Bande défilante */}
-        <div style={{ position: "relative", overflow: "hidden", padding: "0.5rem 0" }}>
+      <section style={{ background: CREAM, padding: "3rem 0" }}>
+        <div style={{ position: "relative", overflow: "hidden" }}>
           <div className="dsg-fade-l" />
           <div className="dsg-fade-r" />
           <div
@@ -108,38 +100,32 @@ export function DesignerCarousel({ designers }: DesignerCarouselProps) {
             onMouseLeave={() => setPaused(false)}
           >
             {tripled.map((d, i) => {
-              const name     = d.nom || d.Nom || d.name || "Designer"
-              const bio      = (d.description || d.biographie || "").substring(0, 60)
+              const name  = d.nom || d.Nom || d.name || "Designer"
               const initials = name.split(" ").map((w: string) => w[0] ?? "").join("").substring(0, 2).toUpperCase()
+              // Varier légèrement les hauteurs pour rythme visuel
+              const heights = [200, 240, 210, 260, 195, 230]
+              const h = heights[i % heights.length]
+              const w = Math.round(h * 0.72)   // ratio portrait harmonieux
 
               return (
                 <div
                   key={`${d.id || d._id}_${i}`}
                   className="dsg-card"
+                  style={{ width: w, height: h }}
                   onClick={() => router.push(`/designers/${encodeURIComponent(name)}`)}
                 >
                   {d.image
                     ? <img src={d.image} alt={name} className="dsg-photo" loading="lazy" />
                     : <div className="dsg-empty">{initials}</div>
                   }
-                  <div className="dsg-info">
-                    <div className="dsg-name">{name}</div>
-                    {bio && <div className="dsg-bio">{bio}</div>}
-                  </div>
+                  <div className="dsg-overlay" />
+                  <div className="dsg-name">{name}</div>
                 </div>
               )
             })}
           </div>
         </div>
-
-
       </section>
-
-      {/* Séparateur */}
-      <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "0 2rem" }}>
-        <div style={{ height: "1px",
-                      background: "linear-gradient(to right, transparent, rgba(139,115,85,0.2), transparent)" }} />
-      </div>
     </>
   )
 }

@@ -30,7 +30,7 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
       <section style={{ background: CREAM, padding: "4rem 2rem" }}>
         <div style={{ maxWidth: "900px", margin: "0 auto" }}>
 
-          <div style={{
+          <div className="cat-grid" style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",
             gap: "2rem 2.5rem",
@@ -85,12 +85,6 @@ export function CategorySection({ luminaires, homepageImages }: CategorySectionP
 
         </div>
       </section>
-
-      {/* Séparateur */}
-      <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "0 2rem" }}>
-        <div style={{ height: "1px",
-                      background: "linear-gradient(to right, transparent, rgba(139,115,85,0.2), transparent)" }} />
-      </div>
 
       <style>{`
         @media (max-width: 640px) {
