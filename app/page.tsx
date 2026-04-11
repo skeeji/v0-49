@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
 import MobileFooter from "@/components/MobileFooter"
+import { FloatingGallery } from "@/components/FloatingGallery"
 import { PaintingGallery } from "@/components/PaintingGallery"
 import { CategorySection } from "@/components/CategorySection"
 import { DesignerCarousel } from "@/components/DesignerCarousel"
@@ -13,7 +14,7 @@ import { ChronoSection } from "@/components/ChronoSection"
 function SectionQuote({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div style={{
-      background: "#c8c0b4",
+      background: "#f5f1e8",
       padding: "3.5rem 2rem",
       textAlign: "center",
     }}>
@@ -82,6 +83,9 @@ export default function HomePage() {
 
   return (
     <div className="bg-[#f5f1e8]">
+
+      {/* ── Recherche par image / texte ── */}
+      <FloatingGallery apiUrl="/api/luminaires" />
 
       {/* ── Galerie tableau peinture ── */}
       <PaintingGallery transparentUrl={homepageImages["homepage_painting_transparent"]} />

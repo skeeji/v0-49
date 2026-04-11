@@ -102,16 +102,14 @@ export function DesignerCarousel({ designers }: DesignerCarouselProps) {
             {tripled.map((d, i) => {
               const name  = d.nom || d.Nom || d.name || "Designer"
               const initials = name.split(" ").map((w: string) => w[0] ?? "").join("").substring(0, 2).toUpperCase()
-              // Varier légèrement les hauteurs pour rythme visuel
-              const heights = [200, 240, 210, 260, 195, 230]
-              const h = heights[i % heights.length]
-              const w = Math.round(h * 0.72)   // ratio portrait harmonieux
+              const CARD_H = 220
+              const CARD_W = Math.round(CARD_H * 0.72)  // 158px — format portrait homogène
 
               return (
                 <div
                   key={`${d.id || d._id}_${i}`}
                   className="dsg-card"
-                  style={{ width: w, height: h }}
+                  style={{ width: CARD_W, height: CARD_H }}
                   onClick={() => router.push(`/designers/${encodeURIComponent(name)}`)}
                 >
                   {d.image

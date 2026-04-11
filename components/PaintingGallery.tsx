@@ -283,6 +283,8 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const [phase,         setPhase]         = useState<"loading"|"detecting"|"compositing"|"ready"|"error">("loading")
   const [alphaA,        setAlphaA]        = useState(0)
   const [alphaB,        setAlphaB]        = useState(0)
+  const [zIndexA,       setZIndexA]       = useState(1)
+  const [zIndexB,       setZIndexB]       = useState(1)
   const [hovZone,       setHovZone]       = useState<number | null>(null)
   const [hovering,      setHovering]      = useState(false)
   const [hasPrev,       setHasPrev]       = useState(false)
@@ -343,10 +345,31 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     const inactive     = activeRef.current === "A" ? "B" : "A"
     const targetCanvas = inactive === "A" ? canvasARef.current : canvasBRef.current
     if (!targetCanvas) return
+
+    // 1. Composite onto the inactive canvas (currently hidden)
     await doComposite(sel, zns, W, H, targetCanvas)
-    if (inactive === "A") { setAlphaA(1); setAlphaB(0) }
-    else                  { setAlphaA(0); setAlphaB(1) }
-    await sleep(600)
+
+    // 2. Bring inactive to front at opacity=0 (above active canvas)
+    if (inactive === "A") {
+      setZIndexA(2); setZIndexB(1); setAlphaA(0)
+    } else {
+      setZIndexA(1); setZIndexB(2); setAlphaB(0)
+    }
+
+    // 3. Short delay to let React commit the new z-index + opacity=0
+    await sleep(50)
+
+    // 4. Fade in the new canvas — old canvas stays at opacity=1 underneath (no bleed)
+    if (inactive === "A") setAlphaA(1)
+    else                  setAlphaB(1)
+
+    // 5. Wait for CSS transition to complete
+    await sleep(1500)
+
+    // 6. Hide the now-stale canvas (fully covered by new, so invisible)
+    if (inactive === "A") setAlphaB(0)
+    else                  setAlphaA(0)
+
     activeRef.current = inactive
   }, [doComposite])
 
@@ -468,9 +491,9 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         style={{ aspectRatio:`${iW} / ${iH}`, background:`rgb(${BG_R},${BG_G},${BG_B})` }}>
 
         <canvas ref={canvasARef}
-          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaA, transition:"opacity 0.6s ease" }} />
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:zIndexA, opacity:alphaA, transition:"opacity 1.5s ease" }} />
         <canvas ref={canvasBRef}
-          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaB, transition:"opacity 0.6s ease" }} />
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:zIndexB, opacity:alphaB, transition:"opacity 1.5s ease" }} />
 
         {debugZones && (
           <div className="absolute inset-0" style={{ zIndex:30 }}>
