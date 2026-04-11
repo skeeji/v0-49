@@ -334,7 +334,7 @@ export function PaintingSearchOverlay() {
       <style>{`
         @keyframes pso-slidein { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
         .pso-center {
-          position:absolute; top:19%; left:28%;
+          position:absolute; top:21%; left:32%;
           z-index:20; text-align:center; padding:1.2rem 2.2rem; border-radius:16px;
           backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
           background:rgba(245,241,232,0.55); min-width:300px; pointer-events:auto;
@@ -386,7 +386,7 @@ export function PaintingSearchOverlay() {
         }
         .pso-see-all:hover { opacity:1; text-decoration:underline; }
         .pso-results {
-          position:absolute; top:calc(19% + 145px); left:28%;
+          position:absolute; top:calc(21% + 145px); left:32%;
           z-index:30; width:50vw; max-width:620px;
           background:rgba(245,241,232,0.96); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
           border-radius:18px; padding:1.25rem 1.5rem;
