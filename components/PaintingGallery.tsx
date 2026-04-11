@@ -30,8 +30,9 @@ const BG_R = 245, BG_G = 240, BG_B = 232   // #f5f0e8
 const CELL         = 22
 const FRAME_RATIO  = 0.55
 const BORDER_CELLS = 2
-const MIN_ZONE_PX  = 1200
-const MAX_ZONE_PCT = 0.18
+const MIN_ZONE_PX  = 1400
+const MAX_ZONE_PCT = 0.13
+const MERGE_GAP    = CELL * 2   // fusionne zones à ≤ 44px de gap
 
 function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZone[] {
   const gW = Math.ceil(W / CELL)
@@ -91,6 +92,40 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
     .map((z, i) => ({ ...z, id: i }))
 }
 
+// ─── Post-traitement des zones ───────────────────────────────────────────────────
+
+function postProcessZones(zones: FrameZone[], W: number, H: number): FrameZone[] {
+  let list = zones.map(z => ({ ...z, bbox: { ...z.bbox } }))
+
+  // A. Supprimer micro-zones parasites (< CELL² × 4)
+  list = list.filter(z => z.bbox.w * z.bbox.h >= CELL * CELL * 4)
+
+  // B. Fusionner zones adjacentes (gap ≤ MERGE_GAP) — résout 29+30 et similaires
+  let changed = true
+  while (changed) {
+    changed = false
+    outer: for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i].bbox, b = list[j].bbox
+        const xGap = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w))
+        const yGap = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h))
+        if (xGap <= MERGE_GAP && yGap <= MERGE_GAP) {
+          const x0 = Math.min(a.x, b.x),              y0 = Math.min(a.y, b.y)
+          const x1 = Math.max(a.x + a.w, b.x + b.w),  y1 = Math.max(a.y + a.h, b.y + b.h)
+          list[i] = { id: list[i].id, bbox: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } }
+          list.splice(j, 1)
+          changed = true
+          break outer
+        }
+      }
+    }
+  }
+
+  return list
+    .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
+    .map((z, i) => ({ ...z, id: i }))
+}
+
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
@@ -142,7 +177,7 @@ async function compositeZone(
   octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
   octx.fillRect(0, 0, bw, bh)
 
-  const pad    = 0.10
+  const pad    = 0.05
   const availW = bw * (1 - 2 * pad)
   const availH = bh * (1 - 2 * pad)
   const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
@@ -375,8 +410,9 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         await sleep(16)
         if (cancelled) return
 
-        const detected = detectZonesGrid(origDataRef.current, W, H)
-        console.log(`[PaintingGallery] ${detected.length} zones détectées (grille ${CELL}px)`,
+        const raw      = detectZonesGrid(origDataRef.current, W, H)
+        const detected = postProcessZones(raw, W, H)
+        console.log(`[PaintingGallery] ${raw.length} brutes → ${detected.length} zones finales (grille ${CELL}px)`,
           detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
 
         if (cancelled) return
