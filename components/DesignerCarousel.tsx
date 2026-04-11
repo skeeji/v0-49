@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 
 interface DesignerCarouselProps {
   designers: any[]
@@ -98,19 +97,6 @@ export function DesignerCarousel({ designers }: DesignerCarouselProps) {
 
       <section style={{ background: CREAM, padding: "5rem 0" }}>
 
-        {/* En-tête */}
-        <div style={{ textAlign: "center", marginBottom: "3rem", padding: "0 2rem" }}>
-          <span style={{ fontSize: "0.78rem", fontWeight: 600, color: BROWN,
-                         textTransform: "uppercase", letterSpacing: "0.1em",
-                         display: "block", marginBottom: "0.75rem" }}>
-            Designers
-          </span>
-          <h2 style={{ fontFamily: '"Playfair Display", Georgia, serif',
-                       fontSize: "clamp(1.8rem, 4vw, 2.5rem)", fontWeight: 600,
-                       color: TEXT_DARK, margin: 0 }}>
-            Les grands maîtres du luminaire
-          </h2>
-        </div>
 
         {/* Bande défilante */}
         <div style={{ position: "relative", overflow: "hidden", padding: "0.5rem 0" }}>
@@ -146,12 +132,6 @@ export function DesignerCarousel({ designers }: DesignerCarouselProps) {
           </div>
         </div>
 
-        {/* Bouton */}
-        <div style={{ textAlign: "center", marginTop: "3rem", padding: "0 2rem" }}>
-          <Link href="/designers" className="dsg-cta">
-            Découvrir les designers →
-          </Link>
-        </div>
 
       </section>
 

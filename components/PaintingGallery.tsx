@@ -91,48 +91,6 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
     .map((z, i) => ({ ...z, id: i }))
 }
 
-// ─── Post-traitement ciblé des zones ────────────────────────────────────────────
-
-// Zones 29+30 : cadre incliné détecté en deux morceaux → on les fusionne
-// Zones 2 et 6 : légèrement trop basses → on remonte leur bbox de 18px
-function postProcessZones(zones: FrameZone[]): FrameZone[] {
-  let list = zones.map(z => ({ ...z, bbox: { ...z.bbox } }))
-
-  // Fusionner les zones proches sur X et Y (gap ≤ 1 cellule = 22px)
-  // → résout 29+30 sans toucher aux autres zones bien séparées
-  let changed = true
-  while (changed) {
-    changed = false
-    outer: for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const a = list[i].bbox, b = list[j].bbox
-        const xGap = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w))
-        const yGap = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h))
-        if (xGap <= CELL && yGap <= CELL) {
-          const x0 = Math.min(a.x, b.x),              y0 = Math.min(a.y, b.y)
-          const x1 = Math.max(a.x + a.w, b.x + b.w),  y1 = Math.max(a.y + a.h, b.y + b.h)
-          list[i] = { id: list[i].id, bbox: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } }
-          list.splice(j, 1)
-          changed = true
-          break outer
-        }
-      }
-    }
-  }
-
-  return list
-    .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
-    .map((z, i) => ({ ...z, id: i }))
-}
-
-// Zones décalées vers le haut dans le debug (cadres trop bas détectés)
-const RAISE_IDS = new Set([2, 6])
-const RAISE_PX  = 18
-
-// Zones à afficher avec inclinaison (cadre oblique dans le tableau)
-// Détection auto : zone plus large que haute × 2
-function isTilted(z: FrameZone) { return z.bbox.w > z.bbox.h * 2.2 }
-
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
@@ -159,7 +117,9 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// ─── Compositing d'un luminaire dans une zone (niveau pixel, v18-good adapté) ───
+// ─── Compositing d'un luminaire dans une zone ────────────────────────────────────
+// Masque radial canvas : centre net, bords fondus vers le crème du tableau.
+// Filtre sepia(10%) contrast(1.05) : les blancs résiduels prennent une teinte ivoire.
 
 async function compositeZone(
   base:     Uint8ClampedArray,
@@ -178,12 +138,14 @@ async function compositeZone(
 
   const { x: bx, y: by, w: bw, h: bh } = bbox
 
+  // Canvas principal : fond crème
   const oc   = document.createElement("canvas")
   oc.width   = bw; oc.height = bh
   const octx = oc.getContext("2d")!
   octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
   octx.fillRect(0, 0, bw, bh)
 
+  // Dimensions contain avec 10% de marge
   const pad    = 0.10
   const availW = bw * (1 - 2 * pad)
   const availH = bh * (1 - 2 * pad)
@@ -192,8 +154,33 @@ async function compositeZone(
   const dh     = img.naturalHeight * scale
   const dx     = (bw - dw) / 2
   const dy     = (bh - dh) / 2
-  octx.drawImage(img, dx, dy, dw, dh)
 
+  // ── 1. Canvas temporaire : luminaire avec filtre ivoire chaud ──────────────
+  const lumC   = document.createElement("canvas")
+  lumC.width   = bw; lumC.height = bh
+  const lumCtx = lumC.getContext("2d")!
+  lumCtx.filter = "sepia(10%) contrast(1.05)"
+  lumCtx.drawImage(img, dx, dy, dw, dh)
+  lumCtx.filter = "none"
+
+  // ── 2. Masque radial : centre opaque, bords progressivement transparents ───
+  const cx     = dx + dw / 2
+  const cy     = dy + dh / 2
+  const rOuter = Math.max(dw, dh) / 2 * 1.05   // légèrement au-delà de l'image
+  const rInner = Math.min(dw, dh) / 2 * 0.45   // zone centrale toujours nette
+  const grad   = lumCtx.createRadialGradient(cx, cy, rInner, cx, cy, rOuter)
+  grad.addColorStop(0,    "rgba(0,0,0,1)")
+  grad.addColorStop(0.72, "rgba(0,0,0,1)")
+  grad.addColorStop(1,    "rgba(0,0,0,0)")
+  lumCtx.globalCompositeOperation = "destination-in"
+  lumCtx.fillStyle = grad
+  lumCtx.fillRect(0, 0, bw, bh)
+
+  // ── 3. Composite luminaire masqué sur fond crème ───────────────────────────
+  octx.globalCompositeOperation = "source-over"
+  octx.drawImage(lumC, 0, 0)
+
+  // ── 4. Suppression résiduelle des blancs purs au centre ────────────────────
   const lumImgData = octx.getImageData(0, 0, bw, bh)
   const lumD       = lumImgData.data
 
@@ -212,6 +199,7 @@ async function compositeZone(
     }
   }
 
+  // ── 5. Copie dans le buffer base (uniquement sur les zones transparentes) ──
   for (let row = 0; row < bh; row++) {
     for (let col = 0; col < bw; col++) {
       const px = bx + col, py = by + row
@@ -321,7 +309,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const [debugZones,    setDebugZones]    = useState(false)
   const [hovDebug,      setHovDebug]      = useState<number | null>(null)
 
-  // ── Tooltip : timer partagé zone ↔ label ─────────────────────────────────────
   const handleEnter = useCallback((id: number) => {
     if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
     setHovZone(id)
@@ -331,7 +318,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     leaveTimerRef.current = setTimeout(() => setHovZone(null), 250)
   }, [])
 
-  // ── Pool ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch("/api/luminaires-gallery")
       .then(r => r.json())
@@ -339,7 +325,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       .catch(() => {})
   }, [])
 
-  // ── doComposite ───────────────────────────────────────────────────────────────
   const doComposite = useCallback(async (
     sel:    GalleryLuminaire[],
     zones:  FrameZone[],
@@ -372,7 +357,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     target.getContext("2d")!.putImageData(imgData, 0, 0)
   }, [])
 
-  // ── Crossfade A↔B ────────────────────────────────────────────────────────────
   const crossfadeTo = useCallback(async (
     sel: GalleryLuminaire[], zns: FrameZone[], W: number, H: number,
   ) => {
@@ -386,7 +370,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     activeRef.current = inactive
   }, [doComposite])
 
-  // ── Chargement + détection ────────────────────────────────────────────────────
   useEffect(() => {
     if (!transparentUrl) return
     let cancelled = false
@@ -415,9 +398,8 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         await sleep(16)
         if (cancelled) return
 
-        const raw      = detectZonesGrid(origDataRef.current, W, H)
-        const detected = postProcessZones(raw)
-        console.log(`[PaintingGallery] ${raw.length} brutes → ${detected.length} zones finales`,
+        const detected = detectZonesGrid(origDataRef.current, W, H)
+        console.log(`[PaintingGallery] ${detected.length} zones détectées (grille ${CELL}px)`,
           detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
 
         if (cancelled) return
@@ -432,7 +414,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { cancelled = true }
   }, [transparentUrl])
 
-  // ── Première composition ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!paintingReady || pool.length === 0 || currentRef.current.length > 0) return
     ;(async () => {
@@ -449,7 +430,6 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pool, paintingReady, doComposite])
 
-  // ── Rotation ─────────────────────────────────────────────────────────────────
   const doRotate = useCallback(async (dir: "next"|"prev") => {
     if (pool.length === 0 || !origDataRef.current) return
     const zns = zonesRef.current
@@ -515,75 +495,41 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         {debugZones && (
           <div className="absolute inset-0" style={{ zIndex:30 }}>
             {zones.map(zone => {
-              const color    = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
-              const isHov    = hovDebug === zone.id
-              const tilted   = isTilted(zone)
-              const raised   = RAISE_IDS.has(zone.id)
-              const pctX     = (zone.bbox.x / iW) * 100
-              const rawPctY  = (zone.bbox.y / iH) * 100
-              const pctY     = raised ? rawPctY - (RAISE_PX / iH) * 100 : rawPctY
-              const pctW     = (zone.bbox.w / iW) * 100
-              const pctH     = (zone.bbox.h / iH) * 100
-              const rotate   = tilted ? "rotate(-15deg)" : "none"
+              const color = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
+              const isHov = hovDebug === zone.id
               return (
                 <div
                   key={zone.id}
                   onMouseEnter={() => setHovDebug(zone.id)}
                   onMouseLeave={() => setHovDebug(null)}
                   style={{
-                    position:        "absolute",
-                    left:            `${pctX}%`,
-                    top:             `${pctY}%`,
-                    width:           `${pctW}%`,
-                    height:          `${pctH}%`,
-                    background:      isHov ? color : `${color}99`,
-                    border:          `2px solid ${color}`,
-                    boxSizing:       "border-box",
-                    transition:      "background 0.15s",
-                    display:         "flex",
-                    flexDirection:   "column",
-                    alignItems:      "center",
-                    justifyContent:  "center",
-                    gap:             2,
-                    cursor:          "default",
-                    transform:       rotate,
-                    transformOrigin: "center center",
+                    position:       "absolute",
+                    left:           `${(zone.bbox.x / iW) * 100}%`,
+                    top:            `${(zone.bbox.y / iH) * 100}%`,
+                    width:          `${(zone.bbox.w / iW) * 100}%`,
+                    height:         `${(zone.bbox.h / iH) * 100}%`,
+                    background:     isHov ? color : `${color}99`,
+                    border:         `2px solid ${color}`,
+                    boxSizing:      "border-box",
+                    transition:     "background 0.15s",
+                    display:        "flex",
+                    flexDirection:  "column",
+                    alignItems:     "center",
+                    justifyContent: "center",
+                    gap:            2,
+                    cursor:         "default",
                   }}
                 >
-                  <span style={{
-                    background: color,
-                    color: "#fff",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    fontFamily: "monospace",
-                    padding: "1px 5px",
-                    borderRadius: 3,
-                    lineHeight: 1.4,
-                    textShadow: "0 1px 2px rgba(0,0,0,.6)",
-                    pointerEvents: "none",
-                  }}>
+                  <span style={{ background:color, color:"#fff", fontSize:10, fontWeight:800, fontFamily:"monospace", padding:"1px 5px", borderRadius:3, lineHeight:1.4, textShadow:"0 1px 2px rgba(0,0,0,.6)", pointerEvents:"none" }}>
                     #{zone.id}
                   </span>
-                  <span style={{
-                    color: "#fff",
-                    fontSize: 8,
-                    fontFamily: "monospace",
-                    textShadow: "0 1px 3px rgba(0,0,0,.9)",
-                    pointerEvents: "none",
-                    lineHeight: 1.3,
-                  }}>
+                  <span style={{ color:"#fff", fontSize:8, fontFamily:"monospace", textShadow:"0 1px 3px rgba(0,0,0,.9)", pointerEvents:"none", lineHeight:1.3 }}>
                     {zone.bbox.w}×{zone.bbox.h}
                   </span>
                 </div>
               )
             })}
-            <div style={{
-              position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)",
-              background: "rgba(0,0,0,.82)", color: "#fff", fontSize: 11,
-              padding: "4px 12px", borderRadius: 4, whiteSpace: "nowrap",
-              fontFamily: "monospace", letterSpacing: "0.02em",
-              pointerEvents: "none",
-            }}>
+            <div style={{ position:"absolute", top:6, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.82)", color:"#fff", fontSize:11, padding:"4px 12px", borderRadius:4, whiteSpace:"nowrap", fontFamily:"monospace", pointerEvents:"none" }}>
               DEBUG — {zones.length} zones — {hovDebug !== null ? `#${hovDebug} sélectionné` : "survol pour détails"} — D pour fermer
             </div>
           </div>

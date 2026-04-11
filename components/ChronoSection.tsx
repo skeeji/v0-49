@@ -62,13 +62,6 @@ export function ChronoSection({ luminaires }: { luminaires: any[] }) {
             }}>
               Chronologie
             </span>
-            <h2 style={{
-              fontFamily: '"Playfair Display", Georgia, serif',
-              fontSize: "clamp(1.8rem, 4vw, 2.5rem)", fontWeight: 600,
-              color: TEXT_DARK, margin: 0,
-            }}>
-              Un voyage à travers les époques
-            </h2>
           </div>
 
           {/* Timeline */}
@@ -233,21 +226,6 @@ export function ChronoSection({ luminaires }: { luminaires: any[] }) {
             })}
           </div>
 
-          {/* CTA */}
-          <div style={{ textAlign: "center", marginTop: "4rem" }}>
-            <Link
-              href="/chronologie"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "0.5rem",
-                padding: "0.75rem 2rem",
-                background: BROWN, color: "#fff",
-                borderRadius: 12, fontWeight: 500, fontSize: "0.95rem",
-                textDecoration: "none",
-              }}
-            >
-              Explorer la chronologie complète →
-            </Link>
-          </div>
 
         </div>
       </section>
