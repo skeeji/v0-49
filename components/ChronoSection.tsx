@@ -7,27 +7,37 @@ interface Period {
   years:       string
   key:         string
   description: string
+  chronoId:    string   // id de l'ancre dans /chronologie
 }
 
 const PERIODS: Period[] = [
   { name: "Moyen-Âge",    years: "1000 — 1499", key: "homepage_chronologie_0",
-    description: "Flambeaux, candélabres et lanternes des cathédrales gothiques." },
+    description: "Flambeaux, candélabres et lanternes des cathédrales gothiques.",
+    chronoId: "Moyen-Age" },
   { name: "Renaissance",  years: "1500 — 1599", key: "homepage_chronologie_1",
-    description: "L'éclairage s'affine avec les lustres à bougie et les torchères." },
+    description: "L'éclairage s'affine avec les lustres à bougie et les torchères.",
+    chronoId: "XVIe siècle" },
   { name: "Baroque",      years: "1600 — 1714", key: "homepage_chronologie_2",
-    description: "Fastes du grand siècle, lustres de cristal et girandoles." },
+    description: "Fastes du grand siècle, lustres de cristal et girandoles.",
+    chronoId: "XVIIe siècle" },
   { name: "Néoclassique", years: "1715 — 1799", key: "homepage_chronologie_3",
-    description: "Retour à l'antique, sobriété et harmonie des proportions." },
+    description: "Retour à l'antique, sobriété et harmonie des proportions.",
+    chronoId: "XVIIIe siècle" },
   { name: "Empire",       years: "1800 — 1850", key: "homepage_chronologie_4",
-    description: "Dorures impériales, aigles et motifs guerriers dans l'éclairage." },
+    description: "Dorures impériales, aigles et motifs guerriers dans l'éclairage.",
+    chronoId: "XIXe siècle" },
   { name: "Art Nouveau",  years: "1890 — 1910", key: "homepage_chronologie_5",
-    description: "Formes organiques, vitraux colorés et motifs floraux de Gallé." },
+    description: "Formes organiques, vitraux colorés et motifs floraux de Gallé.",
+    chronoId: "Art Nouveau" },
   { name: "Art Déco",     years: "1920 — 1940", key: "homepage_chronologie_6",
-    description: "Géométrie élégante, laque et chrome dans les intérieurs parisiens." },
+    description: "Géométrie élégante, laque et chrome dans les intérieurs parisiens.",
+    chronoId: "Art Déco" },
   { name: "Moderne",      years: "1950 — 1979", key: "homepage_chronologie_7",
-    description: "Design fonctionnel, acier et verre dans la reconstruction." },
+    description: "Design fonctionnel, acier et verre dans la reconstruction.",
+    chronoId: "1950 - 1959" },
   { name: "Contemporain", years: "1980 — aujourd'hui", key: "homepage_chronologie_8",
-    description: "LED, impression 3D et matériaux durables réinventent l'éclairage." },
+    description: "LED, impression 3D et matériaux durables réinventent l'éclairage.",
+    chronoId: "1980 - 1989" },
 ]
 
 const CREAM     = "#f5f1e8"
@@ -56,19 +66,24 @@ export function ChronoSection({ homepageImages }: ChronoSectionProps) {
           transition: transform 0.55s ease;
         }
         .chrono-row:hover .chrono-img-wrap img { transform: scale(1.06); }
+        .chrono-period-link {
+          text-decoration: none;
+          color: inherit;
+          transition: color 0.2s ease;
+        }
+        .chrono-period-link:hover { color: ${BROWN}; }
 
         @media (max-width: 620px) {
-          .chrono-grid { grid-template-columns: 44px 1fr !important; }
           .chrono-col-left { display: none !important; }
           .chrono-col-right { padding-left: 1.25rem !important; }
-          .chrono-img-wrap { width: 60px !important; height: 75px !important; margin-bottom: 0.5rem; }
+          .chrono-img-wrap { width: 60px !important; height: 75px !important; }
         }
       `}</style>
 
       <section style={{ background: CREAM, padding: "5rem 2rem 6rem" }}>
         <div style={{ maxWidth: "800px", margin: "0 auto" }}>
 
-          <div className="chrono-timeline" style={{ position: "relative" }}>
+          <div style={{ position: "relative" }}>
 
             {/* Ligne verticale */}
             <div style={{
@@ -84,14 +99,17 @@ export function ChronoSection({ homepageImages }: ChronoSectionProps) {
               const imgUrl = homepageImages[period.key] ?? null
               const isLeft = i % 2 === 0
               const isLast = i === PERIODS.length - 1
+              const chronoHref = `/chronologie#${encodeURIComponent(period.chronoId)}`
 
               const TextBlock = () => (
                 <div style={{ ...(isLeft ? { paddingLeft: "2.2rem" } : { paddingRight: "2.2rem", textAlign: "right" }) }}>
-                  <p style={{
-                    fontFamily: '"Playfair Display", Georgia, serif',
-                    fontSize: "1.05rem", fontWeight: 600,
-                    color: TEXT_DARK, margin: "0 0 0.25rem", lineHeight: 1.2,
-                  }}>{period.name}</p>
+                  <Link href={chronoHref} className="chrono-period-link">
+                    <p style={{
+                      fontFamily: '"Playfair Display", Georgia, serif',
+                      fontSize: "1.05rem", fontWeight: 600,
+                      color: TEXT_DARK, margin: "0 0 0.25rem", lineHeight: 1.2,
+                    }}>{period.name}</p>
+                  </Link>
                   <p style={{
                     fontFamily: "Georgia, serif",
                     fontSize: "0.68rem", color: BROWN,
@@ -106,8 +124,12 @@ export function ChronoSection({ homepageImages }: ChronoSectionProps) {
               )
 
               const ImgBlock = () => (
-                <Link href="/chronologie" style={{ textDecoration: "none", display: "block",
-                  ...(isLeft ? { paddingRight: "2.2rem", display: "flex", justifyContent: "flex-end" } : { paddingLeft: "2.2rem" }) }}>
+                <Link href={chronoHref} style={{
+                  textDecoration: "none", display: "block",
+                  ...(isLeft
+                    ? { paddingRight: "2.2rem", display: "flex", justifyContent: "flex-end" }
+                    : { paddingLeft: "2.2rem" }),
+                }}>
                   <div className="chrono-img-wrap" style={{ width: 148, height: 185 }}>
                     {imgUrl && <img src={imgUrl} alt={period.name} loading="lazy" />}
                   </div>
@@ -130,18 +152,14 @@ export function ChronoSection({ homepageImages }: ChronoSectionProps) {
                     {isLeft ? <ImgBlock /> : <TextBlock />}
                   </div>
 
-                  {/* Dot central */}
+                  {/* Dot central — simple, sans ornement */}
                   <div style={{
-                    display: "flex", flexDirection: "column",
-                    alignItems: "center", gap: 6,
-                    position: "relative", zIndex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    position: "relative",
+                    zIndex: 1,
                   }}>
-                    {/* Ornement — trait horizontal fin */}
-                    <div style={{
-                      width: 20, height: 1,
-                      background: `linear-gradient(to right, transparent, ${BROWN}, transparent)`,
-                      marginBottom: 2,
-                    }} />
                     <div style={{
                       width: 8, height: 8,
                       borderRadius: "50%",
@@ -149,11 +167,6 @@ export function ChronoSection({ homepageImages }: ChronoSectionProps) {
                       border: `1.5px solid ${CREAM}`,
                       boxShadow: `0 0 0 2px ${BROWN}`,
                       flexShrink: 0,
-                    }} />
-                    <div style={{
-                      width: 20, height: 1,
-                      background: `linear-gradient(to right, transparent, ${BROWN}, transparent)`,
-                      marginTop: 2,
                     }} />
                   </div>
 

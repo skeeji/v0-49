@@ -132,7 +132,7 @@ async function compositeZone(
   try {
     img = await Promise.race([
       loadImg(lumUrl),
-      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000)),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 3000)),
     ]) as HTMLImageElement
   } catch { return }
 
@@ -451,8 +451,30 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       currentRef.current = sel; historyRef.current = [sel]
       setHasPrev(false)
 
-      // Canvas A montre déjà le tableau brut — on composite dans canvas B en arrière-plan
-      await doComposite(sel, zns, W, H, canvasBRef.current!)
+      const canvasB = canvasBRef.current!
+      const canvasCacheKey = `pgc_${W}x${H}`
+
+      // ── Essai restauration depuis cache (évite tout le compositing) ──────────
+      let restoredFromCache = false
+      try {
+        const cached = sessionStorage.getItem(canvasCacheKey)
+        if (cached) {
+          const cachedImg = await loadImg(cached)
+          canvasB.width = W; canvasB.height = H
+          canvasB.getContext("2d")!.drawImage(cachedImg, 0, 0)
+          restoredFromCache = true
+        }
+      } catch {}
+
+      // ── Compositing complet si pas de cache ──────────────────────────────────
+      if (!restoredFromCache) {
+        await doComposite(sel, zns, W, H, canvasB)
+        // Sauvegarder le résultat pour les prochaines visites
+        try {
+          const dataUrl = canvasB.toDataURL("image/jpeg", 0.78)
+          sessionStorage.setItem(canvasCacheKey, dataUrl)
+        } catch {}
+      }
 
       // Crossfade du tableau brut (A) vers la version avec luminaires (B)
       setZIndexB(2); setZIndexA(1); setAlphaB(0)

@@ -334,7 +334,7 @@ export function PaintingSearchOverlay() {
       <style>{`
         @keyframes pso-slidein { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
         .pso-center {
-          position:absolute; top:13%; left:50%; transform:translateX(-50%);
+          position:absolute; top:19%; left:28%;
           z-index:20; text-align:center; padding:1.2rem 2.2rem; border-radius:16px;
           backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
           background:rgba(245,241,232,0.55); min-width:300px; pointer-events:auto;
@@ -386,8 +386,8 @@ export function PaintingSearchOverlay() {
         }
         .pso-see-all:hover { opacity:1; text-decoration:underline; }
         .pso-results {
-          position:absolute; top:calc(13% + 140px); left:50%; transform:translateX(-50%);
-          z-index:30; width:80vw; max-width:760px;
+          position:absolute; top:calc(19% + 145px); left:28%;
+          z-index:30; width:50vw; max-width:620px;
           background:rgba(245,241,232,0.96); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
           border-radius:18px; padding:1.25rem 1.5rem;
           box-shadow:0 8px 40px rgba(0,0,0,0.12); max-height:42vh; overflow-y:auto;
@@ -412,10 +412,10 @@ export function PaintingSearchOverlay() {
         }
         @keyframes pso-spin { to { transform:rotate(360deg); } }
         @media (max-width:767px) {
-          .pso-center { padding:1rem 1.25rem; min-width:240px; top:8% !important; }
+          .pso-center { padding:1rem 1.25rem; min-width:240px; top:8% !important; left:50% !important; transform:translateX(-50%) !important; }
           .pso-title  { font-size:1.3rem; white-space:normal; }
           .pso-text-input { width:190px; }
-          .pso-results { width:94vw; padding:0.8rem; top:calc(8% + 130px) !important; }
+          .pso-results { width:92vw; padding:0.8rem; top:calc(8% + 130px) !important; left:50% !important; transform:translateX(-50%) !important; }
           .pso-results-grid { grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:6px; }
         }
       `}</style>
