@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
 import MobileFooter from "@/components/MobileFooter"
-import { FloatingGallery } from "@/components/FloatingGallery"
+import { PaintingSearchOverlay } from "@/components/PaintingSearchOverlay"
 import { PaintingGallery } from "@/components/PaintingGallery"
 import { CategorySection } from "@/components/CategorySection"
 import { DesignerCarousel } from "@/components/DesignerCarousel"
@@ -84,11 +84,13 @@ export default function HomePage() {
   return (
     <div className="bg-[#f5f1e8]">
 
-      {/* ── Recherche par image / texte ── */}
-      <FloatingGallery apiUrl="/api/luminaires" />
-
-      {/* ── Galerie tableau peinture ── */}
-      <PaintingGallery transparentUrl={homepageImages["homepage_painting_transparent"]} />
+      {/* ── Galerie tableau peinture + overlay recherche ── */}
+      <div style={{ position: "relative" }}>
+        <PaintingGallery transparentUrl={homepageImages["homepage_painting_transparent"]} />
+        <div style={{ position: "absolute", inset: 0, zIndex: 25, pointerEvents: "none" }}>
+          <PaintingSearchOverlay />
+        </div>
+      </div>
 
       {/* ── Sections principales ── */}
       <div className="relative z-10 bg-[#f5f1e8]">

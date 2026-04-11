@@ -484,6 +484,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   return (
     <section
       className="relative w-full select-none"
+      style={{ isolation: "isolate" }}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >

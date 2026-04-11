@@ -46,17 +46,6 @@ export function ChronoSection({ homepageImages }: ChronoSectionProps) {
       <section style={{ background: CREAM, padding: "5rem 2rem" }}>
         <div style={{ maxWidth: "860px", margin: "0 auto" }}>
 
-          {/* En-tête */}
-          <div style={{ textAlign: "center", marginBottom: "4rem" }}>
-            <span style={{
-              fontSize: "0.78rem", fontWeight: 600, color: BROWN,
-              textTransform: "uppercase", letterSpacing: "0.1em",
-              display: "block",
-            }}>
-              Chronologie
-            </span>
-          </div>
-
           {/* Timeline */}
           <div style={{ position: "relative" }}>
 
