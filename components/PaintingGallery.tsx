@@ -380,7 +380,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     setPaintingReady(false)
     origDataRef.current = null
     currentRef.current  = []
-    setAlphaA(0); setAlphaB(0)
+    setAlphaA(0); setAlphaB(0); setZIndexA(1); setZIndexB(1)
 
     ;(async () => {
       try {
@@ -397,18 +397,43 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         tmp.getContext("2d")!.drawImage(img, 0, 0)
         origDataRef.current = new Uint8ClampedArray(tmp.getContext("2d")!.getImageData(0, 0, W, H).data)
 
-        setPhase("detecting")
-        await sleep(16)
-        if (cancelled) return
+        // ── Zones : essai cache sessionStorage pour éviter la détection ──────
+        const cacheKey = `pgz_${W}x${H}`
+        let detected: FrameZone[] | null = null
+        try {
+          const cached = sessionStorage.getItem(cacheKey)
+          if (cached) detected = JSON.parse(cached) as FrameZone[]
+        } catch {}
 
-        const detected = detectZonesGrid(origDataRef.current, W, H)
-        console.log(`[PaintingGallery] ${detected.length} zones détectées (grille ${CELL}px)`,
-          detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
+        if (!detected) {
+          setPhase("detecting")
+          await sleep(16)
+          if (cancelled) return
+          detected = detectZonesGrid(origDataRef.current, W, H)
+          console.log(`[PaintingGallery] ${detected.length} zones détectées`,
+            detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(detected)) } catch {}
+        }
 
         if (cancelled) return
         zonesRef.current = detected
         setZones(detected)
+
+        // ── Afficher le tableau brut immédiatement (sans luminaires) ─────────
+        // L'utilisateur voit le tableau pendant que les luminaires se compositent en arrière-plan
+        if (canvasARef.current) {
+          const c = canvasARef.current
+          c.width  = W; c.height = H
+          const ctx = c.getContext("2d")!
+          ctx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
+          ctx.fillRect(0, 0, W, H)
+          ctx.drawImage(img, 0, 0, W, H)
+          activeRef.current = "A"
+          setAlphaA(1)
+        }
+
         setPaintingReady(true)
+        setPhase("compositing")  // painting visible, luminaires en cours en arrière-plan
       } catch {
         if (!cancelled) setPhase("error")
       }
@@ -420,14 +445,24 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   useEffect(() => {
     if (!paintingReady || pool.length === 0 || currentRef.current.length > 0) return
     ;(async () => {
-      const zns = zonesRef.current
+      const zns  = zonesRef.current
       const { w: W, h: H } = imgSizeRef.current
-      const sel = pickRandom(pool, zns.length)
+      const sel  = pickRandom(pool, zns.length)
       currentRef.current = sel; historyRef.current = [sel]
-      setCurrent(sel); setHasPrev(false)
-      setPhase("compositing")
-      await doComposite(sel, zns, W, H, canvasARef.current!)
-      activeRef.current = "A"; setAlphaA(1); setAlphaB(0)
+      setHasPrev(false)
+
+      // Canvas A montre déjà le tableau brut — on composite dans canvas B en arrière-plan
+      await doComposite(sel, zns, W, H, canvasBRef.current!)
+
+      // Crossfade du tableau brut (A) vers la version avec luminaires (B)
+      setZIndexB(2); setZIndexA(1); setAlphaB(0)
+      await sleep(50)
+      setAlphaB(1)
+      await sleep(1500)
+      setAlphaA(0)
+      activeRef.current = "B"
+
+      setCurrent(sel)
       setPhase("ready")
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -539,13 +574,25 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
           </div>
         )}
 
-        {(phase === "loading" || phase === "detecting" || phase === "compositing") && (
+        {/* Overlay bloquant uniquement pendant loading/detecting — compositing se fait en arrière-plan */}
+        {(phase === "loading" || phase === "detecting") && (
           <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background:"rgba(245,241,232,0.75)" }}>
             <p className="font-serif text-sm italic text-stone-600">
-              {phase === "loading"    ? "Chargement du tableau…"  :
-               phase === "detecting" ? "Détection des cadres…"   :
-                                       "Placement des luminaires…"}
+              {phase === "loading" ? "Chargement du tableau…" : "Détection des cadres…"}
             </p>
+          </div>
+        )}
+
+        {/* Petit indicateur discret pendant le compositing des luminaires */}
+        {phase === "compositing" && (
+          <div style={{
+            position:"absolute", bottom:12, right:14, zIndex:15,
+            background:"rgba(245,241,232,0.82)", backdropFilter:"blur(4px)",
+            borderRadius:20, padding:"4px 12px",
+            fontFamily:"Georgia,serif", fontSize:"0.7rem",
+            color:"#7a6654", fontStyle:"italic", pointerEvents:"none",
+          }}>
+            Placement des luminaires…
           </div>
         )}
 

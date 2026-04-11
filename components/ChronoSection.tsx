@@ -5,7 +5,7 @@ import Link from "next/link"
 interface Period {
   name:        string
   years:       string
-  key:         string   // clé homepage_chronologie_N
+  key:         string
   description: string
 }
 
@@ -34,7 +34,7 @@ const CREAM     = "#f5f1e8"
 const BROWN     = "#8b7355"
 const TEXT_DARK = "#3d2b1f"
 const TEXT_MID  = "#7a6654"
-const LINE_CLR  = "rgba(139,115,85,0.25)"
+const LINE_CLR  = "rgba(139,115,85,0.18)"
 
 interface ChronoSectionProps {
   homepageImages: Record<string, string>
@@ -43,124 +43,124 @@ interface ChronoSectionProps {
 export function ChronoSection({ homepageImages }: ChronoSectionProps) {
   return (
     <>
-      <section style={{ background: CREAM, padding: "5rem 2rem" }}>
-        <div style={{ maxWidth: "860px", margin: "0 auto" }}>
+      <style>{`
+        .chrono-img-wrap {
+          overflow: hidden;
+          border-radius: 2px;
+          background: #e8e2d8;
+          flex-shrink: 0;
+        }
+        .chrono-img-wrap img {
+          width: 100%; height: 100%;
+          object-fit: cover; display: block;
+          transition: transform 0.55s ease;
+        }
+        .chrono-row:hover .chrono-img-wrap img { transform: scale(1.06); }
 
-          {/* Timeline */}
-          <div style={{ position: "relative" }}>
+        @media (max-width: 620px) {
+          .chrono-grid { grid-template-columns: 44px 1fr !important; }
+          .chrono-col-left { display: none !important; }
+          .chrono-col-right { padding-left: 1.25rem !important; }
+          .chrono-img-wrap { width: 60px !important; height: 75px !important; margin-bottom: 0.5rem; }
+        }
+      `}</style>
 
-            {/* Ligne verticale centrale */}
+      <section style={{ background: CREAM, padding: "5rem 2rem 6rem" }}>
+        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+
+          <div className="chrono-timeline" style={{ position: "relative" }}>
+
+            {/* Ligne verticale */}
             <div style={{
               position: "absolute",
               left: "50%",
-              top: 0,
-              bottom: 0,
+              top: 0, bottom: 0,
               width: "1px",
-              background: `linear-gradient(to bottom, transparent, ${LINE_CLR} 8%, ${LINE_CLR} 92%, transparent)`,
+              background: `linear-gradient(to bottom, transparent, ${LINE_CLR} 6%, ${LINE_CLR} 94%, transparent)`,
               transform: "translateX(-50%)",
             }} />
 
             {PERIODS.map((period, i) => {
               const imgUrl = homepageImages[period.key] ?? null
               const isLeft = i % 2 === 0
+              const isLast = i === PERIODS.length - 1
+
+              const TextBlock = () => (
+                <div style={{ ...(isLeft ? { paddingLeft: "2.2rem" } : { paddingRight: "2.2rem", textAlign: "right" }) }}>
+                  <p style={{
+                    fontFamily: '"Playfair Display", Georgia, serif',
+                    fontSize: "1.05rem", fontWeight: 600,
+                    color: TEXT_DARK, margin: "0 0 0.25rem", lineHeight: 1.2,
+                  }}>{period.name}</p>
+                  <p style={{
+                    fontFamily: "Georgia, serif",
+                    fontSize: "0.68rem", color: BROWN,
+                    margin: "0 0 0.4rem", letterSpacing: "0.05em",
+                  }}>{period.years}</p>
+                  <p style={{
+                    fontSize: "0.78rem", color: TEXT_MID,
+                    margin: 0, lineHeight: 1.6, maxWidth: 240,
+                    ...(isLeft ? {} : { marginLeft: "auto" }),
+                  }}>{period.description}</p>
+                </div>
+              )
+
+              const ImgBlock = () => (
+                <Link href="/chronologie" style={{ textDecoration: "none", display: "block",
+                  ...(isLeft ? { paddingRight: "2.2rem", display: "flex", justifyContent: "flex-end" } : { paddingLeft: "2.2rem" }) }}>
+                  <div className="chrono-img-wrap" style={{ width: 148, height: 185 }}>
+                    {imgUrl && <img src={imgUrl} alt={period.name} loading="lazy" />}
+                  </div>
+                </Link>
+              )
 
               return (
                 <div
                   key={period.name}
+                  className="chrono-row"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 48px 1fr",
+                    gridTemplateColumns: "1fr 44px 1fr",
                     alignItems: "center",
-                    marginBottom: i < PERIODS.length - 1 ? "3.5rem" : 0,
+                    marginBottom: isLast ? 0 : "3rem",
                   }}
                 >
                   {/* Colonne gauche */}
-                  {isLeft ? (
-                    <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "2rem" }}>
-                      <Link href={`/luminaires?yearMin=${period.key}`} style={{ textDecoration: "none" }}>
-                        <div style={{
-                          width: 130, height: 130,
-                          borderRadius: 3,
-                          overflow: "hidden",
-                          background: "#e8e2d8",
-                          flexShrink: 0,
-                        }}>
-                          {imgUrl && (
-                            <img src={imgUrl} alt={period.name} loading="lazy"
-                              style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
-                          )}
-                        </div>
-                      </Link>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "right", paddingRight: "2rem" }}>
-                      <p style={{
-                        fontFamily: '"Playfair Display", Georgia, serif',
-                        fontSize: "1.15rem", fontWeight: 600,
-                        color: TEXT_DARK, margin: "0 0 0.3rem",
-                      }}>{period.name}</p>
-                      <p style={{ fontSize: "0.8rem", color: TEXT_MID, margin: "0 0 0.5rem", lineHeight: 1.55 }}>
-                        {period.description}
-                      </p>
-                      <Link href={`/chronologie`}
-                        style={{ fontSize: "0.76rem", color: BROWN, textDecoration: "none", fontWeight: 500 }}>
-                        Voir →
-                      </Link>
-                    </div>
-                  )}
+                  <div className="chrono-col-left">
+                    {isLeft ? <ImgBlock /> : <TextBlock />}
+                  </div>
 
-                  {/* Dot + année */}
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5, position:"relative", zIndex:1 }}>
+                  {/* Dot central */}
+                  <div style={{
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", gap: 6,
+                    position: "relative", zIndex: 1,
+                  }}>
+                    {/* Ornement — trait horizontal fin */}
                     <div style={{
-                      width: 11, height: 11,
+                      width: 20, height: 1,
+                      background: `linear-gradient(to right, transparent, ${BROWN}, transparent)`,
+                      marginBottom: 2,
+                    }} />
+                    <div style={{
+                      width: 8, height: 8,
                       borderRadius: "50%",
                       background: BROWN,
-                      border: `2px solid ${CREAM}`,
+                      border: `1.5px solid ${CREAM}`,
                       boxShadow: `0 0 0 2px ${BROWN}`,
                       flexShrink: 0,
                     }} />
-                    <span style={{
-                      fontSize: "0.62rem", fontFamily: "Georgia, serif",
-                      color: BROWN, fontWeight: 600, letterSpacing: "0.04em",
-                      whiteSpace: "nowrap",
-                    }}>
-                      {period.years.split(" ")[0]}
-                    </span>
+                    <div style={{
+                      width: 20, height: 1,
+                      background: `linear-gradient(to right, transparent, ${BROWN}, transparent)`,
+                      marginTop: 2,
+                    }} />
                   </div>
 
                   {/* Colonne droite */}
-                  {isLeft ? (
-                    <div style={{ paddingLeft: "2rem" }}>
-                      <p style={{
-                        fontFamily: '"Playfair Display", Georgia, serif',
-                        fontSize: "1.15rem", fontWeight: 600,
-                        color: TEXT_DARK, margin: "0 0 0.3rem",
-                      }}>{period.name}</p>
-                      <p style={{ fontSize: "0.8rem", color: TEXT_MID, margin: "0 0 0.5rem", lineHeight: 1.55 }}>
-                        {period.description}
-                      </p>
-                      <Link href={`/chronologie`}
-                        style={{ fontSize: "0.76rem", color: BROWN, textDecoration: "none", fontWeight: 500 }}>
-                        Voir →
-                      </Link>
-                    </div>
-                  ) : (
-                    <div style={{ paddingLeft: "2rem" }}>
-                      <Link href={`/chronologie`} style={{ textDecoration: "none" }}>
-                        <div style={{
-                          width: 130, height: 130,
-                          borderRadius: 3,
-                          overflow: "hidden",
-                          background: "#e8e2d8",
-                        }}>
-                          {imgUrl && (
-                            <img src={imgUrl} alt={period.name} loading="lazy"
-                              style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
-                          )}
-                        </div>
-                      </Link>
-                    </div>
-                  )}
+                  <div>
+                    {isLeft ? <TextBlock /> : <ImgBlock />}
+                  </div>
                 </div>
               )
             })}
@@ -168,13 +168,6 @@ export function ChronoSection({ homepageImages }: ChronoSectionProps) {
 
         </div>
       </section>
-
-      <style>{`
-        @media (max-width: 600px) {
-          .chrono-timeline { max-width: 100% !important; }
-          .chrono-img      { width: 80px !important; height: 80px !important; }
-        }
-      `}</style>
     </>
   )
 }

@@ -334,22 +334,22 @@ export function PaintingSearchOverlay() {
       <style>{`
         @keyframes pso-slidein { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
         .pso-center {
-          position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-          z-index:20; text-align:center; padding:2rem 3rem; border-radius:20px;
+          position:absolute; top:13%; left:50%; transform:translateX(-50%);
+          z-index:20; text-align:center; padding:1.2rem 2.2rem; border-radius:16px;
           backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-          background:rgba(245,241,232,0.60); min-width:340px; pointer-events:auto;
+          background:rgba(245,241,232,0.55); min-width:300px; pointer-events:auto;
         }
         .pso-title {
-          font-family:"Playfair Display",Georgia,serif; font-size:2.2rem; font-weight:600;
-          color:${TEXT_DARK}; letter-spacing:-0.02em; margin:0 0 0.35rem; white-space:nowrap;
+          font-family:"Playfair Display",Georgia,serif; font-size:1.7rem; font-weight:600;
+          color:${TEXT_DARK}; letter-spacing:-0.02em; margin:0 0 0.2rem; white-space:nowrap;
         }
         .pso-subtitle {
-          font-family:system-ui,-apple-system,sans-serif; font-size:0.78rem; color:#7a6654;
-          margin:0 0 1.25rem; letter-spacing:0.08em; text-transform:uppercase;
+          font-family:system-ui,-apple-system,sans-serif; font-size:0.7rem; color:#7a6654;
+          margin:0 0 0.9rem; letter-spacing:0.08em; text-transform:uppercase;
         }
         .pso-pill-btn {
           background:transparent; border:1.5px solid ${BROWN}; color:${BROWN}; border-radius:50px;
-          padding:0.6rem 1.5rem; font-size:0.85rem; cursor:pointer; transition:all 0.25s ease;
+          padding:0.45rem 1.15rem; font-size:0.78rem; cursor:pointer; transition:all 0.25s ease;
           font-family:system-ui,-apple-system,sans-serif; white-space:nowrap; line-height:1.2;
         }
         .pso-pill-btn:hover, .pso-pill-btn.pso-active {
@@ -367,7 +367,7 @@ export function PaintingSearchOverlay() {
         .pso-text-wrap { position:relative; display:inline-flex; align-items:center; }
         .pso-text-input {
           background:rgba(255,255,255,0.90); border:1px solid #d4c9b8; border-radius:50px;
-          padding:0.65rem 3rem 0.65rem 1.2rem; width:280px; font-size:0.88rem;
+          padding:0.55rem 3rem 0.55rem 1.1rem; width:240px; font-size:0.82rem;
           font-family:system-ui,-apple-system,sans-serif; color:${TEXT_DARK}; outline:none;
           transition:border-color 0.2s, box-shadow 0.2s;
         }
@@ -381,13 +381,13 @@ export function PaintingSearchOverlay() {
         .pso-input-btn:hover { background:${BROWN_DARK}; }
         .pso-input-btn:disabled { opacity:0.45; cursor:not-allowed; }
         .pso-see-all {
-          display:inline-block; margin-top:1.1rem; font-family:system-ui,sans-serif;
-          font-size:0.76rem; color:${BROWN}; text-decoration:none; opacity:0.75; transition:opacity 0.2s;
+          display:inline-block; margin-top:0.7rem; font-family:system-ui,sans-serif;
+          font-size:0.72rem; color:${BROWN}; text-decoration:none; opacity:0.75; transition:opacity 0.2s;
         }
         .pso-see-all:hover { opacity:1; text-decoration:underline; }
         .pso-results {
-          position:absolute; bottom:1.5rem; left:50%; transform:translateX(-50%);
-          z-index:30; width:88vw; max-width:860px;
+          position:absolute; top:calc(13% + 140px); left:50%; transform:translateX(-50%);
+          z-index:30; width:80vw; max-width:760px;
           background:rgba(245,241,232,0.96); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
           border-radius:18px; padding:1.25rem 1.5rem;
           box-shadow:0 8px 40px rgba(0,0,0,0.12); max-height:42vh; overflow-y:auto;
@@ -412,11 +412,11 @@ export function PaintingSearchOverlay() {
         }
         @keyframes pso-spin { to { transform:rotate(360deg); } }
         @media (max-width:767px) {
-          .pso-center { padding:1.5rem 1.75rem; min-width:280px; }
-          .pso-title  { font-size:1.6rem; white-space:normal; }
-          .pso-text-input { width:220px; }
-          .pso-results { width:94vw; padding:1rem; }
-          .pso-results-grid { grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; }
+          .pso-center { padding:1rem 1.25rem; min-width:240px; top:8% !important; }
+          .pso-title  { font-size:1.3rem; white-space:normal; }
+          .pso-text-input { width:190px; }
+          .pso-results { width:94vw; padding:0.8rem; top:calc(8% + 130px) !important; }
+          .pso-results-grid { grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:6px; }
         }
       `}</style>
 
