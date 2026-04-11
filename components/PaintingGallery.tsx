@@ -19,11 +19,79 @@ interface FrameZone {
   bbox: { x: number; y: number; w: number; h: number }
 }
 
+// ─── Zones codées en dur (en % de W/H) ──────────────────────────────────────────
+// Basées sur l'analyse de image_RGBA_final.png (Image #6).
+// Format : { id, l(left%), t(top%), w(width%), h(height%) }
+// Pour ajuster : modifier ces valeurs en %, elles s'adaptent à toute taille d'image.
+
+const ZONES_PCT = [
+  // ── Fenêtres gauche (2 colonnes × 3 rangées) ──────────────────────────────
+  { id:  0, l:  1.5, t: 10.0, w:  7.0, h: 12.0 },   // fenêtre col1 rang1
+  { id:  1, l:  1.5, t: 24.0, w:  7.0, h: 12.0 },   // fenêtre col1 rang2
+  { id:  2, l:  1.5, t: 38.0, w:  7.0, h: 12.0 },   // fenêtre col1 rang3
+  { id:  3, l:  9.5, t: 10.0, w:  7.0, h: 12.0 },   // fenêtre col2 rang1
+  { id:  4, l:  9.5, t: 24.0, w:  7.0, h: 12.0 },   // fenêtre col2 rang2
+  { id:  5, l:  9.5, t: 38.0, w:  7.0, h: 12.0 },   // fenêtre col2 rang3
+
+  // ── Panneaux mur gauche ────────────────────────────────────────────────────
+  { id:  6, l: 20.5, t: 14.0, w:  7.0, h: 14.0 },   // panneau gauche haut
+  { id:  7, l: 20.5, t: 32.0, w:  7.0, h: 14.0 },   // panneau gauche bas
+
+  // ── Miroir ovale bas-gauche ────────────────────────────────────────────────
+  { id:  8, l: 21.0, t: 54.0, w: 10.0, h: 24.0 },   // miroir ovale
+
+  // ── Cadres centre-gauche ──────────────────────────────────────────────────
+  { id:  9, l: 29.5, t: 13.0, w:  8.0, h: 18.0 },   // cadre centre-gauche 1
+  { id: 10, l: 29.5, t: 36.0, w:  8.0, h: 14.0 },   // cadre centre-gauche 2
+  { id: 11, l: 38.0, t: 18.0, w:  6.0, h: 14.0 },   // cadre centre-gauche 3
+
+  // ── Cadre au-dessus de la porte ───────────────────────────────────────────
+  { id: 12, l: 44.5, t:  9.0, w: 11.0, h: 14.0 },   // cadre porte
+
+  // ── Grand ovale droite-centre ─────────────────────────────────────────────
+  { id: 13, l: 57.5, t: 24.0, w: 14.0, h: 30.0 },   // grand ovale
+
+  // ── Mur droit — rangée supérieure ─────────────────────────────────────────
+  { id: 14, l: 61.0, t:  2.0, w:  8.0, h: 12.0 },   // mur D rang1 col1
+  { id: 15, l: 69.5, t:  2.0, w:  8.0, h: 12.0 },   // mur D rang1 col2
+  { id: 16, l: 78.0, t:  2.0, w:  8.0, h: 12.0 },   // mur D rang1 col3
+  { id: 17, l: 86.5, t:  2.0, w:  9.5, h: 12.0 },   // mur D rang1 col4
+
+  // ── Mur droit — 2e rangée ─────────────────────────────────────────────────
+  { id: 18, l: 61.0, t: 16.0, w:  8.0, h: 19.0 },   // mur D rang2 col1
+  { id: 19, l: 69.5, t: 16.0, w:  8.0, h: 19.0 },   // mur D rang2 col2
+  { id: 20, l: 78.0, t: 16.0, w:  8.0, h: 19.0 },   // mur D rang2 col3
+  { id: 21, l: 86.5, t: 16.0, w:  9.5, h: 19.0 },   // mur D rang2 col4
+
+  // ── Mur droit — 3e rangée ─────────────────────────────────────────────────
+  { id: 22, l: 61.0, t: 38.0, w:  8.0, h: 19.0 },   // mur D rang3 col1
+  { id: 23, l: 69.5, t: 38.0, w:  8.0, h: 19.0 },   // mur D rang3 col2
+  { id: 24, l: 78.0, t: 38.0, w:  8.0, h: 19.0 },   // mur D rang3 col3
+  { id: 25, l: 86.5, t: 38.0, w:  9.5, h: 19.0 },   // mur D rang3 col4
+
+  // ── Mur droit — rangée basse ──────────────────────────────────────────────
+  { id: 26, l: 61.0, t: 60.0, w:  8.0, h: 19.0 },   // mur D rang4 col1
+  { id: 27, l: 69.5, t: 60.0, w:  8.0, h: 19.0 },   // mur D rang4 col2
+  { id: 28, l: 78.0, t: 60.0, w:  8.0, h: 19.0 },   // mur D rang4 col3
+  { id: 29, l: 86.5, t: 60.0, w:  9.5, h: 19.0 },   // mur D rang4 col4
+]
+
+/** Convertit les zones en pourcentages vers des pixels pour l'image donnée. */
+function buildZones(W: number, H: number): FrameZone[] {
+  return ZONES_PCT.map(z => ({
+    id:   z.id,
+    bbox: {
+      x: Math.round(z.l / 100 * W),
+      y: Math.round(z.t / 100 * H),
+      w: Math.round(z.w / 100 * W),
+      h: Math.round(z.h / 100 * H),
+    },
+  }))
+}
+
 // ─── Constantes ─────────────────────────────────────────────────────────────────
 
-const ROTATION_INTERVAL  = 30_000
-const MIN_ZONE_PIXELS    = 400
-const MAX_ZONE_FRACTION  = 0.25   // ignore zones > 25 % de l'image (fond global)
+const ROTATION_INTERVAL = 30_000
 
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
 
@@ -51,85 +119,12 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// ─── Détection automatique des zones transparentes (BFS sur canal alpha) ─────────
-// Identique à la détection BFS verte de v18, mais sur alpha < 128 au lieu de vert.
-// → retrouve exactement les mêmes cadres, dans le même ordre.
-
-function detectTransparentZones(data: Uint8ClampedArray, W: number, H: number): FrameZone[] {
-  const visited = new Uint8Array(W * H)
-  const raw: FrameZone[] = []
-  const totalPx = W * H
-
-  for (let sy = 0; sy < H; sy++) {
-    for (let sx = 0; sx < W; sx++) {
-      const si = sy * W + sx
-      if (visited[si]) continue
-      if (data[si * 4 + 3] >= 128) continue   // pixel opaque → pas un cadre
-
-      const q: number[] = [si]
-      visited[si] = 1
-      let qi = 0, count = 0
-      let x0 = sx, x1 = sx, y0 = sy, y1 = sy
-
-      while (qi < q.length) {
-        const ci = q[qi++]; count++
-        const cy = (ci / W) | 0, cx = ci % W
-        if (cx < x0) x0 = cx; if (cx > x1) x1 = cx
-        if (cy < y0) y0 = cy; if (cy > y1) y1 = cy
-
-        if (cx > 0)     { const n = ci-1; if (!visited[n] && data[n*4+3]<128) { visited[n]=1; q.push(n) } }
-        if (cx < W-1)   { const n = ci+1; if (!visited[n] && data[n*4+3]<128) { visited[n]=1; q.push(n) } }
-        if (cy > 0)     { const n = ci-W; if (!visited[n] && data[n*4+3]<128) { visited[n]=1; q.push(n) } }
-        if (cy < H-1)   { const n = ci+W; if (!visited[n] && data[n*4+3]<128) { visited[n]=1; q.push(n) } }
-      }
-
-      if (count < MIN_ZONE_PIXELS) continue
-      if (count > totalPx * MAX_ZONE_FRACTION) continue
-
-      raw.push({ id: raw.length, bbox: { x: x0, y: y0, w: x1-x0+1, h: y1-y0+1 } })
-    }
-  }
-
-  // Fusionner les bounding-boxes qui se chevauchent (cadre ovale en 2 composantes)
-  const merged = mergeOverlapping(raw)
-
-  const result = merged
-    .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
-    .map((z, i) => ({ ...z, id: i }))
-
-  console.log(`[PaintingGallery] ${result.length} zones détectées`,
-    result.map(z => `#${z.id} x=${z.bbox.x} y=${z.bbox.y} ${z.bbox.w}×${z.bbox.h}`))
-
-  return result
-}
-
-function mergeOverlapping(zones: FrameZone[]): FrameZone[] {
-  const list = zones.map(z => ({ ...z, bbox: { ...z.bbox } }))
-  let changed = true
-  while (changed) {
-    changed = false
-    outer: for (let i = 0; i < list.length; i++) {
-      for (let j = i+1; j < list.length; j++) {
-        const a = list[i].bbox, b = list[j].bbox
-        if (a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y) {
-          const x0=Math.min(a.x,b.x), y0=Math.min(a.y,b.y)
-          const x1=Math.max(a.x+a.w,b.x+b.w), y1=Math.max(a.y+a.h,b.y+b.h)
-          list[i] = { id: list[i].id, bbox: { x:x0, y:y0, w:x1-x0, h:y1-y0 } }
-          list.splice(j,1); changed=true; break outer
-        }
-      }
-    }
-  }
-  return list
-}
-
 // ─── Rendu canvas ────────────────────────────────────────────────────────────────
 //
-//  1. Fond beige sur le canvas
-//  2. Chaque luminaire dessiné dans sa zone (off-screen + multiply pour fond blanc)
-//  3. Tableau RGBA par-dessus : pixels opaques = peinture, transparents = luminaire
+//  1. Fond beige sur le canvas principal
+//  2. Chaque luminaire dessiné dans sa zone (canvas off-screen + multiply → blanc devient beige, GPU)
+//  3. Tableau RGBA par-dessus : pixels opaques = peinture, transparents = luminaire visible
 //
-// → même résultat visuel qu'avec le fond vert, mais avec le canal alpha natif.
 
 async function renderComposite(
   canvas:   HTMLCanvasElement,
@@ -149,7 +144,7 @@ async function renderComposite(
   ctx.fillStyle = "#f5f0e8"
   ctx.fillRect(0, 0, W, H)
 
-  // 2. Luminaires en parallèle
+  // 2. Luminaires en parallèle (un par zone)
   await Promise.all(
     zones.map(async (zone, i) => {
       const lum = sel[i]
@@ -166,7 +161,7 @@ async function renderComposite(
       const { x: zx, y: zy, w: zw, h: zh } = zone.bbox
       if (zw < 2 || zh < 2) return
 
-      // Canvas off-screen : fond beige + multiply → blanc devient beige (GPU, pas de boucle)
+      // Canvas off-screen : fond beige + multiply → les blancs de l'image deviennent beiges (GPU, zéro boucle pixel)
       const oc     = document.createElement("canvas")
       oc.width     = zw
       oc.height    = zh
@@ -178,10 +173,10 @@ async function renderComposite(
       oc_ctx.fillRect(0, 0, zw, zh)
       oc_ctx.globalCompositeOperation = "multiply"
 
-      // object-fit: contain avec 10 % de marge — préserve l'orientation
+      // object-fit : contain + 10 % de marge intérieure
       const pad    = 0.10
-      const availW = zw * (1 - 2*pad)
-      const availH = zh * (1 - 2*pad)
+      const availW = zw * (1 - 2 * pad)
+      const availH = zh * (1 - 2 * pad)
       const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
       const dw     = img.naturalWidth  * scale
       const dh     = img.naturalHeight * scale
@@ -195,18 +190,18 @@ async function renderComposite(
     })
   )
 
-  // 3. Tableau RGBA par-dessus
+  // 3. Tableau RGBA par-dessus (pixels opaques masquent les luminaires)
   ctx.drawImage(painting, 0, 0, W, H)
 }
 
 // ─── Museum label ────────────────────────────────────────────────────────────────
 
 function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: boolean; below: boolean }) {
-  const pos     = below ? { top:"calc(100% + 6px)", bottom:"auto" } : { bottom:"calc(100% + 6px)", top:"auto" }
-  const aOut    = below
+  const pos  = below ? { top:"calc(100% + 6px)", bottom:"auto" } : { bottom:"calc(100% + 6px)", top:"auto" }
+  const aOut = below
     ? { top:-7, bottom:"auto", borderBottom:"7px solid #b8974a", borderTop:"none" }
     : { bottom:-7, top:"auto", borderTop:"7px solid #b8974a", borderBottom:"none" }
-  const aIn     = below
+  const aIn  = below
     ? { top:-5, bottom:"auto", borderBottom:"6px solid #f0e6c0", borderTop:"none" }
     : { bottom:-5, top:"auto", borderTop:"6px solid #f0e6c0", borderBottom:"none" }
   return (
@@ -232,24 +227,25 @@ function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: 
 
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
 
-  const canvasARef   = useRef<HTMLCanvasElement>(null)
-  const canvasBRef   = useRef<HTMLCanvasElement>(null)
-  const activeRef    = useRef<"A"|"B">("A")
-  const paintingRef  = useRef<HTMLImageElement | null>(null)
-  const imgSizeRef   = useRef({ w: 1330, h: 876 })
-  const zonesRef     = useRef<FrameZone[]>([])
+  const canvasARef  = useRef<HTMLCanvasElement>(null)
+  const canvasBRef  = useRef<HTMLCanvasElement>(null)
+  const activeRef   = useRef<"A"|"B">("A")
+  const paintingRef = useRef<HTMLImageElement | null>(null)
+  const imgSizeRef  = useRef({ w: 1330, h: 876 })
+  const zonesRef    = useRef<FrameZone[]>([])
 
   const [pool,          setPool]          = useState<GalleryLuminaire[]>([])
   const [current,       setCurrent]       = useState<GalleryLuminaire[]>([])
   const [zones,         setZones]         = useState<FrameZone[]>([])
   const [paintingReady, setPaintingReady] = useState(false)
   const [imgSize,       setImgSize]       = useState({ w: 1330, h: 876 })
-  const [phase,         setPhase]         = useState<"loading"|"detecting"|"compositing"|"ready"|"error">("loading")
+  const [phase,         setPhase]         = useState<"loading"|"compositing"|"ready"|"error">("loading")
   const [alphaA,        setAlphaA]        = useState(0)
   const [alphaB,        setAlphaB]        = useState(0)
   const [hovZone,       setHovZone]       = useState<number | null>(null)
   const [hovering,      setHovering]      = useState(false)
   const [hasPrev,       setHasPrev]       = useState(false)
+  const [debugZones,    setDebugZones]    = useState(false)
 
   const historyRef = useRef<GalleryLuminaire[][]>([])
   const currentRef = useRef<GalleryLuminaire[]>([])
@@ -263,46 +259,39 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       .catch(() => {})
   }, [])
 
-  // ── Chargement tableau + détection zones ─────────────────────────────────────────
+  // ── Chargement du tableau → calcul des zones codées en dur ───────────────────────
   useEffect(() => {
     if (!transparentUrl) return
     let cancelled = false
     setPhase("loading")
     setPaintingReady(false)
 
-    ;(async () => {
-      try {
-        const img = await loadImg(transparentUrl)
+    loadImg(transparentUrl)
+      .then(img => {
         if (cancelled) return
-
-        const W = img.naturalWidth, H = img.naturalHeight
+        const W = img.naturalWidth  || 1330
+        const H = img.naturalHeight || 876
         paintingRef.current = img
         imgSizeRef.current  = { w: W, h: H }
         setImgSize({ w: W, h: H })
 
-        // Détecter les zones depuis le canal alpha (même BFS que fond vert)
-        setPhase("detecting")
-        const tmp = document.createElement("canvas")
-        tmp.width = W; tmp.height = H
-        tmp.getContext("2d")!.drawImage(img, 0, 0)
-        const { data } = tmp.getContext("2d")!.getImageData(0, 0, W, H)
-        const detected = detectTransparentZones(data, W, H)
+        const zns = buildZones(W, H)
+        zonesRef.current = zns
+        setZones(zns)
 
-        if (cancelled) return
-        zonesRef.current = detected
-        setZones(detected)
+        console.log(`[PaintingGallery] ${zns.length} zones chargées (${W}×${H})`,
+          zns.map(z => `#${z.id} x=${z.bbox.x} y=${z.bbox.y} ${z.bbox.w}×${z.bbox.h}`))
+
         setPaintingReady(true)   // déclenche la composition via useEffect
-      } catch {
-        if (!cancelled) setPhase("error")
-      }
-    })()
+      })
+      .catch(() => { if (!cancelled) setPhase("error") })
 
     return () => { cancelled = true }
   }, [transparentUrl])
 
-  // ── Première composition dès que tableau + pool + zones sont prêts ───────────────
+  // ── Première composition dès que tableau + pool sont prêts ───────────────────────
   useEffect(() => {
-    if (!paintingReady || pool.length === 0 || zonesRef.current.length === 0 || currentRef.current.length > 0) return
+    if (!paintingReady || pool.length === 0 || currentRef.current.length > 0) return
     ;(async () => {
       const zns = zonesRef.current
       const sel = pickRandom(pool, zns.length)
@@ -364,6 +353,15 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [phase, pool.length, resetTimer])
 
+  // ── Touche D → basculer l'affichage des zones (calibration) ─────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "d" || e.key === "D") setDebugZones(v => !v)
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [])
+
   // ─────────────────────────────────────────────────────────────────────────────────
 
   if (!transparentUrl) {
@@ -384,7 +382,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     >
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: `${iW} / ${iH}` }}>
 
-        {/* Tableau affiché immédiatement pendant le chargement */}
+        {/* Tableau affiché immédiatement (fallback pendant le chargement canvas) */}
         <img src={transparentUrl} alt="" aria-hidden
           className="absolute inset-0 w-full h-full block"
           style={{ objectFit:"fill", zIndex:0 }}
@@ -399,12 +397,40 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaB, transition:"opacity 0.8s ease" }}
         />
 
-        {(phase === "loading" || phase === "detecting" || phase === "compositing") && (
+        {/* Overlay de calibration (touche D) */}
+        {debugZones && (
+          <div className="absolute inset-0 pointer-events-none" style={{ zIndex:30 }}>
+            {zones.map(zone => (
+              <div key={zone.id}
+                style={{
+                  position:  "absolute",
+                  left:      `${(zone.bbox.x / iW) * 100}%`,
+                  top:       `${(zone.bbox.y / iH) * 100}%`,
+                  width:     `${(zone.bbox.w / iW) * 100}%`,
+                  height:    `${(zone.bbox.h / iH) * 100}%`,
+                  border:    "2px solid rgba(255,80,80,0.9)",
+                  background:"rgba(255,0,0,0.15)",
+                  boxSizing: "border-box",
+                  display:   "flex",
+                  alignItems:"center",
+                  justifyContent:"center",
+                }}
+              >
+                <span style={{ color:"#fff", fontSize:10, fontWeight:700, textShadow:"0 0 3px #000", lineHeight:1 }}>
+                  {zone.id}
+                </span>
+              </div>
+            ))}
+            <div style={{ position:"absolute", top:8, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.7)", color:"#fff", fontSize:11, padding:"4px 10px", borderRadius:4, whiteSpace:"nowrap" }}>
+              DEBUG ZONES — {zones.length} zones — appuie D pour fermer
+            </div>
+          </div>
+        )}
+
+        {(phase === "loading" || phase === "compositing") && (
           <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background:"rgba(245,241,232,0.70)" }}>
             <p className="font-serif text-sm italic text-stone-500">
-              {phase === "loading"     && "Chargement du tableau…"}
-              {phase === "detecting"   && "Détection des cadres…"}
-              {phase === "compositing" && "Placement des luminaires…"}
+              {phase === "loading"     ? "Chargement du tableau…" : "Placement des luminaires…"}
             </p>
           </div>
         )}
@@ -417,7 +443,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
       </div>
 
-      {/* Zones interactives — hors overflow-hidden pour les tooltips */}
+      {/* Zones interactives — hors overflow-hidden pour que les tooltips débordent */}
       {phase === "ready" && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex:5 }}>
           {zones.map((zone, i) => {
