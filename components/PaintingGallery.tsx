@@ -135,13 +135,19 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// ─── Compositing d'un luminaire dans une zone (niveau pixel) ─────────────────────
+// ─── Compositing d'un luminaire dans une zone (niveau pixel, haute qualité) ──────
 //
-// Copié de v18-good (fond vert), adapté pour RGBA :
-//   - charge le luminaire dans un canvas off-screen
-//   - boucle pixel : suppression fond blanc → beige
-//   - écrit uniquement les pixels TRANSPARENTS du tableau (alpha < seuil)
-//     dans le buffer de sortie `base`
+// Stratégie pour éviter le détourage (qui pixelise) :
+//   1. Canvas off-screen à 2× (supersampling) → antialiasing naturel au downscale
+//   2. Fond beige puis luminaire en blend "multiply" :
+//        blanc (255,255,255) × beige (245,240,232) = beige  → fond blanc disparaît
+//        couleur × beige ≈ couleur                          → luminaire inchangé
+//      Aucun seuil arbitraire, aucun découpage, aucune pixelisation.
+//   3. Downscale vers la taille réelle de la zone (getImageData 1×)
+//   4. Écriture uniquement sur les pixels transparents du tableau (origData.alpha < seuil)
+
+const PAD   = 0.05   // 5 % de marge intérieure (luminaire occupe ~90 % de la zone)
+const SS    = 2      // facteur de supersampling
 
 async function compositeZone(
   base:     Uint8ClampedArray,
@@ -160,52 +166,50 @@ async function compositeZone(
 
   const { x: bx, y: by, w: bw, h: bh } = bbox
 
-  // Canvas off-screen : fond beige + luminaire en object-fit:contain 10% padding
-  const oc     = document.createElement("canvas")
-  oc.width     = bw
-  oc.height    = bh
-  const octx   = oc.getContext("2d")!
-  octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
-  octx.fillRect(0, 0, bw, bh)
+  // ── 1. Canvas SS× : fond beige + luminaire en multiply ────────────────────────
+  const ocW  = bw * SS
+  const ocH  = bh * SS
+  const oc   = document.createElement("canvas")
+  oc.width   = ocW
+  oc.height  = ocH
+  const octx = oc.getContext("2d")!
+  octx.imageSmoothingEnabled = true
+  octx.imageSmoothingQuality = "high"
 
-  const pad    = 0.10
-  const availW = bw * (1 - 2 * pad)
-  const availH = bh * (1 - 2 * pad)
+  // Fond beige uni
+  octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
+  octx.fillRect(0, 0, ocW, ocH)
+
+  // Luminaire : multiply élimine le fond blanc sans pixelisation
+  octx.globalCompositeOperation = "multiply"
+  const availW = ocW * (1 - 2 * PAD)
+  const availH = ocH * (1 - 2 * PAD)
   const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
   const dw     = img.naturalWidth  * scale
   const dh     = img.naturalHeight * scale
-  const dx     = (bw - dw) / 2
-  const dy     = (bh - dh) / 2
+  const dx     = (ocW - dw) / 2
+  const dy     = (ocH - dh) / 2
   octx.drawImage(img, dx, dy, dw, dh)
+  octx.globalCompositeOperation = "source-over"
 
-  const lumImgData = octx.getImageData(0, 0, bw, bh)
-  const lumD       = lumImgData.data
+  // ── 2. Downscale SS× → 1× (antialiasing par interpolation) ───────────────────
+  const oc1   = document.createElement("canvas")
+  oc1.width   = bw
+  oc1.height  = bh
+  const ctx1  = oc1.getContext("2d")!
+  ctx1.imageSmoothingEnabled = true
+  ctx1.imageSmoothingQuality = "high"
+  ctx1.drawImage(oc, 0, 0, ocW, ocH, 0, 0, bw, bh)
 
-  // Suppression fond blanc → beige (identique v18-good)
-  for (let i = 0; i < lumD.length; i += 4) {
-    const r = lumD[i], g = lumD[i + 1], b = lumD[i + 2]
-    if (r > 220 && g > 220 && b > 220) {
-      lumD[i] = BG_R; lumD[i + 1] = BG_G; lumD[i + 2] = BG_B
-    } else {
-      const minCh = Math.min(r, g, b)
-      if (minCh > 180) {
-        const t = (minCh - 180) / 40
-        lumD[i]     = Math.round(r + (BG_R - r) * t)
-        lumD[i + 1] = Math.round(g + (BG_G - g) * t)
-        lumD[i + 2] = Math.round(b + (BG_B - b) * t)
-      }
-    }
-  }
+  const lumD = ctx1.getImageData(0, 0, bw, bh).data
 
-  // Copie dans base uniquement pour les pixels transparents du tableau
+  // ── 3. Copie dans base uniquement sur pixels transparents du tableau ───────────
   for (let row = 0; row < bh; row++) {
     for (let col = 0; col < bw; col++) {
       const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0) continue
-
-      const origIdx   = (py * W + px) * 4
-      const origAlpha = origData[origIdx + 3]
-      if (origAlpha < ALPHA_THRESHOLD) {
+      const origIdx = (py * W + px) * 4
+      if (origData[origIdx + 3] < ALPHA_THRESHOLD) {
         const lumIdx      = (row * bw + col) * 4
         base[origIdx]     = lumD[lumIdx]
         base[origIdx + 1] = lumD[lumIdx + 1]
@@ -295,6 +299,8 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     const tmp    = document.createElement("canvas")
     tmp.width    = W; tmp.height = H
     const tmpCtx = tmp.getContext("2d")!
+    tmpCtx.imageSmoothingEnabled = true
+    tmpCtx.imageSmoothingQuality = "high"
     tmpCtx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
     tmpCtx.fillRect(0, 0, W, H)
     tmpCtx.drawImage(paintingRef.current, 0, 0, W, H)
