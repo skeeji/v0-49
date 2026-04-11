@@ -91,19 +91,83 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
     .map((z, i) => ({ ...z, id: i }))
 }
 
+// ─── Post-traitement des zones ───────────────────────────────────────────────────
+
+const MERGE_GAP = CELL * 2.5
+
+function postProcessZones(zones: FrameZone[], W: number, H: number): FrameZone[] {
+  let list = zones.map(z => ({ ...z, bbox: { ...z.bbox } }))
+
+  // A. Supprimer les micro-zones parasites
+  list = list.filter(z => z.bbox.w * z.bbox.h >= CELL * CELL * 6)
+
+  // B. Fusionner les zones proches (notamment 29+30)
+  let changed = true
+  while (changed) {
+    changed = false
+    outer: for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i].bbox, b = list[j].bbox
+        const xGap = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x+a.w, b.x+b.w))
+        const yGap = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y+a.h, b.y+b.h))
+        if (xGap <= MERGE_GAP && yGap <= MERGE_GAP) {
+          const x0 = Math.min(a.x, b.x),         y0 = Math.min(a.y, b.y)
+          const x1 = Math.max(a.x+a.w, b.x+b.w), y1 = Math.max(a.y+a.h, b.y+b.h)
+          list[i] = { id: list[i].id, bbox: { x:x0, y:y0, w:x1-x0, h:y1-y0 } }
+          list.splice(j, 1); changed = true; break outer
+        }
+      }
+    }
+  }
+
+  // C. Découper les zones trop larges (2 cadres collés détectés comme 1)
+  const result: FrameZone[] = []
+  for (const z of list) {
+    if (z.bbox.w > z.bbox.h * 1.9 && z.bbox.w > 80) {
+      const hw = Math.floor(z.bbox.w / 2)
+      result.push({ id:0, bbox:{ x:z.bbox.x,      y:z.bbox.y, w:hw,            h:z.bbox.h } })
+      result.push({ id:0, bbox:{ x:z.bbox.x + hw, y:z.bbox.y, w:z.bbox.w - hw, h:z.bbox.h } })
+    } else {
+      result.push(z)
+    }
+  }
+
+  return result
+    .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
+    .map((z, i) => ({ ...z, id: i }))
+}
+
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
 function pickRandom(pool: GalleryLuminaire[], n: number): GalleryLuminaire[] {
   if (pool.length === 0) return []
-  const copy = [...pool]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = (Math.random() * (i + 1)) | 0;
-    [copy[i], copy[j]] = [copy[j], copy[i]]
+  const repeated: GalleryLuminaire[] = []
+  while (repeated.length < n) repeated.push(...pool)
+  for (let i = repeated.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [repeated[i], repeated[j]] = [repeated[j], repeated[i]]
   }
-  const result: GalleryLuminaire[] = []
-  for (let i = 0; i < n; i++) result.push(copy[i % copy.length])
+  return repeated.slice(0, n)
+}
+
+function detectBackgroundColor(data: Uint8ClampedArray, W: number, H: number): [number, number, number] {
+  const samples = [
+    [0.05, 0.3], [0.05, 0.5], [0.05, 0.7],
+    [0.95, 0.3], [0.95, 0.5], [0.95, 0.7],
+    [0.3,  0.05],[0.5,  0.05],[0.7,  0.05],
+  ]
+  const rs: number[] = [], gs: number[] = [], bs: number[] = []
+  for (const [fx, fy] of samples) {
+    const idx = (Math.round(fy * H) * W + Math.round(fx * W)) * 4
+    if (data[idx + 3] > 200) {
+      rs.push(data[idx]); gs.push(data[idx+1]); bs.push(data[idx+2])
+    }
+  }
+  const med = (arr: number[]) => { arr.sort((a,b)=>a-b); return arr[Math.floor(arr.length/2)] }
+  const result: [number, number, number] = [med(rs), med(gs), med(bs)]
+  console.log(`[Gallery] fond détecté rgb(${result[0]},${result[1]},${result[2]})`)
   return result
 }
 
@@ -117,7 +181,7 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// ─── Compositing d'un luminaire dans une zone (niveau pixel, v18-good adapté) ───
+// ─── Compositing d'un luminaire dans une zone (niveau pixel) ────────────────────
 
 async function compositeZone(
   base:     Uint8ClampedArray,
@@ -125,6 +189,7 @@ async function compositeZone(
   bbox:     { x: number; y: number; w: number; h: number },
   lumUrl:   string,
   W:        number,
+  bgColor:  [number, number, number],
 ): Promise<void> {
   let img: HTMLImageElement
   try {
@@ -134,52 +199,59 @@ async function compositeZone(
     ]) as HTMLImageElement
   } catch { return }
 
-  const { x: bx, y: by, w: bw, h: bh } = bbox
+  const { x: bx, y: by, w: ocW, h: ocH } = bbox
 
   const oc   = document.createElement("canvas")
-  oc.width   = bw; oc.height = bh
+  oc.width   = ocW; oc.height = ocH
   const octx = oc.getContext("2d")!
-  octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
-  octx.fillRect(0, 0, bw, bh)
+  octx.fillStyle = `rgb(${bgColor[0]},${bgColor[1]},${bgColor[2]})`
+  octx.fillRect(0, 0, ocW, ocH)
 
-  const pad    = 0.10
-  const availW = bw * (1 - 2 * pad)
-  const availH = bh * (1 - 2 * pad)
+  const PAD    = 0.05
+  const availW = ocW * (1 - 2 * PAD)
+  const availH = ocH * (1 - 2 * PAD)
   const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
   const dw     = img.naturalWidth  * scale
   const dh     = img.naturalHeight * scale
-  const dx     = (bw - dw) / 2
-  const dy     = (bh - dh) / 2
+  const dx     = (ocW - dw) / 2
+  const dy     = (ocH - dh) / 2
   octx.drawImage(img, dx, dy, dw, dh)
 
-  const lumImgData = octx.getImageData(0, 0, bw, bh)
-  const lumD       = lumImgData.data
+  const [CR, CG, CB] = bgColor
+  const ocData = octx.getImageData(0, 0, ocW, ocH)
+  const d = ocData.data
 
-  for (let i = 0; i < lumD.length; i += 4) {
-    const r = lumD[i], g = lumD[i + 1], b = lumD[i + 2]
-    if (r > 220 && g > 220 && b > 220) {
-      lumD[i] = BG_R; lumD[i + 1] = BG_G; lumD[i + 2] = BG_B
-    } else {
-      const minCh = Math.min(r, g, b)
-      if (minCh > 180) {
-        const t = (minCh - 180) / 40
-        lumD[i]     = Math.round(r + (BG_R - r) * t)
-        lumD[i + 1] = Math.round(g + (BG_G - g) * t)
-        lumD[i + 2] = Math.round(b + (BG_B - b) * t)
-      }
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2], a = d[i+3]
+    if (a < 10) continue
+
+    const mx  = Math.max(r, g, b)
+    const mn  = Math.min(r, g, b)
+    const sat = mx === 0 ? 0 : (mx - mn) / mx
+    const lum = mx / 255
+
+    if (lum > 0.78 && sat < 0.13) {
+      const tLum = Math.min(1, (lum - 0.78) / 0.22)
+      const tSat = Math.min(1, 1 - sat / 0.13)
+      const t    = tLum * tSat
+      d[i]   = Math.round(r * (1-t) + CR * t)
+      d[i+1] = Math.round(g * (1-t) + CG * t)
+      d[i+2] = Math.round(b * (1-t) + CB * t)
+      // Ne jamais toucher alpha — pas de détourage
     }
   }
+  octx.putImageData(ocData, 0, 0)
 
-  for (let row = 0; row < bh; row++) {
-    for (let col = 0; col < bw; col++) {
+  for (let row = 0; row < ocH; row++) {
+    for (let col = 0; col < ocW; col++) {
       const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0) continue
       const origIdx = (py * W + px) * 4
       if (origData[origIdx + 3] < ALPHA_THRESHOLD) {
-        const lumIdx      = (row * bw + col) * 4
-        base[origIdx]     = lumD[lumIdx]
-        base[origIdx + 1] = lumD[lumIdx + 1]
-        base[origIdx + 2] = lumD[lumIdx + 2]
+        const lumIdx      = (row * ocW + col) * 4
+        base[origIdx]     = d[lumIdx]
+        base[origIdx + 1] = d[lumIdx + 1]
+        base[origIdx + 2] = d[lumIdx + 2]
         base[origIdx + 3] = 255
       }
     }
@@ -258,6 +330,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const currentRef    = useRef<GalleryLuminaire[]>([])
   const timerRef      = useRef<ReturnType<typeof setInterval> | null>(null)
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout>  | null>(null)
+  const bgColorRef    = useRef<[number, number, number]>([245, 240, 232])
 
   const [pool,          setPool]          = useState<GalleryLuminaire[]>([])
   const [current,       setCurrent]       = useState<GalleryLuminaire[]>([])
@@ -313,7 +386,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     await Promise.all(
       zones.map((zone, i) =>
         sel[i]
-          ? compositeZone(base, origDataRef.current!, zone.bbox, sel[i].imageUrl, W)
+          ? compositeZone(base, origDataRef.current!, zone.bbox, sel[i].imageUrl, W, bgColorRef.current)
           : Promise.resolve()
       )
     )
@@ -361,14 +434,18 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         tmp.width = W; tmp.height = H
         tmp.getContext("2d")!.drawImage(img, 0, 0)
         origDataRef.current = new Uint8ClampedArray(tmp.getContext("2d")!.getImageData(0, 0, W, H).data)
+        bgColorRef.current  = detectBackgroundColor(origDataRef.current, W, H)
 
         setPhase("detecting")
         await sleep(16)
         if (cancelled) return
 
-        const detected = detectZonesGrid(origDataRef.current, W, H)
-        console.log(`[PaintingGallery] ${detected.length} zones détectées (grille ${CELL}px)`,
-          detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
+        const raw      = detectZonesGrid(origDataRef.current, W, H)
+        const detected = postProcessZones(raw, W, H)
+
+        const [CR, CG, CB] = bgColorRef.current
+        console.log(`[Gallery] ${detected.length} zones finales | fond rgb(${CR},${CG},${CB})`)
+        detected.forEach(z => console.log(`  #${z.id} (${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
 
         if (cancelled) return
         zonesRef.current = detected
