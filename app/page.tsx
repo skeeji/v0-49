@@ -11,7 +11,6 @@ import { PaintingGallery } from "@/components/PaintingGallery"
 import { CategorySection } from "@/components/CategorySection"
 import { DesignerCarousel } from "@/components/DesignerCarousel"
 import { ChronoSection } from "@/components/ChronoSection"
-import { PricingSection } from "@/components/PricingSection"
 
 export default function HomePage() {
   const [luminaires,      setLuminaires]      = useState<any[]>([])
@@ -107,7 +106,6 @@ export default function HomePage() {
 
         <ChronoSection luminaires={luminaires} />
 
-        <PricingSection />
 
         <div className="py-10 text-center text-sm text-gray-400">
           <p className="font-serif">Luminaires - Du Moyen-Age a nos jours</p>

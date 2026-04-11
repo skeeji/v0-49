@@ -30,9 +30,8 @@ const BG_R = 245, BG_G = 240, BG_B = 232   // #f5f0e8
 const CELL         = 22
 const FRAME_RATIO  = 0.55
 const BORDER_CELLS = 2
-const MIN_ZONE_PX  = 1400
-const MAX_ZONE_PCT = 0.13
-const MERGE_GAP    = CELL * 2   // fusionne zones à ≤ 44px de gap
+const MIN_ZONE_PX  = 1200
+const MAX_ZONE_PCT = 0.18
 
 function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZone[] {
   const gW = Math.ceil(W / CELL)
@@ -92,15 +91,15 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
     .map((z, i) => ({ ...z, id: i }))
 }
 
-// ─── Post-traitement des zones ───────────────────────────────────────────────────
+// ─── Post-traitement ciblé des zones ────────────────────────────────────────────
 
-function postProcessZones(zones: FrameZone[], W: number, H: number): FrameZone[] {
+// Zones 29+30 : cadre incliné détecté en deux morceaux → on les fusionne
+// Zones 2 et 6 : légèrement trop basses → on remonte leur bbox de 18px
+function postProcessZones(zones: FrameZone[]): FrameZone[] {
   let list = zones.map(z => ({ ...z, bbox: { ...z.bbox } }))
 
-  // A. Supprimer micro-zones parasites (< CELL² × 4)
-  list = list.filter(z => z.bbox.w * z.bbox.h >= CELL * CELL * 4)
-
-  // B. Fusionner zones adjacentes (gap ≤ MERGE_GAP) — résout 29+30 et similaires
+  // Fusionner les zones proches sur X et Y (gap ≤ 1 cellule = 22px)
+  // → résout 29+30 sans toucher aux autres zones bien séparées
   let changed = true
   while (changed) {
     changed = false
@@ -109,7 +108,7 @@ function postProcessZones(zones: FrameZone[], W: number, H: number): FrameZone[]
         const a = list[i].bbox, b = list[j].bbox
         const xGap = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w))
         const yGap = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h))
-        if (xGap <= MERGE_GAP && yGap <= MERGE_GAP) {
+        if (xGap <= CELL && yGap <= CELL) {
           const x0 = Math.min(a.x, b.x),              y0 = Math.min(a.y, b.y)
           const x1 = Math.max(a.x + a.w, b.x + b.w),  y1 = Math.max(a.y + a.h, b.y + b.h)
           list[i] = { id: list[i].id, bbox: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } }
@@ -125,6 +124,14 @@ function postProcessZones(zones: FrameZone[], W: number, H: number): FrameZone[]
     .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
     .map((z, i) => ({ ...z, id: i }))
 }
+
+// Zones décalées vers le haut dans le debug (cadres trop bas détectés)
+const RAISE_IDS = new Set([2, 6])
+const RAISE_PX  = 18
+
+// Zones à afficher avec inclinaison (cadre oblique dans le tableau)
+// Détection auto : zone plus large que haute × 2
+function isTilted(z: FrameZone) { return z.bbox.w > z.bbox.h * 2.2 }
 
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
 
@@ -177,7 +184,7 @@ async function compositeZone(
   octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
   octx.fillRect(0, 0, bw, bh)
 
-  const pad    = 0.05
+  const pad    = 0.10
   const availW = bw * (1 - 2 * pad)
   const availH = bh * (1 - 2 * pad)
   const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
@@ -230,8 +237,6 @@ const DEBUG_COLORS = [
 ]
 
 // ─── Museum label ────────────────────────────────────────────────────────────────
-// Fix tooltip : pointer-events auto + onEnter/onLeave partagés avec la zone
-// → le label reste visible quand la souris glisse du cadre vers l'étiquette.
 
 interface LabelProps {
   lum:     GalleryLuminaire
@@ -411,8 +416,8 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         if (cancelled) return
 
         const raw      = detectZonesGrid(origDataRef.current, W, H)
-        const detected = postProcessZones(raw, W, H)
-        console.log(`[PaintingGallery] ${raw.length} brutes → ${detected.length} zones finales (grille ${CELL}px)`,
+        const detected = postProcessZones(raw)
+        console.log(`[PaintingGallery] ${raw.length} brutes → ${detected.length} zones finales`,
           detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
 
         if (cancelled) return
@@ -510,33 +515,39 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         {debugZones && (
           <div className="absolute inset-0" style={{ zIndex:30 }}>
             {zones.map(zone => {
-              const color  = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
-              const isHov  = hovDebug === zone.id
-              const pctX   = (zone.bbox.x / iW) * 100
-              const pctY   = (zone.bbox.y / iH) * 100
-              const pctW   = (zone.bbox.w / iW) * 100
-              const pctH   = (zone.bbox.h / iH) * 100
+              const color    = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
+              const isHov    = hovDebug === zone.id
+              const tilted   = isTilted(zone)
+              const raised   = RAISE_IDS.has(zone.id)
+              const pctX     = (zone.bbox.x / iW) * 100
+              const rawPctY  = (zone.bbox.y / iH) * 100
+              const pctY     = raised ? rawPctY - (RAISE_PX / iH) * 100 : rawPctY
+              const pctW     = (zone.bbox.w / iW) * 100
+              const pctH     = (zone.bbox.h / iH) * 100
+              const rotate   = tilted ? "rotate(-15deg)" : "none"
               return (
                 <div
                   key={zone.id}
                   onMouseEnter={() => setHovDebug(zone.id)}
                   onMouseLeave={() => setHovDebug(null)}
                   style={{
-                    position:   "absolute",
-                    left:       `${pctX}%`,
-                    top:        `${pctY}%`,
-                    width:      `${pctW}%`,
-                    height:     `${pctH}%`,
-                    background: isHov ? color : `${color}99`,
-                    border:     `2px solid ${color}`,
-                    boxSizing:  "border-box",
-                    transition: "background 0.15s",
-                    display:    "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 2,
-                    cursor: "default",
+                    position:        "absolute",
+                    left:            `${pctX}%`,
+                    top:             `${pctY}%`,
+                    width:           `${pctW}%`,
+                    height:          `${pctH}%`,
+                    background:      isHov ? color : `${color}99`,
+                    border:          `2px solid ${color}`,
+                    boxSizing:       "border-box",
+                    transition:      "background 0.15s",
+                    display:         "flex",
+                    flexDirection:   "column",
+                    alignItems:      "center",
+                    justifyContent:  "center",
+                    gap:             2,
+                    cursor:          "default",
+                    transform:       rotate,
+                    transformOrigin: "center center",
                   }}
                 >
                   <span style={{

@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface Period {
   name:        string
@@ -13,321 +12,239 @@ interface Period {
 }
 
 const PERIODS: Period[] = [
-  { name: "Moyen-Âge",    years: "1000 - 1499",        start: 1000, end: 1499,
+  { name: "Moyen-Âge",    years: "1000 — 1499", start: 1000, end: 1499,
     description: "Flambeaux, candélabres et lanternes des cathédrales gothiques." },
-  { name: "Renaissance",  years: "1500 - 1599",        start: 1500, end: 1599,
+  { name: "Renaissance",  years: "1500 — 1599", start: 1500, end: 1599,
     description: "L'éclairage s'affine avec les lustres à bougie et les torchères." },
-  { name: "Baroque",      years: "1600 - 1714",        start: 1600, end: 1714,
+  { name: "Baroque",      years: "1600 — 1714", start: 1600, end: 1714,
     description: "Fastes du grand siècle, lustres de cristal et girandoles." },
-  { name: "Néoclassique", years: "1715 - 1789",        start: 1715, end: 1789,
+  { name: "Néoclassique", years: "1715 — 1799", start: 1715, end: 1799,
     description: "Retour à l'antique, sobriété et harmonie des proportions." },
-  { name: "Empire",       years: "1800 - 1850",        start: 1800, end: 1850,
+  { name: "Empire",       years: "1800 — 1850", start: 1800, end: 1850,
     description: "Dorures impériales, aigles et motifs guerriers dans l'éclairage." },
-  { name: "Art Nouveau",  years: "1890 - 1910",        start: 1890, end: 1910,
+  { name: "Art Nouveau",  years: "1890 — 1910", start: 1890, end: 1910,
     description: "Formes organiques, vitraux colorés et motifs floraux de Gallé." },
-  { name: "Art Déco",     years: "1920 - 1940",        start: 1920, end: 1940,
+  { name: "Art Déco",     years: "1920 — 1940", start: 1920, end: 1940,
     description: "Géométrie élégante, laque et chrome dans les intérieurs parisiens." },
-  { name: "Moderne",      years: "1950 - 1969",        start: 1950, end: 1969,
+  { name: "Moderne",      years: "1950 — 1979", start: 1950, end: 1979,
     description: "Design fonctionnel, acier et verre dans la reconstruction." },
-  { name: "Contemporain", years: "1990 - aujourd'hui", start: 1990, end: 2030,
+  { name: "Contemporain", years: "1980 — aujourd'hui", start: 1980, end: 2030,
     description: "LED, impression 3D et matériaux durables réinventent l'éclairage." },
-]
-
-// Image positions (base values at imgScale=1, radius=270)
-const IMG_OFFSETS = [
-  { ex: -160, ey: -120 }, // top-left
-  { ex:  160, ey: -120 }, // top-right
-  { ex: -160, ey:  120 }, // bottom-left
-  { ex:  160, ey:  120 }, // bottom-right
 ]
 
 const CREAM     = "#f5f1e8"
 const BROWN     = "#8b7355"
 const TEXT_DARK = "#3d2b1f"
 const TEXT_MID  = "#7a6654"
-
-// Fixed SVG arc constants (internal coordinate space)
-const SVG_W  = 700
-const SVG_H  = 240
-const SVG_CX = 350
-const SVG_CY = 240  // arc base sits at bottom of viewBox
-const SVG_R  = 210
+const LINE_CLR  = "rgba(139,115,85,0.25)"
 
 export function ChronoSection({ luminaires }: { luminaires: any[] }) {
-  const router        = useRouter()
-  const containerRef  = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
-  const [activeIndex,     setActiveIndex]     = useState(6)   // Art Déco default
-  const [displayIdx,      setDisplayIdx]      = useState(6)
-  const [animKey,         setAnimKey]         = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [imgScale,        setImgScale]        = useState(1)
-
-  // Responsive image scale from container width
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const observer = new ResizeObserver(([entry]) => {
-      const w = entry.contentRect.width
-      const r = Math.min(w * 0.32, 270)
-      setImgScale(r / 270)
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  const handleSelect = useCallback((i: number) => {
-    if (i === activeIndex || isTransitioning) return
-    setIsTransitioning(true)
-    setActiveIndex(i)
-    setTimeout(() => {
-      setDisplayIdx(i)
-      setAnimKey(k => k + 1)   // remonte les images → animation repart de 0
-      setIsTransitioning(false)
-    }, 250)
-  }, [activeIndex, isTransitioning])
-
-  const period     = PERIODS[displayIdx]
-  const periodLums = luminaires
-    .filter((l: any) => {
+  function getLuminaire(period: Period) {
+    return luminaires.find((l: any) => {
       const y = parseInt(l.annee || l["Année"] || l.year)
       return !isNaN(y) && y >= period.start && y <= period.end && l.filename
-    })
-    .slice(0, 4)
+    }) ?? null
+  }
 
   return (
     <>
-      <style>{`
-        /* ── Explosion depuis le centre ── */
-        @keyframes explode-out {
-          0%   { transform: translate(0, 0) scale(0.3); opacity: 0; }
-          60%  { transform: translate(var(--ex), var(--ey)) scale(1.05); opacity: 1; }
-          100% { transform: translate(var(--ex), var(--ey)) scale(1);    opacity: 1; }
-        }
-        .cw-img {
-          position: absolute;
-          border-radius: 10px;
-          overflow: hidden;
-          animation: explode-out 0.5s ease-out both;
-          animation-play-state: running;
-        }
-
-        /* ── Layout ── */
-        .cw-content {
-          display: flex;
-          gap: 4rem;
-          align-items: center;
-          min-height: 380px;
-        }
-        .cw-text  { flex: 0 0 40%; }
-        .cw-stage {
-          flex: 1;
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 380px;
-        }
-
-        /* ── Arc SVG ── */
-        .cw-arc { display: flex; justify-content: center; }
-        .cw-dot { transition: r 0.25s ease, fill 0.25s ease; }
-
-        /* ── Mobile pills ── */
-        .cw-mobile-nav { display: none; }
-
-        /* ── CTA ── */
-        .chrono-cta {
-          display: inline-flex; align-items: center; gap: 0.5rem;
-          padding: 0.75rem 2rem;
-          background: ${BROWN}; color: #fff;
-          border-radius: 12px; font-weight: 500; font-size: 0.95rem;
-          text-decoration: none; transition: background 0.2s;
-        }
-        .chrono-cta:hover { background: #75614a; }
-
-        /* ── Responsive ── */
-        @media (max-width: 900px) {
-          .cw-content { flex-direction: column; gap: 2rem; min-height: unset; }
-          .cw-text    { flex: none; width: 100%; }
-          .cw-stage   { width: 100%; }
-        }
-        @media (max-width: 600px) {
-          .cw-arc        { display: none !important; }
-          .cw-mobile-nav { display: flex !important; }
-        }
-      `}</style>
-
       <section style={{ background: CREAM, padding: "5rem 2rem" }}>
-        <div ref={containerRef} style={{ maxWidth: "1200px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "860px", margin: "0 auto" }}>
 
-          {/* ── En-tête ── */}
-          <div style={{ textAlign: "center", marginBottom: "3rem" }}>
-            <span style={{ fontSize: "0.78rem", fontWeight: 600, color: BROWN,
-                           textTransform: "uppercase", letterSpacing: "0.1em",
-                           display: "block", marginBottom: "0.75rem" }}>
+          {/* En-tête */}
+          <div style={{ textAlign: "center", marginBottom: "4rem" }}>
+            <span style={{
+              fontSize: "0.78rem", fontWeight: 600, color: BROWN,
+              textTransform: "uppercase", letterSpacing: "0.1em",
+              display: "block", marginBottom: "0.75rem",
+            }}>
               Chronologie
             </span>
-            <h2 style={{ fontFamily: '"Playfair Display", Georgia, serif',
-                         fontSize: "clamp(1.8rem, 4vw, 2.5rem)", fontWeight: 600,
-                         color: TEXT_DARK, margin: 0 }}>
+            <h2 style={{
+              fontFamily: '"Playfair Display", Georgia, serif',
+              fontSize: "clamp(1.8rem, 4vw, 2.5rem)", fontWeight: 600,
+              color: TEXT_DARK, margin: 0,
+            }}>
               Un voyage à travers les époques
             </h2>
           </div>
 
-          {/* ── Arc SVG (desktop) ── */}
-          <div className="cw-arc" style={{ marginBottom: "3.5rem" }}>
-            <svg
-              viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-              style={{ width: "100%", maxWidth: "700px", overflow: "visible" }}
-            >
-              {/* Arc path: semicircle going upward */}
-              <path
-                d={`M ${SVG_CX - SVG_R} ${SVG_CY} A ${SVG_R} ${SVG_R} 0 0 0 ${SVG_CX + SVG_R} ${SVG_CY}`}
-                fill="none"
-                stroke="rgba(139,115,85,0.2)"
-                strokeWidth="1.5"
-              />
-              {PERIODS.map((p, i) => {
-                // angle: 180° (left) → 0° (right), passing through top
-                const angle  = Math.PI - (i / (PERIODS.length - 1)) * Math.PI
-                const x      = SVG_CX + SVG_R * Math.cos(angle)
-                const y      = SVG_CY - SVG_R * Math.sin(angle)
-                const active = i === activeIndex
-                return (
-                  <g key={p.name} onClick={() => handleSelect(i)} style={{ cursor: "pointer" }}>
-                    {/* Enlarged transparent hit area */}
-                    <circle cx={x} cy={y} r={20} fill="transparent" />
-                    <circle
-                      cx={x} cy={y}
-                      r={active ? 9 : 6}
-                      fill={active ? BROWN : "#e0d5c5"}
-                      stroke={active ? BROWN : "rgba(139,115,85,0.5)"}
-                      strokeWidth="1.5"
-                      className="cw-dot"
-                    />
-                    <text
-                      x={x}
-                      y={y - (active ? 17 : 15)}
-                      textAnchor="middle"
-                      fontSize={active ? "12" : "10.5"}
-                      fontFamily='"Playfair Display", Georgia, serif'
-                      fill={active ? TEXT_DARK : TEXT_MID}
-                      fontWeight={active ? "600" : "400"}
-                      style={{ userSelect: "none", pointerEvents: "none",
-                               transition: "fill 0.25s, font-size 0.25s" }}
-                    >
-                      {p.name}
-                    </text>
-                  </g>
-                )
-              })}
-            </svg>
-          </div>
+          {/* Timeline */}
+          <div style={{ position: "relative" }}>
 
-          {/* ── Mobile nav pills ── */}
-          <div
-            className="cw-mobile-nav"
-            style={{ gap: "0.4rem", flexWrap: "wrap",
-                     justifyContent: "center", marginBottom: "2rem" }}
-          >
-            {PERIODS.map((p, i) => (
-              <button
-                key={p.name}
-                onClick={() => handleSelect(i)}
-                style={{
-                  padding: "0.3rem 0.8rem",
-                  borderRadius: "50px",
-                  border: `1.5px solid ${i === activeIndex ? BROWN : "rgba(139,115,85,0.3)"}`,
-                  background: i === activeIndex ? BROWN : "transparent",
-                  color: i === activeIndex ? "#fff" : TEXT_MID,
-                  fontSize: "0.75rem", fontWeight: 500, cursor: "pointer",
-                  fontFamily: '"Playfair Display", Georgia, serif',
-                  transition: "all 0.2s",
-                }}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
+            {/* Ligne verticale centrale */}
+            <div style={{
+              position: "absolute",
+              left: "50%",
+              top: 0,
+              bottom: 0,
+              width: "1px",
+              background: `linear-gradient(to bottom, transparent, ${LINE_CLR} 8%, ${LINE_CLR} 92%, transparent)`,
+              transform: "translateX(-50%)",
+            }} />
 
-          {/* ── Contenu : texte + images ── */}
-          <div className="cw-content">
+            {PERIODS.map((period, i) => {
+              const lum      = getLuminaire(period)
+              const imgUrl   = lum?.filename ? `/api/images/filename/${lum.filename}` : null
+              const isLeft   = i % 2 === 0   // image à gauche, texte à droite
 
-            {/* Texte */}
-            <div className="cw-text">
-              <div style={{ fontSize: "5rem", fontWeight: 700,
-                            color: TEXT_DARK, opacity: 0.08,
-                            lineHeight: 1, marginBottom: "0.25rem",
-                            fontFamily: '"Playfair Display", Georgia, serif',
-                            userSelect: "none" }}>
-                {period.years.split(" ")[0]}
-              </div>
-              <h3 style={{ fontFamily: '"Playfair Display", Georgia, serif',
-                           fontSize: "3rem", fontWeight: 600,
-                           color: TEXT_DARK, margin: "0 0 0.75rem", lineHeight: 1.1 }}>
-                {period.name}
-              </h3>
-              <p style={{ fontSize: "0.95rem", color: TEXT_MID,
-                          marginBottom: "1.5rem", lineHeight: 1.6, maxWidth: "340px" }}>
-                {period.description}
-              </p>
-              <Link
-                href={`/luminaires?yearMin=${period.start}&yearMax=${period.end}`}
-                style={{ fontSize: "0.9rem", color: BROWN, textDecoration: "none",
-                         fontWeight: 500, display: "inline-flex",
-                         alignItems: "center", gap: "0.3rem" }}
-              >
-                Voir les luminaires →
-              </Link>
-            </div>
+              return (
+                <div
+                  key={period.name}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 48px 1fr",
+                    alignItems: "center",
+                    marginBottom: i < PERIODS.length - 1 ? "3.5rem" : 0,
+                    gap: 0,
+                  }}
+                >
+                  {/* Colonne gauche */}
+                  {isLeft ? (
+                    /* Image à gauche */
+                    <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "2rem" }}>
+                      <div
+                        onClick={() => lum && router.push(`/luminaires/${lum._id}`)}
+                        style={{
+                          width: 140, height: 140,
+                          borderRadius: 4,
+                          overflow: "hidden",
+                          background: "#ede8de",
+                          cursor: lum ? "pointer" : "default",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {imgUrl && (
+                          <img
+                            src={imgUrl}
+                            alt={lum?.nom || period.name}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Texte à gauche */
+                    <div style={{ textAlign: "right", paddingRight: "2rem" }}>
+                      <p style={{
+                        fontFamily: '"Playfair Display", Georgia, serif',
+                        fontSize: "1.25rem", fontWeight: 600,
+                        color: TEXT_DARK, margin: "0 0 0.35rem",
+                      }}>
+                        {period.name}
+                      </p>
+                      <p style={{
+                        fontSize: "0.82rem", color: TEXT_MID,
+                        margin: "0 0 0.6rem", lineHeight: 1.55,
+                      }}>
+                        {period.description}
+                      </p>
+                      <Link
+                        href={`/luminaires?yearMin=${period.start}&yearMax=${period.end}`}
+                        style={{ fontSize: "0.78rem", color: BROWN, textDecoration: "none", fontWeight: 500 }}
+                      >
+                        Voir →
+                      </Link>
+                    </div>
+                  )}
 
-            {/* Scène d'explosion */}
-            <div
-              className="cw-stage"
-              style={{ opacity: isTransitioning ? 0 : 1, transition: "opacity 0.25s ease" }}
-            >
-              {IMG_OFFSETS.map(({ ex, ey }, idx) => {
-                const lum      = periodLums[idx]
-                const scaledEx = Math.round(ex * imgScale)
-                const scaledEy = Math.round(ey * imgScale)
-                const w        = Math.round(120 * imgScale)
-                const h        = Math.round(160 * imgScale)
-
-                return (
-                  <div
-                    key={`${animKey}-${idx}`}
-                    className="cw-img"
-                    style={{
-                      "--ex": `${scaledEx}px`,
-                      "--ey": `${scaledEy}px`,
-                      width:  `${w}px`,
-                      height: `${h}px`,
-                      animationDelay: `${idx * 80}ms`,
-                      cursor: lum ? "pointer" : "default",
-                    } as React.CSSProperties}
-                    onClick={() => lum && router.push(`/luminaires/${lum._id}`)}
-                  >
-                    {lum
-                      ? <img
-                          src={`/api/images/filename/${lum.filename}`}
-                          alt={lum.nom || ""}
-                          style={{ width: "100%", height: "100%",
-                                   objectFit: "cover", display: "block" }}
-                          loading="lazy"
-                        />
-                      : <div style={{ width: "100%", height: "100%", background: "#e8e0d0" }} />
-                    }
+                  {/* Dot central + année */}
+                  <div style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 6,
+                    position: "relative",
+                    zIndex: 1,
+                  }}>
+                    <div style={{
+                      width: 12, height: 12,
+                      borderRadius: "50%",
+                      background: BROWN,
+                      border: `2px solid ${CREAM}`,
+                      boxShadow: `0 0 0 2px ${BROWN}`,
+                      flexShrink: 0,
+                    }} />
+                    <span style={{
+                      fontSize: "0.65rem",
+                      fontFamily: "Georgia, serif",
+                      color: BROWN,
+                      fontWeight: 600,
+                      letterSpacing: "0.05em",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {period.years.split(" ")[0]}
+                    </span>
                   </div>
-                )
-              })}
-            </div>
 
+                  {/* Colonne droite */}
+                  {isLeft ? (
+                    /* Texte à droite */
+                    <div style={{ paddingLeft: "2rem" }}>
+                      <p style={{
+                        fontFamily: '"Playfair Display", Georgia, serif',
+                        fontSize: "1.25rem", fontWeight: 600,
+                        color: TEXT_DARK, margin: "0 0 0.35rem",
+                      }}>
+                        {period.name}
+                      </p>
+                      <p style={{
+                        fontSize: "0.82rem", color: TEXT_MID,
+                        margin: "0 0 0.6rem", lineHeight: 1.55,
+                      }}>
+                        {period.description}
+                      </p>
+                      <Link
+                        href={`/luminaires?yearMin=${period.start}&yearMax=${period.end}`}
+                        style={{ fontSize: "0.78rem", color: BROWN, textDecoration: "none", fontWeight: 500 }}
+                      >
+                        Voir →
+                      </Link>
+                    </div>
+                  ) : (
+                    /* Image à droite */
+                    <div style={{ paddingLeft: "2rem" }}>
+                      <div
+                        onClick={() => lum && router.push(`/luminaires/${lum._id}`)}
+                        style={{
+                          width: 140, height: 140,
+                          borderRadius: 4,
+                          overflow: "hidden",
+                          background: "#ede8de",
+                          cursor: lum ? "pointer" : "default",
+                        }}
+                      >
+                        {imgUrl && (
+                          <img
+                            src={imgUrl}
+                            alt={lum?.nom || period.name}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
-          {/* ── Bouton global ── */}
-          <div style={{ textAlign: "center", marginTop: "3.5rem" }}>
-            <Link href="/chronologie" className="chrono-cta">
+          {/* CTA */}
+          <div style={{ textAlign: "center", marginTop: "4rem" }}>
+            <Link
+              href="/chronologie"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "0.5rem",
+                padding: "0.75rem 2rem",
+                background: BROWN, color: "#fff",
+                borderRadius: 12, fontWeight: 500, fontSize: "0.95rem",
+                textDecoration: "none",
+              }}
+            >
               Explorer la chronologie complète →
             </Link>
           </div>
@@ -340,6 +257,13 @@ export function ChronoSection({ luminaires }: { luminaires: any[] }) {
         <div style={{ height: "1px",
                       background: "linear-gradient(to right, transparent, rgba(139,115,85,0.2), transparent)" }} />
       </div>
+
+      <style>{`
+        @media (max-width: 640px) {
+          .chrono-grid { grid-template-columns: 1fr 32px 1fr !important; }
+          .chrono-img  { width: 90px !important; height: 90px !important; }
+        }
+      `}</style>
     </>
   )
 }
