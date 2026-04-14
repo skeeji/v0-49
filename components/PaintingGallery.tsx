@@ -108,24 +108,9 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
     }
   }
 
-  zones.sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
-
-  // Clipping des hauteurs : chaque zone est coupée dès que le sommet d'une autre zone
-  // commence à l'intérieur de sa bbox (empêche #2 et #6 de déborder dans les cadres inférieurs).
-  for (let i = 0; i < zones.length; i++) {
-    const z = zones[i]
-    for (let j = i + 1; j < zones.length; j++) {
-      const n = zones[j]
-      // Pas de chevauchement horizontal → pas de conflit
-      if (z.bbox.x + z.bbox.w <= n.bbox.x || n.bbox.x + n.bbox.w <= z.bbox.x) continue
-      // Le sommet de n est à l'intérieur de la bbox verticale de z → clipper z
-      if (n.bbox.y > z.bbox.y && n.bbox.y < z.bbox.y + z.bbox.h) {
-        z.bbox.h = n.bbox.y - z.bbox.y
-      }
-    }
-  }
-
-  return zones.map((z, i) => ({ ...z, id: i }))
+  return zones
+    .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
+    .map((z, i) => ({ ...z, id: i }))
 }
 
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
