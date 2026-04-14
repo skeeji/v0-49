@@ -1,22 +1,140 @@
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { Db, GridFSBucket } from "mongodb"
-import sharp from "sharp"
+import { unzipSync } from "zlib"
 
 const DBNAME        = process.env.MONGO_INITDB_DATABASE || "gersaint"
 const IMAGES_DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
 
 const WHITE_THRESHOLD = 230
-const SAMPLE_SIZE     = 100   // resize image to this before corner sampling
-const CORNER_OFFSET   = 5     // pixels from edge in the 100×100 sample
-const BATCH_SIZE      = 10    // concurrent sharp calls
-const FETCH_TIMEOUT   = 6_000 // ms per image
+const CORNER_OFFSET   = 5           // px from edge in the original image
+const BATCH_SIZE      = 10          // max concurrent GridFS reads
+const FETCH_TIMEOUT   = 6_000       // ms per image
+const MAX_IMAGE_SIZE  = 20_971_520  // 20 MB — skip check above this size
+
+// ─── Pure-JS PNG corner reader (Node built-in zlib only) ─────────────────────
+
+function paethPredictor(a: number, b: number, c: number): number {
+  const p = a + b - c
+  const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c)
+  if (pa <= pb && pa <= pc) return a
+  if (pb <= pc) return b
+  return c
+}
+
+/**
+ * Reads the 4 corner pixels of a PNG buffer at `off` pixels from each edge.
+ * Returns an array of [R, G, B] composited over white, or null if the format
+ * is unsupported / parsing fails (caller should include the image by default).
+ */
+function pngCorners(buf: Buffer, off: number): [number, number, number][] | null {
+  // PNG magic bytes
+  if (
+    buf.length < 8 ||
+    buf[0] !== 0x89 || buf[1] !== 0x50 || buf[2] !== 0x4e || buf[3] !== 0x47 ||
+    buf[4] !== 0x0d || buf[5] !== 0x0a || buf[6] !== 0x1a || buf[7] !== 0x0a
+  ) return null
+
+  let pos = 8
+  let width = 0, height = 0, channels = 0, interlace = 0
+  const idats: Buffer[] = []
+
+  while (pos + 12 <= buf.length) {
+    const chunkLen  = buf.readUInt32BE(pos)
+    const chunkType = buf.subarray(pos + 4, pos + 8).toString("ascii")
+
+    if (chunkType === "IHDR") {
+      width     = buf.readUInt32BE(pos + 8)
+      height    = buf.readUInt32BE(pos + 12)
+      const bit = buf[pos + 16]
+      const ct  = buf[pos + 17]
+      interlace = buf[pos + 21]
+      // Only support 8-bit non-interlaced RGB / RGBA / Grayscale / Grayscale+Alpha
+      if (bit !== 8 || interlace !== 0) return null
+      channels = ct === 2 ? 3 : ct === 6 ? 4 : ct === 0 ? 1 : ct === 4 ? 2 : 0
+      if (!channels) return null   // palette or unknown — skip
+    } else if (chunkType === "IDAT") {
+      idats.push(buf.subarray(pos + 8, pos + 8 + chunkLen))
+    } else if (chunkType === "IEND") {
+      break
+    }
+
+    pos += 12 + chunkLen
+  }
+
+  if (!width || !height || !channels) return null
+  if (width <= off * 2 || height <= off * 2) return null
+
+  let decomp: Buffer
+  try { decomp = unzipSync(Buffer.concat(idats)) } catch { return null }
+
+  const stride = 1 + width * channels   // 1 filter byte + pixel bytes per row
+  if (decomp.length < stride * height)  return null
+
+  const prev = new Uint8Array(width * channels)
+  const curr = new Uint8Array(width * channels)
+
+  // Rows we care about: top corner row and bottom corner row
+  const topRow = off
+  const botRow = height - 1 - off
+  const saved  = new Map<number, Uint8Array>()
+
+  for (let y = 0; y <= botRow; y++) {
+    const base = y * stride
+    const ft   = decomp[base]
+
+    for (let x = 0; x < width * channels; x++) {
+      const raw = decomp[base + 1 + x]
+      const a   = x >= channels ? curr[x - channels] : 0   // left
+      const b   = prev[x]                                    // above
+      const c   = x >= channels ? prev[x - channels] : 0   // above-left
+      curr[x]   = (raw + (
+        ft === 1 ? a :
+        ft === 2 ? b :
+        ft === 3 ? (a + b) >> 1 :
+        ft === 4 ? paethPredictor(a, b, c) : 0
+      )) & 0xff
+    }
+
+    if (y === topRow || y === botRow) saved.set(y, curr.slice())
+    prev.set(curr)
+  }
+
+  // Composite a channel over white: result = src·α + 255·(1−α)
+  const blendWhite = (ch: number, a: number) =>
+    Math.round(ch * a / 255 + 255 * (255 - a) / 255)
+
+  const getRGB = (row: Uint8Array, x: number): [number, number, number] => {
+    const i = x * channels
+    if (channels <= 2) {
+      const g = row[i], a = channels === 2 ? row[i + 1] : 255
+      const v = blendWhite(g, a)
+      return [v, v, v]
+    }
+    const r = row[i], g = row[i + 1], b = row[i + 2]
+    const a = channels === 4 ? row[i + 3] : 255
+    return [blendWhite(r, a), blendWhite(g, a), blendWhite(b, a)]
+  }
+
+  const top = saved.get(topRow)
+  const bot = saved.get(botRow)
+  if (!top || !bot) return null
+
+  return [
+    getRGB(top, off),                 // top-left
+    getRGB(top, width  - 1 - off),   // top-right
+    getRGB(bot, off),                 // bottom-left
+    getRGB(bot, width  - 1 - off),   // bottom-right
+  ]
+}
+
+// ─── GridFS helpers ───────────────────────────────────────────────────────────
 
 function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    stream.on("data", (c) => chunks.push(Buffer.from(c)))
-    stream.on("end",  ()  => resolve(Buffer.concat(chunks)))
+    stream.on("data",  (c) => chunks.push(Buffer.from(c)))
+    stream.on("end",   ()  => resolve(Buffer.concat(chunks)))
     stream.on("error", reject)
   })
 }
@@ -43,52 +161,40 @@ async function hasWhiteBackground(
 
     if (!file) return true   // image introuvable → inclure par défaut
 
-    const downloadStream = bucket.openDownloadStream(file._id as any)
+    const stream = bucket.openDownloadStream(file._id as any)
 
     const buffer = await Promise.race([
-      streamToBuffer(downloadStream),
+      streamToBuffer(stream),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), FETCH_TIMEOUT)
       ),
     ])
 
-    // Resize to SAMPLE_SIZE×SAMPLE_SIZE, flatten transparency → white
-    const { data } = await sharp(buffer)
-      .flatten({ background: { r: 255, g: 255, b: 255 } })
-      .resize(SAMPLE_SIZE, SAMPLE_SIZE, { fit: "fill" })
-      .raw()
-      .toBuffer({ resolveWithObject: true })
+    // Image too large or not PNG → include by default (no JPEG support without native lib)
+    if (buffer.length > MAX_IMAGE_SIZE) return true
 
-    // stride = SAMPLE_SIZE * 3 bytes (RGB)
-    const stride = SAMPLE_SIZE * 3
-    const o      = CORNER_OFFSET
-    const end    = SAMPLE_SIZE - 1 - CORNER_OFFSET
+    const corners = pngCorners(buffer, CORNER_OFFSET)
+    if (!corners) return true   // non-PNG or unsupported → include par défaut
 
-    const corners = [
-      o   * stride + o   * 3,   // top-left
-      o   * stride + end * 3,   // top-right
-      end * stride + o   * 3,   // bottom-left
-      end * stride + end * 3,   // bottom-right
-    ]
-
-    for (const idx of corners) {
-      const r = data[idx], g = data[idx + 1], b = data[idx + 2]
+    for (const [r, g, b] of corners) {
       if (r <= WHITE_THRESHOLD || g <= WHITE_THRESHOLD || b <= WHITE_THRESHOLD) {
-        return false   // fond non blanc → rejeter
+        return false   // fond non blanc/crème → rejeter
       }
     }
-    return true   // tous les coins > 230 → fond blanc/crème
+    return true   // les 4 coins > 230 sur les 3 canaux → fond blanc/crème
   } catch {
-    return true   // erreur réseau / timeout → inclure par défaut
+    return true   // erreur réseau / timeout / corruption → inclure par défaut
   }
 }
 
+// ─── Route handler ────────────────────────────────────────────────────────────
+
 export async function GET() {
   try {
-    const client    = await clientPromise
-    const db        = client.db(DBNAME)
-    const imagesDb  = client.db(IMAGES_DBNAME)
-    const bucket    = new GridFSBucket(imagesDb, { bucketName: "uploads" })
+    const client     = await clientPromise
+    const db         = client.db(DBNAME)
+    const imagesDb   = client.db(IMAGES_DBNAME)
+    const bucket     = new GridFSBucket(imagesDb, { bucketName: "uploads" })
     const collection = db.collection("luminaires")
 
     const luminaires = await collection
@@ -116,7 +222,6 @@ export async function GET() {
       )
       .toArray()
 
-    // Build items with resolved filename
     const rawItems = luminaires
       .map((l) => {
         const filename =
@@ -125,28 +230,24 @@ export async function GET() {
           l["Nom du fichier"]
         if (!filename) return null
         return {
-          _id:      String(l._id),
-          nom:      l.nom || l["Nom luminaire"] || "Luminaire",
-          designer: l.designer || l["Artiste / Dates"] || "",
-          annee:    l.annee || l["Année"] || "",
-          imageUrl: `/api/images/filename/${filename}`,
+          _id:       String(l._id),
+          nom:       l.nom || l["Nom luminaire"] || "Luminaire",
+          designer:  l.designer || l["Artiste / Dates"] || "",
+          annee:     l.annee || l["Année"] || "",
+          imageUrl:  `/api/images/filename/${filename}`,
           _filename: filename as string,
         }
       })
       .filter(Boolean) as Array<{
-        _id: string
-        nom: string
-        designer: string
-        annee: string
-        imageUrl: string
-        _filename: string
+        _id: string; nom: string; designer: string; annee: string
+        imageUrl: string; _filename: string
       }>
 
-    // Filter by white/cream background — batched to limit concurrency
+    // Vérification fond blanc/crème — par batches pour limiter la concurrence
     const keep: boolean[] = new Array(rawItems.length)
 
     for (let i = 0; i < rawItems.length; i += BATCH_SIZE) {
-      const batch = rawItems.slice(i, i + BATCH_SIZE)
+      const batch   = rawItems.slice(i, i + BATCH_SIZE)
       const results = await Promise.all(
         batch.map((item) => hasWhiteBackground(imagesDb, bucket, item._filename))
       )
@@ -155,7 +256,7 @@ export async function GET() {
 
     const items = rawItems
       .filter((_, i) => keep[i])
-      .map(({ _filename: _f, ...rest }) => rest)   // strip internal field
+      .map(({ _filename: _f, ...rest }) => rest)
 
     return NextResponse.json(
       { success: true, luminaires: items },
