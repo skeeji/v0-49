@@ -52,6 +52,29 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
     }
   }
 
+  // Closing morphologique : comble les trous intérieurs (3 passes).
+  // Pour chaque cellule isFrame=0, si ≥ 3 de ses 4 voisins directs sont isFrame=1 → isFrame=1.
+  // Fusionne les zones formant un cadre ovale coupé en deux (ex: zones #29 et #30).
+  {
+    const next = new Uint8Array(gW * gH)
+    for (let pass = 0; pass < 3; pass++) {
+      next.set(isFrame)
+      for (let cy = 1; cy < gH - 1; cy++) {
+        for (let cx = 1; cx < gW - 1; cx++) {
+          const ci = cy * gW + cx
+          if (isFrame[ci] === 1) continue
+          const neighbors =
+            (isFrame[ci - 1]  ? 1 : 0) +
+            (isFrame[ci + 1]  ? 1 : 0) +
+            (isFrame[ci - gW] ? 1 : 0) +
+            (isFrame[ci + gW] ? 1 : 0)
+          if (neighbors >= 3) next[ci] = 1
+        }
+      }
+      isFrame.set(next)
+    }
+  }
+
   const visited = new Uint8Array(gW * gH)
   const zones: FrameZone[] = []
   const totalPx = W * H
