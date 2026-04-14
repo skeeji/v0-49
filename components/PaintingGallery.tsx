@@ -52,6 +52,28 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
     }
   }
 
+  // Closing morphologique (3 passes) : comble les trous intérieurs des cadres ovales
+  // (ex: zones #29 et #30 séparées par un gap d'une cellule → fusionnées en une seule zone BFS).
+  {
+    const next = new Uint8Array(gW * gH)
+    for (let pass = 0; pass < 3; pass++) {
+      next.set(isFrame)
+      for (let cy = 1; cy < gH - 1; cy++) {
+        for (let cx = 1; cx < gW - 1; cx++) {
+          const ci = cy * gW + cx
+          if (isFrame[ci] === 1) continue
+          const nb =
+            (isFrame[ci - 1]  ? 1 : 0) +
+            (isFrame[ci + 1]  ? 1 : 0) +
+            (isFrame[ci - gW] ? 1 : 0) +
+            (isFrame[ci + gW] ? 1 : 0)
+          if (nb >= 3) next[ci] = 1
+        }
+      }
+      isFrame.set(next)
+    }
+  }
+
   const visited = new Uint8Array(gW * gH)
   const zones: FrameZone[] = []
   const totalPx = W * H
@@ -86,9 +108,24 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
     }
   }
 
-  return zones
-    .sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
-    .map((z, i) => ({ ...z, id: i }))
+  zones.sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)
+
+  // Clipping des hauteurs : chaque zone est coupée dès que le sommet d'une autre zone
+  // commence à l'intérieur de sa bbox (empêche #2 et #6 de déborder dans les cadres inférieurs).
+  for (let i = 0; i < zones.length; i++) {
+    const z = zones[i]
+    for (let j = i + 1; j < zones.length; j++) {
+      const n = zones[j]
+      // Pas de chevauchement horizontal → pas de conflit
+      if (z.bbox.x + z.bbox.w <= n.bbox.x || n.bbox.x + n.bbox.w <= z.bbox.x) continue
+      // Le sommet de n est à l'intérieur de la bbox verticale de z → clipper z
+      if (n.bbox.y > z.bbox.y && n.bbox.y < z.bbox.y + z.bbox.h) {
+        z.bbox.h = n.bbox.y - z.bbox.y
+      }
+    }
+  }
+
+  return zones.map((z, i) => ({ ...z, id: i }))
 }
 
 // ─── Utilitaires ────────────────────────────────────────────────────────────────
