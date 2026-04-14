@@ -193,22 +193,20 @@ async function compositeZone(
   const dx     = (bw - subW * scale) / 2 - subX * scale
   const dy     = (bh - subH * scale) / 2 - subY * scale
 
-  // ── Luminaire avec filtre ivoire chaud (sepia léger pour harmoniser au tableau)
-  octx.filter = "sepia(10%) contrast(1.05)"
+  // ── Luminaire : filtre chaud global (sepia + légère atténuation)
+  octx.filter = "sepia(20%) brightness(0.96)"
   octx.drawImage(img, dx, dy, dw, dh)
   octx.filter = "none"
 
-  // ── Suppression des blancs purs ────────────────────────────────────────────
+  // ── Tint agressif : ramène tous les pixels > 200 RGB vers #f5f0e8 ──────────
   const lumImgData = octx.getImageData(0, 0, bw, bh)
   const lumD       = lumImgData.data
 
   for (let i = 0; i < lumD.length; i += 4) {
     const r = lumD[i], g = lumD[i + 1], b = lumD[i + 2]
     const minCh = Math.min(r, g, b)
-    if (minCh > 230) {
-      lumD[i] = BG_R; lumD[i + 1] = BG_G; lumD[i + 2] = BG_B
-    } else if (minCh > 200) {
-      const t = (minCh - 200) / 30
+    if (minCh > 200) {
+      const t = (minCh - 200) / 55   // 200→0, 255→1
       lumD[i]     = Math.round(r + (BG_R - r) * t)
       lumD[i + 1] = Math.round(g + (BG_G - g) * t)
       lumD[i + 2] = Math.round(b + (BG_B - b) * t)
