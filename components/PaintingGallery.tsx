@@ -30,7 +30,7 @@ const BG_R = 245, BG_G = 240, BG_B = 232   // #f5f0e8
 const CELL         = 22
 const FRAME_RATIO  = 0.55
 const BORDER_CELLS = 2
-const MIN_ZONE_PX  = 18000
+const MIN_ZONE_PX  = 1200
 const MAX_ZONE_PCT = 0.18
 
 function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZone[] {
@@ -49,28 +49,6 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
           if (data[(py * W + px) * 4 + 3] < ALPHA_THRESHOLD) transp++
         }
       if (total > 0 && transp / total >= FRAME_RATIO) isFrame[cy * gW + cx] = 1
-    }
-  }
-
-  // Closing morphologique (3 passes) : comble les trous intérieurs des cadres ovales
-  // (ex: zones #29 et #30 séparées par un gap d'une cellule → fusionnées en une seule zone BFS).
-  {
-    const next = new Uint8Array(gW * gH)
-    for (let pass = 0; pass < 3; pass++) {
-      next.set(isFrame)
-      for (let cy = 1; cy < gH - 1; cy++) {
-        for (let cx = 1; cx < gW - 1; cx++) {
-          const ci = cy * gW + cx
-          if (isFrame[ci] === 1) continue
-          const nb =
-            (isFrame[ci - 1]  ? 1 : 0) +
-            (isFrame[ci + 1]  ? 1 : 0) +
-            (isFrame[ci - gW] ? 1 : 0) +
-            (isFrame[ci + gW] ? 1 : 0)
-          if (nb >= 3) next[ci] = 1
-        }
-      }
-      isFrame.set(next)
     }
   }
 
