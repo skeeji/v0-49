@@ -30,7 +30,7 @@ const BG_R = 245, BG_G = 240, BG_B = 232   // #f5f0e8
 const CELL         = 22
 const FRAME_RATIO  = 0.55
 const BORDER_CELLS = 2
-const MIN_ZONE_PX  = 4000
+const MIN_ZONE_PX  = 18000
 const MAX_ZONE_PCT = 0.18
 
 function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZone[] {
