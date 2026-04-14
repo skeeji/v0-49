@@ -95,16 +95,22 @@ function detectZonesGrid(data: Uint8ClampedArray, W: number, H: number): FrameZo
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
-function pickRandom(pool: GalleryLuminaire[], n: number): GalleryLuminaire[] {
-  if (pool.length === 0) return []
-  const copy = [...pool]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = (Math.random() * (i + 1)) | 0;
-    [copy[i], copy[j]] = [copy[j], copy[i]]
-  }
-  const result: GalleryLuminaire[] = []
-  for (let i = 0; i < n; i++) result.push(copy[i % copy.length])
-  return result
+// Cache des ratios (naturalWidth/naturalHeight) des images luminaires déjà chargées
+const imgRatioCache = new Map<string, number>()
+
+function pickForZones(pool: GalleryLuminaire[], zones: FrameZone[]): GalleryLuminaire[] {
+  if (pool.length === 0 || zones.length === 0) return []
+  return zones.map(zone => {
+    const zoneRatio = zone.bbox.w / zone.bbox.h
+    // Filtre les luminaires dont le ratio image est connu et proche (±0.4)
+    const candidates = pool.filter(lum => {
+      const ratio = imgRatioCache.get(lum.imageUrl)
+      if (ratio === undefined) return true  // ratio inconnu : inclus comme fallback
+      return Math.abs(ratio - zoneRatio) <= 0.4
+    })
+    const src = candidates.length > 0 ? candidates : pool
+    return src[(Math.random() * src.length) | 0]
+  })
 }
 
 function loadImg(src: string): Promise<HTMLImageElement> {
@@ -137,6 +143,37 @@ async function compositeZone(
   } catch { return }
 
   const { x: bx, y: by, w: bw, h: bh } = bbox
+  const nW = img.naturalWidth, nH = img.naturalHeight
+
+  // ── Détection de la bbox du sujet réel (ignore les pixels R,G,B > 230) ──────
+  const detectCanvas = document.createElement("canvas")
+  detectCanvas.width = nW; detectCanvas.height = nH
+  detectCanvas.getContext("2d")!.drawImage(img, 0, 0)
+  const rawData = detectCanvas.getContext("2d")!.getImageData(0, 0, nW, nH).data
+
+  let sMinX = nW, sMaxX = 0, sMinY = nH, sMaxY = 0
+  for (let py = 0; py < nH; py++) {
+    for (let px = 0; px < nW; px++) {
+      const idx = (py * nW + px) * 4
+      const r = rawData[idx], g = rawData[idx + 1], b = rawData[idx + 2], a = rawData[idx + 3]
+      if (a < 10 || (r > 230 && g > 230 && b > 230)) continue
+      if (px < sMinX) sMinX = px; if (px > sMaxX) sMaxX = px
+      if (py < sMinY) sMinY = py; if (py > sMaxY) sMaxY = py
+    }
+  }
+  // Fallback sur l'image entière si aucun sujet détecté
+  if (sMinX > sMaxX || sMinY > sMaxY) { sMinX = 0; sMaxX = nW - 1; sMinY = 0; sMaxY = nH - 1 }
+
+  // Mise en cache du ratio pour pickForZones
+  imgRatioCache.set(lumUrl, nW / nH)
+
+  // Padding 5% autour de la bbox détectée
+  const sbw = sMaxX - sMinX + 1, sbh = sMaxY - sMinY + 1
+  const padPx = sbw * 0.05, padPy = sbh * 0.05
+  const subX = Math.max(0, sMinX - padPx)
+  const subY = Math.max(0, sMinY - padPy)
+  const subW = Math.min(nW - subX, sbw + 2 * padPx)
+  const subH = Math.min(nH - subY, sbh + 2 * padPy)
 
   // Canvas principal : fond crème
   const oc   = document.createElement("canvas")
@@ -145,15 +182,16 @@ async function compositeZone(
   octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
   octx.fillRect(0, 0, bw, bh)
 
-  // Dimensions contain avec 10% de marge
+  // Scale basé sur la bbox du sujet (avec 10% de marge dans la zone)
   const pad    = 0.10
   const availW = bw * (1 - 2 * pad)
   const availH = bh * (1 - 2 * pad)
-  const scale  = Math.min(availW / img.naturalWidth, availH / img.naturalHeight)
-  const dw     = img.naturalWidth  * scale
-  const dh     = img.naturalHeight * scale
-  const dx     = (bw - dw) / 2
-  const dy     = (bh - dh) / 2
+  const scale  = Math.min(availW / subW, availH / subH)
+  const dw     = nW * scale
+  const dh     = nH * scale
+  // Centrage du sujet (pas de l'image entière) dans la zone
+  const dx     = (bw - subW * scale) / 2 - subX * scale
+  const dy     = (bh - subH * scale) / 2 - subY * scale
 
   // ── Luminaire avec filtre ivoire chaud (sepia léger pour harmoniser au tableau)
   octx.filter = "sepia(10%) contrast(1.05)"
@@ -166,16 +204,14 @@ async function compositeZone(
 
   for (let i = 0; i < lumD.length; i += 4) {
     const r = lumD[i], g = lumD[i + 1], b = lumD[i + 2]
-    if (r > 220 && g > 220 && b > 220) {
+    const minCh = Math.min(r, g, b)
+    if (minCh > 230) {
       lumD[i] = BG_R; lumD[i + 1] = BG_G; lumD[i + 2] = BG_B
-    } else {
-      const minCh = Math.min(r, g, b)
-      if (minCh > 180) {
-        const t = (minCh - 180) / 40
-        lumD[i]     = Math.round(r + (BG_R - r) * t)
-        lumD[i + 1] = Math.round(g + (BG_G - g) * t)
-        lumD[i + 2] = Math.round(b + (BG_B - b) * t)
-      }
+    } else if (minCh > 200) {
+      const t = (minCh - 200) / 30
+      lumD[i]     = Math.round(r + (BG_R - r) * t)
+      lumD[i + 1] = Math.round(g + (BG_G - g) * t)
+      lumD[i + 2] = Math.round(b + (BG_B - b) * t)
     }
   }
 
@@ -447,7 +483,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     ;(async () => {
       const zns  = zonesRef.current
       const { w: W, h: H } = imgSizeRef.current
-      const sel  = pickRandom(pool, zns.length)
+      const sel  = pickForZones(pool, zns)
       currentRef.current = sel; historyRef.current = [sel]
       setHasPrev(false)
 
@@ -497,7 +533,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     const { w: W, h: H } = imgSizeRef.current
     let sel: GalleryLuminaire[]
     if (dir === "next") {
-      sel = pickRandom(pool, zns.length)
+      sel = pickForZones(pool, zns)
       historyRef.current = [...historyRef.current.slice(-10), sel]
     } else {
       const h = historyRef.current
