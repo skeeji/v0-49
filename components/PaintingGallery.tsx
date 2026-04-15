@@ -15,8 +15,9 @@ interface GalleryLuminaire {
 }
 
 interface FrameZone {
-  id:   number
-  bbox: { x: number; y: number; w: number; h: number }
+  id:       number
+  bbox:     { x: number; y: number; w: number; h: number }
+  rotation?: number   // degrés, pour l'affichage debug et la zone de survol
 }
 
 // ─── Constantes ─────────────────────────────────────────────────────────────────
@@ -25,16 +26,17 @@ const ROTATION_INTERVAL  = 30_000
 const ALPHA_THRESHOLD    = 128
 const BG_R = 245, BG_G = 240, BG_B = 232   // #f5f0e8
 
-// ─── Overrides manuels de zones ─────────────────────────────────────────────────
-// Permet de corriger les bboxes auto-détectées pour des cadres précis.
-// Les coordonnées sont en pixels naturels (1330×876).
-// Mettre null pour garder la valeur auto-détectée.
+// ─── Patches manuels de zones ────────────────────────────────────────────────────
+// ZONE_BBOX_OVERRIDES  : remplace la bbox auto-détectée (coords en pixels naturels)
+// ZONE_ROTATION_OVERRIDES : rotation visuelle en degrés (debug + zone de survol)
+// ZONE_MERGES          : fusionne deux zones en leur union bbox (id A conservé, B supprimé)
 
 const ZONE_BBOX_OVERRIDES: Record<number, { x: number; y: number; w: number; h: number }> = {
-  1: { x: 92,  y: 40,  w: 300, h: 210 },  // cadre orange haut-gauche (tilté)
-  2: { x: 250, y: 8,   w: 310, h: 185 },  // cadre orange haut-centre-gauche
-  6: { x: 770, y: 18,  w: 185, h: 235 },  // cadre chandelier droite
-  7: { x: 1095, y: 5,  w: 210, h: 265 },  // cadre haut-droite magenta
+  // Les zones #1, #2, #6, #7 sont conservées en auto-détection pour l'instant
+}
+
+const ZONE_ROTATION_OVERRIDES: Record<number, number> = {
+  29: 15,   // cadre incliné bas-gauche (fusion #29+#30)
 }
 
 // Paires de zones à fusionner (union bbox, premier id conservé, second supprimé)
@@ -43,22 +45,30 @@ const ZONE_MERGES: [number, number][] = [
 ]
 
 function applyZonePatches(zones: FrameZone[]): FrameZone[] {
+  // 1. Overrides de bbox
   let result = zones.map(z => {
     const ovr = ZONE_BBOX_OVERRIDES[z.id]
     return ovr ? { ...z, bbox: ovr } : z
   })
 
+  // 2. Fusions
   for (const [idA, idB] of ZONE_MERGES) {
     const zA = result.find(z => z.id === idA)
     const zB = result.find(z => z.id === idB)
     if (!zA || !zB) continue
-    const x = Math.min(zA.bbox.x, zB.bbox.x)
-    const y = Math.min(zA.bbox.y, zB.bbox.y)
+    const x  = Math.min(zA.bbox.x, zB.bbox.x)
+    const y  = Math.min(zA.bbox.y, zB.bbox.y)
     const x2 = Math.max(zA.bbox.x + zA.bbox.w, zB.bbox.x + zB.bbox.w)
     const y2 = Math.max(zA.bbox.y + zA.bbox.h, zB.bbox.y + zB.bbox.h)
     zA.bbox = { x, y, w: x2 - x, h: y2 - y }
     result = result.filter(z => z.id !== idB)
   }
+
+  // 3. Rotations
+  result = result.map(z => {
+    const rot = ZONE_ROTATION_OVERRIDES[z.id]
+    return rot !== undefined ? { ...z, rotation: rot } : z
+  })
 
   return result
 }
@@ -640,6 +650,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
             {zones.map(zone => {
               const color = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
               const isHov = hovDebug === zone.id
+              const rot   = zone.rotation ?? 0
               return (
                 <div
                   key={zone.id}
@@ -651,6 +662,8 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
                     top:            `${(zone.bbox.y / iH) * 100}%`,
                     width:          `${(zone.bbox.w / iW) * 100}%`,
                     height:         `${(zone.bbox.h / iH) * 100}%`,
+                    transform:      rot ? `rotate(${rot}deg)` : undefined,
+                    transformOrigin:"center center",
                     background:     isHov ? color : `${color}99`,
                     border:         `2px solid ${color}`,
                     boxSizing:      "border-box",
@@ -712,11 +725,14 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
           {zones.map((zone, i) => {
             const lum   = current[i]
             const below = zone.bbox.y / iH < 0.4
+            const rot   = zone.rotation ?? 0
             return (
               <div key={zone.id} className="absolute"
                 style={{
                   left:`${(zone.bbox.x/iW)*100}%`, top:`${(zone.bbox.y/iH)*100}%`,
                   width:`${(zone.bbox.w/iW)*100}%`, height:`${(zone.bbox.h/iH)*100}%`,
+                  transform:       rot ? `rotate(${rot}deg)` : undefined,
+                  transformOrigin: "center center",
                   pointerEvents:"auto", cursor:"default",
                 }}
                 onMouseEnter={() => handleEnter(zone.id)}
