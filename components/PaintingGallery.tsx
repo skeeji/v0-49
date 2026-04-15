@@ -17,7 +17,7 @@ interface GalleryLuminaire {
 interface FrameZone {
   id:       number
   bbox:     { x: number; y: number; w: number; h: number }
-  rotation?: number   // degrés, pour l'affichage debug et la zone de survol
+  rotation?: number  // degrés, affichage debug + zone de survol
 }
 
 // ─── Constantes ─────────────────────────────────────────────────────────────────
@@ -26,49 +26,25 @@ const ROTATION_INTERVAL  = 30_000
 const ALPHA_THRESHOLD    = 128
 const BG_R = 245, BG_G = 240, BG_B = 232   // #f5f0e8
 
-// ─── Patches manuels de zones ────────────────────────────────────────────────────
-// ZONE_BBOX_OVERRIDES  : remplace la bbox auto-détectée (coords en pixels naturels)
-// ZONE_ROTATION_OVERRIDES : rotation visuelle en degrés (debug + zone de survol)
-// ZONE_MERGES          : fusionne deux zones en leur union bbox (id A conservé, B supprimé)
-
-const ZONE_BBOX_OVERRIDES: Record<number, { x: number; y: number; w: number; h: number }> = {
-  // Les zones #1, #2, #6, #7 sont conservées en auto-détection pour l'instant
-}
-
-const ZONE_ROTATION_OVERRIDES: Record<number, number> = {
-  29: 15,   // cadre incliné bas-gauche (fusion #29+#30)
-}
-
-// Paires de zones à fusionner (union bbox, premier id conservé, second supprimé)
-const ZONE_MERGES: [number, number][] = [
-  [29, 30],
-]
+// ─── Patches de zones (fusion #29+#30, rotation #29) ────────────────────────────
 
 function applyZonePatches(zones: FrameZone[]): FrameZone[] {
-  // 1. Overrides de bbox
-  let result = zones.map(z => {
-    const ovr = ZONE_BBOX_OVERRIDES[z.id]
-    return ovr ? { ...z, bbox: ovr } : z
-  })
+  let result = [...zones]
 
-  // 2. Fusions
-  for (const [idA, idB] of ZONE_MERGES) {
-    const zA = result.find(z => z.id === idA)
-    const zB = result.find(z => z.id === idB)
-    if (!zA || !zB) continue
-    const x  = Math.min(zA.bbox.x, zB.bbox.x)
-    const y  = Math.min(zA.bbox.y, zB.bbox.y)
-    const x2 = Math.max(zA.bbox.x + zA.bbox.w, zB.bbox.x + zB.bbox.w)
-    const y2 = Math.max(zA.bbox.y + zA.bbox.h, zB.bbox.y + zB.bbox.h)
-    zA.bbox = { x, y, w: x2 - x, h: y2 - y }
-    result = result.filter(z => z.id !== idB)
+  // Fusion #29 + #30 → union bbox, #30 supprimé
+  const z29 = result.find(z => z.id === 29)
+  const z30 = result.find(z => z.id === 30)
+  if (z29 && z30) {
+    const x  = Math.min(z29.bbox.x, z30.bbox.x)
+    const y  = Math.min(z29.bbox.y, z30.bbox.y)
+    const x2 = Math.max(z29.bbox.x + z29.bbox.w, z30.bbox.x + z30.bbox.w)
+    const y2 = Math.max(z29.bbox.y + z29.bbox.h, z30.bbox.y + z30.bbox.h)
+    z29.bbox = { x, y, w: x2 - x, h: y2 - y }
+    result = result.filter(z => z.id !== 30)
   }
 
-  // 3. Rotations
-  result = result.map(z => {
-    const rot = ZONE_ROTATION_OVERRIDES[z.id]
-    return rot !== undefined ? { ...z, rotation: rot } : z
-  })
+  // Rotation 15° sur #29
+  result = result.map(z => z.id === 29 ? { ...z, rotation: 15 } : z)
 
   return result
 }
@@ -480,8 +456,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         origDataRef.current = new Uint8ClampedArray(tmp.getContext("2d")!.getImageData(0, 0, W, H).data)
 
         // ── Zones : essai cache sessionStorage pour éviter la détection ──────
-        const cacheKey    = `pgz_${W}x${H}`
-        const canvasCacheKey = `pgc_${W}x${H}`
+        const cacheKey = `pgz_${W}x${H}`
         let detected: FrameZone[] | null = null
         try {
           const cached = sessionStorage.getItem(cacheKey)
@@ -497,14 +472,11 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
             detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
         }
 
-        // ── Patches manuels (overrides bbox + fusions) — appliqués à chaque chargement ──
+        // Patches : fusion #29+#30, rotation 15° sur #29
         detected = applyZonePatches(detected)
-        console.log(`[PaintingGallery] après patches: ${detected.length} zones`,
-          detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify(detected))
-          // Invalider le cache canvas composite pour forcer un re-compositing
-          sessionStorage.removeItem(canvasCacheKey)
+          sessionStorage.removeItem(`pgc_${W}x${H}`)  // invalide le cache canvas
         } catch {}
 
         if (cancelled) return
@@ -657,23 +629,23 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
                   onMouseEnter={() => setHovDebug(zone.id)}
                   onMouseLeave={() => setHovDebug(null)}
                   style={{
-                    position:       "absolute",
-                    left:           `${(zone.bbox.x / iW) * 100}%`,
-                    top:            `${(zone.bbox.y / iH) * 100}%`,
-                    width:          `${(zone.bbox.w / iW) * 100}%`,
-                    height:         `${(zone.bbox.h / iH) * 100}%`,
-                    transform:      rot ? `rotate(${rot}deg)` : undefined,
-                    transformOrigin:"center center",
-                    background:     isHov ? color : `${color}99`,
-                    border:         `2px solid ${color}`,
-                    boxSizing:      "border-box",
-                    transition:     "background 0.15s",
-                    display:        "flex",
-                    flexDirection:  "column",
-                    alignItems:     "center",
-                    justifyContent: "center",
-                    gap:            2,
-                    cursor:         "default",
+                    position:        "absolute",
+                    left:            `${(zone.bbox.x / iW) * 100}%`,
+                    top:             `${(zone.bbox.y / iH) * 100}%`,
+                    width:           `${(zone.bbox.w / iW) * 100}%`,
+                    height:          `${(zone.bbox.h / iH) * 100}%`,
+                    transform:       rot ? `rotate(${rot}deg)` : undefined,
+                    transformOrigin: "center center",
+                    background:      isHov ? color : `${color}99`,
+                    border:          `2px solid ${color}`,
+                    boxSizing:       "border-box",
+                    transition:      "background 0.15s",
+                    display:         "flex",
+                    flexDirection:   "column",
+                    alignItems:      "center",
+                    justifyContent:  "center",
+                    gap:             2,
+                    cursor:          "default",
                   }}
                 >
                   <span style={{ background:color, color:"#fff", fontSize:10, fontWeight:800, fontFamily:"monospace", padding:"1px 5px", borderRadius:3, lineHeight:1.4, textShadow:"0 1px 2px rgba(0,0,0,.6)", pointerEvents:"none" }}>
