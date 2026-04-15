@@ -164,6 +164,14 @@ export default function ImportPage() {
   const [selectedHomepageIndex, setSelectedHomepageIndex] = useState("0")
   const [homepageDesignerName, setHomepageDesignerName] = useState("")
 
+  // ── Galerie peinture ──────────────────────────────────────────────────────────
+  const [galerieResult,   setGalerieResult]   = useState<{ success?: boolean; inserted?: number; skipped?: number; errors?: string[] } | null>(null)
+  const [galerieLoading,  setGalerieLoading]  = useState(false)
+  const galerieCsvRef    = useRef<HTMLInputElement>(null)
+  const galerieImgsRef   = useRef<HTMLInputElement>(null)
+  const [galerieCsvFile, setGalerieCsvFile]   = useState<File | null>(null)
+  const [galerieImgFiles, setGalerieImgFiles] = useState<FileList | null>(null)
+
   const csvFileRef = useRef<HTMLInputElement>(null)
   const designersFileRef = useRef<HTMLInputElement>(null)
   const imagesFileRef = useRef<HTMLInputElement>(null)
@@ -175,6 +183,45 @@ export default function ImportPage() {
   const paintingFileRef = useRef<HTMLInputElement>(null)
 
   const { toast } = useToast()
+
+  // ── Handler galerie ───────────────────────────────────────────────────────────
+  const handleGalerieUpload = async () => {
+    if (!galerieCsvFile) { toast({ title: "CSV manquant", variant: "destructive" }); return }
+    setGalerieLoading(true)
+    setGalerieResult(null)
+    try {
+      const fd = new FormData()
+      fd.append("csv", galerieCsvFile)
+      if (galerieImgFiles) {
+        for (let i = 0; i < galerieImgFiles.length; i++) fd.append("images", galerieImgFiles[i])
+      }
+      const res  = await fetch("/api/galerie/upload", { method: "POST", body: fd })
+      const data = await res.json()
+      setGalerieResult(data)
+      if (data.success) {
+        toast({ title: `✅ ${data.inserted} luminaire(s) importé(s) dans la galerie` })
+      } else {
+        toast({ title: "❌ Erreur import galerie", description: data.error, variant: "destructive" })
+      }
+    } catch (e: any) {
+      toast({ title: "❌ Erreur", description: e.message, variant: "destructive" })
+    } finally {
+      setGalerieLoading(false)
+    }
+  }
+
+  const handleGalerieClear = async () => {
+    if (!confirm("Vider toute la galerie peinture ? (luminaires + images)")) return
+    setGalerieLoading(true)
+    try {
+      const fd = new FormData()
+      fd.append("action", "clear")
+      const res  = await fetch("/api/galerie/upload", { method: "POST", body: fd })
+      const data = await res.json()
+      if (data.success) toast({ title: "✅ Galerie vidée" })
+    } catch {}
+    setGalerieLoading(false)
+  }
 
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -1726,6 +1773,87 @@ export default function ImportPage() {
                     )}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* ── Galerie Peinture ──────────────────────────────────────────── */}
+            <Card className="border-amber-300 col-span-1 md:col-span-2 lg:col-span-3">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-700">
+                  <ImageIcon className="w-5 h-5" />
+                  Galerie Peinture — Luminaires détourés
+                </CardTitle>
+                <CardDescription>
+                  Importez le CSV + les PNG détourés pour la galerie. Format CSV&nbsp;:
+                  <code className="ml-1 bg-gray-100 px-1 rounded text-xs">nom, designer, annee, image</code>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* CSV */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-600">1. Fichier CSV</p>
+                    <input ref={galerieCsvRef} type="file" accept=".csv" className="hidden"
+                      onChange={e => setGalerieCsvFile(e.target.files?.[0] ?? null)} />
+                    <Button variant="outline" className="w-full" onClick={() => galerieCsvRef.current?.click()}>
+                      <Upload className="w-4 h-4 mr-2" />
+                      {galerieCsvFile ? galerieCsvFile.name : "Sélectionner CSV"}
+                    </Button>
+                  </div>
+                  {/* Images */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-600">2. Images PNG détourées (multi-sélection)</p>
+                    <input ref={galerieImgsRef} type="file" accept="image/png" multiple className="hidden"
+                      onChange={e => setGalerieImgFiles(e.target.files)} />
+                    <Button variant="outline" className="w-full" onClick={() => galerieImgsRef.current?.click()}>
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      {galerieImgFiles ? `${galerieImgFiles.length} image(s) sélectionnée(s)` : "Sélectionner PNG"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 bg-amber-600 hover:bg-amber-700"
+                    onClick={handleGalerieUpload}
+                    disabled={galerieLoading || !galerieCsvFile}
+                  >
+                    {galerieLoading ? (
+                      <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />Import en cours…</>
+                    ) : (
+                      <><Upload className="w-4 h-4 mr-2" />Importer dans la galerie</>
+                    )}
+                  </Button>
+                  <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50"
+                    onClick={handleGalerieClear} disabled={galerieLoading}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {galerieResult && (
+                  <div className="text-sm space-y-1">
+                    {galerieResult.success ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>{galerieResult.inserted} importé(s){galerieResult.skipped ? `, ${galerieResult.skipped} ignoré(s)` : ""}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <XCircle className="w-4 h-4" /><span>Erreur d'import</span>
+                      </div>
+                    )}
+                    {galerieResult.errors && galerieResult.errors.length > 0 && (
+                      <ul className="text-xs text-orange-600 pl-6 space-y-0.5">
+                        {galerieResult.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                        {galerieResult.errors.length > 5 && <li>…et {galerieResult.errors.length - 5} autres</li>}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-400">
+                  Exemple de ligne CSV&nbsp;: <code>Lustre Empire doré,Maison Baguès,1920,lustre_empire.png</code>
+                </p>
               </CardContent>
             </Card>
 
