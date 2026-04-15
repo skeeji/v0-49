@@ -167,6 +167,8 @@ export default function ImportPage() {
   // ── Galerie peinture ──────────────────────────────────────────────────────────
   const [galerieResult,   setGalerieResult]   = useState<{ success?: boolean; inserted?: number; skipped?: number; errors?: string[] } | null>(null)
   const [galerieLoading,  setGalerieLoading]  = useState(false)
+  const [galerieProgress, setGalerieProgress] = useState(0)
+  const [galerieStep,     setGalerieStep]     = useState("")
   const galerieCsvRef    = useRef<HTMLInputElement>(null)
   const galerieImgsRef   = useRef<HTMLInputElement>(null)
   const [galerieCsvFile, setGalerieCsvFile]   = useState<File | null>(null)
@@ -189,24 +191,77 @@ export default function ImportPage() {
     if (!galerieCsvFile) { toast({ title: "CSV manquant", variant: "destructive" }); return }
     setGalerieLoading(true)
     setGalerieResult(null)
+
     try {
-      const fd = new FormData()
-      fd.append("csv", galerieCsvFile)
+      // ── 1. Parser le CSV côté client ──────────────────────────────────────────
+      const csvText = await galerieCsvFile.text()
+      const lines   = csvText.replace(/\r/g, "").split("\n").filter(l => l.trim())
+      if (lines.length < 2) { toast({ title: "CSV vide", variant: "destructive" }); return }
+
+      const headers = parseCSVLine(lines[0])
+      const rows = lines.slice(1).map(line => {
+        const vals = parseCSVLine(line)
+        return Object.fromEntries(headers.map((h, i) => [h, (vals[i] ?? "").replace(/^"|"$/g, "")]))
+      }).filter(r => r.nom || r["nom"])
+
+      // ── 2. Map filename → File ────────────────────────────────────────────────
+      const imageMap = new Map<string, File>()
       if (galerieImgFiles) {
-        for (let i = 0; i < galerieImgFiles.length; i++) fd.append("images", galerieImgFiles[i])
+        for (let i = 0; i < galerieImgFiles.length; i++) {
+          imageMap.set(galerieImgFiles[i].name, galerieImgFiles[i])
+        }
       }
-      const res  = await fetch("/api/galerie/upload", { method: "POST", body: fd })
-      const data = await res.json()
-      setGalerieResult(data)
-      if (data.success) {
-        toast({ title: `✅ ${data.inserted} luminaire(s) importé(s) dans la galerie` })
-      } else {
-        toast({ title: "❌ Erreur import galerie", description: data.error, variant: "destructive" })
+
+      // ── 3. Upload image par image (évite le 413) ──────────────────────────────
+      let inserted = 0, skipped = 0
+      const errors: string[] = []
+
+      for (let i = 0; i < rows.length; i++) {
+        const row      = rows[i]
+        const nom      = (row.nom      || "").trim()
+        const designer = (row.designer || "").trim()
+        const annee    = (row.annee    || "").trim()
+        const filename = (row.image    || "").trim()
+
+        if (!nom) { skipped++; continue }
+
+        const imgFile = filename ? imageMap.get(filename) : undefined
+        if (filename && !imgFile) {
+          errors.push(`Image manquante : ${filename}`)
+          skipped++
+          continue
+        }
+
+        setGalerieProgress(Math.round(((i + 1) / rows.length) * 100))
+        setGalerieStep(`${i + 1}/${rows.length} — ${nom}`)
+
+        const fd = new FormData()
+        fd.append("action",   "image")
+        fd.append("nom",      nom)
+        fd.append("designer", designer)
+        fd.append("annee",    annee)
+        fd.append("filename", filename)
+        if (imgFile) fd.append("image", imgFile)
+
+        try {
+          const res  = await fetch("/api/galerie/upload", { method: "POST", body: fd })
+          const data = await res.json()
+          if (data.success) inserted++
+          else { errors.push(`${nom} : ${data.error || "erreur"}`); skipped++ }
+        } catch (e: any) {
+          errors.push(`${nom} : ${e.message}`)
+          skipped++
+        }
       }
+
+      setGalerieResult({ success: true, inserted, skipped, errors })
+      toast({ title: `✅ ${inserted} luminaire(s) importé(s) dans la galerie` })
     } catch (e: any) {
       toast({ title: "❌ Erreur", description: e.message, variant: "destructive" })
     } finally {
       setGalerieLoading(false)
+      setGalerieProgress(0)
+      setGalerieStep("")
     }
   }
 
@@ -1829,6 +1884,16 @@ export default function ImportPage() {
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
+
+                {galerieLoading && galerieStep && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3 h-3 text-amber-500 animate-spin" />
+                      <span className="text-xs text-amber-700">{galerieStep}</span>
+                    </div>
+                    <Progress value={galerieProgress} className="h-1" />
+                  </div>
+                )}
 
                 {galerieResult && (
                   <div className="text-sm space-y-1">
