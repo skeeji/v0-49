@@ -164,55 +164,56 @@ async function compositeZone(
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
 
-  // ── 1. Fond : radial-gradient, point chaud à 35% du haut ────────────────────
+  // ── 1. Fond : radial-gradient #D6D3CC centre-haut → #96938A bords ───────────
   const cx   = bw / 2
-  const cy   = bh * 0.35
-  const rMax = Math.sqrt(bw * bw + bh * bh) * 0.78
+  const cy   = bh * 0.32                                  // halo légèrement dans le haut
+  const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82        // couvre bien les coins
   const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
-  grad.addColorStop(0,   '#E2E1DD')
-  grad.addColorStop(1,   '#8E8B82')
+  grad.addColorStop(0,    '#D6D3CC')                       // centre clair
+  grad.addColorStop(0.55, '#BAB8B1')                       // transition douce (milieu)
+  grad.addColorStop(1,    '#96938A')                       // bords sombres
   octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
 
-  // ── 2. Luminaire : drop-shadow pour simuler l'ombre portée sur le mur ───────
+  // ── 2. Luminaire : drop-shadow sombre et diffus (ombre portée sur le mur) ───
   const nW    = img.naturalWidth  || bw
   const nH    = img.naturalHeight || bh
   const scale = Math.min((bw * 0.88) / nW, (bh * 0.88) / nH)
   const dw    = nW * scale, dh = nH * scale
   const dx    = (bw - dw) / 2,  dy = (bh - dh) / 2
 
-  octx.shadowColor   = 'rgba(0,0,0,0.30)'
-  octx.shadowBlur    = 16
-  octx.shadowOffsetX = 3
-  octx.shadowOffsetY = 6
+  octx.shadowColor   = 'rgba(0,0,0,0.45)'                 // ombre sombre
+  octx.shadowBlur    = 22                                  // diffuse
+  octx.shadowOffsetX = 2
+  octx.shadowOffsetY = 7                                   // décalage vers le bas
   octx.drawImage(img, dx, dy, dw, dh)
   octx.shadowColor = 'transparent'
   octx.shadowBlur = 0; octx.shadowOffsetX = 0; octx.shadowOffsetY = 0
 
-  // ── 3. Inner shadow : 4 bords sombres → effet de renfoncement ────────────────
-  const vgX = bw * 0.18, vgY = bh * 0.16
+  // ── 3. Inner shadow prononcée : niche profonde, 4 bords assombris ────────────
+  const vgX = bw * 0.28, vgY = bh * 0.24
   const sides: [number, number, number, number, [number,number,number,number]][] = [
-    [0, 0, bw, vgY,        [0, 0, 0, vgY]],           // haut
-    [0, bh-vgY, bw, vgY,   [0, bh-vgY, 0, bh]],       // bas
-    [0, 0, vgX, bh,        [0, 0, vgX, 0]],            // gauche
-    [bw-vgX, 0, vgX, bh,   [bw-vgX, 0, bw, 0]],       // droite
+    [0,        0,       bw,  vgY,  [0, 0,       0, vgY ]],   // haut
+    [0,        bh-vgY,  bw,  vgY,  [0, bh-vgY,  0, bh  ]],   // bas
+    [0,        0,       vgX, bh,   [0, 0,       vgX, 0  ]],   // gauche
+    [bw-vgX,   0,       vgX, bh,   [bw-vgX, 0,  bw, 0   ]],   // droite
   ]
-  const shadows = [0.28, 0.26, 0.22, 0.22]
+  const opacities = [0.38, 0.34, 0.30, 0.30]
   sides.forEach(([rx, ry, rw, rh, [x0,y0,x1,y1]], si) => {
     const lg = octx.createLinearGradient(x0, y0, x1, y1)
-    const isBorderStart = si < 2  // haut/bas : sombre au bord, clair au centre
-    lg.addColorStop(isBorderStart ? 0 : 1, `rgba(0,0,0,${shadows[si]})`)
-    lg.addColorStop(isBorderStart ? 1 : 0, 'rgba(0,0,0,0)')
+    const fromEdge = si < 2
+    lg.addColorStop(fromEdge ? 0 : 1, `rgba(0,0,0,${opacities[si]})`)
+    lg.addColorStop(fromEdge ? 1 : 0, 'rgba(0,0,0,0)')
     octx.fillStyle = lg
     octx.fillRect(rx, ry, rw, rh)
   })
 
-  // ── 4. Grain de texture : bruit subtil imitant la peinture ancienne ──────────
+  // ── 4. Grain de texture : harmonise avec le fond historique ──────────────────
   const lumImgData = octx.getImageData(0, 0, bw, bh)
   const d          = lumImgData.data
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] === 0) continue
-    const n = (Math.random() - 0.5) * 9        // ±4.5 intensité
+    const n = (Math.random() - 0.5) * 11       // ±5.5 intensité
     d[i]   = Math.max(0, Math.min(255, d[i]   + n))
     d[i+1] = Math.max(0, Math.min(255, d[i+1] + n))
     d[i+2] = Math.max(0, Math.min(255, d[i+2] + n))
