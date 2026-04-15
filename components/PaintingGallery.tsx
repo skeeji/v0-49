@@ -25,8 +25,8 @@ interface FrameZone {
 
 const ROTATION_INTERVAL = 30_000
 const ALPHA_THRESHOLD   = 128
-// Fond sombre élégant (ardoise chaude) — cadres style showroom comme la référence
-const BG_R = 52, BG_G = 50, BG_B = 46   // #34322e ardoise foncée chaude
+// Fond gris-beige patiné — imite papier ancien / pierre de taille en gravure
+const BG_R = 186, BG_G = 184, BG_B = 177   // #BAB8B1
 
 // Détection par grille (rapide) ─────────────────────────────────────────────────
 const CELL         = 22
