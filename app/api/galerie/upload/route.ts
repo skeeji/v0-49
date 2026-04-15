@@ -60,25 +60,36 @@ async function handleImage(formData: FormData) {
   }
 
   // ── Auto-matching : retrouver le luminaire catalogue par le nom de fichier ──────
-  // Supprime le suffixe -removebg-preview et l'extension pour extraire le nom de base
+  // La galerie uploade en .png, le catalogue stocke en .jpg/.jpeg → on compare sans extension
   let luminaire_id: string | null = null
   if (filename) {
+    // 1. Extraire le nom de base : retire -removebg-preview, (1), et toute extension
     const base = filename
       .replace(/-removebg-preview[^.]*(\.\w+)?$/i, "")   // retire -removebg-preview(...)
       .replace(/\s*\(\d+\)\s*$/, "")                       // retire (1), (2)…
-      .replace(/\.[^.]+$/, "")                             // retire l'extension
+      .replace(/\.[^.]+$/, "")                             // retire .png / .jpg / .jpeg
       .trim()
 
     if (base) {
-      // Échapper les caractères spéciaux pour la regex MongoDB
       const safe = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+      // 2. Chercher dans le catalogue en ignorant l'extension :
+      //    - correspondance exacte sans extension  → "BEMBE"    == "BEMBE"
+      //    - nom.jpg / nom.jpeg / nom.png          → "BEMBE.jpg"
+      //    - ancré en début (^) pour éviter les faux positifs
       const found = await db.collection("luminaires").findOne({
         $or: [
-          { filename:                                    { $regex: safe, $options: "i" } },
-          { "Nom du fichier":                            { $regex: safe, $options: "i" } },
-          { "Image luminaire (Nom du fichier)":          { $regex: safe, $options: "i" } },
+          // Sans extension (stocké tel quel dans certains catalogues)
+          { filename:                           base },
+          { "Nom du fichier":                   base },
+          { "Image luminaire (Nom du fichier)": base },
+          // Avec extension .jpg / .jpeg / .png (insensible à la casse)
+          { filename:                           { $regex: `^${safe}\\.(jpg|jpeg|png)$`, $options: "i" } },
+          { "Nom du fichier":                   { $regex: `^${safe}\\.(jpg|jpeg|png)$`, $options: "i" } },
+          { "Image luminaire (Nom du fichier)": { $regex: `^${safe}\\.(jpg|jpeg|png)$`, $options: "i" } },
         ],
       }, { projection: { _id: 1 } })
+
       if (found) luminaire_id = found._id.toString()
     }
   }

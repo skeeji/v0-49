@@ -163,48 +163,89 @@ async function compositeZone(
   const octx = oc.getContext("2d")!
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
-  // Remplir le fond avec la couleur de cadre
-  octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
+
+  // ── 1. Fond : radial-gradient, point chaud à 35% du haut ────────────────────
+  const cx   = bw / 2
+  const cy   = bh * 0.35
+  const rMax = Math.sqrt(bw * bw + bh * bh) * 0.78
+  const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
+  grad.addColorStop(0,   '#E2E1DD')
+  grad.addColorStop(1,   '#8E8B82')
+  octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
-  // Dessiner en conservant le ratio (object-fit: contain avec 88% de la zone)
+
+  // ── 2. Luminaire : drop-shadow pour simuler l'ombre portée sur le mur ───────
   const nW    = img.naturalWidth  || bw
   const nH    = img.naturalHeight || bh
   const scale = Math.min((bw * 0.88) / nW, (bh * 0.88) / nH)
   const dw    = nW * scale, dh = nH * scale
   const dx    = (bw - dw) / 2,  dy = (bh - dh) / 2
-  octx.drawImage(img, dx, dy, dw, dh)
-  const lumData = octx.getImageData(0, 0, bw, bh).data
 
-  // Tint : pixels très blancs → teinte beige (utile pour images catalogue fond blanc)
-  const tinted = new Uint8ClampedArray(lumData)
-  for (let i = 0; i < tinted.length; i += 4) {
-    const r = tinted[i], g = tinted[i+1], b = tinted[i+2]
+  octx.shadowColor   = 'rgba(0,0,0,0.30)'
+  octx.shadowBlur    = 16
+  octx.shadowOffsetX = 3
+  octx.shadowOffsetY = 6
+  octx.drawImage(img, dx, dy, dw, dh)
+  octx.shadowColor = 'transparent'
+  octx.shadowBlur = 0; octx.shadowOffsetX = 0; octx.shadowOffsetY = 0
+
+  // ── 3. Inner shadow : 4 bords sombres → effet de renfoncement ────────────────
+  const vgX = bw * 0.18, vgY = bh * 0.16
+  const sides: [number, number, number, number, [number,number,number,number]][] = [
+    [0, 0, bw, vgY,        [0, 0, 0, vgY]],           // haut
+    [0, bh-vgY, bw, vgY,   [0, bh-vgY, 0, bh]],       // bas
+    [0, 0, vgX, bh,        [0, 0, vgX, 0]],            // gauche
+    [bw-vgX, 0, vgX, bh,   [bw-vgX, 0, bw, 0]],       // droite
+  ]
+  const shadows = [0.28, 0.26, 0.22, 0.22]
+  sides.forEach(([rx, ry, rw, rh, [x0,y0,x1,y1]], si) => {
+    const lg = octx.createLinearGradient(x0, y0, x1, y1)
+    const isBorderStart = si < 2  // haut/bas : sombre au bord, clair au centre
+    lg.addColorStop(isBorderStart ? 0 : 1, `rgba(0,0,0,${shadows[si]})`)
+    lg.addColorStop(isBorderStart ? 1 : 0, 'rgba(0,0,0,0)')
+    octx.fillStyle = lg
+    octx.fillRect(rx, ry, rw, rh)
+  })
+
+  // ── 4. Grain de texture : bruit subtil imitant la peinture ancienne ──────────
+  const lumImgData = octx.getImageData(0, 0, bw, bh)
+  const d          = lumImgData.data
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue
+    const n = (Math.random() - 0.5) * 9        // ±4.5 intensité
+    d[i]   = Math.max(0, Math.min(255, d[i]   + n))
+    d[i+1] = Math.max(0, Math.min(255, d[i+1] + n))
+    d[i+2] = Math.max(0, Math.min(255, d[i+2] + n))
+  }
+
+  // ── 5. Tint blanc→BG pour images catalogue (fond blanc) ─────────────────────
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2]
     const w = Math.min(r, g, b) / 255
     if (w > 0.88) {
-      tinted[i] = BG_R; tinted[i+1] = BG_G; tinted[i+2] = BG_B
+      d[i] = BG_R; d[i+1] = BG_G; d[i+2] = BG_B
     } else if (w > 0.72) {
       const t = (w - 0.72) / 0.16
-      tinted[i]   = Math.round(r + (BG_R - r) * t)
-      tinted[i+1] = Math.round(g + (BG_G - g) * t)
-      tinted[i+2] = Math.round(b + (BG_B - b) * t)
+      d[i]   = Math.round(r + (BG_R - r) * t)
+      d[i+1] = Math.round(g + (BG_G - g) * t)
+      d[i+2] = Math.round(b + (BG_B - b) * t)
     }
   }
 
-  // Écriture uniquement sur les pixels transparents du PNG original
+  // ── 6. Écriture uniquement sur les pixels transparents du PNG original ───────
   for (let row = 0; row < bh; row++) {
     for (let col = 0; col < bw; col++) {
-      const px  = bx + col, py = by + row
+      const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0) continue
-      const bi  = (py * W + px) * 4
-      const li  = (row * bw + col) * 4
-
+      const bi = (py * W + px) * 4
+      const li = (row * bw + col) * 4
       if (origData[bi + 3] < ALPHA_THRESHOLD) {
-        const lumAlpha = tinted[li + 3]
-        if (lumAlpha === 0) continue          // pixel transparent du luminaire → on laisse le fond beige
-        output[bi]     = tinted[li]
-        output[bi + 1] = tinted[li + 1]
-        output[bi + 2] = tinted[li + 2]
-        output[bi + 3] = lumAlpha             // 255 pour catalogue, variable pour détouré
+        const lumAlpha = d[li + 3]
+        if (lumAlpha === 0) continue
+        output[bi]     = d[li]
+        output[bi + 1] = d[li + 1]
+        output[bi + 2] = d[li + 2]
+        output[bi + 3] = lumAlpha
       }
     }
   }
