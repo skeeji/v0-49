@@ -347,19 +347,22 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         zonesRef.current = detected
         setZones(detected)
 
-        // Base canvas : fond beige dans les zones transparentes
+        // ── BUG FIX 1 : stocker les pixels ORIGINAUX (avec transparence) pour le compositing
+        origDataRef.current = new Uint8ClampedArray(imgData.data)
+
+        // Base canvas : copie séparée où transparent → beige
         const baseData = new Uint8ClampedArray(imgData.data)
         for (let i = 0; i < baseData.length; i += 4) {
           if (baseData[i + 3] < ALPHA_THRESHOLD) {
             baseData[i] = BG_R; baseData[i+1] = BG_G; baseData[i+2] = BG_B; baseData[i+3] = 255
           }
         }
-        origDataRef.current = baseData
         putDPR(canvasBaseRef.current!, baseData, W, H, false)
         if (cancelled) return
         setAlphaBase(1)
 
-        if (!cancelled) setPhase(pool.length > 0 ? "compositing" : "ready")
+        // Phase : "ready" toujours — le 2ème useEffect gère le composite dès que pool+zones sont prêts
+        if (!cancelled) setPhase("ready")
       } catch (e) {
         console.error("[PaintingGallery]", e)
         if (!cancelled) setPhase("error")
@@ -371,21 +374,22 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   }, [transparentUrl])
 
   // ── Premier composite quand pool + zones prêts ───────────────────────────────
+  // BUG FIX 2 : ajouter "zones" dans les dépendances pour que cet effet re-tourne
+  // aussi quand les zones sont détectées APRÈS que le pool a chargé.
   useEffect(() => {
-    if (pool.length === 0 || zonesRef.current.length === 0 || currentRef.current.length > 0) return
-    // Invalider le cache canvas si pool vient d'arriver
+    if (pool.length === 0 || zones.length === 0 || currentRef.current.length > 0) return
+    const zns = zonesRef.current
     const { w: W, h: H } = imgSizeRef.current
-    try { sessionStorage.removeItem(`pgc_${W}x${H}`) } catch {}
     ;(async () => {
-      const sel = pickRandom(pool, zonesRef.current.length)
+      const sel = pickRandom(pool, zns.length)
       currentRef.current = sel; historyRef.current = [sel]
       setCurrent(sel); setHasPrev(false)
       setPhase("compositing")
-      await doComposite(sel, zonesRef.current, W, H)
+      await doComposite(sel, zns, W, H)
       setAlphaComp(1)
       setPhase("ready")
     })()
-  }, [pool, doComposite])
+  }, [pool, zones, doComposite])
 
   // ── Rotation ─────────────────────────────────────────────────────────────────
   const doRotate = useCallback(async (dir: "next" | "prev") => {
