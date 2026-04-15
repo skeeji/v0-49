@@ -25,6 +25,44 @@ const ROTATION_INTERVAL  = 30_000
 const ALPHA_THRESHOLD    = 128
 const BG_R = 245, BG_G = 240, BG_B = 232   // #f5f0e8
 
+// ─── Overrides manuels de zones ─────────────────────────────────────────────────
+// Permet de corriger les bboxes auto-détectées pour des cadres précis.
+// Les coordonnées sont en pixels naturels (1330×876).
+// Mettre null pour garder la valeur auto-détectée.
+
+const ZONE_BBOX_OVERRIDES: Record<number, { x: number; y: number; w: number; h: number }> = {
+  1: { x: 92,  y: 40,  w: 300, h: 210 },  // cadre orange haut-gauche (tilté)
+  2: { x: 250, y: 8,   w: 310, h: 185 },  // cadre orange haut-centre-gauche
+  6: { x: 770, y: 18,  w: 185, h: 235 },  // cadre chandelier droite
+  7: { x: 1095, y: 5,  w: 210, h: 265 },  // cadre haut-droite magenta
+}
+
+// Paires de zones à fusionner (union bbox, premier id conservé, second supprimé)
+const ZONE_MERGES: [number, number][] = [
+  [29, 30],
+]
+
+function applyZonePatches(zones: FrameZone[]): FrameZone[] {
+  let result = zones.map(z => {
+    const ovr = ZONE_BBOX_OVERRIDES[z.id]
+    return ovr ? { ...z, bbox: ovr } : z
+  })
+
+  for (const [idA, idB] of ZONE_MERGES) {
+    const zA = result.find(z => z.id === idA)
+    const zB = result.find(z => z.id === idB)
+    if (!zA || !zB) continue
+    const x = Math.min(zA.bbox.x, zB.bbox.x)
+    const y = Math.min(zA.bbox.y, zB.bbox.y)
+    const x2 = Math.max(zA.bbox.x + zA.bbox.w, zB.bbox.x + zB.bbox.w)
+    const y2 = Math.max(zA.bbox.y + zA.bbox.h, zB.bbox.y + zB.bbox.h)
+    zA.bbox = { x, y, w: x2 - x, h: y2 - y }
+    result = result.filter(z => z.id !== idB)
+  }
+
+  return result
+}
+
 // ─── Détection des zones par grille ─────────────────────────────────────────────
 
 const CELL         = 22
@@ -432,7 +470,8 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         origDataRef.current = new Uint8ClampedArray(tmp.getContext("2d")!.getImageData(0, 0, W, H).data)
 
         // ── Zones : essai cache sessionStorage pour éviter la détection ──────
-        const cacheKey = `pgz_${W}x${H}`
+        const cacheKey    = `pgz_${W}x${H}`
+        const canvasCacheKey = `pgc_${W}x${H}`
         let detected: FrameZone[] | null = null
         try {
           const cached = sessionStorage.getItem(cacheKey)
@@ -446,8 +485,17 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
           detected = detectZonesGrid(origDataRef.current, W, H)
           console.log(`[PaintingGallery] ${detected.length} zones détectées`,
             detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
-          try { sessionStorage.setItem(cacheKey, JSON.stringify(detected)) } catch {}
         }
+
+        // ── Patches manuels (overrides bbox + fusions) — appliqués à chaque chargement ──
+        detected = applyZonePatches(detected)
+        console.log(`[PaintingGallery] après patches: ${detected.length} zones`,
+          detected.map(z => `#${z.id} @(${z.bbox.x},${z.bbox.y}) ${z.bbox.w}×${z.bbox.h}`))
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(detected))
+          // Invalider le cache canvas composite pour forcer un re-compositing
+          sessionStorage.removeItem(canvasCacheKey)
+        } catch {}
 
         if (cancelled) return
         zonesRef.current = detected
