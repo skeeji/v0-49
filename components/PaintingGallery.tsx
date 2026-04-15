@@ -7,11 +7,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 // ─── Types ───────────────────────────────────────────────────────────────────────
 
 interface GalleryLuminaire {
-  _id:      string
-  nom:      string
-  designer: string
-  annee:    string | number
-  imageUrl: string
+  _id:          string
+  nom:          string
+  designer:     string
+  annee:        string | number
+  imageUrl:     string
+  luminaire_id?: string   // _id du luminaire catalogue (pour le lien "Voir le produit")
 }
 
 interface FrameZone {
@@ -24,7 +25,8 @@ interface FrameZone {
 
 const ROTATION_INTERVAL = 30_000
 const ALPHA_THRESHOLD   = 128
-const BG_R = 184, BG_G = 168, BG_B = 152   // #b8a898 beige-gris chaud
+// Fond sombre élégant (ardoise chaude) — cadres style showroom comme la référence
+const BG_R = 52, BG_G = 50, BG_B = 46   // #34322e ardoise foncée chaude
 
 // Détection par grille (rapide) ─────────────────────────────────────────────────
 const CELL         = 22
@@ -161,7 +163,16 @@ async function compositeZone(
   const octx = oc.getContext("2d")!
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
-  octx.drawImage(img, 0, 0, bw, bh)
+  // Remplir le fond avec la couleur de cadre
+  octx.fillStyle = `rgb(${BG_R},${BG_G},${BG_B})`
+  octx.fillRect(0, 0, bw, bh)
+  // Dessiner en conservant le ratio (object-fit: contain avec 88% de la zone)
+  const nW    = img.naturalWidth  || bw
+  const nH    = img.naturalHeight || bh
+  const scale = Math.min((bw * 0.88) / nW, (bh * 0.88) / nH)
+  const dw    = nW * scale, dh = nH * scale
+  const dx    = (bw - dw) / 2,  dy = (bh - dh) / 2
+  octx.drawImage(img, dx, dy, dw, dh)
   const lumData = octx.getImageData(0, 0, bw, bh).data
 
   // Tint : pixels très blancs → teinte beige (utile pour images catalogue fond blanc)
@@ -217,25 +228,40 @@ function putDPR(canvas: HTMLCanvasElement, data: Uint8ClampedArray, W: number, H
 
 // ─── Museum label ─────────────────────────────────────────────────────────────────
 
-function MuseumLabel({ lum, visible, below }: { lum: GalleryLuminaire; visible: boolean; below: boolean }) {
+function MuseumLabel({
+  lum, visible, below, onEnter, onLeave,
+}: {
+  lum: GalleryLuminaire; visible: boolean; below: boolean
+  onEnter: () => void; onLeave: () => void
+}) {
   const pos  = below ? { top: "calc(100% + 6px)" } : { bottom: "calc(100% + 6px)" }
   const arrO = below ? { top:-7, borderBottom:"7px solid #b8974a", borderTop:"none" } : { bottom:-7, borderTop:"7px solid #b8974a", borderBottom:"none" }
   const arrI = below ? { top:-5, borderBottom:"6px solid #f0e6c0", borderTop:"none" } : { bottom:-5, borderTop:"6px solid #f0e6c0", borderBottom:"none" }
+  const href = lum.luminaire_id ? `/luminaires/${lum.luminaire_id}` : null
   return (
-    <div className="pointer-events-none absolute z-50"
-      style={{ ...pos, left:"50%", transform:"translateX(-50%)", minWidth:150, maxWidth:200, opacity:visible?1:0, transition:"opacity 0.2s ease" }}>
+    // pointer-events-auto : le tooltip est interactif → la souris peut rester dessus
+    <div className="absolute z-50"
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      style={{ ...pos, left:"50%", transform:"translateX(-50%)", minWidth:150, maxWidth:200, opacity:visible?1:0, transition:"opacity 0.2s ease", pointerEvents: visible ? "auto" : "none" }}>
       <div style={{ background:"linear-gradient(135deg,#f5e9c8,#ede0b0 60%,#f0e6c0)", border:"1px solid #b8974a", borderRadius:2, padding:"8px 10px", boxShadow:"0 2px 10px rgba(0,0,0,.35)", position:"relative" }}>
         <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"7px solid transparent", borderRight:"7px solid transparent", ...arrO }} />
         <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"6px solid transparent", borderRight:"6px solid transparent", ...arrI }} />
         <p style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:11, fontWeight:600, color:"#3d2b0a", lineHeight:1.3, margin:0 }}>{lum.nom}</p>
         {lum.designer && <p style={{ fontFamily:"Georgia,serif", fontSize:10, fontStyle:"italic", color:"#6b4f1a", marginTop:2, marginBottom:0 }}>{lum.designer}</p>}
         {lum.annee    && <p style={{ fontFamily:"Georgia,serif", fontSize:9,  color:"#7a5c20", marginTop:1, marginBottom:0 }}>{lum.annee}</p>}
-        <Link href={`/luminaires/${lum._id}`} target="_blank" rel="noopener noreferrer"
-          className="pointer-events-auto block mt-1"
-          style={{ fontFamily:"Georgia,serif", fontSize:9, color:"#5a3a10", textDecoration:"underline" }}
-          onClick={e => e.stopPropagation()}>
-          Voir le produit →
-        </Link>
+        {href ? (
+          <Link href={href} target="_blank" rel="noopener noreferrer"
+            className="block mt-1"
+            style={{ fontFamily:"Georgia,serif", fontSize:9, color:"#5a3a10", textDecoration:"underline" }}
+            onClick={e => e.stopPropagation()}>
+            Voir le produit →
+          </Link>
+        ) : (
+          <p style={{ fontFamily:"Georgia,serif", fontSize:9, color:"#9a8060", marginTop:4, marginBottom:0, fontStyle:"italic" }}>
+            Lien non disponible
+          </p>
+        )}
       </div>
     </div>
   )
@@ -248,12 +274,13 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const canvasBaseRef = useRef<HTMLCanvasElement>(null)  // fond permanent
   const canvasCompRef = useRef<HTMLCanvasElement>(null)  // luminaires, crossfade
 
-  const origDataRef  = useRef<Uint8ClampedArray | null>(null)
-  const zonesRef     = useRef<FrameZone[]>([])
-  const imgSizeRef   = useRef({ w: 1330, h: 876 })
-  const historyRef   = useRef<GalleryLuminaire[][]>([])
-  const currentRef   = useRef<GalleryLuminaire[]>([])
-  const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null)
+  const origDataRef   = useRef<Uint8ClampedArray | null>(null)
+  const zonesRef      = useRef<FrameZone[]>([])
+  const imgSizeRef    = useRef({ w: 1330, h: 876 })
+  const historyRef    = useRef<GalleryLuminaire[][]>([])
+  const currentRef    = useRef<GalleryLuminaire[]>([])
+  const timerRef      = useRef<ReturnType<typeof setInterval> | null>(null)
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout>  | null>(null)
 
   const [pool,      setPool]      = useState<GalleryLuminaire[]>([])
   const [current,   setCurrent]   = useState<GalleryLuminaire[]>([])
@@ -530,6 +557,13 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
             const lum   = current[i]
             const below = zone.bbox.y / iH < 0.4
             const rot   = zone.rotation ?? 0
+            const handleEnter = () => {
+              if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
+              setHovZone(zone.id)
+            }
+            const handleLeave = () => {
+              leaveTimerRef.current = setTimeout(() => setHovZone(null), 300)
+            }
             return (
               <div key={zone.id} className="absolute"
                 style={{
@@ -539,9 +573,17 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
                   transformOrigin: "center center",
                   pointerEvents:"auto", cursor:"default",
                 }}
-                onMouseEnter={() => setHovZone(zone.id)}
-                onMouseLeave={() => setHovZone(null)}>
-                {lum && <MuseumLabel lum={lum} visible={hovZone === zone.id} below={below} />}
+                onMouseEnter={handleEnter}
+                onMouseLeave={handleLeave}>
+                {lum && (
+                  <MuseumLabel
+                    lum={lum}
+                    visible={hovZone === zone.id}
+                    below={below}
+                    onEnter={handleEnter}
+                    onLeave={handleLeave}
+                  />
+                )}
               </div>
             )
           })}

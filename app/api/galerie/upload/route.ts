@@ -59,16 +59,40 @@ async function handleImage(formData: FormData) {
     imageUrl = `/api/galerie/images/${fileId}`
   }
 
+  // ── Auto-matching : retrouver le luminaire catalogue par le nom de fichier ──────
+  // Supprime le suffixe -removebg-preview et l'extension pour extraire le nom de base
+  let luminaire_id: string | null = null
+  if (filename) {
+    const base = filename
+      .replace(/-removebg-preview[^.]*(\.\w+)?$/i, "")   // retire -removebg-preview(...)
+      .replace(/\s*\(\d+\)\s*$/, "")                       // retire (1), (2)…
+      .replace(/\.[^.]+$/, "")                             // retire l'extension
+      .trim()
+
+    if (base) {
+      // Échapper les caractères spéciaux pour la regex MongoDB
+      const safe = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      const found = await db.collection("luminaires").findOne({
+        $or: [
+          { filename:                                    { $regex: safe, $options: "i" } },
+          { "Nom du fichier":                            { $regex: safe, $options: "i" } },
+          { "Image luminaire (Nom du fichier)":          { $regex: safe, $options: "i" } },
+        ],
+      }, { projection: { _id: 1 } })
+      if (found) luminaire_id = found._id.toString()
+    }
+  }
+
   await col.updateOne(
     { filename },
     {
-      $set:         { nom, designer, annee, imageUrl, filename, updatedAt: new Date() },
+      $set:         { nom, designer, annee, imageUrl, filename, luminaire_id, updatedAt: new Date() },
       $setOnInsert: { createdAt: new Date() },
     },
     { upsert: true }
   )
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, matched: !!luminaire_id })
 }
 
 // ─── Route POST ───────────────────────────────────────────────────────────────

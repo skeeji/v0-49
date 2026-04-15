@@ -13,11 +13,12 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       luminaires: luminaires.map(l => ({
-        _id:      l._id.toString(),
-        nom:      l.nom      || "",
-        designer: l.designer || "",
-        annee:    l.annee    || "",
-        imageUrl: l.imageUrl || "",
+        _id:          l._id.toString(),
+        nom:          l.nom          || "",
+        designer:     l.designer     || "",
+        annee:        l.annee        || "",
+        imageUrl:     l.imageUrl     || "",
+        luminaire_id: l.luminaire_id || null,
       })),
     })
   } catch (err: any) {
