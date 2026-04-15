@@ -260,6 +260,8 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const [hovZone,   setHovZone]   = useState<number | null>(null)
   const [hovering,  setHovering]  = useState(false)
   const [hasPrev,   setHasPrev]   = useState(false)
+  const [debugOn,   setDebugOn]   = useState(false)
+  const [hovDebug,  setHovDebug]  = useState<number | null>(null)
 
   // ── Charger le pool depuis la galerie dédiée ───────────────────────────────────
   useEffect(() => {
@@ -401,6 +403,13 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [phase, pool.length, resetTimer])
 
+  // ── Touche D → debug overlay ─────────────────────────────────────────────────
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "d" || e.key === "D") setDebugOn(v => !v) }
+    window.addEventListener("keydown", h)
+    return () => window.removeEventListener("keydown", h)
+  }, [])
+
   // ── Rendu ───────────────────────────────────────────────────────────────────
 
   if (!transparentUrl) {
@@ -412,6 +421,12 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   }
 
   const { w: iW, h: iH } = imgSizeRef.current
+
+  const DEBUG_COLORS = [
+    "#e74c3c","#e67e22","#f1c40f","#2ecc71","#1abc9c",
+    "#3498db","#9b59b6","#e91e63","#00bcd4","#8bc34a",
+    "#ff5722","#607d8b","#ff9800","#4caf50","#673ab7",
+  ]
 
   return (
     <section
@@ -446,6 +461,52 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         {phase === "error" && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-stone-100">
             <p className="font-serif text-sm italic text-red-400">Erreur de chargement du tableau</p>
+          </div>
+        )}
+
+        {/* Debug overlay — touche D */}
+        {debugOn && (
+          <div className="absolute inset-0" style={{ zIndex:30 }}>
+            {zones.map(zone => {
+              const color = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
+              const isHov = hovDebug === zone.id
+              const rot   = zone.rotation ?? 0
+              return (
+                <div key={zone.id}
+                  onMouseEnter={() => setHovDebug(zone.id)}
+                  onMouseLeave={() => setHovDebug(null)}
+                  style={{
+                    position:        "absolute",
+                    left:            `${(zone.bbox.x / iW) * 100}%`,
+                    top:             `${(zone.bbox.y / iH) * 100}%`,
+                    width:           `${(zone.bbox.w / iW) * 100}%`,
+                    height:          `${(zone.bbox.h / iH) * 100}%`,
+                    transform:        rot ? `rotate(${rot}deg)` : undefined,
+                    transformOrigin: "center center",
+                    background:      isHov ? color : `${color}99`,
+                    border:          `2px solid ${color}`,
+                    boxSizing:       "border-box",
+                    transition:      "background 0.15s",
+                    display:         "flex",
+                    flexDirection:   "column",
+                    alignItems:      "center",
+                    justifyContent:  "center",
+                    gap:             2,
+                    cursor:          "default",
+                  }}
+                >
+                  <span style={{ background:color, color:"#fff", fontSize:10, fontWeight:800, fontFamily:"monospace", padding:"1px 5px", borderRadius:3, lineHeight:1.4, textShadow:"0 1px 2px rgba(0,0,0,.6)", pointerEvents:"none" }}>
+                    #{zone.id}
+                  </span>
+                  <span style={{ color:"#fff", fontSize:8, fontFamily:"monospace", textShadow:"0 1px 3px rgba(0,0,0,.9)", pointerEvents:"none", lineHeight:1.3 }}>
+                    {zone.bbox.w}×{zone.bbox.h} ({zone.pixels.length}px)
+                  </span>
+                </div>
+              )
+            })}
+            <div style={{ position:"absolute", top:6, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.82)", color:"#fff", fontSize:11, padding:"4px 12px", borderRadius:4, whiteSpace:"nowrap", fontFamily:"monospace", pointerEvents:"none" }}>
+              DEBUG — {zones.length} zones — {hovDebug !== null ? `#${hovDebug} sélectionné` : "survol pour détails"} — D pour fermer
+            </div>
           </div>
         )}
       </div>
