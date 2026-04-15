@@ -25,7 +25,11 @@ interface FrameZone {
 
 const ROTATION_INTERVAL = 30_000
 const MIN_ZONE_PIXELS   = 400
+// ALPHA_THRESHOLD : seuil pour remplir le fond de base (tous pixels semi-transparents → beige)
 const ALPHA_THRESHOLD   = 128
+// DETECT_THRESHOLD : seuil strict pour le BFS — ne capture que les pixels franchement transparents
+// Valeur basse = zones plus serrées = pas de chevauchement de bbox entre zones adjacentes
+const DETECT_THRESHOLD  = 30
 // Fond beige-gris chaud pour remplir les zones vides entre deux rotations
 const BG_R = 184, BG_G = 168, BG_B = 152   // #b8a898
 
@@ -62,7 +66,8 @@ function detectZones(data: Uint8ClampedArray, W: number, H: number): FrameZone[]
   for (let sy = 0; sy < H; sy++) {
     for (let sx = 0; sx < W; sx++) {
       const si = sy * W + sx
-      if (visited[si] || data[si * 4 + 3] >= ALPHA_THRESHOLD) continue
+      // BFS démarre uniquement sur les pixels franchement transparents (DETECT_THRESHOLD)
+      if (visited[si] || data[si * 4 + 3] >= DETECT_THRESHOLD) continue
 
       const pixels: number[] = []
       const q: number[] = [si]
@@ -76,10 +81,10 @@ function detectZones(data: Uint8ClampedArray, W: number, H: number): FrameZone[]
         const cy = (ci / W) | 0, cx = ci % W
         if (cx < x0) x0 = cx; if (cx > x1) x1 = cx
         if (cy < y0) y0 = cy; if (cy > y1) y1 = cy
-        if (cx > 0)     { const n = ci - 1; if (!visited[n] && data[n*4+3] < ALPHA_THRESHOLD) { visited[n]=1; q.push(n) } }
-        if (cx < W - 1) { const n = ci + 1; if (!visited[n] && data[n*4+3] < ALPHA_THRESHOLD) { visited[n]=1; q.push(n) } }
-        if (cy > 0)     { const n = ci - W; if (!visited[n] && data[n*4+3] < ALPHA_THRESHOLD) { visited[n]=1; q.push(n) } }
-        if (cy < H - 1) { const n = ci + W; if (!visited[n] && data[n*4+3] < ALPHA_THRESHOLD) { visited[n]=1; q.push(n) } }
+        if (cx > 0)     { const n = ci - 1; if (!visited[n] && data[n*4+3] < DETECT_THRESHOLD) { visited[n]=1; q.push(n) } }
+        if (cx < W - 1) { const n = ci + 1; if (!visited[n] && data[n*4+3] < DETECT_THRESHOLD) { visited[n]=1; q.push(n) } }
+        if (cy > 0)     { const n = ci - W; if (!visited[n] && data[n*4+3] < DETECT_THRESHOLD) { visited[n]=1; q.push(n) } }
+        if (cy < H - 1) { const n = ci + W; if (!visited[n] && data[n*4+3] < DETECT_THRESHOLD) { visited[n]=1; q.push(n) } }
       }
 
       if (pixels.length < MIN_ZONE_PIXELS) continue
@@ -467,20 +472,23 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         {/* Debug overlay — touche D */}
         {debugOn && (
           <div className="absolute inset-0" style={{ zIndex:30 }}>
-            {zones.map(zone => {
+            {/* Tri : grandes zones en premier (z-index naturel plus bas), petites zones par-dessus */}
+            {[...zones].sort((a, b) => (b.bbox.w * b.bbox.h) - (a.bbox.w * a.bbox.h)).map(zone => {
               const color = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
               const isHov = hovDebug === zone.id
               const rot   = zone.rotation ?? 0
+              // Inset 3px : évite que les rectangles adjacents se touchent visuellement
+              const ins   = 3
               return (
                 <div key={zone.id}
                   onMouseEnter={() => setHovDebug(zone.id)}
                   onMouseLeave={() => setHovDebug(null)}
                   style={{
                     position:        "absolute",
-                    left:            `${(zone.bbox.x / iW) * 100}%`,
-                    top:             `${(zone.bbox.y / iH) * 100}%`,
-                    width:           `${(zone.bbox.w / iW) * 100}%`,
-                    height:          `${(zone.bbox.h / iH) * 100}%`,
+                    left:            `calc(${(zone.bbox.x / iW) * 100}% + ${ins}px)`,
+                    top:             `calc(${(zone.bbox.y / iH) * 100}% + ${ins}px)`,
+                    width:           `calc(${(zone.bbox.w / iW) * 100}% - ${ins * 2}px)`,
+                    height:          `calc(${(zone.bbox.h / iH) * 100}% - ${ins * 2}px)`,
                     transform:        rot ? `rotate(${rot}deg)` : undefined,
                     transformOrigin: "center center",
                     background:      isHov ? color : `${color}99`,
@@ -512,31 +520,35 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       </div>
 
       {/* Zones hover — en dehors du overflow:hidden pour que les tooltips ne soient pas coupés */}
+      {/* Tri : grandes zones en premier → petites zones par-dessus dans les zones de recouvrement */}
       {phase === "ready" && (
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex:5 }}>
-          {zones.map((zone, i) => {
-            const lum   = current[i]
-            const below = zone.bbox.y / iH < 0.4
-            const rot   = zone.rotation ?? 0
-            return (
-              <div key={zone.id} className="absolute"
-                style={{
-                  left:            `${(zone.bbox.x / iW) * 100}%`,
-                  top:             `${(zone.bbox.y / iH) * 100}%`,
-                  width:           `${(zone.bbox.w / iW) * 100}%`,
-                  height:          `${(zone.bbox.h / iH) * 100}%`,
-                  transform:        rot ? `rotate(${rot}deg)` : undefined,
-                  transformOrigin: "center center",
-                  pointerEvents:   "auto",
-                  cursor:          "default",
-                }}
-                onMouseEnter={() => setHovZone(zone.id)}
-                onMouseLeave={() => setHovZone(null)}
-              >
-                {lum && <MuseumLabel lum={lum} visible={hovZone === zone.id} below={below} />}
-              </div>
-            )
-          })}
+          {[...zones]
+            .sort((a, b) => (b.bbox.w * b.bbox.h) - (a.bbox.w * a.bbox.h))
+            .map(zone => {
+              const i     = zones.findIndex(z => z.id === zone.id)
+              const lum   = current[i]
+              const below = zone.bbox.y / iH < 0.4
+              const rot   = zone.rotation ?? 0
+              return (
+                <div key={zone.id} className="absolute"
+                  style={{
+                    left:            `${(zone.bbox.x / iW) * 100}%`,
+                    top:             `${(zone.bbox.y / iH) * 100}%`,
+                    width:           `${(zone.bbox.w / iW) * 100}%`,
+                    height:          `${(zone.bbox.h / iH) * 100}%`,
+                    transform:        rot ? `rotate(${rot}deg)` : undefined,
+                    transformOrigin: "center center",
+                    pointerEvents:   "auto",
+                    cursor:          "default",
+                  }}
+                  onMouseEnter={() => setHovZone(zone.id)}
+                  onMouseLeave={() => setHovZone(null)}
+                >
+                  {lum && <MuseumLabel lum={lum} visible={hovZone === zone.id} below={below} />}
+                </div>
+              )
+            })}
         </div>
       )}
 
