@@ -164,56 +164,69 @@ async function compositeZone(
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
 
-  // ── 1. Fond : radial-gradient #D6D3CC centre-haut → #96938A bords ───────────
-  const cx   = bw / 2
-  const cy   = bh * 0.32                                  // halo légèrement dans le haut
-  const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82        // couvre bien les coins
+  // ── 1. Fond : radial-gradient(circle at 50% 30%, #D6D3CC 0%, #B2AFA6 60%, #96938A 100%)
+  const cx   = bw * 0.50
+  const cy   = bh * 0.30
+  const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
   const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
-  grad.addColorStop(0,    '#D6D3CC')                       // centre clair
-  grad.addColorStop(0.55, '#BAB8B1')                       // transition douce (milieu)
-  grad.addColorStop(1,    '#96938A')                       // bords sombres
+  grad.addColorStop(0,   '#D6D3CC')   // halo centre
+  grad.addColorStop(0.6, '#B2AFA6')   // 60% : ton intermédiaire
+  grad.addColorStop(1,   '#96938A')   // angles sombres
   octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
 
-  // ── 2. Luminaire : drop-shadow sombre et diffus (ombre portée sur le mur) ───
+  // ── 2. drop-shadow(10px 15px 10px rgba(0,0,0,0.4)) sur le luminaire ─────────
   const nW    = img.naturalWidth  || bw
   const nH    = img.naturalHeight || bh
   const scale = Math.min((bw * 0.88) / nW, (bh * 0.88) / nH)
   const dw    = nW * scale, dh = nH * scale
   const dx    = (bw - dw) / 2,  dy = (bh - dh) / 2
 
-  octx.shadowColor   = 'rgba(0,0,0,0.45)'                 // ombre sombre
-  octx.shadowBlur    = 22                                  // diffuse
-  octx.shadowOffsetX = 2
-  octx.shadowOffsetY = 7                                   // décalage vers le bas
+  octx.shadowColor   = 'rgba(0,0,0,0.40)'
+  octx.shadowBlur    = 20             // blur ≈ 10px CSS (canvas double)
+  octx.shadowOffsetX = 10
+  octx.shadowOffsetY = 15
   octx.drawImage(img, dx, dy, dw, dh)
   octx.shadowColor = 'transparent'
   octx.shadowBlur = 0; octx.shadowOffsetX = 0; octx.shadowOffsetY = 0
 
-  // ── 3. Inner shadow prononcée : niche profonde, 4 bords assombris ────────────
-  const vgX = bw * 0.28, vgY = bh * 0.24
-  const sides: [number, number, number, number, [number,number,number,number]][] = [
-    [0,        0,       bw,  vgY,  [0, 0,       0, vgY ]],   // haut
-    [0,        bh-vgY,  bw,  vgY,  [0, bh-vgY,  0, bh  ]],   // bas
-    [0,        0,       vgX, bh,   [0, 0,       vgX, 0  ]],   // gauche
-    [bw-vgX,   0,       vgX, bh,   [bw-vgX, 0,  bw, 0   ]],   // droite
+  // ── 3. box-shadow: inset 10px 10px 40px rgba(0,0,0,0.3) ─────────────────────
+  //       inset -5px -5px 20px rgba(255,255,255,0.1)
+  //  → 4 dégradés sombres (bords) + highlight blanc bas-droite (alcôve)
+
+  // Bords sombres haut-gauche (inset 10px 10px 40px rgba(0,0,0,0.3))
+  const vgX = bw * 0.30, vgY = bh * 0.28
+  const darkSides: [number,number,number,number,[number,number,number,number],number][] = [
+    [0,      0,      bw,  vgY,  [0, 0,      0, vgY ], 0.32],  // haut
+    [0,      bh-vgY, bw,  vgY,  [0, bh-vgY, 0, bh  ], 0.28],  // bas
+    [0,      0,      vgX, bh,   [0, 0,      vgX, 0  ], 0.26],  // gauche
+    [bw-vgX, 0,      vgX, bh,   [bw-vgX, 0, bw, 0   ], 0.26],  // droite
   ]
-  const opacities = [0.38, 0.34, 0.30, 0.30]
-  sides.forEach(([rx, ry, rw, rh, [x0,y0,x1,y1]], si) => {
+  darkSides.forEach(([rx, ry, rw, rh, [x0,y0,x1,y1], op]) => {
+    const fromEdge = ry === 0 && rh < bh / 2 || ry > 0  // top or bottom?
     const lg = octx.createLinearGradient(x0, y0, x1, y1)
-    const fromEdge = si < 2
-    lg.addColorStop(fromEdge ? 0 : 1, `rgba(0,0,0,${opacities[si]})`)
-    lg.addColorStop(fromEdge ? 1 : 0, 'rgba(0,0,0,0)')
+    const isTop = ry === 0 && rh < bh
+    const isLeft = rx === 0 && rw < bw
+    const edgeFirst = isTop || isLeft
+    lg.addColorStop(edgeFirst ? 0 : 1, `rgba(0,0,0,${op})`)
+    lg.addColorStop(edgeFirst ? 1 : 0, 'rgba(0,0,0,0)')
     octx.fillStyle = lg
     octx.fillRect(rx, ry, rw, rh)
   })
 
-  // ── 4. Grain de texture : harmonise avec le fond historique ──────────────────
+  // Highlight blanc bas-droite (inset -5px -5px 20px rgba(255,255,255,0.1))
+  const hlGrad = octx.createRadialGradient(bw, bh, 0, bw * 0.65, bh * 0.65, Math.max(bw, bh) * 0.55)
+  hlGrad.addColorStop(0,   'rgba(255,255,255,0.11)')
+  hlGrad.addColorStop(1,   'rgba(255,255,255,0)')
+  octx.fillStyle = hlGrad
+  octx.fillRect(0, 0, bw, bh)
+
+  // ── 4. Grain : ::before opacity:0.04 mix-blend-mode:multiply → ±4 par canal ─
   const lumImgData = octx.getImageData(0, 0, bw, bh)
   const d          = lumImgData.data
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] === 0) continue
-    const n = (Math.random() - 0.5) * 11       // ±5.5 intensité
+    const n = (Math.random() - 0.5) * 8        // ±4 intensité (≈ opacity 0.04)
     d[i]   = Math.max(0, Math.min(255, d[i]   + n))
     d[i+1] = Math.max(0, Math.min(255, d[i+1] + n))
     d[i+2] = Math.max(0, Math.min(255, d[i+2] + n))
