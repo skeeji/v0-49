@@ -25,11 +25,11 @@ interface FrameZone {
 
 const ROTATION_INTERVAL = 30_000
 const ALPHA_THRESHOLD   = 128
-// Fond gris-beige patiné — imite papier ancien / pierre de taille en gravure
-const BG_R = 186, BG_G = 184, BG_B = 177   // #BAB8B1
+// Fond sépia chaud — midpoint du gradient intérieur des cadres
+const BG_R = 197, BG_G = 192, BG_B = 179   // #C5C0B3
 
-// Détection par grille (rapide) ─────────────────────────────────────────────────
-const CELL         = 22
+// Détection par grille — CELL=8 pour une précision ±8px (au lieu de ±22px)
+const CELL         = 8
 const FRAME_RATIO  = 0.55
 const BORDER_CELLS = 2
 const MIN_ZONE_PX  = 1200
@@ -164,14 +164,14 @@ async function compositeZone(
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
 
-  // ── 1. Fond : radial-gradient(circle at 50% 30%, #D6D3CC 0%, #B2AFA6 60%, #96938A 100%)
+  // ── 1. Fond sépia chaud : #E6E2D6 → #C5C0B3 → #827D72 ──────────────────────
   const cx   = bw * 0.50
   const cy   = bh * 0.30
   const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
   const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
-  grad.addColorStop(0,   '#D6D3CC')   // halo centre
-  grad.addColorStop(0.6, '#B2AFA6')   // 60% : ton intermédiaire
-  grad.addColorStop(1,   '#96938A')   // angles sombres
+  grad.addColorStop(0,    '#E6E2D6')   // halo centre sépia clair
+  grad.addColorStop(0.50, '#C5C0B3')   // transition douce
+  grad.addColorStop(1,    '#827D72')   // angles sombres sépia
   octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
 
@@ -182,28 +182,25 @@ async function compositeZone(
   const dw    = nW * scale, dh = nH * scale
   const dx    = (bw - dw) / 2,  dy = (bh - dh) / 2
 
+  octx.filter        = 'sepia(0.2) contrast(0.9)'
   octx.shadowColor   = 'rgba(0,0,0,0.40)'
   octx.shadowBlur    = 20             // blur ≈ 10px CSS (canvas double)
   octx.shadowOffsetX = 10
   octx.shadowOffsetY = 15
   octx.drawImage(img, dx, dy, dw, dh)
+  octx.filter = 'none'
   octx.shadowColor = 'transparent'
   octx.shadowBlur = 0; octx.shadowOffsetX = 0; octx.shadowOffsetY = 0
 
-  // ── 3. box-shadow: inset 10px 10px 40px rgba(0,0,0,0.3) ─────────────────────
-  //       inset -5px -5px 20px rgba(255,255,255,0.1)
-  //  → 4 dégradés sombres (bords) + highlight blanc bas-droite (alcôve)
-
-  // Bords sombres haut-gauche (inset 10px 10px 40px rgba(0,0,0,0.3))
-  const vgX = bw * 0.30, vgY = bh * 0.28
+  // ── 3. box-shadow inset 0 0 50px rgba(0,0,0,0.5) → coins très sombres ─────────
+  const vgX = bw * 0.35, vgY = bh * 0.32
   const darkSides: [number,number,number,number,[number,number,number,number],number][] = [
-    [0,      0,      bw,  vgY,  [0, 0,      0, vgY ], 0.32],  // haut
-    [0,      bh-vgY, bw,  vgY,  [0, bh-vgY, 0, bh  ], 0.28],  // bas
-    [0,      0,      vgX, bh,   [0, 0,      vgX, 0  ], 0.26],  // gauche
-    [bw-vgX, 0,      vgX, bh,   [bw-vgX, 0, bw, 0   ], 0.26],  // droite
+    [0,      0,      bw,  vgY,  [0, 0,      0, vgY ], 0.60],  // haut
+    [0,      bh-vgY, bw,  vgY,  [0, bh-vgY, 0, bh  ], 0.55],  // bas
+    [0,      0,      vgX, bh,   [0, 0,      vgX, 0  ], 0.52],  // gauche
+    [bw-vgX, 0,      vgX, bh,   [bw-vgX, 0, bw, 0   ], 0.52],  // droite
   ]
   darkSides.forEach(([rx, ry, rw, rh, [x0,y0,x1,y1], op]) => {
-    const fromEdge = ry === 0 && rh < bh / 2 || ry > 0  // top or bottom?
     const lg = octx.createLinearGradient(x0, y0, x1, y1)
     const isTop = ry === 0 && rh < bh
     const isLeft = rx === 0 && rw < bw
@@ -213,11 +210,10 @@ async function compositeZone(
     octx.fillStyle = lg
     octx.fillRect(rx, ry, rw, rh)
   })
-
-  // Highlight blanc bas-droite (inset -5px -5px 20px rgba(255,255,255,0.1))
+  // Highlight blanc bas-droite
   const hlGrad = octx.createRadialGradient(bw, bh, 0, bw * 0.65, bh * 0.65, Math.max(bw, bh) * 0.55)
-  hlGrad.addColorStop(0,   'rgba(255,255,255,0.11)')
-  hlGrad.addColorStop(1,   'rgba(255,255,255,0)')
+  hlGrad.addColorStop(0, 'rgba(255,255,255,0.11)')
+  hlGrad.addColorStop(1, 'rgba(255,255,255,0)')
   octx.fillStyle = hlGrad
   octx.fillRect(0, 0, bw, bh)
 
@@ -246,14 +242,19 @@ async function compositeZone(
     }
   }
 
-  // ── 6. Écriture uniquement sur les pixels transparents du PNG original ───────
-  for (let row = 0; row < bh; row++) {
-    for (let col = 0; col < bw; col++) {
+  // ── 6. Écriture — bbox étendue +25px pour couvrir les pixels entre bbox et
+  //       bordure dorée (élimine le fond plat visible entre cadre et gradient)
+  const PAD = 25
+  for (let row = -PAD; row < bh + PAD; row++) {
+    for (let col = -PAD; col < bw + PAD; col++) {
       const px = bx + col, py = by + row
-      if (px < 0 || px >= W || py < 0) continue
+      if (px < 0 || px >= W || py < 0 || py >= (origData.length / 4 / W)) continue
       const bi = (py * W + px) * 4
-      const li = (row * bw + col) * 4
       if (origData[bi + 3] < ALPHA_THRESHOLD) {
+        // Clamper la position locale dans le canvas pour les pixels hors-bbox
+        const lx = Math.max(0, Math.min(bw - 1, col))
+        const ly = Math.max(0, Math.min(bh - 1, row))
+        const li = (ly * bw + lx) * 4
         const lumAlpha = d[li + 3]
         if (lumAlpha === 0) continue
         output[bi]     = d[li]
