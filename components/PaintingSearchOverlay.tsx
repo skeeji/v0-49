@@ -414,17 +414,15 @@ export function PaintingSearchOverlay() {
         @keyframes pso-spin { to { transform:rotate(360deg); } }
         @media (max-width:640px) {
           .pso-center {
-            padding:1rem 1.1rem;
-            min-width:0; width:calc(100vw - 2rem);
-            max-width:calc(100vw - 2rem);
-            top:50%; left:50%;
+            padding:0.85rem 1.1rem;
+            min-width:0; width:max-content; max-width:min(320px, 88vw);
+            top:28%; left:50%;
             transform:translate(-50%,-50%);
           }
-          .pso-title { font-size:1.25rem; white-space:normal; }
-          .pso-subtitle { font-size:0.65rem; }
-          .pso-pill-btn { padding:0.4rem 0.9rem; font-size:0.74rem; }
-          .pso-text-input { width:100%; max-width:240px; font-size:0.8rem; }
-          .pso-text-wrap { width:100%; justify-content:center; }
+          .pso-title { font-size:1.1rem; white-space:nowrap; }
+          .pso-subtitle { font-size:0.6rem; margin-bottom:0.6rem; }
+          .pso-pill-btn { padding:0.35rem 0.8rem; font-size:0.7rem; }
+          .pso-text-input { width:180px; font-size:0.78rem; }
           .pso-results {
             bottom:0.5rem;
             width:calc(100vw - 1.5rem);

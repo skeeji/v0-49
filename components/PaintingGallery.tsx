@@ -27,7 +27,7 @@ interface FrameZone {
 const ROTATION_INTERVAL = 30_000
 const ALPHA_THRESHOLD   = 128
 // Fond sépia chaud — midpoint du gradient intérieur des cadres
-const BG_R = 205, BG_G = 183, BG_B = 143   // #CDB78F — beige chaud accord tableau
+const BG_R = 216, BG_G = 192, BG_B = 138   // #D8C08A — beige doré éclairci accord tableau
 
 // Détection pixel par pixel — précision chirurgicale, pas d'artefact de grille
 const BORDER       = 2       // exclure 2px de bord d'image
@@ -171,9 +171,9 @@ async function compositeZone(
   const cx   = bw * 0.50, cy = bh * 0.30
   const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
   const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
-  grad.addColorStop(0,    '#C2A86C')   // beige doré centre (halo réduit)
-  grad.addColorStop(0.50, '#B09058')   // tan doré mi-chemin
-  grad.addColorStop(1,    '#6A5030')   // brun chaud bords
+  grad.addColorStop(0,    '#D8C08A')   // beige doré centre éclairci
+  grad.addColorStop(0.50, '#C4A870')   // tan doré mi-chemin
+  grad.addColorStop(1,    '#8A6A42')   // brun chaud bords
   octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
 
@@ -276,24 +276,39 @@ function putDPR(canvas: HTMLCanvasElement, data: Uint8ClampedArray, W: number, H
 // ─── Museum label ─────────────────────────────────────────────────────────────────
 
 function MuseumLabel({
-  lum, visible, below, onEnter, onLeave,
+  lum, visible, below, side, onEnter, onLeave,
 }: {
-  lum: GalleryLuminaire; visible: boolean; below: boolean
+  lum: GalleryLuminaire; visible: boolean; below: boolean; side?: "left" | "right"
   onEnter: () => void; onLeave: () => void
 }) {
-  const pos  = below ? { top: "calc(100% + 6px)" } : { bottom: "calc(100% + 6px)" }
-  const arrO = below ? { top:-7, borderBottom:"7px solid #b8974a", borderTop:"none" } : { bottom:-7, borderTop:"7px solid #b8974a", borderBottom:"none" }
-  const arrI = below ? { top:-5, borderBottom:"6px solid #f0e6c0", borderTop:"none" } : { bottom:-5, borderTop:"6px solid #f0e6c0", borderBottom:"none" }
   const href = lum.luminaire_id ? `/luminaires/${lum.luminaire_id}` : null
+
+  // Positionnement : côté gauche/droit si side est défini, sinon haut/bas
+  let wrapPos: React.CSSProperties
+  let arrowOuter: React.CSSProperties
+  let arrowInner: React.CSSProperties
+  if (side === "right") {
+    wrapPos   = { left: "calc(100% + 8px)", top: "50%", transform: "translateY(-50%)" }
+    arrowOuter = { left:-7, top:"50%", transform:"translateY(-50%)", borderRight:"7px solid #b8974a", borderLeft:"none", borderTop:"7px solid transparent", borderBottom:"7px solid transparent" }
+    arrowInner = { left:-5, top:"50%", transform:"translateY(-50%)", borderRight:"6px solid #f0e6c0", borderLeft:"none", borderTop:"6px solid transparent", borderBottom:"6px solid transparent" }
+  } else if (side === "left") {
+    wrapPos   = { right: "calc(100% + 8px)", top: "50%", transform: "translateY(-50%)" }
+    arrowOuter = { right:-7, top:"50%", transform:"translateY(-50%)", borderLeft:"7px solid #b8974a", borderRight:"none", borderTop:"7px solid transparent", borderBottom:"7px solid transparent" }
+    arrowInner = { right:-5, top:"50%", transform:"translateY(-50%)", borderLeft:"6px solid #f0e6c0", borderRight:"none", borderTop:"6px solid transparent", borderBottom:"6px solid transparent" }
+  } else {
+    wrapPos   = below ? { top: "calc(100% + 6px)", left:"50%", transform:"translateX(-50%)" } : { bottom: "calc(100% + 6px)", left:"50%", transform:"translateX(-50%)" }
+    arrowOuter = below ? { top:-7, left:"50%", transform:"translateX(-50%)", borderBottom:"7px solid #b8974a", borderTop:"none", borderLeft:"7px solid transparent", borderRight:"7px solid transparent" } : { bottom:-7, left:"50%", transform:"translateX(-50%)", borderTop:"7px solid #b8974a", borderBottom:"none", borderLeft:"7px solid transparent", borderRight:"7px solid transparent" }
+    arrowInner = below ? { top:-5, left:"50%", transform:"translateX(-50%)", borderBottom:"6px solid #f0e6c0", borderTop:"none", borderLeft:"6px solid transparent", borderRight:"6px solid transparent" } : { bottom:-5, left:"50%", transform:"translateX(-50%)", borderTop:"6px solid #f0e6c0", borderBottom:"none", borderLeft:"6px solid transparent", borderRight:"6px solid transparent" }
+  }
+
   return (
-    // pointer-events-auto : le tooltip est interactif → la souris peut rester dessus
     <div className="absolute z-50"
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
-      style={{ ...pos, left:"50%", transform:"translateX(-50%)", minWidth:150, maxWidth:200, opacity:visible?1:0, transition:"opacity 0.2s ease", pointerEvents: visible ? "auto" : "none" }}>
+      style={{ ...wrapPos, minWidth:150, maxWidth:200, opacity:visible?1:0, transition:"opacity 0.2s ease", pointerEvents: visible ? "auto" : "none" }}>
       <div style={{ background:"linear-gradient(135deg,#f5e9c8,#ede0b0 60%,#f0e6c0)", border:"1px solid #b8974a", borderRadius:2, padding:"8px 10px", boxShadow:"0 2px 10px rgba(0,0,0,.35)", position:"relative" }}>
-        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"7px solid transparent", borderRight:"7px solid transparent", ...arrO }} />
-        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", width:0, height:0, borderLeft:"6px solid transparent", borderRight:"6px solid transparent", ...arrI }} />
+        <div style={{ position:"absolute", width:0, height:0, ...arrowOuter }} />
+        <div style={{ position:"absolute", width:0, height:0, ...arrowInner }} />
         <p style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:11, fontWeight:600, color:"#3d2b0a", lineHeight:1.3, margin:0 }}>{lum.nom}</p>
         {lum.designer && <p style={{ fontFamily:"Georgia,serif", fontSize:10, fontStyle:"italic", color:"#6b4f1a", marginTop:2, marginBottom:0 }}>{lum.designer}</p>}
         {lum.annee    && <p style={{ fontFamily:"Georgia,serif", fontSize:9,  color:"#7a5c20", marginTop:1, marginBottom:0 }}>{lum.annee}</p>}
@@ -665,6 +680,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
             const i     = zones.findIndex(z => z.id === zone.id)
             const lum   = current[i]
             const below = zone.bbox.y / iH < 0.4
+            const side  = zone.id === 9 ? "right" as const : undefined
             const rot   = zone.rotation ?? 0
             const handleEnter = () => {
               if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
@@ -689,6 +705,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
                     lum={lum}
                     visible={hovZone === zone.id}
                     below={below}
+                    side={side}
                     onEnter={handleEnter}
                     onLeave={handleLeave}
                   />
