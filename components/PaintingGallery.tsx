@@ -27,7 +27,7 @@ interface FrameZone {
 const ROTATION_INTERVAL = 30_000
 const ALPHA_THRESHOLD   = 128
 // Fond sépia chaud — midpoint du gradient intérieur des cadres
-const BG_R = 197, BG_G = 192, BG_B = 179   // #C5C0B3
+const BG_R = 205, BG_G = 183, BG_B = 143   // #CDB78F — beige chaud accord tableau
 
 // Détection pixel par pixel — précision chirurgicale, pas d'artefact de grille
 const BORDER       = 2       // exclure 2px de bord d'image
@@ -171,9 +171,9 @@ async function compositeZone(
   const cx   = bw * 0.50, cy = bh * 0.30
   const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
   const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
-  grad.addColorStop(0,    '#E6E2D6')
-  grad.addColorStop(0.50, '#C5C0B3')
-  grad.addColorStop(1,    '#827D72')
+  grad.addColorStop(0,    '#D8C99A')   // beige chaud centre (halo adouci)
+  grad.addColorStop(0.50, '#C0A878')   // tan doré mi-chemin
+  grad.addColorStop(1,    '#78603A')   // brun chaud bords
   octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
 
@@ -186,7 +186,7 @@ async function compositeZone(
       ]) as HTMLImageElement
       const nW    = img.naturalWidth  || bw
       const nH    = img.naturalHeight || bh
-      const scale = Math.min((bw * 0.88) / nW, (bh * 0.88) / nH)
+      const scale = Math.min((bw * 0.72) / nW, (bh * 0.72) / nH)
       const dw    = nW * scale, dh = nH * scale
       const dx    = (bw - dw) / 2,  dy = (bh - dh) / 2
       octx.filter        = 'sepia(0.2) contrast(0.9)'
