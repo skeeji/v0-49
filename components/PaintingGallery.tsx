@@ -127,8 +127,9 @@ function loadImg(src: string): Promise<HTMLImageElement> {
 }
 
 // ─── Composite un luminaire dans une zone ────────────────────────────────────────
-// Stratégie canvas-masque : on peint le masque exact (pixels transparents de
-// l'image source), puis source-in/source-atop garantissent 0 débordement.
+// Stratégie : dessin libre sur canvas bbox, puis clip post-rendu pixel par pixel.
+// Chaque pixel du canvas est annulé s'il correspond à un pixel opaque dans
+// l'image source → forme ovale = résultat ovale, forme angulée = résultat angulé.
 
 async function compositeZone(
   output:   Uint8ClampedArray,
@@ -146,29 +147,7 @@ async function compositeZone(
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
 
-  // FILL_ALPHA = ALPHA_THRESHOLD : seuil exact intérieur/bord doré du cadre
-  // 128 = midpoint entre trou (alpha=0) et cadre opaque (alpha=255)
-  const FILL_ALPHA = ALPHA_THRESHOLD
-
-  // ── ÉTAPE 1 : Masque — pixels transparents dans origData → noir opaque ────────
-  const maskData = octx.createImageData(bw, bh)
-  const md = maskData.data
-  for (let row = 0; row < bh; row++) {
-    for (let col = 0; col < bw; col++) {
-      const px = bx + col, py = by + row
-      if (px < 0 || px >= W || py < 0 || py >= Himg) continue
-      if (origData[(py * W + px) * 4 + 3] < FILL_ALPHA) {
-        const li = (row * bw + col) * 4
-        md[li] = 0; md[li+1] = 0; md[li+2] = 0; md[li+3] = 255
-      }
-    }
-  }
-  octx.putImageData(maskData, 0, 0)
-
-  // ── ÉTAPE 2 : source-in — tout ce qui suit est instantanément clipé ──────────
-  octx.globalCompositeOperation = 'source-in'
-
-  // ── ÉTAPE 3a : Fond sépia radial (halo lumineux) ─────────────────────────────
+  // ── 1. Fond sépia radial (halo lumineux) — dessin libre, sans clip ────────────
   const cx   = bw * 0.50, cy = bh * 0.30
   const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
   const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
@@ -178,10 +157,7 @@ async function compositeZone(
   octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
 
-  // Pour la suite on reste dans le masque avec source-atop
-  octx.globalCompositeOperation = 'source-atop'
-
-  // ── ÉTAPE 3b : Luminaire (optionnel) ─────────────────────────────────────────
+  // ── 2. Luminaire (optionnel) ──────────────────────────────────────────────────
   if (lumUrl) {
     try {
       const img = await Promise.race([
@@ -205,7 +181,7 @@ async function compositeZone(
     } catch { /* pas de luminaire */ }
   }
 
-  // ── ÉTAPE 3c : Vignette sombre bords ─────────────────────────────────────────
+  // ── 3. Vignette sombre bords ──────────────────────────────────────────────────
   const vgX = bw * 0.35, vgY = bh * 0.32
   const darkSides: [number,number,number,number,[number,number,number,number],number][] = [
     [0,      0,      bw,  vgY,  [0, 0,      0, vgY ], 0.60],
@@ -222,18 +198,17 @@ async function compositeZone(
     octx.fillRect(rx, ry, rw, rh)
   })
 
-  // ── ÉTAPE 3d : Highlight blanc bas-droite ─────────────────────────────────────
+  // ── 4. Highlight blanc bas-droite ─────────────────────────────────────────────
   const hlGrad = octx.createRadialGradient(bw, bh, 0, bw * 0.65, bh * 0.65, Math.max(bw, bh) * 0.55)
   hlGrad.addColorStop(0, 'rgba(255,255,255,0.11)')
   hlGrad.addColorStop(1, 'rgba(255,255,255,0)')
   octx.fillStyle = hlGrad
   octx.fillRect(0, 0, bw, bh)
 
-  // ── ÉTAPE 4 : Grain + Tint blanc→BG ──────────────────────────────────────────
+  // ── 5. Récupération pixels + Grain + Tint blanc→BG ───────────────────────────
   const lumImgData = octx.getImageData(0, 0, bw, bh)
   const d          = lumImgData.data
   for (let i = 0; i < d.length; i += 4) {
-    if (d[i + 3] === 0) continue
     const n = (Math.random() - 0.5) * 8
     d[i]   = Math.max(0, Math.min(255, d[i]   + n))
     d[i+1] = Math.max(0, Math.min(255, d[i+1] + n))
@@ -250,17 +225,29 @@ async function compositeZone(
     }
   }
 
-  // ── ÉTAPE 5 : Écriture — strictement dans la bbox, guard origData absolu ────────
-  // Pas de PAD : écrire hors bbox copierait la couleur de bord sur des pixels
-  // transparents d'autres zones voisines et créerait des débordements.
+  // ── 6. CLIP post-rendu : annule tout pixel qui touche le fond opaque ──────────
+  // C'est ici que la forme ovale/angulée est appliquée au scalpel :
+  // on lit chaque pixel de l'image source ; s'il est opaque → alpha canvas = 0.
   for (let row = 0; row < bh; row++) {
     for (let col = 0; col < bw; col++) {
       const px = bx + col, py = by + row
-      if (px < 0 || px >= W || py < 0 || py >= Himg) continue
-      const bi = (py * W + px) * 4
-      if (origData[bi + 3] >= FILL_ALPHA) continue   // pixel cadre → interdit absolu
+      if (px < 0 || px >= W || py < 0 || py >= Himg) {
+        d[(row * bw + col) * 4 + 3] = 0
+        continue
+      }
+      if (origData[(py * W + px) * 4 + 3] >= ALPHA_THRESHOLD) {
+        d[(row * bw + col) * 4 + 3] = 0   // pixel cadre → effacé
+      }
+    }
+  }
+
+  // ── 7. Écriture dans output — uniquement les pixels survivant au clip ─────────
+  for (let row = 0; row < bh; row++) {
+    for (let col = 0; col < bw; col++) {
       const li = (row * bw + col) * 4
       if (d[li + 3] === 0) continue
+      const px = bx + col, py = by + row
+      const bi = (py * W + px) * 4
       output[bi]     = d[li]
       output[bi + 1] = d[li + 1]
       output[bi + 2] = d[li + 2]
