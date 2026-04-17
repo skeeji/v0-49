@@ -146,6 +146,10 @@ async function compositeZone(
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
 
+  // FILL_ALPHA > ALPHA_THRESHOLD : inclut les pixels semi-transparents des bords
+  // → remplissage complet sans trous ; le guard en écriture protège le cadre opaque
+  const FILL_ALPHA = 200
+
   // ── ÉTAPE 1 : Masque — pixels transparents dans origData → noir opaque ────────
   const maskData = octx.createImageData(bw, bh)
   const md = maskData.data
@@ -153,7 +157,7 @@ async function compositeZone(
     for (let col = 0; col < bw; col++) {
       const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0 || py >= Himg) continue
-      if (origData[(py * W + px) * 4 + 3] < ALPHA_THRESHOLD) {
+      if (origData[(py * W + px) * 4 + 3] < FILL_ALPHA) {
         const li = (row * bw + col) * 4
         md[li] = 0; md[li+1] = 0; md[li+2] = 0; md[li+3] = 255
       }
@@ -246,18 +250,24 @@ async function compositeZone(
     }
   }
 
-  // ── ÉTAPE 5 : Écriture dans output — uniquement les pixels du masque ──────────
-  for (let row = 0; row < bh; row++) {
-    for (let col = 0; col < bw; col++) {
+  // ── ÉTAPE 5 : Écriture — PAD=3 pour les pixels frontière bbox + guard origData ──
+  // origData guard = seul verrou absolu contre les débordements :
+  // si le pixel est opaque dans la source (>= FILL_ALPHA), on ne le touche JAMAIS.
+  const WPAD = 3
+  for (let row = -WPAD; row < bh + WPAD; row++) {
+    for (let col = -WPAD; col < bw + WPAD; col++) {
       const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0 || py >= Himg) continue
       const bi = (py * W + px) * 4
-      const li = (row * bw + col) * 4
+      if (origData[bi + 3] >= FILL_ALPHA) continue   // pixel cadre → interdit
+      const lx = Math.max(0, Math.min(bw - 1, col))
+      const ly = Math.max(0, Math.min(bh - 1, row))
+      const li = (ly * bw + lx) * 4
       if (d[li + 3] === 0) continue
       output[bi]     = d[li]
       output[bi + 1] = d[li + 1]
       output[bi + 2] = d[li + 2]
-      output[bi + 3] = d[li + 3]
+      output[bi + 3] = 255
     }
   }
 }
@@ -323,8 +333,9 @@ function MuseumLabel({
 
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
 
-  const canvasBaseRef = useRef<HTMLCanvasElement>(null)  // fond permanent
-  const canvasCompRef = useRef<HTMLCanvasElement>(null)  // luminaires, crossfade
+  const canvasBaseRef  = useRef<HTMLCanvasElement>(null)  // fond permanent
+  const canvasCompRef  = useRef<HTMLCanvasElement>(null)  // luminaires, crossfade
+  const canvasDebugRef = useRef<HTMLCanvasElement>(null)  // masques debug (touche D)
 
   const origDataRef   = useRef<Uint8ClampedArray | null>(null)
   const zonesRef      = useRef<FrameZone[]>([])
@@ -512,6 +523,37 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     return () => window.removeEventListener("keydown", h)
   }, [])
 
+  // ── Rendu debug : masques pixel-exact coloriés par zone ───────────────────────
+  useEffect(() => {
+    if (!debugOn || !canvasDebugRef.current || !origDataRef.current || zones.length === 0) return
+    const { w: W, h: H } = imgSizeRef.current
+    const origData  = origDataRef.current
+    const debugData = new Uint8ClampedArray(W * H * 4)
+    const FILL_ALPHA = 200
+
+    zones.forEach(zone => {
+      const hex   = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
+      const dr    = parseInt(hex.slice(1, 3), 16)
+      const dg    = parseInt(hex.slice(3, 5), 16)
+      const db    = parseInt(hex.slice(5, 7), 16)
+      const { x: bx, y: by, w: bw, h: bh } = zone.bbox
+      for (let row = 0; row < bh; row++) {
+        for (let col = 0; col < bw; col++) {
+          const px = bx + col, py = by + row
+          if (px < 0 || px >= W || py < 0 || py >= H) continue
+          const bi = (py * W + px) * 4
+          if (origData[bi + 3] < FILL_ALPHA) {
+            debugData[bi]     = dr
+            debugData[bi + 1] = dg
+            debugData[bi + 2] = db
+            debugData[bi + 3] = 170
+          }
+        }
+      }
+    })
+    putDPR(canvasDebugRef.current, debugData, W, H, true)
+  }, [debugOn, zones])
+
   // ─── Rendu ───────────────────────────────────────────────────────────────────
 
   if (!transparentUrl) {
@@ -563,43 +605,55 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
         {/* Debug overlay — touche D */}
         {debugOn && (
-          <div className="absolute inset-0" style={{ zIndex:30 }}>
-            {sortedZones.map(zone => {
-              const color = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
-              const isHov = hovDebug === zone.id
-              const rot   = zone.rotation ?? 0
-              const ins   = 3
-              return (
-                <div key={zone.id}
-                  onMouseEnter={() => setHovDebug(zone.id)}
-                  onMouseLeave={() => setHovDebug(null)}
-                  style={{
-                    position:"absolute",
-                    left:   `calc(${(zone.bbox.x / iW)*100}% + ${ins}px)`,
-                    top:    `calc(${(zone.bbox.y / iH)*100}% + ${ins}px)`,
-                    width:  `calc(${(zone.bbox.w / iW)*100}% - ${ins*2}px)`,
-                    height: `calc(${(zone.bbox.h / iH)*100}% - ${ins*2}px)`,
-                    transform: rot ? `rotate(${rot}deg)` : undefined,
-                    transformOrigin: "center center",
-                    background: isHov ? color : `${color}99`,
-                    border: `2px solid ${color}`,
-                    boxSizing: "border-box",
-                    transition: "background 0.15s",
-                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2, cursor:"default",
-                  }}>
-                  <span style={{ background:color, color:"#fff", fontSize:10, fontWeight:800, fontFamily:"monospace", padding:"1px 5px", borderRadius:3, lineHeight:1.4, textShadow:"0 1px 2px rgba(0,0,0,.6)", pointerEvents:"none" }}>
-                    #{zone.id}
-                  </span>
-                  <span style={{ color:"#fff", fontSize:8, fontFamily:"monospace", textShadow:"0 1px 3px rgba(0,0,0,.9)", pointerEvents:"none", lineHeight:1.3 }}>
-                    {zone.bbox.w}×{zone.bbox.h}
-                  </span>
-                </div>
-              )
-            })}
-            <div style={{ position:"absolute", top:6, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.82)", color:"#fff", fontSize:11, padding:"4px 12px", borderRadius:4, whiteSpace:"nowrap", fontFamily:"monospace", pointerEvents:"none" }}>
-              DEBUG — {zones.length} zones — {hovDebug !== null ? `#${hovDebug} sélectionné` : "survol pour détails"} — D pour fermer
+          <>
+            {/* Canvas pixel-exact : forme réelle de chaque masque */}
+            <canvas ref={canvasDebugRef}
+              style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:29, pointerEvents:"none" }} />
+
+            {/* Étiquettes bbox par zone */}
+            <div className="absolute inset-0" style={{ zIndex:30 }}>
+              {sortedZones.map(zone => {
+                const color = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
+                const isHov = hovDebug === zone.id
+                const rot   = zone.rotation ?? 0
+                return (
+                  <div key={zone.id}
+                    onMouseEnter={() => setHovDebug(zone.id)}
+                    onMouseLeave={() => setHovDebug(null)}
+                    style={{
+                      position:"absolute",
+                      left:   `${(zone.bbox.x / iW)*100}%`,
+                      top:    `${(zone.bbox.y / iH)*100}%`,
+                      width:  `${(zone.bbox.w / iW)*100}%`,
+                      height: `${(zone.bbox.h / iH)*100}%`,
+                      transform: rot ? `rotate(${rot}deg)` : undefined,
+                      transformOrigin: "center center",
+                      border: `2px solid ${color}`,
+                      boxSizing: "border-box",
+                      background: isHov ? `${color}33` : "transparent",
+                      transition: "background 0.15s",
+                      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2, cursor:"default",
+                    }}>
+                    <span style={{ background:color, color:"#fff", fontSize:10, fontWeight:800, fontFamily:"monospace", padding:"1px 5px", borderRadius:3, lineHeight:1.4, textShadow:"0 1px 2px rgba(0,0,0,.6)", pointerEvents:"none" }}>
+                      #{zone.id}
+                    </span>
+                    <span style={{ color:"#fff", fontSize:8, fontFamily:"monospace", textShadow:"0 1px 3px rgba(0,0,0,.9)", pointerEvents:"none", lineHeight:1.3, background:"rgba(0,0,0,.5)", padding:"0 3px", borderRadius:2 }}>
+                      {zone.bbox.w}×{zone.bbox.h}{zone.rotation ? ` ∠${zone.rotation}°` : ""}
+                    </span>
+                  </div>
+                )
+              })}
+              <div style={{ position:"absolute", top:6, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,.85)", color:"#fff", fontSize:11, padding:"5px 14px", borderRadius:4, whiteSpace:"nowrap", fontFamily:"monospace", pointerEvents:"none", display:"flex", gap:12 }}>
+                <span>DEBUG MASQUES</span>
+                <span style={{ opacity:0.6 }}>|</span>
+                <span>{zones.length} zones</span>
+                <span style={{ opacity:0.6 }}>|</span>
+                <span>{hovDebug !== null ? `#${hovDebug} — ${zones.find(z=>z.id===hovDebug)?.bbox.w}×${zones.find(z=>z.id===hovDebug)?.bbox.h}` : "survol = détails"}</span>
+                <span style={{ opacity:0.6 }}>|</span>
+                <span style={{ color:"#ffd" }}>D pour fermer</span>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
