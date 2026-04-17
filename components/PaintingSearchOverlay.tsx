@@ -414,23 +414,26 @@ export function PaintingSearchOverlay() {
         @keyframes pso-spin { to { transform:rotate(360deg); } }
         @media (max-width:640px) {
           .pso-center {
-            padding:0.85rem 1.1rem;
-            min-width:0; width:max-content; max-width:min(320px, 88vw);
-            top:28%; left:50%;
+            padding:0.55rem 0.85rem;
+            min-width:0; width:max-content; max-width:min(260px, 82vw);
+            top:22%; left:50%;
             transform:translate(-50%,-50%);
           }
-          .pso-title { font-size:1.1rem; white-space:nowrap; }
-          .pso-subtitle { font-size:0.6rem; margin-bottom:0.6rem; }
-          .pso-pill-btn { padding:0.35rem 0.8rem; font-size:0.7rem; }
-          .pso-text-input { width:180px; font-size:0.78rem; }
+          .pso-title { font-size:0.95rem; white-space:nowrap; margin-bottom:0.1rem; }
+          .pso-subtitle { font-size:0.55rem; margin:0 0 0.5rem; }
+          .pso-pill-btn { padding:0.28rem 0.65rem; font-size:0.65rem; }
+          .pso-pill-sm  { padding:0.25rem 0.6rem;  font-size:0.65rem; }
+          .pso-text-input { width:160px; font-size:0.72rem; padding:0.4rem 2.5rem 0.4rem 0.85rem; }
+          .pso-input-btn  { width:26px; height:26px; font-size:0.85rem; }
+          .pso-search-zone { margin-top:0.55rem; }
           .pso-results {
-            bottom:0.5rem;
+            bottom:0.4rem;
             width:calc(100vw - 1.5rem);
-            padding:0.75rem;
-            max-height:35vh;
-            border-radius:12px;
+            padding:0.6rem;
+            max-height:30vh;
+            border-radius:10px;
           }
-          .pso-results-grid { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); gap:8px; }
+          .pso-results-grid { grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:6px; }
         }
       `}</style>
 

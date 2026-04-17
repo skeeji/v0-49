@@ -186,7 +186,7 @@ async function compositeZone(
       ]) as HTMLImageElement
       const nW    = img.naturalWidth  || bw
       const nH    = img.naturalHeight || bh
-      const scale = Math.min((bw * 0.72) / nW, (bh * 0.72) / nH)
+      const scale = Math.min((bw * 0.82) / nW, (bh * 0.82) / nH)
       const dw    = nW * scale, dh = nH * scale
       const dx    = (bw - dw) / 2,  dy = (bh - dh) / 2
       octx.filter        = 'sepia(0.2) contrast(0.9)'
@@ -231,10 +231,12 @@ async function compositeZone(
     d[i+2] = Math.max(0, Math.min(255, d[i+2] + n))
     const r = d[i], g = d[i+1], b = d[i+2]
     const w = Math.min(r, g, b) / 255
-    if (w > 0.88) {
+    if (w > 0.94) {
+      // Seulement les pixels quasi-blancs (fond uni des photos produit)
       d[i] = BG_R; d[i+1] = BG_G; d[i+2] = BG_B
-    } else if (w > 0.72) {
-      const t = (w - 0.72) / 0.16
+    } else if (w > 0.84) {
+      // Zone de transition courte → tint moins prononcé sur les gris clairs
+      const t = (w - 0.84) / 0.10
       d[i]   = Math.round(r + (BG_R - r) * t)
       d[i+1] = Math.round(g + (BG_G - g) * t)
       d[i+2] = Math.round(b + (BG_B - b) * t)
