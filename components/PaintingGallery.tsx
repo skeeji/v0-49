@@ -127,8 +127,8 @@ function loadImg(src: string): Promise<HTMLImageElement> {
 }
 
 // ─── Composite un luminaire dans une zone ────────────────────────────────────────
-// Rendu canvas natif (radialGradient) + pochoir origData avec PAD=25.
-// lumUrl peut être undefined → fond sepia seul (pas de luminaire).
+// Stratégie canvas-masque : on peint le masque exact (pixels transparents de
+// l'image source), puis source-in/source-atop garantissent 0 débordement.
 
 async function compositeZone(
   output:   Uint8ClampedArray,
@@ -138,6 +138,7 @@ async function compositeZone(
   W:        number,
 ): Promise<void> {
   const { x: bx, y: by, w: bw, h: bh } = zone.bbox
+  const Himg = origData.length / 4 / W
 
   const oc   = document.createElement("canvas")
   oc.width   = bw; oc.height = bh
@@ -145,9 +146,26 @@ async function compositeZone(
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
 
-  // ── 1. Fond sépia chaud : #E6E2D6 → #C5C0B3 → #827D72 ──────────────────────
-  const cx   = bw * 0.50
-  const cy   = bh * 0.30
+  // ── ÉTAPE 1 : Masque — pixels transparents dans origData → noir opaque ────────
+  const maskData = octx.createImageData(bw, bh)
+  const md = maskData.data
+  for (let row = 0; row < bh; row++) {
+    for (let col = 0; col < bw; col++) {
+      const px = bx + col, py = by + row
+      if (px < 0 || px >= W || py < 0 || py >= Himg) continue
+      if (origData[(py * W + px) * 4 + 3] < ALPHA_THRESHOLD) {
+        const li = (row * bw + col) * 4
+        md[li] = 0; md[li+1] = 0; md[li+2] = 0; md[li+3] = 255
+      }
+    }
+  }
+  octx.putImageData(maskData, 0, 0)
+
+  // ── ÉTAPE 2 : source-in — tout ce qui suit est instantanément clipé ──────────
+  octx.globalCompositeOperation = 'source-in'
+
+  // ── ÉTAPE 3a : Fond sépia radial (halo lumineux) ─────────────────────────────
+  const cx   = bw * 0.50, cy = bh * 0.30
   const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
   const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
   grad.addColorStop(0,    '#E6E2D6')
@@ -156,7 +174,10 @@ async function compositeZone(
   octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
 
-  // ── 2. Luminaire (optionnel) ──────────────────────────────────────────────────
+  // Pour la suite on reste dans le masque avec source-atop
+  octx.globalCompositeOperation = 'source-atop'
+
+  // ── ÉTAPE 3b : Luminaire (optionnel) ─────────────────────────────────────────
   if (lumUrl) {
     try {
       const img = await Promise.race([
@@ -180,7 +201,7 @@ async function compositeZone(
     } catch { /* pas de luminaire */ }
   }
 
-  // ── 3. Vignette sombre bords ──────────────────────────────────────────────────
+  // ── ÉTAPE 3c : Vignette sombre bords ─────────────────────────────────────────
   const vgX = bw * 0.35, vgY = bh * 0.32
   const darkSides: [number,number,number,number,[number,number,number,number],number][] = [
     [0,      0,      bw,  vgY,  [0, 0,      0, vgY ], 0.60],
@@ -197,14 +218,14 @@ async function compositeZone(
     octx.fillRect(rx, ry, rw, rh)
   })
 
-  // ── 4. Highlight blanc bas-droite ─────────────────────────────────────────────
+  // ── ÉTAPE 3d : Highlight blanc bas-droite ─────────────────────────────────────
   const hlGrad = octx.createRadialGradient(bw, bh, 0, bw * 0.65, bh * 0.65, Math.max(bw, bh) * 0.55)
   hlGrad.addColorStop(0, 'rgba(255,255,255,0.11)')
   hlGrad.addColorStop(1, 'rgba(255,255,255,0)')
   octx.fillStyle = hlGrad
   octx.fillRect(0, 0, bw, bh)
 
-  // ── 5. Grain + Tint blanc→BG ──────────────────────────────────────────────────
+  // ── ÉTAPE 4 : Grain + Tint blanc→BG ──────────────────────────────────────────
   const lumImgData = octx.getImageData(0, 0, bw, bh)
   const d          = lumImgData.data
   for (let i = 0; i < d.length; i += 4) {
@@ -225,24 +246,18 @@ async function compositeZone(
     }
   }
 
-  // ── 6. Écriture avec PAD=25 — couvre les pixels entre bbox et bordure dorée ──
-  const PAD  = 25
-  const Himg = origData.length / 4 / W
-  for (let row = -PAD; row < bh + PAD; row++) {
-    for (let col = -PAD; col < bw + PAD; col++) {
+  // ── ÉTAPE 5 : Écriture dans output — uniquement les pixels du masque ──────────
+  for (let row = 0; row < bh; row++) {
+    for (let col = 0; col < bw; col++) {
       const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0 || py >= Himg) continue
       const bi = (py * W + px) * 4
-      if (origData[bi + 3] < ALPHA_THRESHOLD) {
-        const lx = Math.max(0, Math.min(bw - 1, col))
-        const ly = Math.max(0, Math.min(bh - 1, row))
-        const li = (ly * bw + lx) * 4
-        if (d[li + 3] === 0) continue
-        output[bi]     = d[li]
-        output[bi + 1] = d[li + 1]
-        output[bi + 2] = d[li + 2]
-        output[bi + 3] = d[li + 3]
-      }
+      const li = (row * bw + col) * 4
+      if (d[li + 3] === 0) continue
+      output[bi]     = d[li]
+      output[bi + 1] = d[li + 1]
+      output[bi + 2] = d[li + 2]
+      output[bi + 3] = d[li + 3]
     }
   }
 }
