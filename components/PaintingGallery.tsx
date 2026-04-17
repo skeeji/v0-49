@@ -372,7 +372,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     const output = new Uint8ClampedArray(W * H * 4)
     await Promise.all(
       zns.map((zone, i) => {
-        const lumUrl = (zone.id === 2 || zone.id === 5) ? undefined : sel[i]?.imageUrl
+        const lumUrl = (zone.id === 1 || zone.id === 5) ? undefined : sel[i]?.imageUrl
         return compositeZone(output, origDataRef.current!, zone, lumUrl, W)
       })
     )
