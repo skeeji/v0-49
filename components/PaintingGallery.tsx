@@ -146,9 +146,9 @@ async function compositeZone(
   octx.imageSmoothingEnabled = true
   octx.imageSmoothingQuality = "high"
 
-  // FILL_ALPHA > ALPHA_THRESHOLD : inclut les pixels semi-transparents des bords
-  // → remplissage complet sans trous ; le guard en écriture protège le cadre opaque
-  const FILL_ALPHA = 200
+  // FILL_ALPHA = ALPHA_THRESHOLD : seuil exact intérieur/bord doré du cadre
+  // 128 = midpoint entre trou (alpha=0) et cadre opaque (alpha=255)
+  const FILL_ALPHA = ALPHA_THRESHOLD
 
   // ── ÉTAPE 1 : Masque — pixels transparents dans origData → noir opaque ────────
   const maskData = octx.createImageData(bw, bh)
@@ -529,7 +529,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     const { w: W, h: H } = imgSizeRef.current
     const origData  = origDataRef.current
     const debugData = new Uint8ClampedArray(W * H * 4)
-    const FILL_ALPHA = 200
+    const FILL_ALPHA = ALPHA_THRESHOLD
 
     zones.forEach(zone => {
       const hex   = DEBUG_COLORS[zone.id % DEBUG_COLORS.length]
