@@ -127,7 +127,7 @@ function loadImg(src: string): Promise<HTMLImageElement> {
 }
 
 // ─── Composite un luminaire dans une zone ────────────────────────────────────────
-// Rendu pixel par pixel : aucun rectangle bbox, pochoir exact via origData.
+// Rendu canvas natif (radialGradient) + pochoir origData avec PAD=25.
 // lumUrl peut être undefined → fond sepia seul (pas de luminaire).
 
 async function compositeZone(
@@ -139,8 +139,24 @@ async function compositeZone(
 ): Promise<void> {
   const { x: bx, y: by, w: bw, h: bh } = zone.bbox
 
-  // ── 1. Charger le luminaire sur canvas bbox (shadow + filtre) → pixels ───
-  let lumData: Uint8ClampedArray | null = null
+  const oc   = document.createElement("canvas")
+  oc.width   = bw; oc.height = bh
+  const octx = oc.getContext("2d")!
+  octx.imageSmoothingEnabled = true
+  octx.imageSmoothingQuality = "high"
+
+  // ── 1. Fond sépia chaud : #E6E2D6 → #C5C0B3 → #827D72 ──────────────────────
+  const cx   = bw * 0.50
+  const cy   = bh * 0.30
+  const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
+  const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
+  grad.addColorStop(0,    '#E6E2D6')
+  grad.addColorStop(0.50, '#C5C0B3')
+  grad.addColorStop(1,    '#827D72')
+  octx.fillStyle = grad
+  octx.fillRect(0, 0, bw, bh)
+
+  // ── 2. Luminaire (optionnel) ──────────────────────────────────────────────────
   if (lumUrl) {
     try {
       const img = await Promise.race([
@@ -152,104 +168,81 @@ async function compositeZone(
       const scale = Math.min((bw * 0.88) / nW, (bh * 0.88) / nH)
       const dw    = nW * scale, dh = nH * scale
       const dx    = (bw - dw) / 2,  dy = (bh - dh) / 2
-      const oc    = document.createElement("canvas")
-      oc.width    = bw; oc.height = bh
-      const octx  = oc.getContext("2d")!
-      octx.imageSmoothingEnabled = true
-      octx.imageSmoothingQuality = "high"
       octx.filter        = 'sepia(0.2) contrast(0.9)'
       octx.shadowColor   = 'rgba(0,0,0,0.40)'
       octx.shadowBlur    = 20
       octx.shadowOffsetX = 10
       octx.shadowOffsetY = 15
       octx.drawImage(img, dx, dy, dw, dh)
-      lumData = octx.getImageData(0, 0, bw, bh).data
+      octx.filter = 'none'
+      octx.shadowColor = 'transparent'
+      octx.shadowBlur = 0; octx.shadowOffsetX = 0; octx.shadowOffsetY = 0
     } catch { /* pas de luminaire */ }
   }
 
-  // ── 2. Paramètres gradient radial (espace local bbox) ────────────────────
-  const gcx  = bw * 0.50,  gcy  = bh * 0.30
-  const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
+  // ── 3. Vignette sombre bords ──────────────────────────────────────────────────
+  const vgX = bw * 0.35, vgY = bh * 0.32
+  const darkSides: [number,number,number,number,[number,number,number,number],number][] = [
+    [0,      0,      bw,  vgY,  [0, 0,      0, vgY ], 0.60],
+    [0,      bh-vgY, bw,  vgY,  [0, bh-vgY, 0, bh  ], 0.55],
+    [0,      0,      vgX, bh,   [0, 0,      vgX, 0  ], 0.52],
+    [bw-vgX, 0,      vgX, bh,   [bw-vgX, 0, bw, 0   ], 0.52],
+  ]
+  darkSides.forEach(([rx, ry, rw, rh, [x0,y0,x1,y1], op]) => {
+    const lg = octx.createLinearGradient(x0, y0, x1, y1)
+    const edgeFirst = (ry === 0 && rh < bh) || (rx === 0 && rw < bw)
+    lg.addColorStop(edgeFirst ? 0 : 1, `rgba(0,0,0,${op})`)
+    lg.addColorStop(edgeFirst ? 1 : 0, 'rgba(0,0,0,0)')
+    octx.fillStyle = lg
+    octx.fillRect(rx, ry, rw, rh)
+  })
 
-  // ── 3. Écriture pixel par pixel — pochoir origData (seuil 240 pour couvrir
-  //       les pixels semi-transparents de bord et supprimer le "filet") ──────
+  // ── 4. Highlight blanc bas-droite ─────────────────────────────────────────────
+  const hlGrad = octx.createRadialGradient(bw, bh, 0, bw * 0.65, bh * 0.65, Math.max(bw, bh) * 0.55)
+  hlGrad.addColorStop(0, 'rgba(255,255,255,0.11)')
+  hlGrad.addColorStop(1, 'rgba(255,255,255,0)')
+  octx.fillStyle = hlGrad
+  octx.fillRect(0, 0, bw, bh)
+
+  // ── 5. Grain + Tint blanc→BG ──────────────────────────────────────────────────
+  const lumImgData = octx.getImageData(0, 0, bw, bh)
+  const d          = lumImgData.data
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue
+    const n = (Math.random() - 0.5) * 8
+    d[i]   = Math.max(0, Math.min(255, d[i]   + n))
+    d[i+1] = Math.max(0, Math.min(255, d[i+1] + n))
+    d[i+2] = Math.max(0, Math.min(255, d[i+2] + n))
+    const r = d[i], g = d[i+1], b = d[i+2]
+    const w = Math.min(r, g, b) / 255
+    if (w > 0.88) {
+      d[i] = BG_R; d[i+1] = BG_G; d[i+2] = BG_B
+    } else if (w > 0.72) {
+      const t = (w - 0.72) / 0.16
+      d[i]   = Math.round(r + (BG_R - r) * t)
+      d[i+1] = Math.round(g + (BG_G - g) * t)
+      d[i+2] = Math.round(b + (BG_B - b) * t)
+    }
+  }
+
+  // ── 6. Écriture avec PAD=25 — couvre les pixels entre bbox et bordure dorée ──
+  const PAD  = 25
   const Himg = origData.length / 4 / W
-  for (let row = 0; row < bh; row++) {
-    for (let col = 0; col < bw; col++) {
+  for (let row = -PAD; row < bh + PAD; row++) {
+    for (let col = -PAD; col < bw + PAD; col++) {
       const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0 || py >= Himg) continue
       const bi = (py * W + px) * 4
-      if (origData[bi + 3] >= 240) continue   // pixel du cadre → ne pas toucher
-
-      const nx = col / bw   // normalisé [0..1]
-      const ny = row / bh
-
-      // Fond sépia radial
-      const t = Math.min(1, Math.sqrt((col - gcx) ** 2 + (row - gcy) ** 2) / rMax)
-      let fr: number, fg: number, fb: number
-      if (t < 0.50) {
-        const u = t * 2
-        fr = Math.round(230 - 33 * u)   // #E6E2D6 → #C5C0B3
-        fg = Math.round(226 - 34 * u)
-        fb = Math.round(214 - 35 * u)
-      } else {
-        const u = (t - 0.50) * 2
-        fr = Math.round(197 - 67 * u)   // #C5C0B3 → #827D72
-        fg = Math.round(192 - 67 * u)
-        fb = Math.round(179 - 65 * u)
+      if (origData[bi + 3] < ALPHA_THRESHOLD) {
+        const lx = Math.max(0, Math.min(bw - 1, col))
+        const ly = Math.max(0, Math.min(bh - 1, row))
+        const li = (ly * bw + lx) * 4
+        if (d[li + 3] === 0) continue
+        output[bi]     = d[li]
+        output[bi + 1] = d[li + 1]
+        output[bi + 2] = d[li + 2]
+        output[bi + 3] = d[li + 3]
       }
-
-      // Blend luminaire par-dessus le fond
-      if (lumData) {
-        const li  = (row * bw + col) * 4
-        const lr  = lumData[li], lgg = lumData[li+1], lb = lumData[li+2], la = lumData[li+3]
-        if (la > 0) {
-          // Tint blanc → sépia pour images catalogue fond blanc
-          const ww = Math.min(lr, lgg, lb) / 255
-          let tr = lr, tg = lgg, tb = lb
-          if (ww > 0.88) {
-            tr = BG_R; tg = BG_G; tb = BG_B
-          } else if (ww > 0.72) {
-            const bl = (ww - 0.72) / 0.16
-            tr = Math.round(lr  + (BG_R - lr)  * bl)
-            tg = Math.round(lgg + (BG_G - lgg) * bl)
-            tb = Math.round(lb  + (BG_B - lb)  * bl)
-          }
-          const a = la / 255
-          fr = Math.round(fr + (tr - fr) * a)
-          fg = Math.round(fg + (tg - fg) * a)
-          fb = Math.round(fb + (tb - fb) * a)
-        }
-      }
-
-      // Vignette sombre sur les bords
-      const vgX = 0.35, vgY = 0.32
-      let vd = 0
-      if (ny < vgY)       vd = Math.max(vd, (1 - ny / vgY)          * 0.60)
-      if (ny > 1 - vgY)   vd = Math.max(vd, ((ny - (1 - vgY)) / vgY) * 0.55)
-      if (nx < vgX)       vd = Math.max(vd, (1 - nx / vgX)           * 0.52)
-      if (nx > 1 - vgX)   vd = Math.max(vd, ((nx - (1 - vgX)) / vgX) * 0.52)
-      if (vd > 0) {
-        fr = Math.round(fr * (1 - vd))
-        fg = Math.round(fg * (1 - vd))
-        fb = Math.round(fb * (1 - vd))
-      }
-
-      // Highlight bas-droite
-      const hd   = Math.sqrt((nx - 1) ** 2 + (ny - 1) ** 2)
-      const hAlp = Math.max(0, 1 - hd / 1.10) * 0.11
-      if (hAlp > 0) {
-        fr = Math.min(255, Math.round(fr + (255 - fr) * hAlp))
-        fg = Math.min(255, Math.round(fg + (255 - fg) * hAlp))
-        fb = Math.min(255, Math.round(fb + (255 - fb) * hAlp))
-      }
-
-      // Grain
-      const gn = (Math.random() - 0.5) * 8
-      output[bi]     = Math.max(0, Math.min(255, Math.round(fr + gn)))
-      output[bi + 1] = Math.max(0, Math.min(255, Math.round(fg + gn)))
-      output[bi + 2] = Math.max(0, Math.min(255, Math.round(fb + gn)))
-      output[bi + 3] = 255
     }
   }
 }
