@@ -171,9 +171,9 @@ async function compositeZone(
   const cx   = bw * 0.50, cy = bh * 0.30
   const rMax = Math.sqrt(bw * bw + bh * bh) * 0.82
   const grad = octx.createRadialGradient(cx, cy, 0, cx, cy, rMax)
-  grad.addColorStop(0,    '#D8C99A')   // beige chaud centre (halo adouci)
-  grad.addColorStop(0.50, '#C0A878')   // tan doré mi-chemin
-  grad.addColorStop(1,    '#78603A')   // brun chaud bords
+  grad.addColorStop(0,    '#C2A86C')   // beige doré centre (halo réduit)
+  grad.addColorStop(0.50, '#B09058')   // tan doré mi-chemin
+  grad.addColorStop(1,    '#6A5030')   // brun chaud bords
   octx.fillStyle = grad
   octx.fillRect(0, 0, bw, bh)
 
@@ -318,8 +318,9 @@ function MuseumLabel({
 
 export function PaintingGallery({ transparentUrl }: { transparentUrl?: string }) {
 
-  const canvasBaseRef  = useRef<HTMLCanvasElement>(null)  // fond permanent
-  const canvasCompRef  = useRef<HTMLCanvasElement>(null)  // luminaires, crossfade
+  const canvasBaseRef  = useRef<HTMLCanvasElement>(null)  // fond permanent (tableau)
+  const canvasBgRef    = useRef<HTMLCanvasElement>(null)  // sépia fixes, jamais efface
+  const canvasCompRef  = useRef<HTMLCanvasElement>(null)  // luminaires seuls, crossfade
   const canvasDebugRef = useRef<HTMLCanvasElement>(null)  // masques debug (touche D)
 
   const origDataRef   = useRef<Uint8ClampedArray | null>(null)
@@ -364,7 +365,17 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
       })
   }, [])
 
-  // ── Composite sur canvasComp ──────────────────────────────────────────────────
+  // ── Sépia fixe sur canvasBg (rendu une seule fois, jamais effacé) ─────────────
+  const doSepiaBg = useCallback(async (zns: FrameZone[], W: number, H: number) => {
+    if (!canvasBgRef.current || !origDataRef.current) return
+    const output = new Uint8ClampedArray(W * H * 4)
+    await Promise.all(
+      zns.map(zone => compositeZone(output, origDataRef.current!, zone, undefined, W))
+    )
+    putDPR(canvasBgRef.current, output, W, H, false)
+  }, [])
+
+  // ── Luminaires seuls sur canvasComp (crossfade à chaque rotation) ────────────
   const doComposite = useCallback(async (
     sel: GalleryLuminaire[], zns: FrameZone[], W: number, H: number,
   ) => {
@@ -438,6 +449,9 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         if (cancelled) return
         setAlphaBase(1)
 
+        // Fond sépia fixe — rendu une seule fois, reste visible pendant les transitions
+        await doSepiaBg(detected, W, H)
+
         // Phase : "ready" toujours — le 2ème useEffect gère le composite dès que pool+zones sont prêts
         if (!cancelled) setPhase("ready")
       } catch (e) {
@@ -448,7 +462,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transparentUrl])
+  }, [transparentUrl, doSepiaBg])
 
   // ── Premier composite quand pool + zones prêts ───────────────────────────────
   // BUG FIX 2 : ajouter "zones" dans les dépendances pour que cet effet re-tourne
@@ -569,8 +583,10 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
 
         <canvas ref={canvasBaseRef}
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:1, opacity:alphaBase, transition:"opacity 0.5s ease" }} />
+        <canvas ref={canvasBgRef}
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:2, opacity:alphaBase }} />
         <canvas ref={canvasCompRef}
-          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:2, opacity:alphaComp, transition:"opacity 0.4s ease" }} />
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block", zIndex:3, opacity:alphaComp, transition:"opacity 0.4s ease" }} />
 
         {(phase === "loading" || phase === "detecting" || phase === "compositing") && (
           <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background:"rgba(245,241,232,0.75)" }}>
