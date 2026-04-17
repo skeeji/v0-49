@@ -19,6 +19,7 @@ interface FrameZone {
   id:        number
   bbox:      { x: number; y: number; w: number; h: number }
   rotation?: number
+  pixels?:   number[]   // indices linéaires (py*W+px) — non stockés en sessionStorage
 }
 
 // ─── Constantes ──────────────────────────────────────────────────────────────────
@@ -28,63 +29,49 @@ const ALPHA_THRESHOLD   = 128
 // Fond sépia chaud — midpoint du gradient intérieur des cadres
 const BG_R = 197, BG_G = 192, BG_B = 179   // #C5C0B3
 
-// Détection par grille — CELL=8 pour une précision ±8px (au lieu de ±22px)
-const CELL         = 8
-const FRAME_RATIO  = 0.55
-const BORDER_CELLS = 2
+// Détection pixel par pixel — précision chirurgicale, pas d'artefact de grille
+const BORDER       = 2       // exclure 2px de bord d'image
 const MIN_ZONE_PX  = 1200
 const MAX_ZONE_PCT = 0.18
 
 function detectZones(data: Uint8ClampedArray, W: number, H: number): FrameZone[] {
-  const gW = Math.ceil(W / CELL)
-  const gH = Math.ceil(H / CELL)
-  const isFrame = new Uint8Array(gW * gH)
-
-  for (let cy = BORDER_CELLS; cy < gH - BORDER_CELLS; cy++) {
-    for (let cx = BORDER_CELLS; cx < gW - BORDER_CELLS; cx++) {
-      let transp = 0, total = 0
-      const px0 = cx * CELL, py0 = cy * CELL
-      const px1 = Math.min(px0 + CELL, W), py1 = Math.min(py0 + CELL, H)
-      for (let py = py0; py < py1; py++)
-        for (let px = px0; px < px1; px++) {
-          total++
-          if (data[(py * W + px) * 4 + 3] < ALPHA_THRESHOLD) transp++
-        }
-      if (total > 0 && transp / total >= FRAME_RATIO) isFrame[cy * gW + cx] = 1
-    }
-  }
-
-  const visited = new Uint8Array(gW * gH)
-  const zones: FrameZone[] = []
   const totalPx = W * H
+  const visited  = new Uint8Array(totalPx)
+  const zones: FrameZone[] = []
 
-  for (let cy = BORDER_CELLS; cy < gH - BORDER_CELLS; cy++) {
-    for (let cx = BORDER_CELLS; cx < gW - BORDER_CELLS; cx++) {
-      const ci = cy * gW + cx
-      if (visited[ci] || !isFrame[ci]) continue
-      const q = [ci]; visited[ci] = 1
-      let qi = 0, cx0 = cx, cx1 = cx, cy0 = cy, cy1 = cy
+  for (let y = BORDER; y < H - BORDER; y++) {
+    for (let x = BORDER; x < W - BORDER; x++) {
+      const i = y * W + x
+      if (visited[i] || data[i * 4 + 3] >= ALPHA_THRESHOLD) continue
 
-      while (qi < q.length) {
-        const c = q[qi++]
-        const ccx = c % gW, ccy = (c / gW) | 0
-        if (ccx < cx0) cx0 = ccx; if (ccx > cx1) cx1 = ccx
-        if (ccy < cy0) cy0 = ccy; if (ccy > cy1) cy1 = ccy
-        for (const n of [c-1, c+1, c-gW, c+gW]) {
-          if (n < 0 || n >= gW * gH) continue
-          const nx = n % gW, ny = (n / gW) | 0
-          if (nx < BORDER_CELLS || nx >= gW - BORDER_CELLS) continue
-          if (ny < BORDER_CELLS || ny >= gH - BORDER_CELLS) continue
-          if (!visited[n] && isFrame[n]) { visited[n] = 1; q.push(n) }
+      // BFS flood-fill pixel par pixel (4-connexité)
+      const queue: number[] = [i]
+      visited[i] = 1
+      let qi = 0
+      let x0 = x, x1 = x, y0 = y, y1 = y
+      const pixels: number[] = []
+
+      while (qi < queue.length) {
+        const cur = queue[qi++]
+        const cx  = cur % W
+        const cy  = (cur / W) | 0
+        pixels.push(cur)
+        if (cx < x0) x0 = cx; if (cx > x1) x1 = cx
+        if (cy < y0) y0 = cy; if (cy > y1) y1 = cy
+        for (const n of [cur - 1, cur + 1, cur - W, cur + W]) {
+          if (n < 0 || n >= totalPx) continue
+          const nx = n % W, ny = (n / W) | 0
+          if (nx < BORDER || nx >= W - BORDER) continue
+          if (ny < BORDER || ny >= H - BORDER) continue
+          if (!visited[n] && data[n * 4 + 3] < ALPHA_THRESHOLD) {
+            visited[n] = 1
+            queue.push(n)
+          }
         }
       }
 
-      const bx = cx0 * CELL, by = cy0 * CELL
-      const bw = Math.min((cx1 + 1) * CELL, W) - bx
-      const bh = Math.min((cy1 + 1) * CELL, H) - by
-      const area = bw * bh
-      if (area < MIN_ZONE_PX || area > totalPx * MAX_ZONE_PCT) continue
-      zones.push({ id: zones.length, bbox: { x: bx, y: by, w: bw, h: bh } })
+      if (pixels.length < MIN_ZONE_PX || pixels.length > totalPx * MAX_ZONE_PCT) continue
+      zones.push({ id: zones.length, bbox: { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }, pixels })
     }
   }
 
@@ -105,6 +92,8 @@ function applyZonePatches(zones: FrameZone[]): FrameZone[] {
     const x2 = Math.max(z29.bbox.x + z29.bbox.w, z30.bbox.x + z30.bbox.w)
     const y2 = Math.max(z29.bbox.y + z29.bbox.h, z30.bbox.y + z30.bbox.h)
     z29.bbox = { x, y, w: x2 - x, h: y2 - y }
+    if (z29.pixels && z30.pixels) z29.pixels = [...z29.pixels, ...z30.pixels]
+    else z29.pixels = undefined
     result = result.filter(z => z.id !== 30)
   }
   result = result.map(z => z.id === 29 ? { ...z, rotation: 15 } : z)
@@ -144,11 +133,11 @@ function loadImg(src: string): Promise<HTMLImageElement> {
 async function compositeZone(
   output:   Uint8ClampedArray,
   origData: Uint8ClampedArray,
-  bbox:     { x: number; y: number; w: number; h: number },
+  zone:     FrameZone,
   lumUrl:   string,
   W:        number,
 ): Promise<void> {
-  const { x: bx, y: by, w: bw, h: bh } = bbox
+  const { x: bx, y: by, w: bw, h: bh } = zone.bbox
 
   let img: HTMLImageElement
   try {
@@ -242,25 +231,35 @@ async function compositeZone(
     }
   }
 
-  // ── 6. Écriture — bbox étendue +25px pour couvrir les pixels entre bbox et
-  //       bordure dorée (élimine le fond plat visible entre cadre et gradient)
-  const PAD = 25
-  for (let row = -PAD; row < bh + PAD; row++) {
-    for (let col = -PAD; col < bw + PAD; col++) {
-      const px = bx + col, py = by + row
-      if (px < 0 || px >= W || py < 0 || py >= (origData.length / 4 / W)) continue
-      const bi = (py * W + px) * 4
-      if (origData[bi + 3] < ALPHA_THRESHOLD) {
-        // Clamper la position locale dans le canvas pour les pixels hors-bbox
-        const lx = Math.max(0, Math.min(bw - 1, col))
-        const ly = Math.max(0, Math.min(bh - 1, row))
-        const li = (ly * bw + lx) * 4
-        const lumAlpha = d[li + 3]
-        if (lumAlpha === 0) continue
-        output[bi]     = d[li]
-        output[bi + 1] = d[li + 1]
-        output[bi + 2] = d[li + 2]
-        output[bi + 3] = lumAlpha
+  // ── 6. Écriture pixel-précis — uniquement les pixels transparents du PNG original
+  if (zone.pixels) {
+    // Liste exacte issue de la détection BFS
+    for (const idx of zone.pixels) {
+      const bi  = idx * 4
+      const lx  = (idx % W) - bx
+      const ly  = ((idx / W) | 0) - by
+      const li  = (ly * bw + lx) * 4
+      const lumAlpha = d[li + 3]
+      if (lumAlpha === 0) continue
+      output[bi]     = d[li]
+      output[bi + 1] = d[li + 1]
+      output[bi + 2] = d[li + 2]
+      output[bi + 3] = lumAlpha
+    }
+  } else {
+    // Fallback (zones chargées depuis sessionStorage sans pixels)
+    for (let row = 0; row < bh; row++) {
+      for (let col = 0; col < bw; col++) {
+        const bi = ((by + row) * W + (bx + col)) * 4
+        if (origData[bi + 3] < ALPHA_THRESHOLD) {
+          const li = (row * bw + col) * 4
+          const lumAlpha = d[li + 3]
+          if (lumAlpha === 0) continue
+          output[bi]     = d[li]
+          output[bi + 1] = d[li + 1]
+          output[bi + 2] = d[li + 2]
+          output[bi + 3] = lumAlpha
+        }
       }
     }
   }
@@ -380,7 +379,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
     const output = new Uint8ClampedArray(W * H * 4)
     await Promise.all(
       zns.map((zone, i) =>
-        sel[i] ? compositeZone(output, origDataRef.current!, zone.bbox, sel[i].imageUrl, W) : Promise.resolve()
+        sel[i] ? compositeZone(output, origDataRef.current!, zone, sel[i].imageUrl, W) : Promise.resolve()
       )
     )
     putDPR(canvasCompRef.current, output, W, H, true)
@@ -425,7 +424,8 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
         }
 
         detected = applyZonePatches(detected)
-        try { sessionStorage.setItem(cacheKey, JSON.stringify(detected)) } catch {}
+        // Strip pixels (trop volumineux) — fallback origData au prochain chargement
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(detected.map(({ pixels: _, ...z }) => z))) } catch {}
 
         zonesRef.current = detected
         setZones(detected)
