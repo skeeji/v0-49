@@ -250,19 +250,16 @@ async function compositeZone(
     }
   }
 
-  // ── ÉTAPE 5 : Écriture — PAD=3 pour les pixels frontière bbox + guard origData ──
-  // origData guard = seul verrou absolu contre les débordements :
-  // si le pixel est opaque dans la source (>= FILL_ALPHA), on ne le touche JAMAIS.
-  const WPAD = 3
-  for (let row = -WPAD; row < bh + WPAD; row++) {
-    for (let col = -WPAD; col < bw + WPAD; col++) {
+  // ── ÉTAPE 5 : Écriture — strictement dans la bbox, guard origData absolu ────────
+  // Pas de PAD : écrire hors bbox copierait la couleur de bord sur des pixels
+  // transparents d'autres zones voisines et créerait des débordements.
+  for (let row = 0; row < bh; row++) {
+    for (let col = 0; col < bw; col++) {
       const px = bx + col, py = by + row
       if (px < 0 || px >= W || py < 0 || py >= Himg) continue
       const bi = (py * W + px) * 4
-      if (origData[bi + 3] >= FILL_ALPHA) continue   // pixel cadre → interdit
-      const lx = Math.max(0, Math.min(bw - 1, col))
-      const ly = Math.max(0, Math.min(bh - 1, row))
-      const li = (ly * bw + lx) * 4
+      if (origData[bi + 3] >= FILL_ALPHA) continue   // pixel cadre → interdit absolu
+      const li = (row * bw + col) * 4
       if (d[li + 3] === 0) continue
       output[bi]     = d[li]
       output[bi + 1] = d[li + 1]
