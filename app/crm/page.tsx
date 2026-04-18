@@ -138,10 +138,10 @@ function isDeadlinePassed(deadline: string | null, status: string): boolean {
 }
 
 // --- Financial Helpers ---
-function parseFinancialAmount(value: string | undefined): number {
-  if (!value) return 0
-  // Remove euro symbol, spaces (including narrow no-break space \u202f), and replace comma with dot
-  const cleaned = value.replace(/[€\s\u202f]/g, "").replace(",", ".")
+function parseFinancialAmount(value: string | number | undefined | null): number {
+  if (value === undefined || value === null || value === "") return 0
+  if (typeof value === "number") return value
+  const cleaned = String(value).replace(/[€\s\u202f]/g, "").replace(",", ".")
   return parseFloat(cleaned) || 0
 }
 

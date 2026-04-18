@@ -7,7 +7,7 @@ import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, LayoutGrid, List, SlidersHorizontal, X, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, LayoutGrid, List, SlidersHorizontal, X, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
 import MobileFooter from "@/components/MobileFooter"
@@ -18,59 +18,41 @@ import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrol
 const CATEGORIES = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe", "Lanterne"]
 const CAT_LABELS  = ["Lustres", "Appliques", "Suspensions", "Lampadaires", "Lampes", "Lanternes"]
 
-const CREAM    = "#f5f1e8"
-const BROWN    = "#8b7355"
-const GOLD     = "#b8974a"
-const TEXT     = "#3d2b1f"
-const MUTED    = "#7a6654"
-const LINE     = "#d8d0c0"
+const CREAM = "#f5f1e8"
+const BROWN = "#8b7355"
+const GOLD  = "#b8974a"
+const TEXT  = "#3d2b1f"
+const MUTED = "#7a6654"
+const LINE  = "#d8d0c0"
 
-// ─── Composants filtres (style classique) ──────────────────────────────────────
+// ─── Composants sidebar ───────────────────────────────────────────────────────
 
-function FilterSelect({ label, value, onChange, options, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void
-  options: string[]; placeholder: string
+function FilterSection({ title, isOpen, onToggle, children }: {
+  title: string; isOpen: boolean; onToggle: () => void; children: React.ReactNode
 }) {
   return (
-    <div>
-      <label style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", fontSize: "0.7rem", color: MUTED, display: "block", marginBottom: "0.3rem" }}>{label}</label>
-      <div style={{ position: "relative" }}>
-        <select value={value} onChange={e => onChange(e.target.value)}
-          style={{
-            width: "100%", padding: "0.42rem 1.8rem 0.42rem 0.6rem",
-            border: `1px solid ${value ? BROWN : LINE}`,
-            borderRadius: "3px", background: "rgba(255,255,255,0.7)",
-            fontFamily: "Georgia,serif", fontSize: "0.78rem",
-            color: value ? TEXT : MUTED, outline: "none",
-            appearance: "none", WebkitAppearance: "none", cursor: "pointer",
-          }}>
-          <option value="">{placeholder}</option>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-        <ChevronDown size={12} style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", color: MUTED, pointerEvents: "none" }} />
-      </div>
+    <div style={{ borderBottom: `1px solid ${LINE}` }}>
+      <button onClick={onToggle} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0.75rem 1.2rem", background: "none", border: "none", cursor: "pointer", textAlign: "left",
+      }}>
+        <span style={{ fontFamily: "Georgia,serif", fontSize: "0.65rem", letterSpacing: "0.14em", textTransform: "uppercase", color: TEXT, fontWeight: 700 }}>
+          {title}
+        </span>
+        <ChevronDown size={13} style={{ color: MUTED, flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+      </button>
+      {isOpen && <div style={{ padding: "0 1.2rem 0.85rem" }}>{children}</div>}
     </div>
   )
 }
 
-function FilterInput({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string
-}) {
+function RadioOpt({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
-    <div>
-      <label style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", fontSize: "0.7rem", color: MUTED, display: "block", marginBottom: "0.3rem" }}>{label}</label>
-      <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        style={{
-          width: "100%", padding: "0.42rem 0.6rem",
-          border: `1px solid ${value ? BROWN : LINE}`,
-          borderRadius: "3px", background: "rgba(255,255,255,0.7)",
-          fontFamily: "Georgia,serif", fontStyle: "italic",
-          fontSize: "0.78rem", color: TEXT, outline: "none", boxSizing: "border-box",
-        }}
-        onFocus={e => (e.currentTarget.style.borderColor = BROWN)}
-        onBlur={e  => (e.currentTarget.style.borderColor = value ? BROWN : LINE)}
-      />
-    </div>
+    <label style={{ display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.2rem 0", cursor: "pointer" }}>
+      <input type="radio" checked={checked} onChange={onChange}
+        style={{ cursor: "pointer", accentColor: BROWN, width: 14, height: 14, flexShrink: 0, margin: 0 }} />
+      <span style={{ fontFamily: "Georgia,serif", fontSize: "0.78rem", color: checked ? TEXT : MUTED, lineHeight: 1.3 }}>{label}</span>
+    </label>
   )
 }
 
@@ -89,10 +71,24 @@ export default function LuminairesPage() {
   const [homepageImages,      setHomepageImages]      = useState<Record<string,string>>({})
 
   // ── UI ────────────────────────────────────────────────────────────────────
-  const [viewMode,         setViewMode]         = useState<"grid"|"list">("grid")
-  const [sidebarOpen,      setSidebarOpen]      = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [isModalOpen,      setIsModalOpen]      = useState(false)
+  const [viewMode,    setViewMode]    = useState<"grid"|"list">("grid")
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // ── Sections accordion ────────────────────────────────────────────────────
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    recherche:  true,
+    categorie:  true,
+    periode:    true,
+    createur:   false,
+    materiaux:  true,
+    couleur:    false,
+    dimensions: false,
+    estimation: false,
+    editeur:    false,
+    tri:        false,
+  })
+  const toggleSection = (s: string) => setOpenSections(prev => ({ ...prev, [s]: !prev[s] }))
 
   // ── Filtres ───────────────────────────────────────────────────────────────
   const [searchTerm,         setSearchTerm]         = useState("")
@@ -183,7 +179,7 @@ export default function LuminairesPage() {
     }
   }, [user?.email, favorites])
 
-  // ─── Chargement global (pour filtres client-side) ─────────────────────────
+  // ─── Chargement global ────────────────────────────────────────────────────
   const loadAllLuminaires = useCallback(async () => {
     try {
       const r = await fetch("/api/luminaires?limit=10000&page=1")
@@ -192,14 +188,11 @@ export default function LuminairesPage() {
     } catch (e) { console.error(e) }
   }, [])
 
-  // ─── Chargement paginé (vue sans filtres) ─────────────────────────────────
+  // ─── Chargement paginé ────────────────────────────────────────────────────
   const fetchLuminaires = useCallback(async (page = 1, append = false) => {
     try {
       if (page === 1) setLoading(true); else setLoadingMore(true)
-      const params = new URLSearchParams({
-        page: page.toString(), limit: "50",
-        sortField, sortDirection,
-      })
+      const params = new URLSearchParams({ page: page.toString(), limit: "50", sortField, sortDirection })
       const r = await fetch(`/api/luminaires?${params}`)
       const d = await r.json()
       if (d.success) {
@@ -270,7 +263,7 @@ export default function LuminairesPage() {
     } catch (e: any) { toast.error("Erreur lors de la création"); return { success: false } }
   }, [fetchLuminaires, loadAllLuminaires])
 
-  // ─── Options de filtres ───────────────────────────────────────────────────
+  // ─── Options filtres ──────────────────────────────────────────────────────
   const filterOptions = useMemo(() => {
     if (!allLuminairesLoaded) return { categories: [], materiaux: [], couleurs: [], editeurs: [], createurs: [], estimations: [] }
 
@@ -294,10 +287,7 @@ export default function LuminairesPage() {
       if (typeof edt === "string" && edt.trim()) edtSet.add(edt.trim())
 
       const crt = l["Artiste / Dates"] || l.designer || l.artiste || ""
-      if (typeof crt === "string" && crt.trim()) {
-        const name = crt.split(",")[0].trim()
-        if (name) crtSet.add(name)
-      }
+      if (typeof crt === "string" && crt.trim()) { const name = crt.split(",")[0].trim(); if (name) crtSet.add(name) }
 
       const est = l.estimation || l["Estimation"] || ""
       if (typeof est === "string" && est.trim()) estSet.add(est.trim())
@@ -344,56 +334,28 @@ export default function LuminairesPage() {
     else setYearMaxInput(String(yearRange[1]))
   }
 
-  // ─── Filtrage client-side ─────────────────────────────────────────────────
+  // ─── Filtrage ─────────────────────────────────────────────────────────────
   const filteredLuminaires = useMemo(() => {
     if (!allLuminairesLoaded || allLuminaires.length === 0) return []
-
     let f = allLuminaires
-
     if (searchTerm) {
       const q = searchTerm.toLowerCase()
-      f = f.filter(l =>
-        (l["Nom luminaire"] || l.nom || "").toLowerCase().includes(q) ||
-        (l["Artiste / Dates"] || l.designer || "").toLowerCase().includes(q)
-      )
+      f = f.filter(l => (l["Nom luminaire"] || l.nom || "").toLowerCase().includes(q) || (l["Artiste / Dates"] || l.designer || "").toLowerCase().includes(q))
     }
-    if (selectedCategorie) {
-      f = f.filter(l => (l.categorie || l["Catégorie"] || "") === selectedCategorie)
-    }
+    if (selectedCategorie) f = f.filter(l => (l.categorie || l["Catégorie"] || "") === selectedCategorie)
     if (selectedMateriau) {
       const q = selectedMateriau.toLowerCase()
-      f = f.filter(l => {
-        const m = l["Matériaux"] || (Array.isArray(l.materiaux) ? l.materiaux.join(",") : l.materiaux) || ""
-        return String(m).toLowerCase().includes(q)
-      })
+      f = f.filter(l => { const m = l["Matériaux"] || (Array.isArray(l.materiaux) ? l.materiaux.join(",") : l.materiaux) || ""; return String(m).toLowerCase().includes(q) })
     }
     if (selectedCouleur) {
       const q = selectedCouleur.toLowerCase()
-      f = f.filter(l => {
-        const c = l.couleurs || l["Couleur"] || l["Couleurs"] || []
-        const s = Array.isArray(c) ? c.join(",") : String(c)
-        return s.toLowerCase().includes(q)
-      })
+      f = f.filter(l => { const c = l.couleurs || l["Couleur"] || l["Couleurs"] || []; const s = Array.isArray(c) ? c.join(",") : String(c); return s.toLowerCase().includes(q) })
     }
-    if (selectedCreateur) {
-      const q = selectedCreateur.toLowerCase()
-      f = f.filter(l => (l["Artiste / Dates"] || l.designer || "").toLowerCase().includes(q))
-    }
-    if (selectedEditeur) {
-      const q = selectedEditeur.toLowerCase()
-      f = f.filter(l => (l.editeur || l["Editeur"] || l["Éditeur"] || "").toLowerCase().includes(q))
-    }
-    if (selectedDimensions) {
-      const q = selectedDimensions.toLowerCase()
-      f = f.filter(l => (l.dimensions || l["Dimensions"] || "").toLowerCase().includes(q))
-    }
-    if (selectedEstimation) {
-      const q = selectedEstimation.toLowerCase()
-      f = f.filter(l => (l.estimation || l["Estimation"] || "").toLowerCase().includes(q))
-    }
-    if (selectedDesigner) {
-      f = f.filter(l => (l["Artiste / Dates"] || l.designer || "").includes(selectedDesigner))
-    }
+    if (selectedCreateur) { const q = selectedCreateur.toLowerCase(); f = f.filter(l => (l["Artiste / Dates"] || l.designer || "").toLowerCase().includes(q)) }
+    if (selectedEditeur)  { const q = selectedEditeur.toLowerCase();  f = f.filter(l => (l.editeur || l["Editeur"] || l["Éditeur"] || "").toLowerCase().includes(q)) }
+    if (selectedDimensions) { const q = selectedDimensions.toLowerCase(); f = f.filter(l => (l.dimensions || l["Dimensions"] || "").toLowerCase().includes(q)) }
+    if (selectedEstimation) { const q = selectedEstimation.toLowerCase(); f = f.filter(l => (l.estimation || l["Estimation"] || "").toLowerCase().includes(q)) }
+    if (selectedDesigner) f = f.filter(l => (l["Artiste / Dates"] || l.designer || "").includes(selectedDesigner))
     if (sliderModified) {
       f = f.filter(l => {
         const a = l["Année"] || l.annee || l.year
@@ -404,7 +366,6 @@ export default function LuminairesPage() {
         return !isNaN(y) && y >= yearRange[0] && y <= yearRange[1]
       })
     }
-
     return [...f].sort((a, b) => {
       if (sortField === "annee") {
         const yr = (l: any) => { const v = l["Année"] || l.annee || l.year || ""; const m = String(v).match(/\b(1[0-9]{3}|20[0-9]{2})\b/); return m ? parseInt(m[0]) : 0 }
@@ -477,55 +438,55 @@ export default function LuminairesPage() {
   // ─── Loading ──────────────────────────────────────────────────────────────
   if (loading && luminaires.length === 0) return (
     <div style={{ minHeight: "100vh", background: CREAM, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ textAlign: "center" }}>
-        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3" style={{ color: BROWN }} />
-        <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", color: MUTED }}>Chargement de la collection…</p>
-      </div>
+      <Loader2 className="w-8 h-8 animate-spin" style={{ color: BROWN }} />
     </div>
   )
 
   if ((searchParams.get("designer") || searchParams.get("yearMin")) && !allLuminairesLoaded) return (
     <div style={{ minHeight: "100vh", background: CREAM, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ textAlign: "center" }}>
-        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3" style={{ color: BROWN }} />
-        <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", color: MUTED }}>Chargement des filtres…</p>
-      </div>
+      <Loader2 className="w-8 h-8 animate-spin" style={{ color: BROWN }} />
     </div>
   )
 
   const rangeWidth = yearBounds.max - yearBounds.min || 1
 
-  // ─── Sidebar body ─────────────────────────────────────────────────────────
+  // ─── Sidebar content ──────────────────────────────────────────────────────
   const SidebarInner = (
-    <div style={{ padding: "1.2rem 1.2rem 2rem", display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+    <div>
 
       {/* Recherche */}
-      <div>
-        <label style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", fontSize: "0.7rem", color: MUTED, display: "block", marginBottom: "0.3rem" }}>Recherche</label>
-        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-          placeholder="Nom, designer, époque…"
-          style={{ width: "100%", padding: "0.42rem 0.6rem", border: `1px solid ${searchTerm ? BROWN : LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.7)", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "0.78rem", color: TEXT, outline: "none", boxSizing: "border-box" }}
+      <div style={{ padding: "1rem 1.2rem", borderBottom: `1px solid ${LINE}` }}>
+        <input
+          type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Rechercher…"
+          style={{
+            width: "100%", padding: "0.45rem 0.6rem", border: `1px solid ${searchTerm ? BROWN : LINE}`,
+            borderRadius: "3px", background: "rgba(255,255,255,0.75)", fontFamily: "Georgia,serif",
+            fontStyle: "italic", fontSize: "0.78rem", color: TEXT, outline: "none", boxSizing: "border-box",
+          }}
           onFocus={e => (e.currentTarget.style.borderColor = BROWN)}
           onBlur={e  => (e.currentTarget.style.borderColor = searchTerm ? BROWN : LINE)}
         />
       </div>
 
-      <div style={{ borderTop: `1px solid ${LINE}` }} />
+      {/* Catégorie */}
+      <FilterSection title="Catégorie" isOpen={openSections.categorie} onToggle={() => toggleSection("categorie")}>
+        <RadioOpt label="Toutes" checked={!selectedCategorie} onChange={() => { setSelectedCategorie(""); setCurrentPage(1); setDisplayOffset(50) }} />
+        {filterOptions.categories.map(cat => (
+          <RadioOpt key={cat} label={cat} checked={selectedCategorie === cat} onChange={() => { setSelectedCategorie(cat); setCurrentPage(1); setDisplayOffset(50) }} />
+        ))}
+      </FilterSection>
 
       {/* Période */}
-      <div>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "0.6rem" }}>
-          <label style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", fontSize: "0.7rem", color: MUTED }}>Période</label>
-          {sliderModified && (
-            <button onClick={() => { setYearRange([yearBounds.min, yearBounds.max]); setSliderModified(false) }}
-              style={{ fontFamily: "Georgia,serif", fontSize: "0.66rem", color: BROWN, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>
-              effacer
-            </button>
-          )}
-        </div>
-        <div style={{ position: "relative", height: 28, marginBottom: "0.7rem" }}>
+      <FilterSection title="Période" isOpen={openSections.periode} onToggle={() => toggleSection("periode")}>
+        {/* Slider */}
+        <div style={{ position: "relative", height: 28, margin: "0.4rem 8px 0.75rem" }}>
           <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", width: "100%", height: 2, background: LINE, borderRadius: 1 }} />
-          <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", height: 2, background: BROWN, borderRadius: 1, pointerEvents: "none", left: `${((yearRange[0]-yearBounds.min)/rangeWidth)*100}%`, right: `${100-((yearRange[1]-yearBounds.min)/rangeWidth)*100}%` }} />
+          <div style={{
+            position: "absolute", top: "50%", transform: "translateY(-50%)", height: 2, background: BROWN, borderRadius: 1, pointerEvents: "none",
+            left: `${((yearRange[0]-yearBounds.min)/rangeWidth)*100}%`,
+            right: `${100-((yearRange[1]-yearBounds.min)/rangeWidth)*100}%`,
+          }} />
           <input type="range" min={yearBounds.min} max={yearBounds.max} value={yearRange[0]}
             onChange={handleMinChange} onMouseUp={handleSliderRelease} onTouchEnd={handleSliderRelease}
             className="lum-slider" style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", width: "100%", height: 2, margin: 0, background: "transparent", appearance: "none", WebkitAppearance: "none", pointerEvents: "none", zIndex: 2 }} />
@@ -533,13 +494,14 @@ export default function LuminairesPage() {
             onChange={handleMaxChange} onMouseUp={handleSliderRelease} onTouchEnd={handleSliderRelease}
             className="lum-slider" style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", width: "100%", height: 2, margin: 0, background: "transparent", appearance: "none", WebkitAppearance: "none", pointerEvents: "none", zIndex: 4 }} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        {/* Saisie manuelle */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
           <input type="text" value={yearMinInput}
             onChange={e => setYearMinInput(e.target.value)}
             onBlur={e => { e.currentTarget.style.borderColor = LINE; handleMinBlur() }}
             onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur() }}
             onFocus={e => (e.currentTarget.style.borderColor = BROWN)}
-            style={{ flex: 1, padding: "0.35rem 0.4rem", border: `1px solid ${LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.7)", fontFamily: "Georgia,serif", fontSize: "0.75rem", color: TEXT, outline: "none", textAlign: "center" }}
+            style={{ flex: 1, padding: "0.35rem 0.4rem", border: `1px solid ${LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.75)", fontFamily: "Georgia,serif", fontSize: "0.75rem", color: TEXT, outline: "none", textAlign: "center" }}
           />
           <span style={{ fontFamily: "Georgia,serif", color: MUTED, fontSize: "0.8rem" }}>—</span>
           <input type="text" value={yearMaxInput}
@@ -547,52 +509,105 @@ export default function LuminairesPage() {
             onBlur={e => { e.currentTarget.style.borderColor = LINE; handleMaxBlur() }}
             onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur() }}
             onFocus={e => (e.currentTarget.style.borderColor = BROWN)}
-            style={{ flex: 1, padding: "0.35rem 0.4rem", border: `1px solid ${LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.7)", fontFamily: "Georgia,serif", fontSize: "0.75rem", color: TEXT, outline: "none", textAlign: "center" }}
+            style={{ flex: 1, padding: "0.35rem 0.4rem", border: `1px solid ${LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.75)", fontFamily: "Georgia,serif", fontSize: "0.75rem", color: TEXT, outline: "none", textAlign: "center" }}
           />
+          {sliderModified && (
+            <button onClick={() => { setYearRange([yearBounds.min, yearBounds.max]); setSliderModified(false) }}
+              style={{ padding: "0.3rem", background: "none", border: "none", cursor: "pointer", color: MUTED, display: "flex", alignItems: "center" }}>
+              <X size={13} />
+            </button>
+          )}
         </div>
-      </div>
+      </FilterSection>
 
-      <div style={{ borderTop: `1px solid ${LINE}` }} />
+      {/* Créateur */}
+      <FilterSection title="Créateur" isOpen={openSections.createur} onToggle={() => toggleSection("createur")}>
+        <input
+          type="text" value={selectedCreateur} onChange={e => { setSelectedCreateur(e.target.value); setDisplayOffset(50) }}
+          placeholder="Nom du créateur…"
+          style={{ width: "100%", padding: "0.45rem 0.6rem", border: `1px solid ${selectedCreateur ? BROWN : LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.75)", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "0.78rem", color: TEXT, outline: "none", boxSizing: "border-box" }}
+          onFocus={e => (e.currentTarget.style.borderColor = BROWN)}
+          onBlur={e  => (e.currentTarget.style.borderColor = selectedCreateur ? BROWN : LINE)}
+        />
+      </FilterSection>
 
-      <FilterInput label="Créateur" value={selectedCreateur} onChange={v => { setSelectedCreateur(v); setDisplayOffset(50) }} placeholder="Nom du créateur…" />
-      <FilterSelect label="Catégorie" value={selectedCategorie} onChange={v => { setSelectedCategorie(v); setCurrentPage(1); setDisplayOffset(50) }} options={filterOptions.categories} placeholder="Toutes" />
-      <FilterSelect label="Matériaux" value={selectedMateriau} onChange={v => { setSelectedMateriau(v); setCurrentPage(1); setDisplayOffset(50) }} options={filterOptions.materiaux} placeholder="Tous" />
+      {/* Matériaux */}
+      {filterOptions.materiaux.length > 0 && (
+        <FilterSection title="Matériaux" isOpen={openSections.materiaux} onToggle={() => toggleSection("materiaux")}>
+          <RadioOpt label="Tous" checked={!selectedMateriau} onChange={() => { setSelectedMateriau(""); setCurrentPage(1); setDisplayOffset(50) }} />
+          {filterOptions.materiaux.slice(0, 12).map(mat => (
+            <RadioOpt key={mat} label={mat} checked={selectedMateriau === mat} onChange={() => { setSelectedMateriau(mat); setCurrentPage(1); setDisplayOffset(50) }} />
+          ))}
+        </FilterSection>
+      )}
+
+      {/* Couleur */}
       {filterOptions.couleurs.length > 0 && (
-        <FilterSelect label="Couleur" value={selectedCouleur} onChange={v => { setSelectedCouleur(v); setDisplayOffset(50) }} options={filterOptions.couleurs} placeholder="Toutes" />
+        <FilterSection title="Couleur" isOpen={openSections.couleur} onToggle={() => toggleSection("couleur")}>
+          <RadioOpt label="Toutes" checked={!selectedCouleur} onChange={() => { setSelectedCouleur(""); setDisplayOffset(50) }} />
+          {filterOptions.couleurs.slice(0, 12).map(c => (
+            <RadioOpt key={c} label={c} checked={selectedCouleur === c} onChange={() => { setSelectedCouleur(c); setDisplayOffset(50) }} />
+          ))}
+        </FilterSection>
       )}
-      <FilterInput label="Dimensions" value={selectedDimensions} onChange={v => { setSelectedDimensions(v); setDisplayOffset(50) }} placeholder="ex. 60cm, 1m20…" />
-      {filterOptions.estimations.length > 0 ? (
-        <FilterSelect label="Estimation" value={selectedEstimation} onChange={v => { setSelectedEstimation(v); setDisplayOffset(50) }} options={filterOptions.estimations} placeholder="Toutes" />
-      ) : (
-        <FilterInput label="Estimation" value={selectedEstimation} onChange={v => { setSelectedEstimation(v); setDisplayOffset(50) }} placeholder="ex. 500€, 1000-2000…" />
-      )}
+
+      {/* Dimensions */}
+      <FilterSection title="Dimensions" isOpen={openSections.dimensions} onToggle={() => toggleSection("dimensions")}>
+        <input
+          type="text" value={selectedDimensions} onChange={e => { setSelectedDimensions(e.target.value); setDisplayOffset(50) }}
+          placeholder="ex. 60cm, 1m20…"
+          style={{ width: "100%", padding: "0.45rem 0.6rem", border: `1px solid ${selectedDimensions ? BROWN : LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.75)", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "0.78rem", color: TEXT, outline: "none", boxSizing: "border-box" }}
+          onFocus={e => (e.currentTarget.style.borderColor = BROWN)}
+          onBlur={e  => (e.currentTarget.style.borderColor = selectedDimensions ? BROWN : LINE)}
+        />
+      </FilterSection>
+
+      {/* Estimation */}
+      <FilterSection title="Estimation" isOpen={openSections.estimation} onToggle={() => toggleSection("estimation")}>
+        {filterOptions.estimations.length > 0 ? (
+          <>
+            <RadioOpt label="Toutes" checked={!selectedEstimation} onChange={() => { setSelectedEstimation(""); setDisplayOffset(50) }} />
+            {filterOptions.estimations.slice(0, 10).map(e => (
+              <RadioOpt key={e} label={e} checked={selectedEstimation === e} onChange={() => { setSelectedEstimation(e); setDisplayOffset(50) }} />
+            ))}
+          </>
+        ) : (
+          <input
+            type="text" value={selectedEstimation} onChange={e => { setSelectedEstimation(e.target.value); setDisplayOffset(50) }}
+            placeholder="ex. 500€, 1000-2000…"
+            style={{ width: "100%", padding: "0.45rem 0.6rem", border: `1px solid ${selectedEstimation ? BROWN : LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.75)", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "0.78rem", color: TEXT, outline: "none", boxSizing: "border-box" }}
+            onFocus={e => (e.currentTarget.style.borderColor = BROWN)}
+            onBlur={e  => (e.currentTarget.style.borderColor = selectedEstimation ? BROWN : LINE)}
+          />
+        )}
+      </FilterSection>
+
+      {/* Éditeur */}
       {filterOptions.editeurs.length > 0 && (
-        <FilterSelect label="Éditeur" value={selectedEditeur} onChange={v => { setSelectedEditeur(v); setDisplayOffset(50) }} options={filterOptions.editeurs} placeholder="Tous" />
+        <FilterSection title="Éditeur" isOpen={openSections.editeur} onToggle={() => toggleSection("editeur")}>
+          <RadioOpt label="Tous" checked={!selectedEditeur} onChange={() => { setSelectedEditeur(""); setDisplayOffset(50) }} />
+          {filterOptions.editeurs.slice(0, 12).map(e => (
+            <RadioOpt key={e} label={e} checked={selectedEditeur === e} onChange={() => { setSelectedEditeur(e); setDisplayOffset(50) }} />
+          ))}
+        </FilterSection>
       )}
 
-      <div style={{ borderTop: `1px solid ${LINE}` }} />
+      {/* Trier par */}
+      <FilterSection title="Trier par" isOpen={openSections.tri} onToggle={() => toggleSection("tri")}>
+        {([["nom-asc","Nom A–Z"],["nom-desc","Nom Z–A"],["annee-asc","Année croissante"],["annee-desc","Année décroissante"]] as [string,string][]).map(([v, l]) => (
+          <RadioOpt key={v} label={l} checked={`${sortField}-${sortDirection}` === v}
+            onChange={() => { const [f, d] = v.split("-"); setSortField(f); setSortDirection(d as "asc"|"desc") }} />
+        ))}
+      </FilterSection>
 
-      {/* Tri */}
-      <div>
-        <label style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", fontSize: "0.7rem", color: MUTED, display: "block", marginBottom: "0.3rem" }}>Trier par</label>
-        <div style={{ position: "relative" }}>
-          <select value={`${sortField}-${sortDirection}`}
-            onChange={e => { const [f, d] = e.target.value.split("-"); setSortField(f); setSortDirection(d as "asc"|"desc") }}
-            style={{ width: "100%", padding: "0.42rem 1.8rem 0.42rem 0.6rem", border: `1px solid ${LINE}`, borderRadius: "3px", background: "rgba(255,255,255,0.7)", fontFamily: "Georgia,serif", fontSize: "0.78rem", color: TEXT, outline: "none", appearance: "none", WebkitAppearance: "none", cursor: "pointer" }}>
-            <option value="nom-asc">Nom A–Z</option>
-            <option value="nom-desc">Nom Z–A</option>
-            <option value="annee-asc">Année croissante</option>
-            <option value="annee-desc">Année décroissante</option>
-          </select>
-          <ChevronDown size={12} style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", color: MUTED, pointerEvents: "none" }} />
-        </div>
-      </div>
-
+      {/* Effacer */}
       {hasFilters && (
-        <button onClick={resetAllFilters}
-          style={{ fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "0.75rem", color: BROWN, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0, textAlign: "left" }}>
-          Effacer tous les filtres
-        </button>
+        <div style={{ padding: "0.9rem 1.2rem" }}>
+          <button onClick={resetAllFilters}
+            style={{ fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "0.74rem", color: BROWN, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>
+            Effacer tous les filtres
+          </button>
+        </div>
       )}
     </div>
   )
@@ -622,35 +637,25 @@ export default function LuminairesPage() {
         .lum-card:hover .lum-fav, .lum-row:hover .lum-fav, .lum-fav.is-fav { opacity: 1 !important; }
         .lum-cat-item { transition: opacity 0.18s; }
         .lum-cat-item:hover { opacity: 0.82; }
-        /* Cacher la scrollbar de la sidebar */
         .lum-sidebar::-webkit-scrollbar { display: none; }
         .lum-sidebar { scrollbar-width: none; -ms-overflow-style: none; }
-        /* Transition sidebar */
-        .lum-sidebar-wrap { transition: width 0.28s ease, min-width 0.28s ease; overflow: hidden; }
       `}</style>
 
       {/* ══ LAYOUT 2 COLONNES ═══════════════════════════════════════════════════ */}
-      <div style={{ display: "flex", maxWidth: "1400px", margin: "0 auto" }}>
+      <div style={{ display: "flex", maxWidth: "1400px", margin: "0 auto", alignItems: "flex-start" }}>
 
         {/* ── Sidebar desktop ── */}
-        <aside
-          className="lum-sidebar-wrap hidden md:block"
-          style={{
-            width: sidebarCollapsed ? "0px" : "240px",
-            minWidth: sidebarCollapsed ? "0px" : "240px",
-            flexShrink: 0,
-            position: "sticky",
-            top: 0,
-            alignSelf: "flex-start",
-            maxHeight: "100vh",
-            overflowY: "auto",
-            overflowX: "hidden",
-            borderRight: `1px solid ${sidebarCollapsed ? "transparent" : LINE}`,
-          }}
-        >
-          <div className="lum-sidebar" style={{ width: "240px", maxHeight: "100vh", overflowY: "auto" }}>
-            {SidebarInner}
-          </div>
+        <aside className="lum-sidebar hidden md:block" style={{
+          width: "240px",
+          flexShrink: 0,
+          position: "sticky",
+          top: 0,
+          maxHeight: "100vh",
+          overflowY: "auto",
+          borderRight: `1px solid ${LINE}`,
+          background: CREAM,
+        }}>
+          {SidebarInner}
         </aside>
 
         {/* ── Sidebar mobile overlay ── */}
@@ -660,7 +665,7 @@ export default function LuminairesPage() {
             <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "min(300px,88vw)", background: CREAM, borderRight: `1px solid ${LINE}` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.2rem", borderBottom: `1px solid ${LINE}` }}>
                 <span style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", fontSize: "1rem", color: TEXT }}>Filtres</span>
-                <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, display: "flex", padding: "0.2rem" }}>
+                <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED }}>
                   <X size={18} />
                 </button>
               </div>
@@ -674,7 +679,7 @@ export default function LuminairesPage() {
         {/* ── Contenu principal ── */}
         <main style={{ flex: 1, minWidth: 0, padding: "0 1.5rem 2rem" }}>
 
-          {/* ── Titre + bande catégories (alignés avec les luminaires) ── */}
+          {/* Titre + bande catégories */}
           <div style={{ padding: "1.75rem 0 1.5rem", borderBottom: `1px solid ${LINE}`, marginBottom: "1rem" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: "1rem", marginBottom: "1.25rem" }}>
               <h1 style={{ fontFamily: '"Playfair Display",Georgia,serif', fontSize: "clamp(1.5rem,3vw,2rem)", fontWeight: 500, color: TEXT, margin: 0, fontStyle: "italic" }}>
@@ -685,7 +690,7 @@ export default function LuminairesPage() {
               </span>
             </div>
 
-            {/* 6 catégories */}
+            {/* Catégories */}
             <div style={{ display: "flex", gap: "clamp(0.75rem,2.5vw,2rem)", overflowX: "auto", paddingBottom: "0.2rem" }}>
               {CATEGORIES.map((cat, i) => {
                 const src      = homepageImages[`homepage_luminaire_${i}`] || null
@@ -702,14 +707,10 @@ export default function LuminairesPage() {
                     }}>
                       {src
                         ? <img src={src} alt={CAT_LABELS[i]} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem" }}>🏮</div>
+                        : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.4rem" }}>🏮</div>
                       }
                     </div>
-                    <p style={{
-                      fontFamily: "Georgia,serif", fontSize: "0.63rem", letterSpacing: "0.1em",
-                      textTransform: "uppercase", color: isActive ? BROWN : MUTED,
-                      margin: 0, fontWeight: isActive ? 600 : 400, whiteSpace: "nowrap",
-                    }}>
+                    <p style={{ fontFamily: "Georgia,serif", fontSize: "0.63rem", letterSpacing: "0.1em", textTransform: "uppercase", color: isActive ? BROWN : MUTED, margin: 0, fontWeight: isActive ? 600 : 400, whiteSpace: "nowrap" }}>
                       {CAT_LABELS[i]}
                     </p>
                   </button>
@@ -721,22 +722,11 @@ export default function LuminairesPage() {
           {/* Barre top */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", gap: "0.75rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-              {/* Toggle sidebar desktop */}
-              <button className="hidden md:flex"
-                onClick={() => setSidebarCollapsed(prev => !prev)}
-                title={sidebarCollapsed ? "Afficher les filtres" : "Masquer les filtres"}
-                style={{ alignItems: "center", gap: "0.35rem", padding: "0.38rem 0.75rem", borderRadius: "50px", border: `1px solid ${LINE}`, background: "rgba(255,255,255,0.6)", fontSize: "0.76rem", color: TEXT, cursor: "pointer", fontFamily: "Georgia,serif", fontStyle: "italic" }}>
-                {sidebarCollapsed
-                  ? <><PanelLeftOpen size={14} /><span>Filtres</span></>
-                  : <><PanelLeftClose size={14} /><span>Masquer</span></>
-                }
-              </button>
-              {/* Bouton filtres mobile */}
+              {/* Bouton filtres mobile uniquement */}
               <button className="md:hidden" onClick={() => setSidebarOpen(true)}
                 style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.38rem 0.85rem", borderRadius: "50px", border: `1px solid ${LINE}`, background: "rgba(255,255,255,0.6)", fontSize: "0.76rem", color: TEXT, cursor: "pointer", fontFamily: "Georgia,serif", fontStyle: "italic" }}>
                 <SlidersHorizontal size={13} /> Filtres
               </button>
-              {/* Filtres actifs badge */}
               {hasFilters && (
                 <button onClick={resetAllFilters}
                   style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.7rem", borderRadius: "50px", background: BROWN, border: "none", fontSize: "0.7rem", color: "#fff", cursor: "pointer", fontFamily: "Georgia,serif", fontStyle: "italic" }}>
@@ -744,12 +734,9 @@ export default function LuminairesPage() {
                 </button>
               )}
             </div>
-
-            {/* Toggle vue */}
             <div style={{ display: "flex", border: `1px solid ${LINE}`, borderRadius: "5px", overflow: "hidden" }}>
               {(["grid","list"] as const).map(m => (
-                <button key={m} onClick={() => setViewMode(m)}
-                  title={m === "grid" ? "Grille" : "Liste"}
+                <button key={m} onClick={() => setViewMode(m)} title={m === "grid" ? "Grille" : "Liste"}
                   style={{ padding: "0.38rem 0.6rem", border: "none", cursor: "pointer", background: viewMode === m ? BROWN : "transparent", color: viewMode === m ? "#fff" : MUTED, transition: "all 0.18s", display: "flex", alignItems: "center" }}>
                   {m === "grid" ? <LayoutGrid size={15} /> : <List size={15} />}
                 </button>
@@ -761,12 +748,8 @@ export default function LuminairesPage() {
           {(!user || (userData?.role !== "premium" && userData?.role !== "admin")) && (
             <div style={{ marginBottom: "1rem", padding: "0.75rem 1rem", border: `1px solid ${LINE}`, borderRadius: "4px", background: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
               <div>
-                <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", fontSize: "0.82rem", color: TEXT, margin: "0 0 0.12rem" }}>
-                  Accès limité — vous voyez 10% de la collection
-                </p>
-                <p style={{ fontFamily: "Georgia,serif", fontSize: "0.73rem", color: MUTED, margin: 0, fontStyle: "italic" }}>
-                  Passez à Premium pour accéder à l'intégralité
-                </p>
+                <p style={{ fontFamily: '"Playfair Display",Georgia,serif', fontStyle: "italic", fontSize: "0.82rem", color: TEXT, margin: "0 0 0.12rem" }}>Accès limité — vous voyez 10% de la collection</p>
+                <p style={{ fontFamily: "Georgia,serif", fontSize: "0.73rem", color: MUTED, margin: 0, fontStyle: "italic" }}>Passez à Premium pour accéder à l'intégralité</p>
               </div>
               <Link href="/pricing">
                 <button style={{ padding: "0.36rem 1rem", borderRadius: "50px", border: `1px solid ${BROWN}`, background: "transparent", color: BROWN, fontSize: "0.76rem", cursor: "pointer", fontFamily: "Georgia,serif", fontStyle: "italic", whiteSpace: "nowrap" }}>
@@ -776,14 +759,14 @@ export default function LuminairesPage() {
             </div>
           )}
 
-          {/* ── Grille ── */}
+          {/* Grille */}
           {viewMode === "grid" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(145px,1fr))", gap: "0.75rem" }}>
               {displayedLuminaires.map((lum, idx) => {
-                const ok   = idx < freeUserLimit
-                const isFav= favorites.includes(String(lum._id))
-                const hi   = highlightedLuminaire === String(lum._id)
-                const W    = ok ? Link : ("div" as any)
+                const ok    = idx < freeUserLimit
+                const isFav = favorites.includes(String(lum._id))
+                const hi    = highlightedLuminaire === String(lum._id)
+                const W     = ok ? Link : ("div" as any)
                 return (
                   <W key={lum._id} data-item-id={String(lum._id)}
                     {...(ok ? { href: `/luminaires/${lum._id}` } : {})} style={{ textDecoration: "none" }}
@@ -793,8 +776,7 @@ export default function LuminairesPage() {
                       {ok && (
                         <button className={`lum-fav${isFav ? " is-fav" : ""}`}
                           onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(String(lum._id)) }}
-                          style={{ position: "absolute", top: 5, right: 5, zIndex: 5, background: "rgba(255,255,255,0.9)", border: "none", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.72rem", boxShadow: "0 1px 4px rgba(0,0,0,0.1)" }}
-                          aria-label={isFav ? "Retirer" : "Ajouter aux favoris"}>
+                          style={{ position: "absolute", top: 5, right: 5, zIndex: 5, background: "rgba(255,255,255,0.9)", border: "none", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.72rem", boxShadow: "0 1px 4px rgba(0,0,0,0.1)" }}>
                           {isFav ? "❤️" : "🤍"}
                         </button>
                       )}
@@ -824,14 +806,14 @@ export default function LuminairesPage() {
             </div>
           )}
 
-          {/* ── Liste ── */}
+          {/* Liste */}
           {viewMode === "list" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
               {displayedLuminaires.map((lum, idx) => {
-                const ok   = idx < freeUserLimit
-                const isFav= favorites.includes(String(lum._id))
-                const hi   = highlightedLuminaire === String(lum._id)
-                const W    = ok ? Link : ("div" as any)
+                const ok    = idx < freeUserLimit
+                const isFav = favorites.includes(String(lum._id))
+                const hi    = highlightedLuminaire === String(lum._id)
+                const W     = ok ? Link : ("div" as any)
                 return (
                   <W key={lum._id} data-item-id={String(lum._id)}
                     {...(ok ? { href: `/luminaires/${lum._id}` } : {})} style={{ textDecoration: "none" }}
@@ -865,8 +847,7 @@ export default function LuminairesPage() {
                       {ok && (
                         <button className={`lum-fav${isFav ? " is-fav" : ""}`}
                           onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(String(lum._id)) }}
-                          style={{ flexShrink: 0, marginRight: "0.65rem", background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem", padding: "0.2rem" }}
-                          aria-label={isFav ? "Retirer" : "Ajouter aux favoris"}>
+                          style={{ flexShrink: 0, marginRight: "0.65rem", background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem", padding: "0.2rem" }}>
                           {isFav ? "❤️" : "🤍"}
                         </button>
                       )}
