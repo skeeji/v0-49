@@ -222,7 +222,7 @@ export function PaintingSearchOverlay() {
     try {
       const formData = new FormData()
       formData.append("image", file)
-      formData.append("top_k", "6")
+      formData.append("top_k", "10")
 
       const res = await fetch(API_IMAGE, { method: "POST", body: formData })
       if (!res.ok) throw new Error("Erreur API image")
@@ -416,7 +416,7 @@ export function PaintingSearchOverlay() {
           .pso-center {
             padding:0.55rem 0.85rem;
             min-width:0; width:max-content; max-width:min(260px, 82vw);
-            top:50%; left:calc(50% - 5mm);
+            top:50%; left:50%;
             transform:translate(-50%,-50%);
           }
           .pso-title { font-size:0.95rem; white-space:nowrap; margin-bottom:0.1rem; }
