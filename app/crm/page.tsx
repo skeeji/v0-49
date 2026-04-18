@@ -657,28 +657,24 @@ export default function CrmPage() {
     fetchProjects()
   }, [fetchProjects])
 
-  // Fetch financial data from SheetBest
+  // Fetch financial data from Google Apps Script
   const fetchFinancialData = useCallback(async () => {
     setFinancialLoading(true)
     try {
-      const [apiRes, relancesRes] = await Promise.all([
-        fetch("https://api.sheetbest.com/sheets/e1218948-cbda-4d37-8b09-b6b2888f4a27/tabs/API"),
-        fetch("https://api.sheetbest.com/sheets/e1218948-cbda-4d37-8b09-b6b2888f4a27/tabs/RELANCES")
-      ])
-      
-      const apiData: FinancialApiRow[] = await apiRes.json()
+      const relancesRes = await fetch(
+        "https://script.google.com/macros/s/AKfycbwTv6_NnDIg0evtSO0t3H_IH6TJL8l7XTJXd69ebryYoojS-bGqF8DbUWyy899VGy7IyQ/exec"
+      )
       const relancesData: FinancialRelanceRow[] = await relancesRes.json()
-      
+
       const now = new Date()
-      
-      // Get values from API tab (first row contains aggregated data)
-      const apiRow = apiData[0] || {}
-      const caMonth = parseFinancialAmount(apiRow.ca_mois)
-      const depensesMonth = parseFinancialAmount(apiRow.depenses_mois)
-      const beneficeMonth = parseFinancialAmount(apiRow.benefice_mois)
-      const caAnnuel = parseFinancialAmount(apiRow.ca_annee)
-      const depensesAnnuel = parseFinancialAmount(apiRow.depenses_annee)
-      const beneficeAnnuel = parseFinancialAmount(apiRow.benefice_annee)
+
+      // Financial summary not available via GAS — kept at 0
+      const caMonth = 0
+      const depensesMonth = 0
+      const beneficeMonth = 0
+      const caAnnuel = 0
+      const depensesAnnuel = 0
+      const beneficeAnnuel = 0
       
       const relancesClients: FinancialData["relancesClients"] = []
       const dettesFournisseurs: FinancialData["dettesFournisseurs"] = []
