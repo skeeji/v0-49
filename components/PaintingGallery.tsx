@@ -592,7 +592,7 @@ export function PaintingGallery({ transparentUrl }: { transparentUrl?: string })
   const sortedZones = [...zones].sort((a, b) => (b.bbox.w * b.bbox.h) - (a.bbox.w * a.bbox.h))
 
   return (
-    <section className="relative w-full select-none"
+    <section className="relative select-none" style={{ width:"100%", maxWidth:"1330px", margin:"0 auto" }}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}>
 
