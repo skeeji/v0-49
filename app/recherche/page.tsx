@@ -251,14 +251,14 @@ export default function RecherchePage() {
           body: JSON.stringify({
             mode: "plan",
             conversation: convForPlan,
-            currentMessage: userContent,
+            currentMessage: hasText ? inputValue : "",
             hasImage,
           }),
         })
         if (planRes.ok) {
           const planData = await planRes.json()
           console.log(`[GROQ:plan] ✅ Résultat — query="${planData.query}" | top_k=${planData.top_k}`)
-          if (planData.query) searchQuery = planData.query
+          if (planData.query !== undefined) searchQuery = planData.query
           if (planData.top_k) topK = planData.top_k
         } else {
           console.warn(`[GROQ:plan] ❌ Erreur HTTP ${planRes.status}`)
