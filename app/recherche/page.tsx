@@ -392,7 +392,7 @@ export default function RecherchePage() {
             console.error("[v0] Error fetching MongoDB ID:", error)
           }
         }
-        const imageUrl = result.imageUrl || result.image_url || `/api/images/filename/${fileName}`
+        const imageUrl = fileName ? `/api/images/filename/${fileName}` : (result.imageUrl || result.image_url || "/placeholder.svg")
 
         return {
           imageUrl,
