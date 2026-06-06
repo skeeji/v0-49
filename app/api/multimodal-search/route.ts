@@ -14,9 +14,12 @@ export async function POST(request: NextRequest) {
     const topK = Math.min(Math.max(parseInt(String(formData.get("top_k") || "3")), 1), 20)
     const imageFile = formData.get("image") as File | null
 
+    console.log(`[FUSION:api] ▶ query="${query}" | image=${!!imageFile} | top_k=${topK}`)
+
     const fetchText = async (): Promise<any[]> => {
       if (!query) return []
       try {
+        const t0 = Date.now()
         const res = await fetch(URL_TEXTE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -24,9 +27,11 @@ export async function POST(request: NextRequest) {
           signal: AbortSignal.timeout(40000),
         })
         const data = await res.json()
-        return data.results || []
+        const results = data.results || []
+        console.log(`[FUSION:api] ✅ API Texte: ${results.length} résultats en ${Date.now() - t0}ms`)
+        return results
       } catch (e) {
-        console.error("Erreur API texte:", e)
+        console.error("[FUSION:api] ❌ API Texte:", e)
         return []
       }
     }
@@ -34,6 +39,7 @@ export async function POST(request: NextRequest) {
     const fetchImage = async (): Promise<any[]> => {
       if (!imageFile) return []
       try {
+        const t0 = Date.now()
         const fd = new FormData()
         fd.append("image", imageFile)
         fd.append("top_k", String(topK * 6))
@@ -43,16 +49,16 @@ export async function POST(request: NextRequest) {
           signal: AbortSignal.timeout(30000),
         })
         const data = await res.json()
-        return data.results || []
+        const results = data.results || []
+        console.log(`[FUSION:api] ✅ API Image: ${results.length} résultats en ${Date.now() - t0}ms`)
+        return results
       } catch (e) {
-        console.error("Erreur API image:", e)
+        console.error("[FUSION:api] ❌ API Image:", e)
         return []
       }
     }
 
     const [resText, resImg] = await Promise.all([fetchText(), fetchImage()])
-
-    console.log(`Fusion: texte=${resText.length}, image=${resImg.length}, top_k=${topK}`)
 
     // Fusion par ID normalisé
     const combined = new Map<string, { scoreText: number; scoreImg: number; data: any }>()
@@ -70,26 +76,28 @@ export async function POST(request: NextRequest) {
       const existing = combined.get(key)
       if (existing) {
         existing.scoreImg = item.similarity || 0
+        console.log(`[FUSION:api] 🔗 Match texte+image: "${key}" (text=${existing.scoreText.toFixed(2)}, img=${existing.scoreImg.toFixed(2)})`)
       } else {
         combined.set(key, { scoreText: 0, scoreImg: item.similarity || 0, data: item })
       }
     }
 
-    // Poids dynamiques selon modalités actives
     const hasText = query.length > 0 && resText.length > 0
     const hasImg = imageFile !== null && resImg.length > 0
     const wText = hasText && hasImg ? 0.5 : hasText ? 1.0 : 0.0
     const wImg = hasText && hasImg ? 0.5 : hasImg ? 1.0 : 0.0
+
+    console.log(`[FUSION:api] 🔀 Fusion: ${combined.size} candidats | poids text=${wText} img=${wImg}`)
 
     const ranked = Array.from(combined.values())
       .sort((a, b) => (b.scoreText * wText + b.scoreImg * wImg) - (a.scoreText * wText + a.scoreImg * wImg))
       .slice(0, topK)
       .map((e) => e.data)
 
-    console.log(`Retour: ${ranked.length} résultats`)
+    console.log(`[FUSION:api] ✅ Retour: ${ranked.length} résultats`)
     return NextResponse.json({ success: true, results: ranked })
   } catch (e: any) {
-    console.error("Crash multimodal-search:", e)
+    console.error("[FUSION:api] ❌ Crash:", e)
     return NextResponse.json({ success: false, error: e.message }, { status: 500 })
   }
 }

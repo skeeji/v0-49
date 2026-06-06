@@ -229,6 +229,8 @@ export default function RecherchePage() {
     setImagePreview(null)
     setIsSearching(true)
 
+    console.log(`[SEARCH] ▶ Début — texte="${hasText ? inputValue : "—"}" | image=${hasImage} | contexte="${cleanContext}"`)
+
     try {
       // Étape 1 : Groq analyse la conversation et décide query + top_k
       let searchQuery = cleanContext || userContent
@@ -240,6 +242,8 @@ export default function RecherchePage() {
           content: m.content,
           results: m.results?.slice(0, 4).map((r) => ({ nom: r.nom, artiste: r.artiste })),
         }))
+
+        console.log(`[GROQ:plan] ▶ Appel — message="${userContent}" | conv=${convForPlan.length} msgs | image=${hasImage}`)
 
         const planRes = await fetch("/api/groq", {
           method: "POST",
@@ -253,12 +257,17 @@ export default function RecherchePage() {
         })
         if (planRes.ok) {
           const planData = await planRes.json()
+          console.log(`[GROQ:plan] ✅ Résultat — query="${planData.query}" | top_k=${planData.top_k}`)
           if (planData.query) searchQuery = planData.query
           if (planData.top_k) topK = planData.top_k
+        } else {
+          console.warn(`[GROQ:plan] ❌ Erreur HTTP ${planRes.status}`)
         }
       } catch (e) {
-        console.warn("Groq plan fallback:", e)
+        console.warn("[GROQ:plan] ❌ Exception:", e)
       }
+
+      console.log(`[FUSION] ▶ Appel orchestrateur — query="${searchQuery}" | top_k=${topK} | image=${!!imageToSearch}`)
 
       // Étape 2 : Appel orchestrateur multimodal (texte + image en un seul appel)
       const formData = new FormData()
@@ -271,16 +280,23 @@ export default function RecherchePage() {
         body: formData,
       })
 
-      if (!response.ok) throw new Error("Erreur orchestrateur")
+      if (!response.ok) {
+        console.error(`[FUSION] ❌ Erreur HTTP ${response.status}`)
+        throw new Error("Erreur orchestrateur")
+      }
 
       const data = await response.json()
+      console.log(`[FUSION] ✅ Résultats bruts: ${data.results?.length ?? 0}`)
 
       if (data.results && data.results.length > 0) {
+        console.log(`[ENRICH] ▶ Enrichissement MongoDB de ${data.results.length} résultats...`)
         const enrichedResults = await enrichResultsWithIds(data.results)
         const visible = enrichedResults.filter((r) => r.luminaireId)
+        console.log(`[ENRICH] ✅ ${enrichedResults.length} enrichis | ${visible.length} avec ID MongoDB | ${enrichedResults.length - visible.length} sans match`)
 
         let groqMessage: string | null = null
         try {
+          console.log(`[GROQ:describe] ▶ Appel — ${visible.length} résultats à présenter`)
           const groqRes = await fetch("/api/groq", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -288,7 +304,7 @@ export default function RecherchePage() {
               mode: "describe",
               query: userContent,
               searchContext: cleanContext,
-              results: visible.slice(0, 4).map((r) => ({
+              results: visible.slice(0, 6).map((r) => ({
                 nom: r.nom,
                 artiste: r.artiste,
                 annee: r.annee,
@@ -299,8 +315,13 @@ export default function RecherchePage() {
           if (groqRes.ok) {
             const groqData = await groqRes.json()
             groqMessage = groqData.message || null
+            console.log(`[GROQ:describe] ✅ Message: "${groqMessage}"`)
+          } else {
+            console.warn(`[GROQ:describe] ❌ Erreur HTTP ${groqRes.status}`)
           }
-        } catch {}
+        } catch (e) {
+          console.warn("[GROQ:describe] ❌ Exception:", e)
+        }
 
         addMessage(
           "assistant",
@@ -311,6 +332,7 @@ export default function RecherchePage() {
         )
         toast.success(`${visible.length} luminaire(s) trouvé(s)`)
       } else {
+        console.log("[FUSION] ⚠ Aucun résultat retourné")
         addMessage(
           "assistant",
           "Je n'ai trouvé aucun luminaire correspondant. Essayez une autre description ou image.",
@@ -321,11 +343,12 @@ export default function RecherchePage() {
         toast.info("Aucun résultat trouvé")
       }
     } catch (error) {
-      console.error("Search error:", error)
+      console.error("[SEARCH] ❌ Erreur globale:", error)
       addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.")
       toast.error("Erreur lors de la recherche")
     } finally {
       setIsSearching(false)
+      console.log("[SEARCH] ■ Fin de la recherche")
     }
   }
 
@@ -563,23 +586,25 @@ export default function RecherchePage() {
                         className={`${message.role === "user" ? "bg-[#8b7355] text-white" : "bg-white shadow-sm"} rounded-2xl p-3 md:p-4 w-full`}
                       >
                         {message.role === "user" && (
-                          <>
-                            {message.imageUrl ? (
-                              <div className="space-y-2">
-                                <p className="text-xs md:text-sm text-white/80">Image uploadée :</p>
+                          <div className="space-y-2">
+                            {message.content && message.content !== "Recherche par image" && (
+                              <p className="text-sm md:text-base">{message.content}</p>
+                            )}
+                            {message.imageUrl && (
+                              <div className="space-y-1">
+                                <p className="text-xs text-white/70">Image :</p>
                                 <div className="relative w-32 h-32 md:w-48 md:h-48 rounded-lg overflow-hidden">
                                   <Image
-                                    src={message.imageUrl || "/placeholder.svg"}
+                                    src={message.imageUrl}
                                     alt="Uploaded"
                                     fill
                                     className="object-cover"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                                   />
                                 </div>
                               </div>
-                            ) : (
-                              <p className="text-sm md:text-base">{message.content}</p>
                             )}
-                          </>
+                          </div>
                         )}
 
                         {message.role === "assistant" && (
@@ -588,7 +613,7 @@ export default function RecherchePage() {
 
                             {message.results && message.results.length > 0 && (
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
-                                {message.results.slice(0, 3).map((result, index) => {
+                                {message.results.map((result, index) => {
                                   if (!result.luminaireId) return null
                                   
                                   // Extract imageId from imageUrl if not provided (e.g., "luminaire_4428.jpg" from URL)
