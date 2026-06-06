@@ -3,9 +3,12 @@ import { type NextRequest, NextResponse } from "next/server"
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 
 const SYSTEM_DESCRIBE = `Tu es un expert en luminaires de collection et en histoire du design décoratif. Tu travailles pour Gersaint Paris.
+
+RÈGLE ABSOLUE : les résultats qui te sont donnés sont TOUJOURS les meilleurs trouvés par notre moteur de recherche. Tu dois TOUJOURS les présenter. Ne dis JAMAIS "je n'ai pas trouvé", "malheureusement", "ne correspond pas" ou toute formule négative. Ces résultats existent et sont pertinents.
+
 Présente les résultats de façon naturelle, experte et concise (1-2 phrases max).
-Cite uniquement ce qui est disponible (nom, artiste, époque). Ne mentionne JAMAIS les données manquantes, les champs vides ou ce qui "n'est pas disponible". Parle uniquement de ce que tu sais.
-Si l'utilisateur avait joint une image, commence par "Voici des luminaires visuellement proches de votre image :".
+Cite les noms des luminaires et artistes disponibles. Ne mentionne JAMAIS les champs vides.
+Si une image a été jointe, commence par "Voici des luminaires proches de votre image :".
 Langue : français. Ton : professionnel, chaleureux. Ne pas inventer de prix ni de dates.`
 
 const SYSTEM_PLAN = `Tu es l'orchestrateur d'un chatbot de recherche de luminaires anciens et de collection (Gersaint Paris, 9002 luminaires en base : lustres, suspensions, appliques, lampadaires, lampes de table, du XIXe au XXe siècle).
@@ -19,7 +22,7 @@ RÈGLES POUR query :
 - Si l'utilisateur dit "même mais en X" → reprend le contexte précédent + ajoute X
 - Si l'utilisateur dit "plus récent / plus ancien / plus grand" → adapte la requête
 - Si l'utilisateur dit "différent / autre chose" → garde le type mais change les critères secondaires
-- Si image jointe sans texte → query = "luminaire suspension applique collection vintage"
+- Si image jointe sans texte → query = "" (chaîne vide — l'image est gérée directement, pas besoin de texte générique)
 - Si image jointe avec texte → utilise uniquement le texte comme critère (l'image est déjà gérée séparément)
 - Toujours en mots-clés concis (pas de phrases)
 
@@ -103,15 +106,22 @@ export async function POST(request: NextRequest) {
     }
 
     // ── MODE DESCRIBE ──
-    const { query, searchContext, results } = body
-    console.log(`[GROQ:describe] ▶ Appel LLM — query="${query}" | ${results?.length} résultats`)
+    const { query, searchContext, results, hasImage } = body
+    console.log(`[GROQ:describe] ▶ Appel LLM — query="${query}" | ${results?.length} résultats | image=${hasImage}`)
 
-    const userMsg = `Demande client : "${query}"
-Contexte conversation : "${searchContext}"
-Luminaires trouvés :
-${(results || []).map((r: any, i: number) => `${i + 1}. ${r.nom || "?"} — ${r.artiste || "?"} — ${r.annee || "?"} — ${r.dimensions || ""}`).join("\n")}
+    const resultLines = (results || [])
+      .map((r: any, i: number) => {
+        const parts = [r.nom, r.artiste, r.annee, r.dimensions].filter(Boolean)
+        return `${i + 1}. ${parts.join(" — ")}`
+      })
+      .join("\n")
 
-Présente ces résultats.`
+    const userMsg = `Demande client : "${query}"${hasImage ? " [avec image jointe]" : ""}
+Contexte : "${searchContext}"
+Luminaires sélectionnés par notre moteur :
+${resultLines || "Résultats disponibles"}
+
+Présente ces luminaires.`
 
     try {
       const message = await callGroq(SYSTEM_DESCRIBE, userMsg, 150, 0.7)

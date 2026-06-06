@@ -304,6 +304,7 @@ export default function RecherchePage() {
               mode: "describe",
               query: userContent,
               searchContext: cleanContext,
+              hasImage,
               results: visible.slice(0, 6).map((r) => ({
                 nom: r.nom,
                 artiste: r.artiste,
