@@ -14,7 +14,6 @@ import Image from "next/image"
 import { MobileFooter } from "@/components/MobileFooter"
 
 const API_BASE_URL_IMAGE = "https://image-similarity-api-590690354412.us-central1.run.app"
-const API_ORCHESTRATEUR = "https://gersaint-multimodal-844978726064.europe-west1.run.app"
 
 interface SearchResult {
   imageId?: string
@@ -267,7 +266,7 @@ export default function RecherchePage() {
       formData.append("top_k", String(topK))
       if (imageToSearch) formData.append("image", imageToSearch)
 
-      const response = await fetch(`${API_ORCHESTRATEUR}/api/multimodal_search`, {
+      const response = await fetch("/api/multimodal-search", {
         method: "POST",
         body: formData,
       })
