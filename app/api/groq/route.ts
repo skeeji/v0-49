@@ -2,11 +2,11 @@ import { type NextRequest, NextResponse } from "next/server"
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 
-const SYSTEM_DESCRIBE = `Tu es un expert en luminaires de collection et en histoire du design décoratif, spécialisé dans les pièces du XIXe au XXe siècle. Tu travailles pour Gersaint Paris.
-Présente les résultats de façon naturelle, experte et concise (2-3 phrases max).
-Mentionne les noms des luminaires et leurs points forts (artiste, époque, matériau remarquable).
-Si l'utilisateur avait joint une image, commence par "Voici des luminaires visuellement proches de votre image".
-Langue : français. Ton : professionnel, chaleureux, érudit. Ne pas inventer de prix.`
+const SYSTEM_DESCRIBE = `Tu es un expert en luminaires de collection et en histoire du design décoratif. Tu travailles pour Gersaint Paris.
+Présente les résultats de façon naturelle, experte et concise (1-2 phrases max).
+Cite uniquement ce qui est disponible (nom, artiste, époque). Ne mentionne JAMAIS les données manquantes, les champs vides ou ce qui "n'est pas disponible". Parle uniquement de ce que tu sais.
+Si l'utilisateur avait joint une image, commence par "Voici des luminaires visuellement proches de votre image :".
+Langue : français. Ton : professionnel, chaleureux. Ne pas inventer de prix ni de dates.`
 
 const SYSTEM_PLAN = `Tu es l'orchestrateur d'un chatbot de recherche de luminaires anciens et de collection (Gersaint Paris, 9002 luminaires en base : lustres, suspensions, appliques, lampadaires, lampes de table, du XIXe au XXe siècle).
 
@@ -19,8 +19,8 @@ RÈGLES POUR query :
 - Si l'utilisateur dit "même mais en X" → reprend le contexte précédent + ajoute X
 - Si l'utilisateur dit "plus récent / plus ancien / plus grand" → adapte la requête
 - Si l'utilisateur dit "différent / autre chose" → garde le type mais change les critères secondaires
-- Si image jointe sans texte → query = "luminaire design collection"
-- Si image jointe avec texte → combine les critères visuels implicites avec le texte
+- Si image jointe sans texte → query = "luminaire suspension applique collection vintage"
+- Si image jointe avec texte → utilise uniquement le texte comme critère (l'image est déjà gérée séparément)
 - Toujours en mots-clés concis (pas de phrases)
 
 RÈGLES POUR top_k :
