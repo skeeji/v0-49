@@ -13,8 +13,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { MobileFooter } from "@/components/MobileFooter"
 
-const API_BASE_URL_TEXT = "https://chatbot-984654216979.europe-west1.run.app"
 const API_BASE_URL_IMAGE = "https://image-similarity-api-590690354412.us-central1.run.app"
+const API_ORCHESTRATEUR = "https://gersaint-multimodal-844978726064.europe-west1.run.app"
 
 interface SearchResult {
   imageId?: string
@@ -194,111 +194,21 @@ export default function RecherchePage() {
     return updatedConversation
   }
 
-  const handleTextSearch = async () => {
-    if (!inputValue.trim()) return
-
-    if (!user) {
-      toast.error("Connexion requise pour utiliser la recherche")
-      return
-    }
-
-    if (userData?.role !== "premium" && userData?.role !== "admin") {
-      toast.error("Cette fonctionnalité est réservée aux membres Premium")
-      return
-    }
-
-    const previousContext = currentConversation?.searchContext || ""
-    const newSearchContext = previousContext ? `${previousContext}, ${inputValue}` : inputValue
-
-    addMessage("user", inputValue)
-    setInputValue("")
-    setIsSearching(true)
-
-    try {
-      console.log("[v0] Sending text search request with query:", newSearchContext)
-
-      const response = await fetch(`${API_BASE_URL_TEXT}/api/search_text`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: newSearchContext,
-          top_k: 3,
-        }),
-      })
-
-      if (!response.ok) throw new Error("Erreur lors de la recherche")
-
-      const text = await response.text()
-      console.log("[v0] API response text:", text)
-
-      let data
-      try {
-        data = JSON.parse(text)
-      } catch {
-        data = JSON.parse(text.replace(/:\s*NaN/g, ": null"))
-      }
-
-      console.log("[v0] Parsed data:", data)
-
-      if (data.results && data.results.length > 0) {
-        console.log("[v0] Enriching", data.results.length, "results")
-        const enrichedResults = await enrichResultsWithIds(data.results)
-        console.log("[v0] Enriched results:", enrichedResults)
-
-        let groqMessage: string | null = null
-        try {
-          const groqRes = await fetch("/api/groq", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query: inputValue,
-              searchContext: newSearchContext,
-              results: enrichedResults.map(r => ({
-                nom: r.nom,
-                artiste: r.artiste,
-                annee: r.annee,
-                dimensions: r.dimensions
-              }))
-            })
-          })
-          if (groqRes.ok) {
-            const groqData = await groqRes.json()
-            groqMessage = groqData.message || null
-          }
-        } catch {}
-
-        addMessage(
-          "assistant",
-          groqMessage || `J'ai trouvé ${enrichedResults.length} luminaire(s) correspondant à votre recherche :`,
-          undefined,
-          enrichedResults,
-          newSearchContext,
-        )
-
-        toast.success(`${enrichedResults.length} luminaire(s) trouvé(s)`)
-      } else {
-        console.log("[v0] No results found")
-        addMessage(
-          "assistant",
-          "Je n'ai trouvé aucun luminaire correspondant à votre recherche. Essayez une autre description.",
-          undefined,
-          undefined,
-          newSearchContext,
-        )
-        toast.info("Aucun résultat trouvé")
-      }
-    } catch (error) {
-      console.error("[v0] Search error:", error)
-      addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.")
-      toast.error("Erreur lors de la recherche")
-    } finally {
-      setIsSearching(false)
-    }
+  // Construit le contexte de recherche depuis les inputs utilisateur uniquement (jamais les messages assistant)
+  const buildUserContext = (extraInput?: string): string => {
+    const previousInputs = (currentConversationRef.current?.messages || [])
+      .filter((m) => m.role === "user" && m.content !== "Recherche par image")
+      .map((m) => m.content)
+    if (extraInput) previousInputs.push(extraInput)
+    return previousInputs.join(", ")
   }
 
-  const handleImageSearch = async (file: File) => {
+  const handleSearch = async () => {
+    const hasText = inputValue.trim() !== ""
+    const hasImage = selectedImage !== null
+
+    if (!hasText && !hasImage) return
+
     if (!user) {
       toast.error("Connexion requise pour utiliser la recherche")
       return
@@ -309,31 +219,66 @@ export default function RecherchePage() {
       return
     }
 
-    const imageUrl = URL.createObjectURL(file)
+    const userContent = hasText ? inputValue : "Recherche par image"
+    const previewUrl = hasImage ? URL.createObjectURL(selectedImage!) : undefined
+    const cleanContext = buildUserContext(hasText ? inputValue : undefined)
+    const imageToSearch = selectedImage
 
-    addMessage("user", "Recherche par image", imageUrl)
-
+    addMessage("user", userContent, previewUrl)
     setInputValue("")
     setSelectedImage(null)
     setImagePreview(null)
     setIsSearching(true)
 
     try {
-      const formData = new FormData()
-      formData.append("image", file)
-      formData.append("top_k", "3")
+      // Étape 1 : Groq analyse la conversation et décide query + top_k
+      let searchQuery = cleanContext || userContent
+      let topK = 3
 
-      const response = await fetch(`${API_BASE_URL_IMAGE}/api/search`, {
+      try {
+        const convForPlan = (currentConversationRef.current?.messages || []).slice(-10).map((m) => ({
+          role: m.role,
+          content: m.content,
+          results: m.results?.slice(0, 4).map((r) => ({ nom: r.nom, artiste: r.artiste })),
+        }))
+
+        const planRes = await fetch("/api/groq", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "plan",
+            conversation: convForPlan,
+            currentMessage: userContent,
+            hasImage,
+          }),
+        })
+        if (planRes.ok) {
+          const planData = await planRes.json()
+          if (planData.query) searchQuery = planData.query
+          if (planData.top_k) topK = planData.top_k
+        }
+      } catch (e) {
+        console.warn("Groq plan fallback:", e)
+      }
+
+      // Étape 2 : Appel orchestrateur multimodal (texte + image en un seul appel)
+      const formData = new FormData()
+      formData.append("query", searchQuery)
+      formData.append("top_k", String(topK))
+      if (imageToSearch) formData.append("image", imageToSearch)
+
+      const response = await fetch(`${API_ORCHESTRATEUR}/api/multimodal_search`, {
         method: "POST",
         body: formData,
       })
 
-      if (!response.ok) throw new Error("Erreur lors de la recherche par image")
+      if (!response.ok) throw new Error("Erreur orchestrateur")
 
       const data = await response.json()
 
       if (data.results && data.results.length > 0) {
-        const enrichedResults = await enrichImageResultsWithIds(data.results)
+        const enrichedResults = await enrichResultsWithIds(data.results)
+        const visible = enrichedResults.filter((r) => r.luminaireId)
 
         let groqMessage: string | null = null
         try {
@@ -341,15 +286,16 @@ export default function RecherchePage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              query: "Recherche par image",
-              searchContext: "Recherche par similarité visuelle",
-              results: enrichedResults.map(r => ({
+              mode: "describe",
+              query: userContent,
+              searchContext: cleanContext,
+              results: visible.slice(0, 4).map((r) => ({
                 nom: r.nom,
                 artiste: r.artiste,
                 annee: r.annee,
-                dimensions: r.dimensions
-              }))
-            })
+                dimensions: r.dimensions,
+              })),
+            }),
           })
           if (groqRes.ok) {
             const groqData = await groqRes.json()
@@ -359,20 +305,26 @@ export default function RecherchePage() {
 
         addMessage(
           "assistant",
-          groqMessage || `J'ai trouvé ${enrichedResults.length} luminaire(s) similaire(s) :`,
+          groqMessage || `J'ai trouvé ${visible.length} luminaire(s) :`,
           undefined,
           enrichedResults,
+          cleanContext,
         )
-
-        toast.success(`${enrichedResults.length} luminaire(s) similaire(s) trouvé(s)`)
+        toast.success(`${visible.length} luminaire(s) trouvé(s)`)
       } else {
-        addMessage("assistant", "Je n'ai trouvé aucun luminaire similaire. Essayez une autre image.")
+        addMessage(
+          "assistant",
+          "Je n'ai trouvé aucun luminaire correspondant. Essayez une autre description ou image.",
+          undefined,
+          undefined,
+          cleanContext,
+        )
         toast.info("Aucun résultat trouvé")
       }
     } catch (error) {
-      console.error("Image search error:", error)
-      addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche par image.")
-      toast.error("Erreur lors de la recherche par image")
+      console.error("Search error:", error)
+      addMessage("assistant", "Désolé, une erreur s'est produite lors de la recherche. Veuillez réessayer.")
+      toast.error("Erreur lors de la recherche")
     } finally {
       setIsSearching(false)
     }
@@ -438,79 +390,13 @@ export default function RecherchePage() {
     return enriched
   }
 
-  const enrichImageResultsWithIds = async (results: any[]): Promise<SearchResult[]> => {
-    const enriched = await Promise.all(
-      results.map(async (result) => {
-        const imageId = String(result.image_id || "").split("#")[0]
-        let imageUrl = "/placeholder.svg"
-
-        if (result.image_url) {
-          const urlString = String(result.image_url).trim()
-          if (urlString.startsWith("http")) {
-            imageUrl = urlString.split("#")[0]
-          } else {
-            imageUrl = `${API_BASE_URL_IMAGE}/images/${imageId}`
-          }
-        }
-
-        const fileName = imageId.toLowerCase()
-        let luminaireId = null
-        let nomFromDb = ""
-        let artisteFromDb = ""
-        let anneeFromDb = ""
-        let dimensionsFromDb = ""
-        let materiauxFromDb = ""
-        let puissanceFromDb = ""
-        let prixHTFromDb = ""
-
-        if (fileName) {
-          try {
-            const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
-            if (response.ok) {
-              const data = await response.json()
-              if (data.success && data.found) {
-                luminaireId = data.luminaireId
-                nomFromDb = data.nom || ""
-                artisteFromDb = data.artiste || ""
-                anneeFromDb = data.annee || ""
-                dimensionsFromDb = data.dimensions || ""
-                materiauxFromDb = data.materiaux || ""
-                puissanceFromDb = data.puissance || ""
-                prixHTFromDb = data.estimation || data.prixHT || ""
-              }
-            }
-          } catch (error) {
-            console.error("Error fetching luminaire ID:", error)
-          }
-        }
-
-        return {
-          imageId,
-          imageUrl,
-          luminaireUrl: luminaireId ? `/luminaires/${luminaireId}` : null,
-          luminaireId,
-          similarity: result.similarity || 0,
-          nom: nomFromDb,
-          artiste: artisteFromDb,
-          annee: anneeFromDb,
-          dimensions: dimensionsFromDb,
-          materiaux: materiauxFromDb,
-          puissance: puissanceFromDb,
-          prixHT: prixHTFromDb,
-        }
-      }),
-    )
-
-    return enriched
-  }
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       setSelectedImage(file)
       const preview = URL.createObjectURL(file)
       setImagePreview(preview)
-      handleImageSearch(file)
+      // Ne lance pas la recherche automatiquement : l'utilisateur peut ajouter du texte avant d'envoyer
     }
   }
 
@@ -855,7 +741,7 @@ export default function RecherchePage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault()
-                        handleTextSearch()
+                        handleSearch()
                       }
                     }}
                     placeholder="Décrivez le luminaire..."
@@ -872,8 +758,8 @@ export default function RecherchePage() {
                 </div>
 
                 <Button
-                  onClick={handleTextSearch}
-                  disabled={!inputValue.trim() || isSearching}
+                  onClick={handleSearch}
+                  disabled={(!inputValue.trim() && !selectedImage) || isSearching}
                   className="h-12 px-4 rounded-xl text-white"
                   style={{ backgroundColor: "#8b7355" }}
                 >
