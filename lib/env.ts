@@ -44,7 +44,7 @@ export const env = {
   // Variables MongoDB Docker
   MONGO_INITDB_ROOT_USERNAME: getEnvVar("MONGO_INITDB_ROOT_USERNAME", "admin"),
   MONGO_INITDB_ROOT_PASSWORD: getEnvVar("MONGO_INITDB_ROOT_PASSWORD", "admin123"),
-  MONGO_INITDB_DATABASE: getEnvVar("MONGO_INITDB_DATABASE", "luminaires"),
+  MONGO_INITDB_DATABASE: getEnvVar("MONGO_INITDB_DATABASE", "gersaint"),
 
   // Variables Mongo Express
   ME_CONFIG_MONGODB_ADMINUSERNAME: getEnvVar("ME_CONFIG_MONGODB_ADMINUSERNAME", "admin"),

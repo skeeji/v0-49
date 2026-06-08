@@ -6,7 +6,6 @@ import { Header } from "@/components/Header"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { SelectionProvider } from "@/contexts/SelectionContext"
 import { Toaster } from "sonner"
-import ChatWidget from "@/components/ChatWidget"
 import { SelectionSidebar } from "@/components/SelectionSidebar"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
@@ -34,9 +33,6 @@ export default function RootLayout({
           <SelectionProvider>
             <Header />
             <main>{children}</main>
-            <div className="hidden">
-              <ChatWidget />
-            </div>
             <SelectionSidebar />
             <Toaster
               position="top-right"

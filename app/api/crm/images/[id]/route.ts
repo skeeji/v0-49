@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { GridFSBucket, ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
 
-const DBNAME = "luminaires"
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "gersaint"
 
 export async function GET(
   request: NextRequest,

@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import Link from "next/link"
 import Image from "next/image"
 import { MobileFooter } from "@/components/MobileFooter"
+import { MarkdownMessage } from "@/components/MarkdownMessage"
 
 const API_BASE_URL_IMAGE = "https://image-similarity-api-590690354412.us-central1.run.app"
 
@@ -54,6 +55,7 @@ export default function RecherchePage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [searchStep, setSearchStep] = useState<string | null>(null)
 
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -223,6 +225,12 @@ export default function RecherchePage() {
     const cleanContext = buildUserContext(hasText ? inputValue : undefined)
     const imageToSearch = selectedImage
 
+    // Comptabilise l'usage pour les utilisateurs free (protection secondaire si l'overlay est bypassé)
+    if (userData?.role === "free") {
+      const canProceed = await incrementSearchCount()
+      if (!canProceed) return
+    }
+
     addMessage("user", userContent, previewUrl)
     setInputValue("")
     setSelectedImage(null)
@@ -232,44 +240,68 @@ export default function RecherchePage() {
     console.log(`[SEARCH] ▶ Début — texte="${hasText ? inputValue : "—"}" | image=${hasImage} | contexte="${cleanContext}"`)
 
     try {
-      // Étape 1 : Groq analyse la conversation et décide query + top_k
+      setSearchStep("Analyse de votre demande…")
+
+      // Étape 1 : Groq route — décide si réponse directe ou recherche (+ extrait query/top_k si search)
+      const convForRoute = (currentConversationRef.current?.messages || []).slice(-10).map((m) => ({
+        role: m.role,
+        content: m.content,
+        results: m.results?.slice(0, 4).map((r) => ({ nom: r.nom, artiste: r.artiste })),
+      }))
+
+      console.log(`[GROQ:route] ▶ Appel — message="${userContent}" | conv=${convForRoute.length} msgs | image=${hasImage}`)
+
+      let routeAction: "search" | "answer" = "search"
+      let directMessage: string | null = null
       let searchQuery = cleanContext || userContent
       let topK = 3
 
       try {
-        const convForPlan = (currentConversationRef.current?.messages || []).slice(-10).map((m) => ({
-          role: m.role,
-          content: m.content,
-          results: m.results?.slice(0, 4).map((r) => ({ nom: r.nom, artiste: r.artiste })),
-        }))
-
-        console.log(`[GROQ:plan] ▶ Appel — message="${userContent}" | conv=${convForPlan.length} msgs | image=${hasImage}`)
-
-        const planRes = await fetch("/api/groq", {
+        const routeRes = await fetch("/api/groq", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            mode: "plan",
-            conversation: convForPlan,
+            mode: "route",
+            conversation: convForRoute,
             currentMessage: hasText ? inputValue : "",
             hasImage,
           }),
         })
-        if (planRes.ok) {
-          const planData = await planRes.json()
-          console.log(`[GROQ:plan] ✅ Résultat — query="${planData.query}" | top_k=${planData.top_k}`)
-          if (planData.query !== undefined) searchQuery = planData.query
-          if (planData.top_k) topK = planData.top_k
+        if (routeRes.ok) {
+          const routeData = await routeRes.json()
+          routeAction = routeData.action === "answer" ? "answer" : "search"
+          if (routeAction === "answer") {
+            directMessage = routeData.message || null
+            console.log(`[GROQ:route] 💬 Réponse directe`)
+          } else {
+            if (routeData.query !== undefined) searchQuery = routeData.query
+            if (routeData.top_k) topK = routeData.top_k
+            console.log(`[GROQ:route] 🔍 Recherche — query="${searchQuery}" | top_k=${topK}`)
+          }
         } else {
-          console.warn(`[GROQ:plan] ❌ Erreur HTTP ${planRes.status}`)
+          console.warn(`[GROQ:route] ❌ Erreur HTTP ${routeRes.status}`)
         }
       } catch (e) {
-        console.warn("[GROQ:plan] ❌ Exception:", e)
+        console.warn("[GROQ:route] ❌ Exception:", e)
       }
 
+      // ── Chemin A : réponse conversationnelle directe (pas de recherche) ──
+      if (routeAction === "answer") {
+        setSearchStep(null)
+        addMessage(
+          "assistant",
+          directMessage || "Je suis là pour vous aider à trouver le luminaire idéal.",
+          undefined,
+          undefined,
+          cleanContext,
+        )
+        return
+      }
+
+      // ── Chemin B : recherche multimodale ──
+      setSearchStep("Recherche dans la collection…")
       console.log(`[FUSION] ▶ Appel orchestrateur — query="${searchQuery}" | top_k=${topK} | image=${!!imageToSearch}`)
 
-      // Étape 2 : Appel orchestrateur multimodal (texte + image en un seul appel)
       const formData = new FormData()
       formData.append("query", searchQuery)
       formData.append("top_k", String(topK))
@@ -289,6 +321,7 @@ export default function RecherchePage() {
       console.log(`[FUSION] ✅ Résultats bruts: ${data.results?.length ?? 0}`)
 
       if (data.results && data.results.length > 0) {
+        setSearchStep("Chargement des fiches…")
         console.log(`[ENRICH] ▶ Enrichissement MongoDB de ${data.results.length} résultats...`)
         const enrichedResults = await enrichResultsWithIds(data.results)
         const visible = enrichedResults.filter((r) => r.luminaireId)
@@ -296,6 +329,7 @@ export default function RecherchePage() {
 
         let groqMessage: string | null = null
         try {
+          setSearchStep("Rédaction de la réponse…")
           console.log(`[GROQ:describe] ▶ Appel — ${visible.length} résultats à présenter`)
           const groqRes = await fetch("/api/groq", {
             method: "POST",
@@ -349,68 +383,61 @@ export default function RecherchePage() {
       toast.error("Erreur lors de la recherche")
     } finally {
       setIsSearching(false)
+      setSearchStep(null)
       console.log("[SEARCH] ■ Fin de la recherche")
     }
   }
 
   const enrichResultsWithIds = async (results: any[]): Promise<SearchResult[]> => {
-    const enriched = await Promise.all(
-      results.map(async (result) => {
-        const luminaireId = result.luminaireId || result.luminaire_id
-        let fileName = luminaireId?.split("/").pop()?.toLowerCase() || luminaireId
+    // Extract a filename for each result
+    const fileNames = results.map((result) => {
+      const raw = result.luminaireId || result.luminaire_id
+      let name = raw?.split("/").pop()?.toLowerCase() || raw?.toLowerCase() || ""
+      if (!name && result.imageUrl) name = result.imageUrl.split("/").pop()?.toLowerCase() || ""
+      if (!name && result.image_url) name = result.image_url.split("/").pop()?.toLowerCase() || ""
+      return name
+    })
 
-        // Fallback : extraire depuis imageUrl si luminaireId absent
-        if (!fileName && result.imageUrl) {
-          const urlParts = result.imageUrl.split("/")
-          fileName = urlParts[urlParts.length - 1]?.toLowerCase() || ""
+    // Single batch request instead of N individual calls
+    const batchMap: Record<string, any> = {}
+    const validNames = fileNames.filter(Boolean)
+    if (validNames.length > 0) {
+      try {
+        const res = await fetch("/api/luminaires/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filenames: validNames }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success) Object.assign(batchMap, data.result)
         }
-        if (!fileName && result.image_url) {
-          const urlParts = result.image_url.split("/")
-          fileName = urlParts[urlParts.length - 1]?.toLowerCase() || ""
-        }
+      } catch (error) {
+        console.error("[enrich] Erreur batch:", error)
+      }
+    }
 
-        let mongoId = null
+    return results.map((result, i) => {
+      const fileName = fileNames[i]
+      const match = fileName ? batchMap[fileName] : null
 
-        // Try to get MongoDB ID
-        if (fileName) {
-          try {
-            const response = await fetch(`/api/luminaire-by-image?filename=${encodeURIComponent(fileName)}`)
-            if (response.ok) {
-              const data = await response.json()
-              if (data.success && data.found) {
-                mongoId = data.luminaireId
-                result.nom = result.nom || data.nom || ""
-                result.artiste = result.artiste || data.artiste || ""
-                result.annee = result.annee || data.annee || ""
-                result.dimensions = result.dimensions || data.dimensions || ""
-                result.materiaux = result.materiaux || data.materiaux || ""
-                result.puissance = result.puissance || data.puissance || ""
-                result.prixHT = result.prixHT || data.prixHT || ""
-              }
-            }
-          } catch (error) {
-            console.error("[v0] Error fetching MongoDB ID:", error)
-          }
-        }
-        const imageUrl = fileName ? `/api/images/filename/${fileName}` : (result.imageUrl || result.image_url || "/placeholder.svg")
-
-        return {
-          imageUrl,
-          luminaireUrl: mongoId ? `/luminaires/${mongoId}` : null,
-          luminaireId: mongoId,
-          nom: result.nom || "Sans nom",
-          artiste: result.artiste || "Inconnu",
-          annee: result.annee === null || result.annee === "" ? "Non spécifié" : String(result.annee),
-          similarity: result.similarity || 0,
-          dimensions: result.dimensions || "",
-          materiaux: result.materiaux || "",
-          puissance: result.puissance || "",
-          prixHT: result.prixHT || "",
-        }
-      }),
-    )
-
-    return enriched
+      return {
+        imageUrl: fileName ? `/api/images/filename/${fileName}` : (result.imageUrl || result.image_url || "/placeholder.svg"),
+        luminaireUrl: match ? `/luminaires/${match.luminaireId}` : null,
+        luminaireId: match?.luminaireId || null,
+        nom: match?.nom || result.nom || "Sans nom",
+        artiste: match?.artiste || result.artiste || "Inconnu",
+        annee: (() => {
+          const v = match?.annee || result.annee
+          return v === null || v === "" || v === undefined ? "Non spécifié" : String(v)
+        })(),
+        similarity: result.similarity || 0,
+        dimensions: match?.dimensions || result.dimensions || "",
+        materiaux: match?.materiaux || result.materiaux || "",
+        puissance: match?.puissance || result.puissance || "",
+        prixHT: match?.prixHT || result.prixHT || "",
+      }
+    })
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -610,7 +637,7 @@ export default function RecherchePage() {
 
                         {message.role === "assistant" && (
                           <>
-                            <p className="text-sm md:text-base text-slate-800 mb-3 md:mb-4">{message.content}</p>
+                            <MarkdownMessage content={message.content} className="text-sm md:text-base mb-3 md:mb-4" />
 
                             {message.results && message.results.length > 0 && (
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
@@ -738,8 +765,9 @@ export default function RecherchePage() {
 
                   {isSearching && (
                     <div className="flex justify-start">
-                      <div className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4">
-                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin" style={{ color: "#8b7355" }} />
+                      <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+                        <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" style={{ color: "#8b7355" }} />
+                        <span className="text-sm text-slate-500">{searchStep || "Traitement…"}</span>
                       </div>
                     </div>
                   )}

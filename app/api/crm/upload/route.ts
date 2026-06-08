@@ -5,7 +5,7 @@ import clientPromise from "@/lib/mongodb"
 export const runtime = "nodejs"
 export const maxDuration = 300
 
-const DBNAME = "luminaires"
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "gersaint"
 
 export async function POST(request: NextRequest) {
   try {

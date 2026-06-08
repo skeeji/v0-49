@@ -33,5 +33,5 @@ export default clientPromise
 
 export async function getDatabase(): Promise<Db> {
   const client = await clientPromise
-  return client.db("luminaires")
+  return client.db(process.env.MONGO_INITDB_DATABASE || "gersaint")
 }
