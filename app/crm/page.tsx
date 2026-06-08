@@ -659,81 +659,85 @@ export default function CrmPage() {
 
   // Fetch financial data from Google Apps Script
   const fetchFinancialData = useCallback(async () => {
-    setFinancialLoading(true)
-    try {
-      const relancesRes = await fetch(
-        "https://script.google.com/macros/s/AKfycbwTv6_NnDIg0evtSO0t3H_IH6TJL8l7XTJXd69ebryYoojS-bGqF8DbUWyy899VGy7IyQ/exec"
-      )
-      const relancesData: FinancialRelanceRow[] = await relancesRes.json()
+  setFinancialLoading(true)
+  try {
+    const res = await fetch(
+      "https://script.google.com/macros/s/AKfycby0Od288_Hpl0pYDeLdmPeN54iXGD4a4Iv-PPmnV9lRO9V0qLXbfccVMMfo-fU4OX-G/exec"
+    )
+    const rawData = await res.json()
 
-      const now = new Date()
+    // ── Extraire summary (CA, dépenses, bénéfice) ──
+    const summaryData = rawData.summary || {}
+    const relancesData: FinancialRelanceRow[] = rawData.relances || []
 
-      // Financial summary not available via GAS — kept at 0
-      const caMonth = 0
-      const depensesMonth = 0
-      const beneficeMonth = 0
-      const caAnnuel = 0
-      const depensesAnnuel = 0
-      const beneficeAnnuel = 0
-      
-      const relancesClients: FinancialData["relancesClients"] = []
-      const dettesFournisseurs: FinancialData["dettesFournisseurs"] = []
-      
-      // Process relances tab
-      relancesData.forEach((row) => {
-        // Client relances
-        if (row.Client && row.Montant_client && row.Date_Facture_Client) {
-          const date = parseFinancialDate(row.Date_Facture_Client)
-          const montant = parseFinancialAmount(row.Montant_client)
-          if (date && montant > 0) {
-            const echeance = addDays(date, 40)
-            relancesClients.push({
-              client: row.Client,
-              montant,
-              echeance,
-              enRetard: echeance < now,
-              statut: row.Statut_client || ""
-            })
-          }
+    const caMonth       = parseFinancialAmount(summaryData.ca_mois)
+    const depensesMonth = parseFinancialAmount(summaryData.depenses_mois)
+    const beneficeMonth = parseFinancialAmount(summaryData.benefice_mois)
+    const caAnnuel      = parseFinancialAmount(summaryData.ca_annee)
+    const depensesAnnuel = parseFinancialAmount(summaryData.depenses_annee)
+    const beneficeAnnuel = parseFinancialAmount(summaryData.benefice_annee)
+
+    const now = new Date()
+
+    // ── Relances clients ──
+    const relancesClients: FinancialData["relancesClients"] = []
+    const dettesFournisseurs: FinancialData["dettesFournisseurs"] = []
+
+    relancesData.forEach((row) => {
+      // Clients
+      if (row.Client && row.Montant_client && row.Date_Facture_Client) {
+        const date   = parseFinancialDate(row.Date_Facture_Client)
+        const montant = parseFinancialAmount(row.Montant_client)
+        if (date && montant > 0) {
+          const echeance = addDays(date, 40)
+          relancesClients.push({
+            client:    row.Client,
+            montant,
+            echeance,
+            enRetard:  echeance < now,
+            statut:    row.Statut_client || ""
+          })
         }
-        
-        // Supplier debts
-        if (row.Fournisseur && row.Date_Facture_Fournisseur) {
-          const date = parseFinancialDate(row.Date_Facture_Fournisseur)
-          const montant = parseFinancialAmount(row.Montant_fournisseur)
-          if (date) {
-            const echeance = addDays(date, 30)
-            dettesFournisseurs.push({
-              fournisseur: row.Fournisseur,
-              montant,
-              echeance,
-              enRetard: echeance < now,
-              statut: row.Statut_fournisseur || ""
-            })
-          }
+      }
+
+      // Fournisseurs
+      if (row.Fournisseur && row.Date_Facture_Fournisseur) {
+        const date   = parseFinancialDate(row.Date_Facture_Fournisseur)
+        const montant = parseFinancialAmount(row.Montant_fournisseur)
+        if (date) {
+          const echeance = addDays(date, 30)
+          dettesFournisseurs.push({
+            fournisseur: row.Fournisseur,
+            montant,
+            echeance,
+            enRetard:    echeance < now,
+            statut:      row.Statut_fournisseur || ""
+          })
         }
-      })
-      
-      // Sort by echeance
-      relancesClients.sort((a, b) => a.echeance.getTime() - b.echeance.getTime())
-      dettesFournisseurs.sort((a, b) => a.echeance.getTime() - b.echeance.getTime())
-      
-      setFinancialData({
-        caMonth,
-        depensesMonth,
-        beneficeMonth,
-        caAnnuel,
-        depensesAnnuel,
-        beneficeAnnuel,
-        relancesClients,
-        dettesFournisseurs
-      })
-    } catch (error) {
-      console.error("Error fetching financial data:", error)
-    } finally {
-      setFinancialLoading(false)
-    }
-  }, [])
+      }
+    })
+
+    // Trier par échéance
+    relancesClients.sort((a, b) => a.echeance.getTime() - b.echeance.getTime())
+    dettesFournisseurs.sort((a, b) => a.echeance.getTime() - b.echeance.getTime())
+
+    setFinancialData({
+      caMonth,
+      depensesMonth,
+      beneficeMonth,
+      caAnnuel,
+      depensesAnnuel,
+      beneficeAnnuel,
+      relancesClients,
+      dettesFournisseurs
+    })
+
+  } catch (error) {
+    console.error("Error fetching financial data:", error)
+  } finally {
+    setFinancialLoading(false)
+  }
+}, [])
 
   useEffect(() => {
     if (showFinancialDashboard && !financialData) {
