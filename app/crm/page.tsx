@@ -885,38 +885,59 @@ export default function CrmPage() {
               ) : financialData ? (
                 <div className="flex flex-col gap-5">
                   {/* Financial Stats Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-100">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Euro className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-xs text-emerald-700/70">CA Mois</span>
-                      </div>
-                      <p className="text-lg font-semibold text-emerald-700">{formatCurrency(financialData.caMonth)}</p>
-                    </div>
-                    <div className="bg-red-50 rounded-lg p-4 border border-red-100">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Receipt className="w-3.5 h-3.5 text-red-600" />
-                        <span className="text-xs text-red-700/70">Depenses Mois</span>
-                      </div>
-                      <p className="text-lg font-semibold text-red-700">{formatCurrency(financialData.depensesMonth)}</p>
-                    </div>
-                    <div className={`rounded-lg p-4 border ${financialData.beneficeMonth >= 0 ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100"}`}>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <TrendingUp className={`w-3.5 h-3.5 ${financialData.beneficeMonth >= 0 ? "text-blue-600" : "text-orange-600"}`} />
-                        <span className={`text-xs ${financialData.beneficeMonth >= 0 ? "text-blue-700/70" : "text-orange-700/70"}`}>Benefice Mois</span>
-                      </div>
-                      <p className={`text-lg font-semibold ${financialData.beneficeMonth >= 0 ? "text-blue-700" : "text-orange-700"}`}>
-                        {formatCurrency(financialData.beneficeMonth)}
-                      </p>
-                    </div>
-                    <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Wallet className="w-3.5 h-3.5 text-amber-600" />
-                        <span className="text-xs text-amber-700/70">CA Annuel</span>
-                      </div>
-                      <p className="text-lg font-semibold text-amber-700">{formatCurrency(financialData.caAnnuel)}</p>
-                    </div>
-                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+  <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-100">
+    <div className="flex items-center gap-2 mb-1.5">
+      <Euro className="w-3.5 h-3.5 text-emerald-600" />
+      <span className="text-xs text-emerald-700/70">CA Mois</span>
+    </div>
+    <p className="text-lg font-semibold text-emerald-700">{formatCurrency(financialData.caMonth)}</p>
+  </div>
+
+  <div className="bg-red-50 rounded-lg p-4 border border-red-100">
+    <div className="flex items-center gap-2 mb-1.5">
+      <Receipt className="w-3.5 h-3.5 text-red-600" />
+      <span className="text-xs text-red-700/70">Dépenses Mois</span>
+    </div>
+    <p className="text-lg font-semibold text-red-700">{formatCurrency(financialData.depensesMonth)}</p>
+  </div>
+
+  <div className={`rounded-lg p-4 border ${financialData.beneficeMonth >= 0 ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100"}`}>
+    <div className="flex items-center gap-2 mb-1.5">
+      <TrendingUp className={`w-3.5 h-3.5 ${financialData.beneficeMonth >= 0 ? "text-blue-600" : "text-orange-600"}`} />
+      <span className={`text-xs ${financialData.beneficeMonth >= 0 ? "text-blue-700/70" : "text-orange-700/70"}`}>Bénéfice Mois</span>
+    </div>
+    <p className={`text-lg font-semibold ${financialData.beneficeMonth >= 0 ? "text-blue-700" : "text-orange-700"}`}>
+      {formatCurrency(financialData.beneficeMonth)}
+    </p>
+  </div>
+
+  <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+    <div className="flex items-center gap-2 mb-1.5">
+      <Wallet className="w-3.5 h-3.5 text-amber-600" />
+      <span className="text-xs text-amber-700/70">CA Annuel</span>
+    </div>
+    <p className="text-lg font-semibold text-amber-700">{formatCurrency(financialData.caAnnuel)}</p>
+  </div>
+
+  <div className="bg-red-50 rounded-lg p-4 border border-red-100">
+    <div className="flex items-center gap-2 mb-1.5">
+      <Receipt className="w-3.5 h-3.5 text-red-600" />
+      <span className="text-xs text-red-700/70">Dépenses Annuel</span>
+    </div>
+    <p className="text-lg font-semibold text-red-700">{formatCurrency(financialData.depensesAnnuel)}</p>
+  </div>
+
+  <div className={`rounded-lg p-4 border ${financialData.beneficeAnnuel >= 0 ? "bg-green-50 border-green-100" : "bg-orange-50 border-orange-100"}`}>
+    <div className="flex items-center gap-2 mb-1.5">
+      <TrendingUp className={`w-3.5 h-3.5 ${financialData.beneficeAnnuel >= 0 ? "text-green-600" : "text-orange-600"}`} />
+      <span className={`text-xs ${financialData.beneficeAnnuel >= 0 ? "text-green-700/70" : "text-orange-700/70"}`}>Bénéfice Annuel</span>
+    </div>
+    <p className={`text-lg font-semibold ${financialData.beneficeAnnuel >= 0 ? "text-green-700" : "text-orange-700"}`}>
+      {formatCurrency(financialData.beneficeAnnuel)}
+    </p>
+  </div>
+</div>
 
                   {/* Tables */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
