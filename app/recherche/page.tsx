@@ -80,27 +80,29 @@ export default function RecherchePage() {
   }, [user, userData])
 
   useEffect(() => {
-    if (user) {
-      const saved = localStorage.getItem(`conversations_${user.uid}`)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        const hydrated = parsed.map((conv: any) => ({
+    if (!user) return
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/conversations?uid=${encodeURIComponent(user.uid)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        const hydrated = (data.conversations || []).map((conv: any) => ({
           ...conv,
           searchContext: conv.searchContext || "",
           createdAt: new Date(conv.createdAt),
           updatedAt: new Date(conv.updatedAt),
-          messages: conv.messages.map((msg: any) => ({
+          messages: (conv.messages || []).map((msg: any) => ({
             ...msg,
             timestamp: new Date(msg.timestamp),
           })),
         }))
         setConversations(hydrated)
-        const lastActive = [...hydrated].sort(
-          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        )[0]
-        if (lastActive) setCurrentConversation(lastActive)
+        if (hydrated.length > 0) setCurrentConversation(hydrated[0])
+      } catch (e) {
+        console.warn("[conv] Erreur chargement:", e)
       }
     }
+    load()
   }, [user])
 
   useEffect(() => {
@@ -111,9 +113,23 @@ export default function RecherchePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [currentConversation?.messages])
 
-  const saveConversations = (convs: Conversation[]) => {
+  // ── Persistance MongoDB ──
+  const saveConversation = async (conv: Conversation) => {
     if (!user) return
-    localStorage.setItem(`conversations_${user.uid}`, JSON.stringify(convs))
+    try {
+      await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: user.uid, conversation: conv }),
+      })
+    } catch (e) {
+      console.warn("[conv] Erreur save:", e)
+    }
+  }
+
+  const saveConversations = (convs: Conversation[]) => {
+    // Conservé pour compatibilité interne — délègue à MongoDB
+    convs.forEach((c) => saveConversation(c))
   }
 
   const createNewConversation = () => {
@@ -131,11 +147,12 @@ export default function RecherchePage() {
   }
 
   const deleteConversation = (id: string) => {
-    const updated = conversations.filter((c) => c.id !== id)
-    setConversations(updated)
-    saveConversations(updated)
-    if (currentConversation?.id === id) {
-      setCurrentConversation(null)
+    setConversations((prev) => prev.filter((c) => c.id !== id))
+    if (currentConversation?.id === id) setCurrentConversation(null)
+    if (user) {
+      fetch(`/api/conversations?uid=${encodeURIComponent(user.uid)}&id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }).catch(() => {})
     }
   }
 
@@ -192,7 +209,34 @@ export default function RecherchePage() {
     setConversations(updatedConversations)
     saveConversations(updatedConversations)
 
-    return updatedConversation
+    return message.id
+  }
+
+  // Met à jour le contenu textuel d'un message existant (utilisé pendant le streaming)
+  const updateMessageContent = (messageId: string, content: string) => {
+    setCurrentConversation((prev) => {
+      if (!prev) return prev
+      const updated = {
+        ...prev,
+        messages: prev.messages.map((m) => m.id === messageId ? { ...m, content } : m),
+      }
+      currentConversationRef.current = updated
+      return updated
+    })
+  }
+
+  // Sauvegarde la conversation en cours (appelé après la fin du streaming)
+  const persistCurrentConversation = () => {
+    const conv = currentConversationRef.current
+    if (!conv) return
+    setConversations((prevConvs) => {
+      const idx = prevConvs.findIndex((c) => c.id === conv.id)
+      const updated = idx >= 0
+        ? prevConvs.map((c, i) => i === idx ? conv : c)
+        : [conv, ...prevConvs]
+      saveConversations(updated)
+      return updated
+    })
   }
 
   // Construit le contexte de recherche depuis les inputs utilisateur uniquement (jamais les messages assistant)
@@ -221,9 +265,23 @@ export default function RecherchePage() {
     }
 
     const userContent = hasText ? inputValue : "Recherche par image"
-    const previewUrl = hasImage ? URL.createObjectURL(selectedImage!) : undefined
     const cleanContext = buildUserContext(hasText ? inputValue : undefined)
     const imageToSearch = selectedImage
+
+    // Upload image to GridFS to get a persistent URL (avoids blob:// that breaks on reload)
+    let persistentImageUrl: string | undefined
+    if (hasImage && selectedImage) {
+      try {
+        const fd = new FormData()
+        fd.append("image", selectedImage)
+        const uploadRes = await fetch("/api/upload/search-image", { method: "POST", body: fd })
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json()
+          persistentImageUrl = uploadData.imageUrl
+        }
+      } catch {}
+    }
+    const previewUrl = persistentImageUrl ?? (hasImage ? URL.createObjectURL(selectedImage!) : undefined)
 
     // Comptabilise l'usage pour les utilisateurs free (protection secondaire si l'overlay est bypassé)
     if (userData?.role === "free") {
@@ -327,15 +385,24 @@ export default function RecherchePage() {
         const visible = enrichedResults.filter((r) => r.luminaireId)
         console.log(`[ENRICH] ✅ ${enrichedResults.length} enrichis | ${visible.length} avec ID MongoDB | ${enrichedResults.length - visible.length} sans match`)
 
-        let groqMessage: string | null = null
+        setSearchStep("Rédaction de la réponse…")
+        console.log(`[GROQ:describe] ▶ Stream — ${visible.length} résultats`)
+
+        // Ajoute le message avec placeholder ; on streame le texte dessus
+        const placeholder = `J'ai trouvé ${visible.length} luminaire(s) :`
+        const msgId = addMessage("assistant", placeholder, undefined, enrichedResults, cleanContext)
+        setSearchStep(null)
+        setIsSearching(false)
+        toast.success(`${visible.length} luminaire(s) trouvé(s)`)
+
+        // Streaming de la description Groq
         try {
-          setSearchStep("Rédaction de la réponse…")
-          console.log(`[GROQ:describe] ▶ Appel — ${visible.length} résultats à présenter`)
           const groqRes = await fetch("/api/groq", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               mode: "describe",
+              stream: true,
               query: userContent,
               searchContext: cleanContext,
               hasImage,
@@ -347,25 +414,41 @@ export default function RecherchePage() {
               })),
             }),
           })
-          if (groqRes.ok) {
-            const groqData = await groqRes.json()
-            groqMessage = groqData.message || null
-            console.log(`[GROQ:describe] ✅ Message: "${groqMessage}"`)
-          } else {
-            console.warn(`[GROQ:describe] ❌ Erreur HTTP ${groqRes.status}`)
+
+          if (groqRes.ok && groqRes.body) {
+            const reader = groqRes.body.getReader()
+            const decoder = new TextDecoder()
+            let buffer = ""
+            let accumulated = ""
+
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              buffer += decoder.decode(value, { stream: true })
+              const lines = buffer.split("\n")
+              buffer = lines.pop() ?? ""
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue
+                const data = line.slice(6).trim()
+                if (data === "[DONE]") break
+                try {
+                  const chunk = JSON.parse(data)
+                  const token = chunk.choices?.[0]?.delta?.content ?? ""
+                  if (token) {
+                    accumulated += token
+                    updateMessageContent(msgId, accumulated)
+                  }
+                } catch {}
+              }
+            }
+
+            if (accumulated) persistCurrentConversation()
           }
         } catch (e) {
-          console.warn("[GROQ:describe] ❌ Exception:", e)
+          console.warn("[GROQ:describe] ❌ Stream error:", e)
         }
 
-        addMessage(
-          "assistant",
-          groqMessage || `J'ai trouvé ${visible.length} luminaire(s) :`,
-          undefined,
-          enrichedResults,
-          cleanContext,
-        )
-        toast.success(`${visible.length} luminaire(s) trouvé(s)`)
+        return // isSearching déjà mis à false plus haut
       } else {
         console.log("[FUSION] ⚠ Aucun résultat retourné")
         addMessage(

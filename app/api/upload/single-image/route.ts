@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { GridFSBucket } from "mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "luminaires"
+const DBNAME = process.env.MONGO_INITDB_DATABASE || "gersaint"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
 export async function POST(request: NextRequest) {

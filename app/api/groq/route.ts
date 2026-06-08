@@ -182,9 +182,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── MODE DESCRIBE ──
-    const { query, searchContext, results, hasImage } = body
-    console.log(`[GROQ:describe] ▶ Appel LLM — query="${query}" | ${results?.length} résultats | image=${hasImage}`)
+    // ── MODE DESCRIBE (streaming ou JSON selon body.stream) ──
+    const { query, searchContext, results, hasImage, stream: wantStream } = body
+    console.log(`[GROQ:describe] ▶ Appel LLM — query="${query}" | ${results?.length} résultats | image=${hasImage} | stream=${!!wantStream}`)
 
     const resultLines = (results || [])
       .map((r: any, i: number) => {
@@ -199,6 +199,39 @@ Luminaires sélectionnés par notre moteur :
 ${resultLines || "Résultats disponibles"}
 
 Présente ces luminaires.`
+
+    if (wantStream) {
+      try {
+        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_API_KEY}` },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: SYSTEM_DESCRIBE },
+              { role: "user", content: userMsg },
+            ],
+            max_tokens: 150,
+            temperature: 0.7,
+            stream: true,
+          }),
+        })
+        if (!groqRes.ok || !groqRes.body) {
+          return NextResponse.json({ message: null })
+        }
+        // Proxy the SSE stream directly to the client
+        return new Response(groqRes.body, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+          },
+        })
+      } catch (e) {
+        console.warn("[GROQ:describe] ❌ Streaming error:", e)
+        return NextResponse.json({ message: null })
+      }
+    }
 
     try {
       const message = await callGroq(SYSTEM_DESCRIBE, userMsg, 150, 0.7)
