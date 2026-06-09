@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
             Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-exp:free",
+            model: "meta-llama/llama-4-scout:free",
             messages: [
               {
                 role: "user",
