@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     const mode = body.mode || "describe"
 
     // ── MODE ANALYZE-IMAGE ──
-    // Analyse sémantique d'une image via Gemini Flash.
+    // Analyse sémantique d'une image via OpenRouter (Gemini Flash).
     // Input : { mode: "analyze-image", imageBase64: string, mimeType?: string }
     // Output : { type, forme, materiau, style, epoque, couleur }
     if (mode === "analyze-image") {
@@ -126,44 +126,50 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "imageBase64 requis" }, { status: 400 })
       }
 
-      const GEMINI_API_KEY = process.env.GEMINI_API_KEY
-      if (!GEMINI_API_KEY) {
-        console.warn("[analyze-image] ⚠ GEMINI_API_KEY manquante — fallback silencieux")
+      const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
+      if (!OPENROUTER_API_KEY) {
+        console.warn("[analyze-image] ⚠ OPENROUTER_API_KEY manquante — fallback silencieux")
         return NextResponse.json(null)
       }
 
-      console.log("[analyze-image] ▶ Analyse sémantique image via Gemini Flash")
+      console.log("[analyze-image] ▶ Analyse sémantique image via OpenRouter")
 
       try {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { inline_data: { mime_type: mimeType, data: imageBase64 } },
-                  { text: PROMPT_ANALYZE_IMAGE },
-                ],
-              }],
-            }),
+        const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           },
-        )
+          body: JSON.stringify({
+            model: "google/gemini-2.0-flash-exp:free",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+                  { type: "text", text: PROMPT_ANALYZE_IMAGE },
+                ],
+              },
+            ],
+            max_tokens: 200,
+            temperature: 0.1,
+          }),
+        })
 
-        if (!geminiRes.ok) {
-          const err = await geminiRes.text()
-          if ([400, 429, 500, 503].includes(geminiRes.status)) {
-            console.warn(`[analyze-image] ⚠ Erreur Gemini ${geminiRes.status} — fallback silencieux (${err.slice(0, 120)})`)
+        if (!orRes.ok) {
+          const err = await orRes.text()
+          if ([400, 429, 500, 503].includes(orRes.status)) {
+            console.warn(`[analyze-image] ⚠ Erreur OpenRouter ${orRes.status} — fallback silencieux (${err.slice(0, 120)})`)
             return NextResponse.json(null)
           }
-          console.error("[analyze-image] ❌ Gemini API error:", err)
+          console.error("[analyze-image] ❌ OpenRouter API error:", err)
           return NextResponse.json({ error: "Analyse image échouée" }, { status: 500 })
         }
 
-        const data = await geminiRes.json()
-        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}"
-        console.log("[analyze-image] ✅ Réponse brute Gemini:", raw)
+        const data = await orRes.json()
+        const raw = data.choices?.[0]?.message?.content || "{}"
+        console.log("[analyze-image] ✅ Réponse brute OpenRouter:", raw)
 
         const cleaned = raw.replace(/```json|```/g, "").trim()
         const parsed = JSON.parse(cleaned)
