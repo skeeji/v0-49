@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { GridFSBucket } from "mongodb"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 import clientPromise from "@/lib/mongodb"
 
@@ -23,14 +24,34 @@ interface PDFRequest {
   items: LuminaireItem[]
 }
 
-// Fonction pour charger une image depuis une URL
+// Fonction pour charger une image depuis une URL (uniquement pour URLs absolues — logo, décor)
 async function loadImageFromUrl(url: string): Promise<ArrayBuffer | null> {
   try {
-    const response = await fetch(url, { 
+    const response = await fetch(url, {
       headers: { 'Accept': 'image/*' },
     })
     if (!response.ok) return null
     return await response.arrayBuffer()
+  } catch {
+    return null
+  }
+}
+
+// Charge une image directement depuis GridFS (bucket "uploads") — évite le HTTP round-trip
+// pour les images des luminaires dont l'URL est relative (/api/images/filename/xxx.jpg).
+async function loadImageFromGridFS(bucket: GridFSBucket, filename: string): Promise<ArrayBuffer | null> {
+  if (!filename) return null
+  try {
+    const stream = bucket.openDownloadStreamByName(filename)
+    const chunks: Buffer[] = []
+    return await new Promise<ArrayBuffer | null>((resolve) => {
+      stream.on("data", (chunk: Buffer) => chunks.push(chunk))
+      stream.on("end", () => {
+        const buf = Buffer.concat(chunks)
+        resolve(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)
+      })
+      stream.on("error", () => resolve(null))
+    })
   } catch {
     return null
   }
@@ -272,6 +293,10 @@ export async function POST(request: NextRequest) {
       enrichedItems.push(enrichedItem)
     }
 
+    // Bucket GridFS — permet de charger les images des luminaires sans round-trip HTTP
+    const imagesClient = await clientPromise
+    const imagesBucket = new GridFSBucket(imagesClient.db(DBNAME), { bucketName: "uploads" })
+
     // Creer le document PDF
     const pdfDoc = await PDFDocument.create()
     const form = pdfDoc.getForm()
@@ -459,12 +484,12 @@ export async function POST(request: NextRequest) {
         const imageWidth = imageSize
         const imageHeight = imageSize
 
-        // Charger l'image
+        // Charger l'image directement depuis GridFS (image_id = nom du fichier dans le bucket)
         let imageLoaded = false
-        const imageUrl = item.image_url
-        
-        if (imageUrl && !imageUrl.includes('placeholder')) {
-          const imageBytes = await loadImageFromUrl(imageUrl)
+        const imageFilename = item.image_id || item.image_url?.split('/').pop() || ''
+
+        if (imageFilename && !imageFilename.includes('placeholder')) {
+          const imageBytes = await loadImageFromGridFS(imagesBucket, imageFilename)
           
           if (imageBytes) {
             try {

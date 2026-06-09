@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 
-const DBNAME = process.env.MONGO_INITDB_DATABASE || "gersaint"
+const DBNAME = "luminaires"
 
 export async function GET(request: NextRequest) {
   try {
