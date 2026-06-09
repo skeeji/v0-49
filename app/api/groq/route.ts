@@ -13,6 +13,7 @@ Langue : français. Ton : professionnel, chaleureux. Ne pas inventer de prix ni 
 
 // Mode "route" : décide si le message nécessite une recherche ou une réponse directe.
 // Fusionne l'ancien mode "plan" pour économiser un appel Groq.
+// Accepte un imageContext optionnel (injecté dans le message user) pour les tours suivants après analyse d'image.
 const SYSTEM_ROUTE = `Tu es l'orchestrateur d'un chatbot de recherche de luminaires anciens (Gersaint Paris, 9002 pièces : lustres, suspensions, appliques, lampadaires, lampes de table, du XIXe au XXe siècle).
 
 DÉCIDE si le message nécessite une recherche dans la base ou une réponse directe.
@@ -27,7 +28,8 @@ Si RÉPONSE DIRECTE : {"action":"answer","message":"ta réponse en français, 2-
 
 RÈGLES query (si search) :
 - Extrais : style (Art Déco, Bauhaus, moderniste, scandinave...), matériau (laiton, verre, bronze, cristal...), époque (années 20, 1950s...), couleur, forme, designer
-- "même mais en X" → reprend le contexte précédent + ajoute X
+- Si un CONTEXTE IMAGE est fourni : utilise-le comme base pour les affinements. "la même en laiton" → reprend type+forme+style du contexte et remplace le matériau. "plus récente" → reprend tout sauf l'époque.
+- "même mais en X" sans contexte image → reprend le contexte textuel précédent + ajoute X
 - "plus récent / plus ancien / plus grand" → adapte la requête
 - "différent / autre chose" → garde le type mais change les critères secondaires
 - image seule sans texte → query = "" (l'image est gérée séparément)
@@ -60,6 +62,23 @@ RÈGLES POUR top_k :
 - Si première recherche → 3
 - Si affinage ("mais en or", "plus récent") → même nombre que la fois précédente
 - Maximum absolu : 12`
+
+// Prompt d'analyse sémantique d'image — utilisé avec le modèle vision Groq.
+// Retourne un JSON structuré décrivant le luminaire visible dans l'image.
+const PROMPT_ANALYZE_IMAGE = `Analyse ce luminaire et retourne UNIQUEMENT un objet JSON valide sur une seule ligne, sans texte avant ni après, sans markdown.
+
+Format exact (respecte ces clés) :
+{"type":"...","forme":"...","materiau":"...","style":"...","epoque":"...","couleur":"..."}
+
+Valeurs attendues :
+- type : un parmi lustre, suspension, applique, lampe de table, lampadaire, plafonnier, lanterne, autre
+- forme : description géométrique ou formelle concise (ex: sphérique, conique, ramifié, ovale, cubique)
+- materiau : matériau principal apparent (ex: laiton doré, verre dépoli, bronze patiné, cristal, céramique)
+- style : courant esthétique estimé (ex: Art Déco, moderniste, industriel, baroque, scandinave, Art Nouveau)
+- epoque : décennie ou période estimée (ex: années 30, années 50, XIXe siècle, début XXe)
+- couleur : couleur ou teinte dominante (ex: doré, blanc laiteux, noir mat, ambre, chromé)
+
+Si une valeur est impossible à déterminer : utilise "indéterminé".`
 
 async function callGroq(systemPrompt: string, userMessage: string, maxTokens: number, temperature: number) {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -96,11 +115,92 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const mode = body.mode || "describe"
 
+    // ── MODE ANALYZE-IMAGE ──
+    // Analyse sémantique d'une image via le modèle vision Groq.
+    // Input : { mode: "analyze-image", imageBase64: string, mimeType?: string }
+    // Output : { type, forme, materiau, style, epoque, couleur }
+    if (mode === "analyze-image") {
+      const { imageBase64, mimeType = "image/jpeg" } = body
+
+      if (!imageBase64) {
+        return NextResponse.json({ error: "imageBase64 requis" }, { status: 400 })
+      }
+
+      console.log("[GROQ:analyze-image] ▶ Analyse sémantique image")
+
+      try {
+        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "meta-llama/llama-4-scout-17b-16e-instruct",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${mimeType};base64,${imageBase64}`,
+                    },
+                  },
+                  {
+                    type: "text",
+                    text: PROMPT_ANALYZE_IMAGE,
+                  },
+                ],
+              },
+            ],
+            max_tokens: 200,
+            temperature: 0.1,
+          }),
+        })
+
+        if (!groqRes.ok) {
+          const err = await groqRes.text()
+          // 400 (modèle indisponible / payload invalide) et 429 (rate limit) → fallback silencieux
+          // pour ne pas bloquer la recherche si le modèle vision est temporairement indisponible
+          if (groqRes.status === 400 || groqRes.status === 429) {
+            console.warn(`[GROQ:analyze-image] ⚠ Erreur ${groqRes.status} — fallback silencieux (${err.slice(0, 120)})`)
+            return NextResponse.json(null)
+          }
+          console.error("[GROQ:analyze-image] ❌ API error:", err)
+          return NextResponse.json({ error: "Analyse image échouée" }, { status: 500 })
+        }
+
+        const data = await groqRes.json()
+        const raw = data.choices?.[0]?.message?.content || "{}"
+        console.log("[GROQ:analyze-image] ✅ Réponse brute:", raw)
+
+        const cleaned = raw.replace(/```json|```/g, "").trim()
+        const parsed = JSON.parse(cleaned)
+
+        const result = {
+          type:     String(parsed.type     || "indéterminé"),
+          forme:    String(parsed.forme    || "indéterminé"),
+          materiau: String(parsed.materiau || "indéterminé"),
+          style:    String(parsed.style    || "indéterminé"),
+          epoque:   String(parsed.epoque   || "indéterminé"),
+          couleur:  String(parsed.couleur  || "indéterminé"),
+        }
+        console.log("[GROQ:analyze-image] ✅ Contexte image:", JSON.stringify(result))
+        return NextResponse.json(result)
+      } catch (e) {
+        // Parse échoué = modèle a retourné du texte libre au lieu de JSON → fallback silencieux
+        console.warn("[GROQ:analyze-image] ❌ Parse échoué — fallback silencieux:", e)
+        return NextResponse.json(null)
+      }
+    }
+
     // ── MODE ROUTE (fusion route + plan) ──
     // Décide si le message nécessite une recherche ou une réponse directe.
     // Si search : retourne aussi query + top_k pour éviter un appel plan séparé.
+    // Accepte imageContext optionnel pour construire des queries affinées depuis une image précédente.
     if (mode === "route") {
-      const { conversation = [], currentMessage, hasImage } = body
+      const { conversation = [], currentMessage, hasImage, imageContext } = body
 
       const convSummary = (conversation as any[]).slice(-10).map((m: any) => {
         let line = `${m.role === "user" ? "Client" : "Assistant"}: ${m.content}`
@@ -115,9 +215,24 @@ export async function POST(request: NextRequest) {
         return line
       }).join("\n")
 
-      const userMsg = `Historique :\n${convSummary || "(première recherche)"}\n\nNouveau message : "${currentMessage}"${hasImage ? " [image jointe]" : ""}`
+      // Injecter le contexte image si disponible (alimenté par analyze-image au tour précédent)
+      let imageContextLine = ""
+      if (imageContext) {
+        const parts = [
+          imageContext.type,
+          imageContext.forme,
+          imageContext.materiau,
+          imageContext.style,
+          imageContext.epoque,
+        ].filter((v: string) => v && v !== "indéterminé")
+        if (parts.length > 0) {
+          imageContextLine = `[CONTEXTE IMAGE : ${parts.join(", ")}]\n\n`
+        }
+      }
 
-      console.log(`[GROQ:route] ▶ Appel LLM — ${conversation.length} msgs contexte`)
+      const userMsg = `${imageContextLine}Historique :\n${convSummary || "(première recherche)"}\n\nNouveau message : "${currentMessage}"${hasImage ? " [image jointe]" : ""}`
+
+      console.log(`[GROQ:route] ▶ Appel LLM — ${conversation.length} msgs contexte${imageContext ? " | imageContext présent" : ""}`)
 
       try {
         const raw = await callGroq(SYSTEM_ROUTE, userMsg, 200, 0.1)

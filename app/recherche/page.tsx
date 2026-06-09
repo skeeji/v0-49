@@ -39,11 +39,21 @@ interface Message {
   timestamp: Date
 }
 
+interface ImageContext {
+  type: string
+  forme: string
+  materiau: string
+  style: string
+  epoque: string
+  couleur: string
+}
+
 interface Conversation {
   id: string
   title: string
   messages: Message[]
   searchContext: string
+  imageContext?: ImageContext | null
   createdAt: Date
   updatedAt: Date
 }
@@ -60,6 +70,9 @@ export default function RecherchePage() {
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [showHistory, setShowHistory] = useState(false)
+
+  const [imageContext, setImageContext] = useState<ImageContext | null>(null)
+  const imageContextRef = useRef<ImageContext | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -97,7 +110,12 @@ export default function RecherchePage() {
           })),
         }))
         setConversations(hydrated)
-        if (hydrated.length > 0) setCurrentConversation(hydrated[0])
+        if (hydrated.length > 0) {
+          setCurrentConversation(hydrated[0])
+          const ctx = hydrated[0].imageContext || null
+          setImageContext(ctx)
+          imageContextRef.current = ctx
+        }
       } catch (e) {
         console.warn("[conv] Erreur chargement:", e)
       }
@@ -108,6 +126,10 @@ export default function RecherchePage() {
   useEffect(() => {
     currentConversationRef.current = currentConversation
   }, [currentConversation])
+
+  useEffect(() => {
+    imageContextRef.current = imageContext
+  }, [imageContext])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -134,6 +156,8 @@ export default function RecherchePage() {
 
   const createNewConversation = () => {
     setCurrentConversation(null)
+    setImageContext(null)
+    imageContextRef.current = null
     setInputValue("")
     setSelectedImage(null)
     setImagePreview(null)
@@ -141,6 +165,9 @@ export default function RecherchePage() {
 
   const loadConversation = (conv: Conversation) => {
     setCurrentConversation(conv)
+    const ctx = conv.imageContext || null
+    setImageContext(ctx)
+    imageContextRef.current = ctx
     setInputValue("")
     setSelectedImage(null)
     setImagePreview(null)
@@ -248,6 +275,33 @@ export default function RecherchePage() {
     return previousInputs.join(", ")
   }
 
+  // Redimensionne l'image à maxDim px max côté client avant envoi à Groq vision (limite le poids du base64)
+  const resizeImageToBase64 = (file: File, maxDim = 800): Promise<{ base64: string; mimeType: string }> =>
+    new Promise((resolve, reject) => {
+      const img = new window.Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+        const canvas = document.createElement("canvas")
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        const ctx = canvas.getContext("2d")!
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const mimeType = file.type || "image/jpeg"
+        resolve({ base64: canvas.toDataURL(mimeType, 0.85).split(",")[1], mimeType })
+      }
+      img.onerror = reject
+      img.src = url
+    })
+
+  // Construit une query texte depuis l'analyse sémantique de l'image (type + forme + matériau + style)
+  const buildImageContextQuery = (ctx: ImageContext): string =>
+    [ctx.type, ctx.forme, ctx.materiau, ctx.style]
+      .filter((v) => v && v !== "indéterminé")
+      .join(" ")
+      .trim()
+
   const handleSearch = async () => {
     const hasText = inputValue.trim() !== ""
     const hasImage = selectedImage !== null
@@ -300,47 +354,74 @@ export default function RecherchePage() {
     try {
       setSearchStep("Analyse de votre demande…")
 
-      // Étape 1 : Groq route — décide si réponse directe ou recherche (+ extrait query/top_k si search)
+      // Étape 1 : Groq route + analyse sémantique image — lancés en parallèle pour ne pas allonger la latence
       const convForRoute = (currentConversationRef.current?.messages || []).slice(-10).map((m) => ({
         role: m.role,
         content: m.content,
         results: m.results?.slice(0, 4).map((r) => ({ nom: r.nom, artiste: r.artiste })),
       }))
 
-      console.log(`[GROQ:route] ▶ Appel — message="${userContent}" | conv=${convForRoute.length} msgs | image=${hasImage}`)
+      // Analyse sémantique de l'image via Groq vision (uniquement si image jointe)
+      // L'image est redimensionnée à 800px max avant encodage pour limiter le poids du base64
+      const analyzePromise: Promise<ImageContext | null> =
+        hasImage && imageToSearch
+          ? resizeImageToBase64(imageToSearch)
+              .then(({ base64, mimeType }) =>
+                fetch("/api/groq", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ mode: "analyze-image", imageBase64: base64, mimeType }),
+                }).then((r) => (r.ok ? r.json() : null))
+              )
+              .catch(() => null)
+          : Promise.resolve(null)
+
+      // Routeur Groq : reçoit l'imageContext des tours précédents pour affiner les queries de suivi
+      const routePromise = fetch("/api/groq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "route",
+          conversation: convForRoute,
+          currentMessage: hasText ? inputValue : "",
+          hasImage,
+          imageContext: imageContextRef.current,
+        }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+
+      const [routeData, newImageContext] = await Promise.all([routePromise, analyzePromise])
+      console.log(`[GROQ] route=${routeData?.action} | newImageContext=${newImageContext ? `${newImageContext.type}/${newImageContext.forme}` : "—"}`)
+
+      // Persiste le nouvel imageContext dans le state, le ref et la conversation courante
+      if (newImageContext && newImageContext.type && newImageContext.type !== "indéterminé") {
+        setImageContext(newImageContext)
+        imageContextRef.current = newImageContext
+        if (currentConversationRef.current) {
+          currentConversationRef.current = { ...currentConversationRef.current, imageContext: newImageContext }
+          setCurrentConversation(currentConversationRef.current)
+        }
+        console.log(`[analyze-image] ✅ ${newImageContext.type} | ${newImageContext.forme} | ${newImageContext.materiau} | ${newImageContext.style}`)
+      }
 
       let routeAction: "search" | "answer" = "search"
       let directMessage: string | null = null
       let searchQuery = cleanContext || userContent
       let topK = 3
 
-      try {
-        const routeRes = await fetch("/api/groq", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "route",
-            conversation: convForRoute,
-            currentMessage: hasText ? inputValue : "",
-            hasImage,
-          }),
-        })
-        if (routeRes.ok) {
-          const routeData = await routeRes.json()
-          routeAction = routeData.action === "answer" ? "answer" : "search"
-          if (routeAction === "answer") {
-            directMessage = routeData.message || null
-            console.log(`[GROQ:route] 💬 Réponse directe`)
-          } else {
-            if (routeData.query !== undefined) searchQuery = routeData.query
-            if (routeData.top_k) topK = routeData.top_k
-            console.log(`[GROQ:route] 🔍 Recherche — query="${searchQuery}" | top_k=${topK}`)
-          }
+      if (routeData) {
+        routeAction = routeData.action === "answer" ? "answer" : "search"
+        if (routeAction === "answer") {
+          directMessage = routeData.message || null
+          console.log(`[GROQ:route] 💬 Réponse directe`)
         } else {
-          console.warn(`[GROQ:route] ❌ Erreur HTTP ${routeRes.status}`)
+          if (routeData.query !== undefined) searchQuery = routeData.query
+          if (routeData.top_k) topK = routeData.top_k
+          console.log(`[GROQ:route] 🔍 query="${searchQuery}" | top_k=${topK}`)
         }
-      } catch (e) {
-        console.warn("[GROQ:route] ❌ Exception:", e)
+      } else {
+        console.warn("[GROQ:route] ❌ Appel échoué, fallback search")
       }
 
       // ── Chemin A : réponse conversationnelle directe (pas de recherche) ──
@@ -358,12 +439,19 @@ export default function RecherchePage() {
 
       // ── Chemin B : recherche multimodale ──
       setSearchStep("Recherche dans la collection…")
-      console.log(`[FUSION] ▶ Appel orchestrateur — query="${searchQuery}" | top_k=${topK} | image=${!!imageToSearch}`)
+
+      // imageContextQuery : transmise à multimodal-search qui l'utilise comme query texte
+      // quand les scores visuels sont faibles (< seuil). newImageContext prioritaire sur l'existant
+      // car il vient d'être calculé à ce tour.
+      const activeImageContext = newImageContext || imageContextRef.current
+      const imageContextQuery = activeImageContext ? buildImageContextQuery(activeImageContext) : ""
+      console.log(`[FUSION] ▶ query="${searchQuery}" | imageContextQuery="${imageContextQuery}" | top_k=${topK} | image=${!!imageToSearch}`)
 
       const formData = new FormData()
       formData.append("query", searchQuery)
       formData.append("top_k", String(topK))
       if (imageToSearch) formData.append("image", imageToSearch)
+      if (imageContextQuery) formData.append("image_context_query", imageContextQuery)
 
       const response = await fetch("/api/multimodal-search", {
         method: "POST",
