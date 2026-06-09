@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     const mode = body.mode || "describe"
 
     // ── MODE ANALYZE-IMAGE ──
-    // Analyse sémantique d'une image via le modèle vision Groq.
+    // Analyse sémantique d'une image via Gemini Flash.
     // Input : { mode: "analyze-image", imageBase64: string, mimeType?: string }
     // Output : { type, forme, materiau, style, epoque, couleur }
     if (mode === "analyze-image") {
@@ -126,54 +126,44 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "imageBase64 requis" }, { status: 400 })
       }
 
-      console.log("[GROQ:analyze-image] ▶ Analyse sémantique image")
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY
+      if (!GEMINI_API_KEY) {
+        console.warn("[analyze-image] ⚠ GEMINI_API_KEY manquante — fallback silencieux")
+        return NextResponse.json(null)
+      }
+
+      console.log("[analyze-image] ▶ Analyse sémantique image via Gemini Flash")
 
       try {
-        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${GROQ_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "meta-llama/llama-4-scout-17b-16e-instruct",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: `data:${mimeType};base64,${imageBase64}`,
-                    },
-                  },
-                  {
-                    type: "text",
-                    text: PROMPT_ANALYZE_IMAGE,
-                  },
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { inline_data: { mime_type: mimeType, data: imageBase64 } },
+                  { text: PROMPT_ANALYZE_IMAGE },
                 ],
-              },
-            ],
-            max_tokens: 200,
-            temperature: 0.1,
-          }),
-        })
+              }],
+            }),
+          },
+        )
 
-        if (!groqRes.ok) {
-          const err = await groqRes.text()
-          // Erreurs non-bloquantes : modèle indisponible, rate limit, erreur interne Groq
-          // → retour null pour ne pas bloquer la recherche
-          if ([400, 429, 500, 503].includes(groqRes.status)) {
-            console.warn(`[GROQ:analyze-image] ⚠ Erreur ${groqRes.status} — fallback silencieux (${err.slice(0, 120)})`)
+        if (!geminiRes.ok) {
+          const err = await geminiRes.text()
+          if ([400, 429, 500, 503].includes(geminiRes.status)) {
+            console.warn(`[analyze-image] ⚠ Erreur Gemini ${geminiRes.status} — fallback silencieux (${err.slice(0, 120)})`)
             return NextResponse.json(null)
           }
-          console.error("[GROQ:analyze-image] ❌ API error:", err)
+          console.error("[analyze-image] ❌ Gemini API error:", err)
           return NextResponse.json({ error: "Analyse image échouée" }, { status: 500 })
         }
 
-        const data = await groqRes.json()
-        const raw = data.choices?.[0]?.message?.content || "{}"
-        console.log("[GROQ:analyze-image] ✅ Réponse brute:", raw)
+        const data = await geminiRes.json()
+        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}"
+        console.log("[analyze-image] ✅ Réponse brute Gemini:", raw)
 
         const cleaned = raw.replace(/```json|```/g, "").trim()
         const parsed = JSON.parse(cleaned)
@@ -186,11 +176,10 @@ export async function POST(request: NextRequest) {
           epoque:   String(parsed.epoque   || "indéterminé"),
           couleur:  String(parsed.couleur  || "indéterminé"),
         }
-        console.log("[GROQ:analyze-image] ✅ Contexte image:", JSON.stringify(result))
+        console.log("[analyze-image] ✅ Contexte image:", JSON.stringify(result))
         return NextResponse.json(result)
       } catch (e) {
-        // Parse échoué = modèle a retourné du texte libre au lieu de JSON → fallback silencieux
-        console.warn("[GROQ:analyze-image] ❌ Parse échoué — fallback silencieux:", e)
+        console.warn("[analyze-image] ❌ Parse échoué — fallback silencieux:", e)
         return NextResponse.json(null)
       }
     }
