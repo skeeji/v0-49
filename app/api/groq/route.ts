@@ -161,9 +161,9 @@ export async function POST(request: NextRequest) {
 
         if (!groqRes.ok) {
           const err = await groqRes.text()
-          // 400 (modèle indisponible / payload invalide) et 429 (rate limit) → fallback silencieux
-          // pour ne pas bloquer la recherche si le modèle vision est temporairement indisponible
-          if (groqRes.status === 400 || groqRes.status === 429) {
+          // Erreurs non-bloquantes : modèle indisponible, rate limit, erreur interne Groq
+          // → retour null pour ne pas bloquer la recherche
+          if ([400, 429, 500, 503].includes(groqRes.status)) {
             console.warn(`[GROQ:analyze-image] ⚠ Erreur ${groqRes.status} — fallback silencieux (${err.slice(0, 120)})`)
             return NextResponse.json(null)
           }

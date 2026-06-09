@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
       .toArray()
 
     return NextResponse.json({
-      conversations: docs.map((d) => ({ ...d, _id: d._id.toString() })),
+      // _id (ObjectId MongoDB) est exclu : on utilise le champ custom `id` pour tout identifier
+      conversations: docs.map(({ _id, ...conv }) => conv),
     })
   } catch (err) {
     console.error("[conversations GET]", err)
@@ -37,9 +38,11 @@ export async function POST(request: NextRequest) {
     }
 
     const db = (await clientPromise).db(DBNAME)
+    // _id est exclu du $set : MongoDB interdit de modifier l'_id d'un document existant
+    const { _id, ...convData } = conversation as any
     await db.collection(COL).updateOne(
       { uid, id: conversation.id },
-      { $set: { uid, ...conversation, updatedAt: new Date() } },
+      { $set: { uid, ...convData, updatedAt: new Date() } },
       { upsert: true },
     )
 
