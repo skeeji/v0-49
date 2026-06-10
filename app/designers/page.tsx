@@ -325,105 +325,87 @@ export default function DesignersPage() {
     }
   }, [filteredDesigners, displayedDesigners.length, loadMore])
 
+  // ── constantes design (cohérentes avec le reste du site) ──────────────────
+  const CREAM = "#f5f1e8"
+  const TEXT  = "#3d2b1f"
+  const MUTED = "#7a6654"
+  const LINE  = "#d8d0c0"
+  const SERIF = '"Playfair Display", Georgia, serif'
+  const SANS  = "Georgia, serif"
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#f5f1e8] pb-20 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#7a6654]" />
+      <div style={{ minHeight: "100vh", background: CREAM, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loader2 style={{ width: 26, height: 26, color: MUTED }} className="animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f1e8] pb-20">
+    <div style={{ minHeight: "100vh", background: CREAM, paddingBottom: 80 }}>
 
       {/* ── En-tête ── */}
-      <div className="flex items-start justify-between pl-14 md:pl-20 pr-6 md:pr-10 pt-8 pb-5">
-        <h1
-          className="text-5xl md:text-6xl font-normal text-[#3d2b1f] leading-none"
-          style={{ fontFamily: "Playfair Display, Georgia, serif" }}
-        >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingLeft: 52, paddingRight: 28, paddingTop: 36, paddingBottom: 18 }}>
+        <h1 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2.2rem, 4.5vw, 3.2rem)", color: TEXT, lineHeight: 1, margin: 0 }}>
           Designers
         </h1>
 
-        {/* Barre de recherche minimale */}
-        <div className="flex items-center gap-2 border border-[#c8bfb0] px-3 py-2 bg-transparent mt-2">
-          <Search className="w-3.5 h-3.5 text-[#7a6654] flex-shrink-0" />
+        {/* Recherche minimale */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${LINE}`, padding: "7px 12px", marginTop: 6 }}>
+          <Search size={12} style={{ color: MUTED, flexShrink: 0 }} />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="RECHERCHER UN DESIGNER"
-            className="bg-transparent text-[10px] tracking-[0.18em] uppercase placeholder:text-[#b0a090] text-[#3d2b1f] outline-none w-36 md:w-48"
-            style={{ fontFamily: "Georgia, serif" }}
+            style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.18em", textTransform: "uppercase", color: TEXT, width: 150 }}
           />
         </div>
       </div>
 
-      {/* Message accès limité — discret */}
+      {/* Accès limité — une ligne discrète */}
       {(!user || (userData?.role !== "premium" && userData?.role !== "admin")) && (
-        <div className="pl-14 md:pl-20 pr-6 pb-3">
-          <p className="text-[10px] tracking-[0.14em] uppercase text-[#7a6654]" style={{ fontFamily: "Georgia, serif" }}>
+        <div style={{ paddingLeft: 52, paddingRight: 28, paddingBottom: 10 }}>
+          <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: 0 }}>
             Accès limité ·{" "}
-            <Link href="/pricing" className="underline underline-offset-2 hover:text-[#3d2b1f] transition-colors">
+            <Link href="/pricing" style={{ textDecoration: "underline", textUnderlineOffset: 2, color: "inherit" }}>
               Passer à Premium
-            </Link>{" "}
-            pour voir l'intégralité de la collection
+            </Link>
           </p>
         </div>
       )}
 
-      {/* ── Layout principal ── */}
-      <div className="flex">
+      {/* ── Layout ── */}
+      <div style={{ display: "flex" }}>
 
-        {/* Nav alphabet — desktop */}
+        {/* Nav alphabet desktop */}
         <nav
-          className="hidden md:flex flex-col sticky top-[60px] h-[calc(100vh-60px)] w-10 pl-3 pt-3 flex-shrink-0 overflow-hidden"
-          style={{ fontFamily: "Georgia, serif" }}
+          className="hidden md:flex"
+          style={{ flexDirection: "column", position: "sticky", top: 60, height: "calc(100vh - 60px)", width: 40, flexShrink: 0, paddingLeft: 10, paddingTop: 14, overflow: "hidden" }}
         >
-          {/* Label vertical "DÉJÀ A-Z" */}
-          <span
-            className="text-[8px] tracking-[0.22em] text-[#b0a090] uppercase mb-3 select-none leading-none"
-            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-          >
+          <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontFamily: SANS, fontSize: "0.45rem", letterSpacing: "0.22em", color: "#b8ad9e", textTransform: "uppercase", marginBottom: 10, lineHeight: 1, userSelect: "none" }}>
             DÉJÀ A-Z
           </span>
-
           {ALPHABET.map((letter) => {
             const isAvailable = availableLetters.has(letter)
-            const isActive = activeLetter === letter
+            const isActive    = activeLetter === letter
             return (
-              <button
-                key={letter}
-                onClick={() => isAvailable && scrollToLetter(letter)}
-                disabled={!isAvailable}
-                className="flex-1 text-left text-xs leading-none transition-colors"
-                style={{
-                  color: isActive ? "#3d2b1f" : isAvailable ? "#7a6654" : "#d8d0c0",
-                  cursor: isAvailable ? "pointer" : "default",
-                }}
-              >
+              <button key={letter} onClick={() => isAvailable && scrollToLetter(letter)} disabled={!isAvailable}
+                style={{ flex: 1, background: "none", border: "none", padding: 0, textAlign: "left", fontFamily: SANS, fontSize: "0.65rem", lineHeight: 1, cursor: isAvailable ? "pointer" : "default", color: isActive ? TEXT : isAvailable ? MUTED : LINE, transition: "color 0.15s" }}>
                 {isActive ? `${letter}—` : letter}
               </button>
             )
           })}
         </nav>
 
-        {/* Nav alphabet — mobile (fixée à gauche) */}
-        <nav className="md:hidden fixed left-0 top-[60px] h-[calc(100vh-120px)] z-40 flex flex-col py-1 px-0.5 bg-[#f5f1e8]/95 backdrop-blur-sm border-r border-[#d8d0c0] overflow-hidden w-6">
+        {/* Nav alphabet mobile */}
+        <nav className="md:hidden" style={{ position: "fixed", left: 0, top: 60, height: "calc(100vh - 120px)", zIndex: 40, display: "flex", flexDirection: "column", padding: "4px 1px", background: "rgba(245,241,232,0.96)", backdropFilter: "blur(4px)", borderRight: `1px solid ${LINE}`, overflow: "hidden", width: 18 }}>
           {ALPHABET.map((letter) => {
             const isAvailable = availableLetters.has(letter)
-            const isActive = activeLetter === letter
+            const isActive    = activeLetter === letter
             return (
-              <button
-                key={letter}
-                onClick={() => isAvailable && scrollToLetter(letter)}
-                disabled={!isAvailable}
-                className="flex-1 flex items-center justify-center text-[9px] transition-colors"
-                style={{
-                  fontFamily: "Georgia, serif",
-                  color: isActive ? "#3d2b1f" : isAvailable ? "#7a6654" : "#d8d0c0",
-                }}
-              >
+              <button key={letter} onClick={() => isAvailable && scrollToLetter(letter)} disabled={!isAvailable}
+                style={{ flex: 1, background: "none", border: "none", padding: 0, fontFamily: SANS, fontSize: "0.48rem", cursor: isAvailable ? "pointer" : "default", color: isActive ? TEXT : isAvailable ? MUTED : LINE }}>
                 {letter}
               </button>
             )
@@ -431,35 +413,28 @@ export default function DesignersPage() {
         </nav>
 
         {/* ── Contenu designers ── */}
-        <div className="flex-1 pl-4 md:pl-6 pr-0">
-
-          {/* Ligne séparatrice du haut */}
-          <div className="border-t border-[#d8d0c0] mr-6 md:mr-10" />
+        <div style={{ flex: 1, minWidth: 0, paddingRight: 28 }}>
+          <div style={{ borderTop: `1px solid ${LINE}` }} />
 
           {displayedDesigners.map((designer, index) => {
-            const firstLetter = designer.name.charAt(0).toUpperCase()
-            const isFirstOfLetter =
-              index === 0 || displayedDesigners[index - 1]?.name.charAt(0).toUpperCase() !== firstLetter
-            const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
-            const luminairesMat = (lum: any) =>
-              lum["Matériaux"] || lum["Matière"] || lum["Matières"] || lum.materiaux || lum.materials || ""
+            const firstLetter     = designer.name.charAt(0).toUpperCase()
+            const isFirstOfLetter = index === 0 || displayedDesigners[index - 1]?.name.charAt(0).toUpperCase() !== firstLetter
+            const isAccessible    = !user || userData?.role === "free" ? index < freeUserLimit : true
+            const getLumMat       = (lum: any) => lum["Matériaux"] || lum["Matière"] || lum["Matières"] || lum.materiaux || lum.materials || ""
 
             return (
               <div
                 key={index}
                 id={isFirstOfLetter && ALPHABET.includes(firstLetter) ? `designer-${firstLetter}` : undefined}
                 data-item-id={designer.slug}
-                className="scroll-mt-20"
+                style={{ borderBottom: `1px solid ${LINE}`, scrollMarginTop: 80, opacity: !isAccessible ? 0.38 : highlightedDesigner === designer.slug ? 0.65 : 1, transition: "opacity 0.35s" }}
               >
-                <div
-                  className={`flex gap-0 py-8 md:py-10 border-b border-[#d8d0c0] mr-0 transition-opacity ${
-                    highlightedDesigner === designer.slug ? "opacity-70" : ""
-                  } ${!isAccessible ? "opacity-40" : ""}`}
-                >
+                <div style={{ display: "flex", gap: 14, padding: "36px 0" }}>
 
-                  {/* ── Colonne portrait ── */}
+                  {/* ── Portrait (même classe de largeur/ratio que les cartes luminaires) ── */}
                   <div
-                    className="flex-shrink-0 w-[130px] md:w-[220px] pr-4 md:pr-8 cursor-pointer group"
+                    className="w-[108px] md:w-[196px] flex-shrink-0 group"
+                    style={{ cursor: isAccessible ? "pointer" : "not-allowed" }}
                     onClick={() => {
                       if (!isAccessible) return
                       sessionStorage.setItem("restore_item_designers", designer.slug)
@@ -469,102 +444,62 @@ export default function DesignersPage() {
                       window.location.href = `/designers/${designer.slug}`
                     }}
                   >
-                    {/* Image portrait */}
-                    <div
-                      className="relative overflow-hidden bg-[#e8e4dc]"
-                      style={{ aspectRatio: "3/4" }}
-                    >
-                      {designer.image ? (
-                        <Image
-                          src={designer.image}
-                          alt={designer.name}
-                          fill
-                          unoptimized
-                          className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                          onError={(e) => { e.currentTarget.src = "/placeholder.svg" }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Users className="w-8 h-8 md:w-12 md:h-12 text-[#b0a090]" />
-                        </div>
-                      )}
+                    <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4" }}>
+                      {designer.image
+                        ? <Image src={designer.image} alt={designer.name} fill unoptimized style={{ objectFit: "cover", transition: "transform 0.5s ease" }} className="group-hover:scale-[1.03]" onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
+                        : <div style={{ width: "100%", height: "100%", background: "#e5e0d6", display: "flex", alignItems: "center", justifyContent: "center" }}><Users style={{ width: 24, height: 24, color: "#b8ad9e" }} /></div>
+                      }
                     </div>
-
-                    {/* Nom du designer */}
-                    <h2
-                      className="text-xl md:text-4xl font-normal text-[#3d2b1f] mt-3 md:mt-4 leading-tight"
-                      style={{ fontFamily: "Playfair Display, Georgia, serif" }}
-                    >
+                    <h2 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(0.9rem, 1.4vw, 1.35rem)", color: TEXT, marginTop: 11, marginBottom: 0, lineHeight: 1.2 }}>
                       {designer.name}
                     </h2>
-
-                    {/* Dates */}
                     {designer.years.length > 0 && (
-                      <p
-                        className="text-[9px] md:text-[10px] tracking-[0.18em] uppercase text-[#7a6654] mt-1"
-                        style={{ fontFamily: "Georgia, serif" }}
-                      >
+                      <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.15em", textTransform: "uppercase", color: MUTED, marginTop: 5, marginBottom: 0 }}>
                         {Math.min(...designer.years)} — {Math.max(...designer.years)}
                       </p>
                     )}
                   </div>
 
-                  {/* ── Slider luminaires ── */}
-                  <div className="flex-1 relative overflow-hidden">
-                    {/* Piste défilante */}
+                  {/* ── Slider luminaires ──
+                      overflow: clip  → clip visuel SANS créer un scroll-context qui bloquerait le scroll enfant
+                      min-width: 0    → autorise la flexbox à rétrécir sous la taille de son contenu           */}
+                  <div style={{ flex: 1, minWidth: 0, position: "relative", overflow: "clip" }}>
+
+                    {/* Piste défilante : touch / trackpad / drag souris */}
                     <div
-                      className="flex gap-3 md:gap-4 overflow-x-auto pb-1"
-                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                      className="lum-scroll"
+                      style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch", paddingBottom: 2, cursor: "grab" } as React.CSSProperties}
+                      onMouseDown={(e) => {
+                        const el      = e.currentTarget
+                        el.style.cursor = "grabbing"
+                        const startX  = e.pageX - el.offsetLeft
+                        const scrollL = el.scrollLeft
+                        const onMove  = (mv: MouseEvent) => { el.scrollLeft = scrollL - (mv.pageX - el.offsetLeft - startX) }
+                        const onUp    = () => { el.style.cursor = "grab"; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp) }
+                        document.addEventListener("mousemove", onMove)
+                        document.addEventListener("mouseup", onUp)
+                      }}
                     >
                       {designer.luminaires.map((lum: any, idx: number) => (
-                        <div key={idx} className="flex-shrink-0 w-[120px] md:w-[210px]">
-                          {/* Image luminaire */}
-                          <div
-                            className="relative overflow-hidden bg-[#e8e4dc]"
-                            style={{ aspectRatio: "3/4" }}
-                          >
-                            <Image
-                              src={lum.image || "/placeholder.svg"}
-                              alt={lum.name}
-                              fill
-                              unoptimized
-                              className="object-cover"
-                              onError={(e) => { e.currentTarget.src = "/placeholder.svg" }}
-                            />
+                        /* Exactement même classe largeur + même aspectRatio que le portrait */
+                        <div key={idx} className="w-[108px] md:w-[196px] flex-shrink-0">
+                          <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4" }}>
+                            <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "cover" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
                           </div>
-
-                          {/* Nom du luminaire */}
-                          <p
-                            className="text-[8px] md:text-[10px] tracking-[0.16em] uppercase text-[#3d2b1f] mt-2 leading-tight"
-                            style={{ fontFamily: "Georgia, serif" }}
-                          >
+                          <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.15em", textTransform: "uppercase", color: TEXT, marginTop: 8, marginBottom: 0, lineHeight: 1.45 }}>
                             {lum.name}
                           </p>
-
-                          {/* Matériaux */}
-                          {luminairesMat(lum) && (
-                            <p
-                              className="text-[7px] md:text-[9px] tracking-[0.12em] uppercase text-[#7a6654] mt-0.5 leading-tight"
-                              style={{ fontFamily: "Georgia, serif" }}
-                            >
-                              {luminairesMat(lum)}
+                          {getLumMat(lum) && (
+                            <p style={{ fontFamily: SANS, fontSize: "0.52rem", letterSpacing: "0.11em", textTransform: "uppercase", color: MUTED, marginTop: 3, marginBottom: 0, lineHeight: 1.45 }}>
+                              {getLumMat(lum)}
                             </p>
                           )}
                         </div>
                       ))}
                     </div>
 
-                    {/* Dégradé droit — indique qu'on peut slider */}
-                    {designer.luminaires.length > 2 && (
-                      <div
-                        className="absolute right-0 top-0 pointer-events-none"
-                        style={{
-                          bottom: "1.5rem",
-                          width: "80px",
-                          background: "linear-gradient(to left, #f5f1e8 20%, transparent 100%)",
-                        }}
-                      />
-                    )}
+                    {/* Dégradé droit : la carte partiellement visible invite à glisser */}
+                    <div style={{ position: "absolute", right: 0, top: 0, bottom: "0.4rem", width: 68, background: `linear-gradient(to left, ${CREAM} 35%, transparent 100%)`, pointerEvents: "none" }} />
                   </div>
 
                 </div>
@@ -572,10 +507,9 @@ export default function DesignersPage() {
             )
           })}
 
-          {/* Chargement infini */}
           {hasMore && (
-            <div ref={ref} className="py-10 flex justify-center mr-6 md:mr-10">
-              {isLoadingMore && <Loader2 className="w-5 h-5 animate-spin text-[#7a6654]" />}
+            <div ref={ref} style={{ padding: "2.5rem 0", display: "flex", justifyContent: "center" }}>
+              {isLoadingMore && <Loader2 style={{ width: 18, height: 18, color: MUTED }} className="animate-spin" />}
             </div>
           )}
         </div>

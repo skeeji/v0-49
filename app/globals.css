@@ -82,8 +82,8 @@
   transform: translateY(0);
 }
 
-/* Masquer la scrollbar horizontale des sliders */
-.overflow-x-auto::-webkit-scrollbar {
+/* Masquer la scrollbar horizontale des sliders luminaires */
+.lum-scroll::-webkit-scrollbar {
   display: none;
 }
 
