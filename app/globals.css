@@ -82,6 +82,11 @@
   transform: translateY(0);
 }
 
+/* Masquer la scrollbar horizontale des sliders */
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   body {

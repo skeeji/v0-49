@@ -5,9 +5,8 @@ import { useInView } from "react-intersection-observer"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { SearchBar } from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
-import { Loader2, Users } from "lucide-react"
+import { Loader2, Users, Search } from "lucide-react"
 import { MobileFooter } from "@/components/MobileFooter"
 import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrollRestoration"
 
@@ -328,146 +327,122 @@ export default function DesignersPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#f5f1e8] pb-20">
-        <div className="text-center py-16">
-          <Loader2 className="w-12 h-12 mx-auto animate-spin text-gray-400 mb-4" />
-          <p className="text-lg text-gray-600">Chargement des designers...</p>
-        </div>
+      <div className="min-h-screen bg-[#f5f1e8] pb-20 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#7a6654]" />
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="bg-transparent border-b border-gray-200">
-        <div className="px-4 py-4">
-          <h2 className="text-2xl font-serif text-gray-900 mb-4">
-            Designers{" "}
-            <span className="text-gray-500">
-              ({displayedDesigners.length}/{filteredDesigners.length})
-            </span>
-          </h2>
 
-          {/* Premium message for non-premium users */}
-          {!user || (userData?.role !== "premium" && userData?.role !== "admin") ? (
-            <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1">Accès limité - Vous voyez 10% des designers</h3>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Passez à Premium pour voir tous les designers sans restriction !
-                  </p>
-                  <Link href="/pricing">
-                    <button
-                      className="text-sm font-medium px-4 py-2 rounded-lg text-white hover:bg-[#75614a] transition-colors"
-                      style={{ backgroundColor: "#8b7355" }}
-                    >
-                      Découvrir Premium →
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ) : null}
+      {/* ── En-tête ── */}
+      <div className="flex items-start justify-between pl-14 md:pl-20 pr-6 md:pr-10 pt-8 pb-5">
+        <h1
+          className="text-5xl md:text-6xl font-normal text-[#3d2b1f] leading-none"
+          style={{ fontFamily: "Playfair Display, Georgia, serif" }}
+        >
+          Designers
+        </h1>
 
-          <div className="flex flex-col md:flex-row md:items-center gap-3 w-full">
-            {/* Search bar */}
-            <div className="md:flex-1">
-              <SearchBar
-                value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Rechercher un designer..."
-                className="bg-transparent border border-gray-300 w-full"
-              />
-            </div>
-
-            {/* Filters */}
-            <div className="flex gap-3 md:flex-shrink-0">
-              <select
-                value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-              >
-                <option value="">Toutes les périodes</option>
-                <option value="modern">Moderne</option>
-                <option value="contemporary">Contemporain</option>
-                <option value="art-deco">Art Déco</option>
-              </select>
-
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm"
-              >
-                <option value="name-asc">Nom A → Z</option>
-                <option value="name-desc">Nom Z → A</option>
-                <option value="year-asc">Année croissante</option>
-                <option value="year-desc">Année décroissante</option>
-              </select>
-            </div>
-          </div>
+        {/* Barre de recherche minimale */}
+        <div className="flex items-center gap-2 border border-[#c8bfb0] px-3 py-2 bg-transparent mt-2">
+          <Search className="w-3.5 h-3.5 text-[#7a6654] flex-shrink-0" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="RECHERCHER UN DESIGNER"
+            className="bg-transparent text-[10px] tracking-[0.18em] uppercase placeholder:text-[#b0a090] text-[#3d2b1f] outline-none w-36 md:w-48"
+            style={{ fontFamily: "Georgia, serif" }}
+          />
         </div>
       </div>
 
-      <div className="px-4 py-4">
-        <div className="flex gap-4">
-          {/* Alphabet Navigation - Left Column Desktop */}
-          <nav className="hidden md:flex flex-col items-center sticky top-[60px] h-[calc(100vh-60px)] py-2 px-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            {ALPHABET.map((letter) => {
-              const isAvailable = availableLetters.has(letter)
-              const isActive = activeLetter === letter
-              return (
-                <button
-                  key={letter}
-                  onClick={() => isAvailable && scrollToLetter(letter)}
-                  disabled={!isAvailable}
-                  className={`flex-1 w-8 flex items-center justify-center text-sm font-medium rounded-lg transition-all
-                    ${isActive
-                      ? "bg-[#8b7355] text-white"
-                      : isAvailable
-                        ? "text-gray-700 hover:bg-[#f5f1e8] hover:text-[#8b7355]"
-                        : "text-gray-300 cursor-not-allowed"
-                    }`}
-                >
-                  {letter}
-                </button>
-              )
-            })}
-          </nav>
+      {/* Message accès limité — discret */}
+      {(!user || (userData?.role !== "premium" && userData?.role !== "admin")) && (
+        <div className="pl-14 md:pl-20 pr-6 pb-3">
+          <p className="text-[10px] tracking-[0.14em] uppercase text-[#7a6654]" style={{ fontFamily: "Georgia, serif" }}>
+            Accès limité ·{" "}
+            <Link href="/pricing" className="underline underline-offset-2 hover:text-[#3d2b1f] transition-colors">
+              Passer à Premium
+            </Link>{" "}
+            pour voir l'intégralité de la collection
+          </p>
+        </div>
+      )}
 
-          {/* Mobile Alphabet Navigation - Left Column */}
-          <nav className="md:hidden fixed left-0 top-[60px] h-[calc(100vh-120px)] z-40 flex flex-col py-1 px-0.5 bg-white/95 backdrop-blur-sm border-r border-gray-200 shadow-sm overflow-hidden">
-            {ALPHABET.map((letter) => {
-              const isAvailable = availableLetters.has(letter)
-              const isActive = activeLetter === letter
-              return (
-                <button
-                  key={letter}
-                  onClick={() => isAvailable && scrollToLetter(letter)}
-                  disabled={!isAvailable}
-                  className={`flex-1 flex items-center justify-center text-xs font-medium transition-all
-                    ${isActive
-                      ? "bg-[#8b7355] text-white"
-                      : isAvailable
-                        ? "text-gray-700 hover:bg-[#f5f1e8]"
-                        : "text-gray-300"
-                    }`}
-                >
-                  {letter}
-                </button>
-              )
-            })}
-          </nav>
+      {/* ── Layout principal ── */}
+      <div className="flex">
 
-          {/* Designers Grid */}
-          <div className="flex-1">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pl-8 md:pl-0">
-              {displayedDesigners.map((designer, index) => {
-                const firstLetter = designer.name.charAt(0).toUpperCase()
-                const isFirstOfLetter = index === 0 || 
-                  displayedDesigners[index - 1]?.name.charAt(0).toUpperCase() !== firstLetter
+        {/* Nav alphabet — desktop */}
+        <nav
+          className="hidden md:flex flex-col sticky top-[60px] h-[calc(100vh-60px)] w-10 pl-3 pt-3 flex-shrink-0 overflow-hidden"
+          style={{ fontFamily: "Georgia, serif" }}
+        >
+          {/* Label vertical "DÉJÀ A-Z" */}
+          <span
+            className="text-[8px] tracking-[0.22em] text-[#b0a090] uppercase mb-3 select-none leading-none"
+            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+          >
+            DÉJÀ A-Z
+          </span>
+
+          {ALPHABET.map((letter) => {
+            const isAvailable = availableLetters.has(letter)
+            const isActive = activeLetter === letter
+            return (
+              <button
+                key={letter}
+                onClick={() => isAvailable && scrollToLetter(letter)}
+                disabled={!isAvailable}
+                className="flex-1 text-left text-xs leading-none transition-colors"
+                style={{
+                  color: isActive ? "#3d2b1f" : isAvailable ? "#7a6654" : "#d8d0c0",
+                  cursor: isAvailable ? "pointer" : "default",
+                }}
+              >
+                {isActive ? `${letter}—` : letter}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Nav alphabet — mobile (fixée à gauche) */}
+        <nav className="md:hidden fixed left-0 top-[60px] h-[calc(100vh-120px)] z-40 flex flex-col py-1 px-0.5 bg-[#f5f1e8]/95 backdrop-blur-sm border-r border-[#d8d0c0] overflow-hidden w-6">
+          {ALPHABET.map((letter) => {
+            const isAvailable = availableLetters.has(letter)
+            const isActive = activeLetter === letter
+            return (
+              <button
+                key={letter}
+                onClick={() => isAvailable && scrollToLetter(letter)}
+                disabled={!isAvailable}
+                className="flex-1 flex items-center justify-center text-[9px] transition-colors"
+                style={{
+                  fontFamily: "Georgia, serif",
+                  color: isActive ? "#3d2b1f" : isAvailable ? "#7a6654" : "#d8d0c0",
+                }}
+              >
+                {letter}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* ── Contenu designers ── */}
+        <div className="flex-1 pl-4 md:pl-6 pr-0">
+
+          {/* Ligne séparatrice du haut */}
+          <div className="border-t border-[#d8d0c0] mr-6 md:mr-10" />
+
+          {displayedDesigners.map((designer, index) => {
+            const firstLetter = designer.name.charAt(0).toUpperCase()
+            const isFirstOfLetter =
+              index === 0 || displayedDesigners[index - 1]?.name.charAt(0).toUpperCase() !== firstLetter
             const isAccessible = !user || userData?.role === "free" ? index < freeUserLimit : true
-            const DesignerCard = isAccessible ? Link : "div"
+            const luminairesMat = (lum: any) =>
+              lum["Matériaux"] || lum["Matière"] || lum["Matières"] || lum.materiaux || lum.materials || ""
 
             return (
               <div
@@ -476,110 +451,133 @@ export default function DesignersPage() {
                 data-item-id={designer.slug}
                 className="scroll-mt-20"
               >
-                <DesignerCard
-                {...(isAccessible ? { href: `/designers/${designer.slug}` } : {})}
-                className="block"
-                onClick={() => {
-                  if (isAccessible) {
-                    sessionStorage.setItem("restore_item_designers", designer.slug)
-                    sessionStorage.setItem("restore_from_designers", "true")
-                    saveScrollPosition()
-                    saveForRestoration()
-                  }
-                }}
-              >
                 <div
-                  className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-shadow flex flex-col h-full ${
-                    isAccessible ? "hover:shadow-lg" : "opacity-50 grayscale cursor-not-allowed"
-                  } ${highlightedDesigner === designer.slug ? "ring-2 ring-[#8b7355]" : ""}`}
+                  className={`flex gap-0 py-8 md:py-10 border-b border-[#d8d0c0] mr-0 transition-opacity ${
+                    highlightedDesigner === designer.slug ? "opacity-70" : ""
+                  } ${!isAccessible ? "opacity-40" : ""}`}
                 >
-                  <div className="p-3 flex flex-col flex-1">
-                    <div className="flex gap-2 mb-3">
-                      {/* Large portrait */}
-                      <div className="w-1/2 aspect-square relative flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
-                        {designer.image ? (
-                          <Image
-                            src={designer.image || "/placeholder.svg"}
-                            alt={designer.name}
-                            fill
-                            unoptimized
-                            className="object-cover"
-                            onError={(e) => {
-                              e.currentTarget.src = "/placeholder.svg"
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            <Users className="w-8 h-8" />
-                          </div>
-                        )}
-                      </div>
 
-                      {/* 4 miniatures en grille 2x2 */}
-                      <div className="w-1/2 grid grid-cols-2 gap-1.5">
-                        {designer.luminaires.slice(0, 4).map((luminaire: any, idx: number) => (
-                          <div key={idx} className="aspect-square relative bg-gray-100 rounded-md overflow-hidden">
+                  {/* ── Colonne portrait ── */}
+                  <div
+                    className="flex-shrink-0 w-[130px] md:w-[220px] pr-4 md:pr-8 cursor-pointer group"
+                    onClick={() => {
+                      if (!isAccessible) return
+                      sessionStorage.setItem("restore_item_designers", designer.slug)
+                      sessionStorage.setItem("restore_from_designers", "true")
+                      saveScrollPosition()
+                      saveForRestoration()
+                      window.location.href = `/designers/${designer.slug}`
+                    }}
+                  >
+                    {/* Image portrait */}
+                    <div
+                      className="relative overflow-hidden bg-[#e8e4dc]"
+                      style={{ aspectRatio: "3/4" }}
+                    >
+                      {designer.image ? (
+                        <Image
+                          src={designer.image}
+                          alt={designer.name}
+                          fill
+                          unoptimized
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                          onError={(e) => { e.currentTarget.src = "/placeholder.svg" }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Users className="w-8 h-8 md:w-12 md:h-12 text-[#b0a090]" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Nom du designer */}
+                    <h2
+                      className="text-xl md:text-4xl font-normal text-[#3d2b1f] mt-3 md:mt-4 leading-tight"
+                      style={{ fontFamily: "Playfair Display, Georgia, serif" }}
+                    >
+                      {designer.name}
+                    </h2>
+
+                    {/* Dates */}
+                    {designer.years.length > 0 && (
+                      <p
+                        className="text-[9px] md:text-[10px] tracking-[0.18em] uppercase text-[#7a6654] mt-1"
+                        style={{ fontFamily: "Georgia, serif" }}
+                      >
+                        {Math.min(...designer.years)} — {Math.max(...designer.years)}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ── Slider luminaires ── */}
+                  <div className="flex-1 relative overflow-hidden">
+                    {/* Piste défilante */}
+                    <div
+                      className="flex gap-3 md:gap-4 overflow-x-auto pb-1"
+                      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                    >
+                      {designer.luminaires.map((lum: any, idx: number) => (
+                        <div key={idx} className="flex-shrink-0 w-[120px] md:w-[210px]">
+                          {/* Image luminaire */}
+                          <div
+                            className="relative overflow-hidden bg-[#e8e4dc]"
+                            style={{ aspectRatio: "3/4" }}
+                          >
                             <Image
-                              src={luminaire.image || "/placeholder.svg"}
-                              alt={luminaire.name}
+                              src={lum.image || "/placeholder.svg"}
+                              alt={lum.name}
                               fill
                               unoptimized
                               className="object-cover"
-                              onError={(e) => {
-                                e.currentTarget.src = "/placeholder.svg"
-                              }}
+                              onError={(e) => { e.currentTarget.src = "/placeholder.svg" }}
                             />
                           </div>
-                        ))}
-                        {/* Compléter la grille 2x2 si moins de 4 items */}
-                        {Array.from({ length: Math.max(0, 4 - designer.luminaires.length) }).map((_, idx) => (
-                          <div key={`empty-${idx}`} className="aspect-square bg-gray-50 rounded-md" />
-                        ))}
-                      </div>
+
+                          {/* Nom du luminaire */}
+                          <p
+                            className="text-[8px] md:text-[10px] tracking-[0.16em] uppercase text-[#3d2b1f] mt-2 leading-tight"
+                            style={{ fontFamily: "Georgia, serif" }}
+                          >
+                            {lum.name}
+                          </p>
+
+                          {/* Matériaux */}
+                          {luminairesMat(lum) && (
+                            <p
+                              className="text-[7px] md:text-[9px] tracking-[0.12em] uppercase text-[#7a6654] mt-0.5 leading-tight"
+                              style={{ fontFamily: "Georgia, serif" }}
+                            >
+                              {luminairesMat(lum)}
+                            </p>
+                          )}
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Designer info */}
-                    <h3 className="font-serif text-base font-medium text-gray-900 mb-1 leading-tight flex-1">
-                      {designer.name}
-                    </h3>
-                    <p className="text-xs text-gray-600 mb-2">
-                      {designer.years.length > 0
-                        ? `${Math.min(...designer.years)}-${Math.max(...designer.years)}`
-                        : "Période inconnue"}
-                    </p>
-                    <p className="text-xs text-gray-500 mb-3">{designer.count} luminaires</p>
-
-                    {isAccessible ? (
-                      <button
-                        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-                        style={{ backgroundColor: "#f5f1e8" }}
-                      >
-                        <span>Voir le profil</span>
-                        <span>→</span>
-                      </button>
-                    ) : (
-                      <div className="text-center text-xs text-gray-400">Premium requis</div>
+                    {/* Dégradé droit — indique qu'on peut slider */}
+                    {designer.luminaires.length > 2 && (
+                      <div
+                        className="absolute right-0 top-0 pointer-events-none"
+                        style={{
+                          bottom: "1.5rem",
+                          width: "80px",
+                          background: "linear-gradient(to left, #f5f1e8 20%, transparent 100%)",
+                        }}
+                      />
                     )}
                   </div>
+
                 </div>
-              </DesignerCard>
               </div>
             )
           })}
-        </div>
 
-            {/* Loading indicator */}
-            {hasMore && (
-              <div ref={ref} className="text-center py-8">
-                {isLoadingMore && (
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="text-gray-600">Chargement...</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Chargement infini */}
+          {hasMore && (
+            <div ref={ref} className="py-10 flex justify-center mr-6 md:mr-10">
+              {isLoadingMore && <Loader2 className="w-5 h-5 animate-spin text-[#7a6654]" />}
+            </div>
+          )}
         </div>
       </div>
 
