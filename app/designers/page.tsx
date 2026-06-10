@@ -333,6 +333,19 @@ export default function DesignersPage() {
   const SERIF = '"Playfair Display", Georgia, serif'
   const SANS  = "Georgia, serif"
 
+  // Extrait le nom pur sans les dates entre parenthèses ou après virgule
+  // ex: "Agence Humbert & Poyet (2007 - )" → "Agence Humbert & Poyet"
+  const cleanName = (raw: string) =>
+    raw.replace(/\s*[,(]\s*\d{4}[\s\S]*$/, "").trim() || raw
+
+  // Affiche les années : plage ou année unique ouverte "2007 —"
+  const yearsLabel = (years: number[]) => {
+    if (!years.length) return null
+    const min = Math.min(...years)
+    const max = Math.max(...years)
+    return min === max ? `${min} —` : `${min} — ${max}`
+  }
+
   if (isLoading) {
     return (
       <div style={{ minHeight: "100vh", background: CREAM, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -345,7 +358,7 @@ export default function DesignersPage() {
     <div style={{ minHeight: "100vh", background: CREAM, paddingBottom: 80 }}>
 
       {/* ── En-tête ── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingLeft: 52, paddingRight: 28, paddingTop: 36, paddingBottom: 18 }}>
+      <div className="pl-6 md:pl-[52px]" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingRight: 28, paddingTop: 36, paddingBottom: 18 }}>
         <h1 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2.2rem, 4.5vw, 3.2rem)", color: TEXT, lineHeight: 1, margin: 0 }}>
           Designers
         </h1>
@@ -365,7 +378,7 @@ export default function DesignersPage() {
 
       {/* Accès limité — une ligne discrète */}
       {(!user || (userData?.role !== "premium" && userData?.role !== "admin")) && (
-        <div style={{ paddingLeft: 52, paddingRight: 28, paddingBottom: 10 }}>
+        <div className="pl-6 md:pl-[52px]" style={{ paddingRight: 28, paddingBottom: 10 }}>
           <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: 0 }}>
             Accès limité ·{" "}
             <Link href="/pricing" style={{ textDecoration: "underline", textUnderlineOffset: 2, color: "inherit" }}>
@@ -413,7 +426,8 @@ export default function DesignersPage() {
         </nav>
 
         {/* ── Contenu designers ── */}
-        <div style={{ flex: 1, minWidth: 0, paddingRight: 28 }}>
+        {/* pl-6 mobile = dépasse le nav fixé de 18px / md:pl-0 car le nav est dans le flux desktop */}
+        <div className="pl-6 md:pl-0" style={{ flex: 1, minWidth: 0, paddingRight: 28 }}>
           <div style={{ borderTop: `1px solid ${LINE}` }} />
 
           {displayedDesigners.map((designer, index) => {
@@ -431,9 +445,9 @@ export default function DesignersPage() {
               >
                 <div style={{ display: "flex", gap: 14, padding: "36px 0" }}>
 
-                  {/* ── Portrait (même classe de largeur/ratio que les cartes luminaires) ── */}
+                  {/* ── Portrait ── plus grand que les luminaires */}
                   <div
-                    className="w-[108px] md:w-[196px] flex-shrink-0 group"
+                    className="w-[100px] md:w-[200px] flex-shrink-0 group"
                     style={{ cursor: isAccessible ? "pointer" : "not-allowed" }}
                     onClick={() => {
                       if (!isAccessible) return
@@ -444,31 +458,37 @@ export default function DesignersPage() {
                       window.location.href = `/designers/${designer.slug}`
                     }}
                   >
+                    {/* Image portrait — ratio 3:4 */}
                     <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4" }}>
                       {designer.image
                         ? <Image src={designer.image} alt={designer.name} fill unoptimized style={{ objectFit: "cover", transition: "transform 0.5s ease" }} className="group-hover:scale-[1.03]" onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
-                        : <div style={{ width: "100%", height: "100%", background: "#e5e0d6", display: "flex", alignItems: "center", justifyContent: "center" }}><Users style={{ width: 24, height: 24, color: "#b8ad9e" }} /></div>
+                        : <div style={{ width: "100%", height: "100%", background: "#e5e0d6", display: "flex", alignItems: "center", justifyContent: "center" }}><Users style={{ width: 22, height: 22, color: "#b8ad9e" }} /></div>
                       }
                     </div>
-                    <h2 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(0.9rem, 1.4vw, 1.35rem)", color: TEXT, marginTop: 11, marginBottom: 0, lineHeight: 1.2 }}>
-                      {designer.name}
+                    {/* Nom épuré sans les dates */}
+                    <h2 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(0.82rem, 1.2vw, 1.2rem)", color: TEXT, marginTop: 10, marginBottom: 0, lineHeight: 1.22 }}>
+                      {cleanName(designer.name)}
                     </h2>
-                    {designer.years.length > 0 && (
-                      <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.15em", textTransform: "uppercase", color: MUTED, marginTop: 5, marginBottom: 0 }}>
-                        {Math.min(...designer.years)} — {Math.max(...designer.years)}
+                    {/* Dates sur une seconde ligne */}
+                    {yearsLabel(designer.years) && (
+                      <p style={{ fontFamily: SANS, fontSize: "0.54rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, marginTop: 4, marginBottom: 0 }}>
+                        {yearsLabel(designer.years)}
                       </p>
                     )}
                   </div>
 
-                  {/* ── Slider luminaires ──
-                      overflow: clip  → clip visuel SANS créer un scroll-context qui bloquerait le scroll enfant
-                      min-width: 0    → autorise la flexbox à rétrécir sous la taille de son contenu           */}
+                  {/* ── Séparateur vertical designer / luminaires ── */}
+                  <div style={{ width: 1, background: LINE, flexShrink: 0, alignSelf: "stretch", marginTop: 0 }} />
+
+                  {/* ── Slider luminaires ── plus petits que le portrait
+                      overflow: clip  = clip visuel sans bloquer le scroll enfant
+                      min-width: 0    = autorise le flex-item à rétrécir sous son contenu  */}
                   <div style={{ flex: 1, minWidth: 0, position: "relative", overflow: "clip" }}>
 
                     {/* Piste défilante : touch / trackpad / drag souris */}
                     <div
                       className="lum-scroll"
-                      style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch", paddingBottom: 2, cursor: "grab" } as React.CSSProperties}
+                      style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch", paddingBottom: 2, cursor: "grab" } as React.CSSProperties}
                       onMouseDown={(e) => {
                         const el      = e.currentTarget
                         el.style.cursor = "grabbing"
@@ -480,26 +500,34 @@ export default function DesignersPage() {
                         document.addEventListener("mouseup", onUp)
                       }}
                     >
-                      {designer.luminaires.map((lum: any, idx: number) => (
-                        /* Exactement même classe largeur + même aspectRatio que le portrait */
-                        <div key={idx} className="w-[108px] md:w-[196px] flex-shrink-0">
-                          <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4" }}>
-                            <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "cover" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
-                          </div>
-                          <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.15em", textTransform: "uppercase", color: TEXT, marginTop: 8, marginBottom: 0, lineHeight: 1.45 }}>
-                            {lum.name}
-                          </p>
-                          {getLumMat(lum) && (
-                            <p style={{ fontFamily: SANS, fontSize: "0.52rem", letterSpacing: "0.11em", textTransform: "uppercase", color: MUTED, marginTop: 3, marginBottom: 0, lineHeight: 1.45 }}>
-                              {getLumMat(lum)}
+                      {designer.luminaires.map((lum: any, idx: number) => {
+                        const lumId = lum._id || lum.id
+                        return (
+                          /* Luminaires plus étroits que le portrait → distinction visuelle claire */
+                          <Link
+                            key={idx}
+                            href={lumId ? `/luminaires/${lumId}` : "#"}
+                            className="w-[70px] md:w-[138px] flex-shrink-0 block"
+                            style={{ textDecoration: "none" }}
+                          >
+                            <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4" }}>
+                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "cover" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
+                            </div>
+                            <p style={{ fontFamily: SANS, fontSize: "0.5rem", letterSpacing: "0.14em", textTransform: "uppercase", color: TEXT, marginTop: 7, marginBottom: 0, lineHeight: 1.4 }}>
+                              {lum.name}
                             </p>
-                          )}
-                        </div>
-                      ))}
+                            {getLumMat(lum) && (
+                              <p style={{ fontFamily: SANS, fontSize: "0.47rem", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginTop: 2, marginBottom: 0, lineHeight: 1.4 }}>
+                                {getLumMat(lum)}
+                              </p>
+                            )}
+                          </Link>
+                        )
+                      })}
                     </div>
 
                     {/* Dégradé droit : la carte partiellement visible invite à glisser */}
-                    <div style={{ position: "absolute", right: 0, top: 0, bottom: "0.4rem", width: 68, background: `linear-gradient(to left, ${CREAM} 35%, transparent 100%)`, pointerEvents: "none" }} />
+                    <div style={{ position: "absolute", right: 0, top: 0, bottom: "0.4rem", width: 60, background: `linear-gradient(to left, ${CREAM} 30%, transparent 100%)`, pointerEvents: "none" }} />
                   </div>
 
                 </div>
