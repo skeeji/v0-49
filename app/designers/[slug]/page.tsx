@@ -299,25 +299,19 @@ export default function DesignerDetailPage() {
   const SANS  = "Georgia, serif"
 
   // ── Nom nettoyé (sans dates entre parenthèses) ────────────────────────────
-  const cleanedName = (designer.nom || "").replace(/\s*\(\s*[\d\?\s\-–]*[-–][\s\S]*$/, "").trim() || designer.nom
+  const cleanedName = (designer.nom || "").replace(/\s*\([^)]*[-–][^)]*\)[\s\S]*$/, "").trim() || designer.nom
   const lastSp   = cleanedName.lastIndexOf(" ")
   const namePart1 = lastSp > 0 ? cleanedName.slice(0, lastSp) : cleanedName
   const namePart2 = lastSp > 0 ? cleanedName.slice(lastSp + 1) : ""
 
-  // ── Dates : extraites du champ "Artiste / Dates" ou plage des années ──────
+  // ── Dates : uniquement depuis le champ "Artiste / Dates" — pas de fallback inventé ──
   const artistField = (designerLuminaires[0]?.artist as string) || ""
-  const datesMatch  = artistField.match(/\((\d{4})\s*[-–]\s*(\d{4})?\s*\)/)
+  const datesMatch  = artistField.match(/\((?:[^)]*\s)?(\d{4})\s*[-–]\s*(\d{4})?\s*\)/)
   let yearsStr = ""
   if (datesMatch) {
     const y1 = datesMatch[1]
     const y2 = datesMatch[2]?.trim()
     yearsStr = y2 ? `${y1} — ${y2}` : `${y1} —`
-  } else {
-    const lumYears = designerLuminaires.map(l => parseInt(l.year as string)).filter(y => !isNaN(y) && y > 1800)
-    if (lumYears.length) {
-      const mn = Math.min(...lumYears); const mx = Math.max(...lumYears)
-      yearsStr = mn === mx ? `${mn}` : `${mn} — ${mx}`
-    }
   }
 
   // ── Collaborations sous forme de liste ────────────────────────────────────
@@ -409,10 +403,10 @@ export default function DesignerDetailPage() {
 
             {description && (
               <div>
-                <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 14, marginTop: 0, fontWeight: 700 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.75rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, marginBottom: 16, marginTop: 0, fontWeight: 700 }}>
                   Biographie
                 </p>
-                <div style={{ fontFamily: SANS, fontSize: "0.82rem", color: TEXT, lineHeight: 1.75, fontWeight: 400 }}>
+                <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.95rem", color: TEXT, lineHeight: 1.8, fontWeight: 400 }}>
                   <EditableField
                     value={description}
                     onSave={updateDesignerSpecialty}
@@ -426,11 +420,11 @@ export default function DesignerDetailPage() {
 
             {collabItems.length > 0 && (
               <div>
-                <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 0, marginTop: 0, fontWeight: 700 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.75rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, marginBottom: 0, marginTop: 0, fontWeight: 700 }}>
                   Collaborations
                 </p>
                 {collabItems.map((item, i) => (
-                  <div key={i} style={{ borderBottom: `1px solid ${LINE}`, padding: "12px 0", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "0.88rem", color: TEXT, lineHeight: 1.3 }}>
+                  <div key={i} style={{ borderBottom: `1px solid ${LINE}`, padding: "13px 0", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "1rem", color: TEXT, lineHeight: 1.3 }}>
                     {item}
                   </div>
                 ))}
