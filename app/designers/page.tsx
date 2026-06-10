@@ -370,15 +370,15 @@ export default function DesignersPage() {
           Designers
         </h1>
 
-        {/* Recherche minimale */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${LINE}`, padding: "7px 12px", marginTop: 6 }}>
-          <Search size={12} style={{ color: MUTED, flexShrink: 0 }} />
+        {/* Recherche */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid #a09580`, padding: "8px 14px", marginTop: 6, background: "rgba(255,255,255,0.85)", boxShadow: "0 1px 5px rgba(139,115,85,0.12)" }}>
+          <Search size={13} style={{ color: "#8b7355", flexShrink: 0 }} />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="RECHERCHER UN DESIGNER"
-            style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.18em", textTransform: "uppercase", color: TEXT, width: 150 }}
+            placeholder="Rechercher un designer…"
+            style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.76rem", color: TEXT, width: 165 }}
           />
         </div>
       </div>
@@ -473,8 +473,8 @@ export default function DesignersPage() {
                         : <div style={{ width: "100%", height: "100%", background: "#e5e0d6", display: "flex", alignItems: "center", justifyContent: "center" }}><Users style={{ width: 22, height: 22, color: "#b8ad9e" }} /></div>
                       }
                     </div>
-                    {/* Nom épuré sans les dates */}
-                    <h2 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(0.82rem, 1.2vw, 1.2rem)", color: TEXT, marginTop: 10, marginBottom: 0, lineHeight: 1.22 }}>
+                    {/* Nom — police identique aux noms de la page luminaires */}
+                    <h2 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(0.82rem, 1.2vw, 1.15rem)", color: TEXT, marginTop: 10, marginBottom: 0, lineHeight: 1.22 }}>
                       {cleanName(designer.name)}
                     </h2>
                     {/* Dates sur une seconde ligne */}
@@ -509,15 +509,16 @@ export default function DesignersPage() {
                       {designer.luminaires.map((lum: any, idx: number) => {
                         const lumId = lum._id || lum.id
                         return (
-                          /* Luminaires plus étroits que le portrait → distinction visuelle claire */
+                          /* Luminaires plus étroits que le portrait — format carré comme la page luminaires */
                           <Link
                             key={idx}
                             href={lumId ? `/luminaires/${lumId}` : "#"}
-                            className="w-[70px] md:w-[138px] flex-shrink-0 block"
+                            className="w-[86px] md:w-[162px] flex-shrink-0 block"
                             style={{ textDecoration: "none" }}
                           >
-                            <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4" }}>
-                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "contain" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
+                            {/* Carré 1:1, fond crème, contain → luminaire entier visible, cadrage propre */}
+                            <div className="relative overflow-hidden w-full" style={{ aspectRatio: "1 / 1", background: CREAM }}>
+                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "contain", padding: "6px" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
                             </div>
                             <p style={{ fontFamily: SANS, fontSize: "0.5rem", letterSpacing: "0.14em", textTransform: "uppercase", color: TEXT, marginTop: 7, marginBottom: 0, lineHeight: 1.4 }}>
                               {lum.name}{getLumYear(lum) ? ` — ${getLumYear(lum)}` : ""}
