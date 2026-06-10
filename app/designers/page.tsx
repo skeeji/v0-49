@@ -370,15 +370,15 @@ export default function DesignersPage() {
           Designers
         </h1>
 
-        {/* Recherche */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1.5px solid #8b7355", borderRadius: "2px", padding: "9px 16px", background: "#fff", boxShadow: "0 2px 8px rgba(139,115,85,0.18)" }}>
-          <Search size={15} style={{ color: "#8b7355", flexShrink: 0 }} />
+        {/* Recherche — discrète, fond identique à la page */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${LINE}`, padding: "7px 14px", background: CREAM }}>
+          <Search size={13} style={{ color: MUTED, flexShrink: 0 }} />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher un designer…"
-            style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.82rem", color: TEXT, width: 180 }}
+            style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.78rem", color: TEXT, width: 220 }}
           />
         </div>
       </div>
@@ -491,9 +491,12 @@ export default function DesignersPage() {
                       min-width: 0    = autorise le flex-item à rétrécir sous son contenu  */}
                   <div style={{ flex: 1, minWidth: 0, position: "relative", overflow: "clip" }}>
 
-                    {/* Piste défilante : touch / trackpad / drag souris */}
+                    {/* Piste défilante : touch / trackpad / drag souris
+                        paddingTop centre les images luminaires au milieu de l'image portrait :
+                        mobile  (130×4/3=173px portrait, 108px lum) → (173-108)/2 = 32px
+                        desktop (260×4/3=347px portrait, 210px lum) → (347-210)/2 = 68px  */}
                     <div
-                      className="lum-scroll"
+                      className="lum-scroll pt-8 md:pt-[68px]"
                       style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch", paddingBottom: 2, cursor: "grab" } as React.CSSProperties}
                       onMouseDown={(e) => {
                         const el      = e.currentTarget
@@ -516,9 +519,9 @@ export default function DesignersPage() {
                             className="w-[108px] md:w-[210px] flex-shrink-0 block"
                             style={{ textDecoration: "none" }}
                           >
-                            {/* Carré 1:1, fond crème, contain → luminaire entier visible, cadrage propre */}
-                            <div className="relative overflow-hidden w-full" style={{ aspectRatio: "1 / 1", background: CREAM }}>
-                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "contain", padding: "6px" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
+                            {/* Carré 1:1, cover → cadre toujours identique (même taille visuelle pour tous) */}
+                            <div className="relative overflow-hidden w-full" style={{ aspectRatio: "1 / 1", background: CREAM, border: `1px solid ${LINE}` }}>
+                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "cover" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
                             </div>
                             <p style={{ fontFamily: SANS, fontSize: "0.5rem", letterSpacing: "0.14em", textTransform: "uppercase", color: TEXT, marginTop: 7, marginBottom: 0, lineHeight: 1.4 }}>
                               {lum.name}{getLumYear(lum) ? ` — ${getLumYear(lum)}` : ""}
