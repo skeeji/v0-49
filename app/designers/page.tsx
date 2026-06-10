@@ -455,7 +455,7 @@ export default function DesignersPage() {
 
                   {/* ── Portrait ── */}
                   <div
-                    className="w-[130px] md:w-[260px] flex-shrink-0 group"
+                    className="w-[130px] md:w-[230px] flex-shrink-0 group"
                     style={{ cursor: isAccessible ? "pointer" : "not-allowed" }}
                     onClick={() => {
                       if (!isAccessible) return
@@ -466,10 +466,10 @@ export default function DesignersPage() {
                       window.location.href = `/designers/${designer.slug}`
                     }}
                   >
-                    {/* Image portrait — ratio 3:4 */}
-                    <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4" }}>
+                    {/* Image portrait — ratio 3:4, contain = image entière sans recadrage */}
+                    <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4", background: CREAM }}>
                       {designer.image
-                        ? <Image src={designer.image} alt={designer.name} fill unoptimized style={{ objectFit: "cover", transition: "transform 0.5s ease" }} className="group-hover:scale-[1.03]" onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
+                        ? <Image src={designer.image} alt={designer.name} fill unoptimized style={{ objectFit: "contain", transition: "transform 0.5s ease" }} className="group-hover:scale-[1.03]" onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
                         : <div style={{ width: "100%", height: "100%", background: "#e5e0d6", display: "flex", alignItems: "center", justifyContent: "center" }}><Users style={{ width: 22, height: 22, color: "#b8ad9e" }} /></div>
                       }
                     </div>
@@ -494,19 +494,32 @@ export default function DesignersPage() {
                     {/* Piste défilante : touch / trackpad / drag souris
                         paddingTop centre les images luminaires au milieu de l'image portrait :
                         mobile  (130×4/3=173px portrait, 108px lum) → (173-108)/2 = 32px
-                        desktop (260×4/3=347px portrait, 210px lum) → (347-210)/2 = 68px  */}
+                        desktop (230×4/3=307px portrait, 185px lum) → (307-185)/2 = 61px  */}
                     <div
-                      className="lum-scroll pt-8 md:pt-[68px]"
+                      className="lum-scroll pt-8 md:pt-[61px]"
                       style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch", paddingBottom: 2, cursor: "grab" } as React.CSSProperties}
                       onMouseDown={(e) => {
                         const el      = e.currentTarget
-                        el.style.cursor = "grabbing"
                         const startX  = e.pageX - el.offsetLeft
                         const scrollL = el.scrollLeft
-                        const onMove  = (mv: MouseEvent) => { el.scrollLeft = scrollL - (mv.pageX - el.offsetLeft - startX) }
+                        let dragging  = false
+                        const onMove  = (mv: MouseEvent) => {
+                          const delta = mv.pageX - el.offsetLeft - startX
+                          if (!dragging && Math.abs(delta) > 5) { dragging = true; el.style.cursor = "grabbing" }
+                          if (dragging) { mv.preventDefault(); el.scrollLeft = scrollL - delta }
+                        }
                         const onUp    = () => { el.style.cursor = "grab"; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp) }
                         document.addEventListener("mousemove", onMove)
                         document.addEventListener("mouseup", onUp)
+                      }}
+                      onMouseMove={(e) => {
+                        if ((e.buttons & 1) !== 0) return
+                        const el = e.currentTarget
+                        const { left, width } = el.getBoundingClientRect()
+                        const x = e.clientX - left
+                        if (x > width - 90) {
+                          el.scrollLeft += ((x - (width - 90)) / 90) * 7
+                        }
                       }}
                     >
                       {designer.luminaires.map((lum: any, idx: number) => {
@@ -516,12 +529,12 @@ export default function DesignersPage() {
                           <Link
                             key={idx}
                             href={lumId ? `/luminaires/${lumId}` : "#"}
-                            className="w-[108px] md:w-[210px] flex-shrink-0 block"
+                            className="w-[108px] md:w-[185px] flex-shrink-0 block group"
                             style={{ textDecoration: "none" }}
                           >
                             {/* Carré 1:1, cover → cadre toujours identique (même taille visuelle pour tous) */}
                             <div className="relative overflow-hidden w-full" style={{ aspectRatio: "1 / 1", background: CREAM, border: `1px solid ${LINE}` }}>
-                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "cover" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
+                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "cover", transition: "transform 0.5s ease" }} className="group-hover:scale-[1.03]" onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
                             </div>
                             <p style={{ fontFamily: SANS, fontSize: "0.5rem", letterSpacing: "0.14em", textTransform: "uppercase", color: TEXT, marginTop: 7, marginBottom: 0, lineHeight: 1.4 }}>
                               {lum.name}{getLumYear(lum) ? ` — ${getLumYear(lum)}` : ""}
