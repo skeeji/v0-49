@@ -299,7 +299,7 @@ export default function DesignerDetailPage() {
   const SANS  = "Georgia, serif"
 
   // ── Nom nettoyé (sans dates entre parenthèses) ────────────────────────────
-  const cleanedName = (designer.nom || "").replace(/\s*[,(]\s*\d{4}[\s\S]*$/, "").trim() || designer.nom
+  const cleanedName = (designer.nom || "").replace(/\s*\(\s*[\d\?\s\-–]*[-–][\s\S]*$/, "").trim() || designer.nom
   const lastSp   = cleanedName.lastIndexOf(" ")
   const namePart1 = lastSp > 0 ? cleanedName.slice(0, lastSp) : cleanedName
   const namePart2 = lastSp > 0 ? cleanedName.slice(lastSp + 1) : ""
@@ -409,16 +409,16 @@ export default function DesignerDetailPage() {
 
             {description && (
               <div>
-                <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 14, marginTop: 0 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 14, marginTop: 0, fontWeight: 700 }}>
                   Biographie
                 </p>
-                <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: TEXT, lineHeight: 1.75, fontWeight: 600 }}>
+                <div style={{ fontFamily: SANS, fontSize: "0.82rem", color: TEXT, lineHeight: 1.75, fontWeight: 400 }}>
                   <EditableField
                     value={description}
                     onSave={updateDesignerSpecialty}
                     multiline
                     disabled={!canEdit}
-                    className="font-semibold"
+                    className="font-normal"
                   />
                 </div>
               </div>
@@ -426,11 +426,11 @@ export default function DesignerDetailPage() {
 
             {collabItems.length > 0 && (
               <div>
-                <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 0, marginTop: 0 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 0, marginTop: 0, fontWeight: 700 }}>
                   Collaborations
                 </p>
                 {collabItems.map((item, i) => (
-                  <div key={i} style={{ borderBottom: `1px solid ${LINE}`, padding: "12px 0", fontFamily: SERIF, fontStyle: "italic", fontWeight: 600, fontSize: "0.88rem", color: TEXT, lineHeight: 1.3 }}>
+                  <div key={i} style={{ borderBottom: `1px solid ${LINE}`, padding: "12px 0", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "0.88rem", color: TEXT, lineHeight: 1.3 }}>
                     {item}
                   </div>
                 ))}
@@ -465,7 +465,7 @@ export default function DesignerDetailPage() {
         </div>
 
         {designerLuminaires.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: "clamp(10px, 2vw, 16px)" }}>
+          <div className="grid grid-cols-2 md:grid-cols-5" style={{ gap: "clamp(10px, 2vw, 14px)" }}>
             {designerLuminaires.map((luminaire) => (
               <Link
                 key={luminaire.id}

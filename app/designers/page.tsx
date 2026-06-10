@@ -342,8 +342,9 @@ export default function DesignersPage() {
 
   // Extrait le nom pur sans les dates entre parenthèses ou après virgule
   // ex: "Agence Humbert & Poyet (2007 - )" → "Agence Humbert & Poyet"
+  // ex: "Anonyme (? - ?)" → "Anonyme" / "Studio ( - )" → "Studio"
   const cleanName = (raw: string) =>
-    raw.replace(/\s*[,(]\s*\d{4}[\s\S]*$/, "").trim() || raw
+    raw.replace(/\s*\(\s*[\d\?\s\-–]*[-–][\s\S]*$/, "").trim() || raw
 
   // Affiche les années : plage ou année unique ouverte "2007 —"
   const yearsLabel = (years: number[]) => {
