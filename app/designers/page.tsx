@@ -366,19 +366,19 @@ export default function DesignersPage() {
 
       {/* ── En-tête ── */}
       <div className="pl-6 md:pl-[52px]" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingRight: 28, paddingTop: 36, paddingBottom: 18 }}>
-        <h1 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2.2rem, 4.5vw, 3.2rem)", color: TEXT, lineHeight: 1, margin: 0 }}>
+        <h1 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(1.5rem, 3vw, 2rem)", color: TEXT, margin: 0 }}>
           Designers
         </h1>
 
         {/* Recherche */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid #a09580`, padding: "8px 14px", marginTop: 6, background: "rgba(255,255,255,0.85)", boxShadow: "0 1px 5px rgba(139,115,85,0.12)" }}>
-          <Search size={13} style={{ color: "#8b7355", flexShrink: 0 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1.5px solid #8b7355", borderRadius: "2px", padding: "9px 16px", background: "#fff", boxShadow: "0 2px 8px rgba(139,115,85,0.18)" }}>
+          <Search size={15} style={{ color: "#8b7355", flexShrink: 0 }} />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher un designer…"
-            style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.76rem", color: TEXT, width: 165 }}
+            style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.82rem", color: TEXT, width: 180 }}
           />
         </div>
       </div>
@@ -451,11 +451,11 @@ export default function DesignersPage() {
                 data-item-id={designer.slug}
                 style={{ borderBottom: `1px solid ${LINE}`, scrollMarginTop: 80, opacity: !isAccessible ? 0.38 : highlightedDesigner === designer.slug ? 0.65 : 1, transition: "opacity 0.35s" }}
               >
-                <div style={{ display: "flex", gap: 14, padding: "36px 0", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 14, padding: "36px 0", alignItems: "flex-start" }}>
 
-                  {/* ── Portrait ── plus grand que les luminaires */}
+                  {/* ── Portrait ── */}
                   <div
-                    className="w-[100px] md:w-[200px] flex-shrink-0 group"
+                    className="w-[130px] md:w-[260px] flex-shrink-0 group"
                     style={{ cursor: isAccessible ? "pointer" : "not-allowed" }}
                     onClick={() => {
                       if (!isAccessible) return
@@ -509,11 +509,11 @@ export default function DesignersPage() {
                       {designer.luminaires.map((lum: any, idx: number) => {
                         const lumId = lum._id || lum.id
                         return (
-                          /* Luminaires plus étroits que le portrait — format carré comme la page luminaires */
+                          /* Luminaires — carré 1:1 comme la page luminaires, contenu entier visible */
                           <Link
                             key={idx}
                             href={lumId ? `/luminaires/${lumId}` : "#"}
-                            className="w-[86px] md:w-[162px] flex-shrink-0 block"
+                            className="w-[108px] md:w-[210px] flex-shrink-0 block"
                             style={{ textDecoration: "none" }}
                           >
                             {/* Carré 1:1, fond crème, contain → luminaire entier visible, cadrage propre */}
