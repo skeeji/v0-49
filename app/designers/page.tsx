@@ -102,24 +102,31 @@ export default function DesignersPage() {
   // Scroll to letter section — charge les batches manquants si nécessaire
   const scrollToLetter = (letter: string) => {
     setActiveLetter(letter)
+
+    // Si la section est déjà dans le DOM → scroll direct, pas de rechargement
     const element = document.getElementById(`designer-${letter}`)
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" })
-    } else {
-      const targetIndex = filteredDesigners.findIndex(
-        (d: any) => d.name.charAt(0).toUpperCase() === letter
-      )
-      if (targetIndex > -1) {
-        const newPage = Math.ceil((targetIndex + 1) / ITEMS_PER_PAGE)
-        setDisplayedDesigners(filteredDesigners.slice(0, newPage * ITEMS_PER_PAGE))
-        setPage(newPage)
-        setHasMore(newPage * ITEMS_PER_PAGE < filteredDesigners.length)
-        setTimeout(() => {
-          document.getElementById(`designer-${letter}`)
-            ?.scrollIntoView({ behavior: "smooth", block: "start" })
-        }, 100)
-      }
+      return
     }
+
+    const targetIndex = filteredDesigners.findIndex(
+      (d: any) => d.name.charAt(0).toUpperCase() === letter
+    )
+    if (targetIndex === -1) return
+
+    // Jump rapide : on aligne sur la page qui CONTIENT la lettre cible
+    // → on ne rend pas tous les designers depuis A (évite le lag sur Z, Y…)
+    const targetPage  = Math.floor(targetIndex / ITEMS_PER_PAGE)
+    const pageStart   = targetPage * ITEMS_PER_PAGE
+    setDisplayedDesigners(filteredDesigners.slice(pageStart, pageStart + ITEMS_PER_PAGE))
+    setPage(targetPage + 1)
+    setHasMore((targetPage + 1) * ITEMS_PER_PAGE < filteredDesigners.length)
+    window.scrollTo({ top: 0 })
+    setTimeout(() => {
+      document.getElementById(`designer-${letter}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 80)
   }
 
   const ITEMS_PER_PAGE = 50
@@ -434,7 +441,8 @@ export default function DesignersPage() {
             const firstLetter     = designer.name.charAt(0).toUpperCase()
             const isFirstOfLetter = index === 0 || displayedDesigners[index - 1]?.name.charAt(0).toUpperCase() !== firstLetter
             const isAccessible    = !user || userData?.role === "free" ? index < freeUserLimit : true
-            const getLumMat       = (lum: any) => lum["Matériaux"] || lum["Matière"] || lum["Matières"] || lum.materiaux || lum.materials || ""
+            const getLumMat  = (lum: any) => lum["Matériaux"] || lum["Matière"] || lum["Matières"] || lum.materiaux || lum.materials || ""
+            const getLumYear = (lum: any) => lum.annee || lum["Année"] || ""
 
             return (
               <div
@@ -443,7 +451,7 @@ export default function DesignersPage() {
                 data-item-id={designer.slug}
                 style={{ borderBottom: `1px solid ${LINE}`, scrollMarginTop: 80, opacity: !isAccessible ? 0.38 : highlightedDesigner === designer.slug ? 0.65 : 1, transition: "opacity 0.35s" }}
               >
-                <div style={{ display: "flex", gap: 14, padding: "36px 0" }}>
+                <div style={{ display: "flex", gap: 14, padding: "36px 0", alignItems: "center" }}>
 
                   {/* ── Portrait ── plus grand que les luminaires */}
                   <div
@@ -477,8 +485,6 @@ export default function DesignersPage() {
                     )}
                   </div>
 
-                  {/* ── Séparateur vertical designer / luminaires ── */}
-                  <div style={{ width: 1, background: LINE, flexShrink: 0, alignSelf: "stretch", marginTop: 0 }} />
 
                   {/* ── Slider luminaires ── plus petits que le portrait
                       overflow: clip  = clip visuel sans bloquer le scroll enfant
@@ -511,10 +517,10 @@ export default function DesignersPage() {
                             style={{ textDecoration: "none" }}
                           >
                             <div className="relative overflow-hidden w-full" style={{ aspectRatio: "3 / 4" }}>
-                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "cover" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
+                              <Image src={lum.image || "/placeholder.svg"} alt={lum.name} fill unoptimized style={{ objectFit: "contain" }} onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
                             </div>
                             <p style={{ fontFamily: SANS, fontSize: "0.5rem", letterSpacing: "0.14em", textTransform: "uppercase", color: TEXT, marginTop: 7, marginBottom: 0, lineHeight: 1.4 }}>
-                              {lum.name}
+                              {lum.name}{getLumYear(lum) ? ` — ${getLumYear(lum)}` : ""}
                             </p>
                             {getLumMat(lum) && (
                               <p style={{ fontFamily: SANS, fontSize: "0.47rem", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginTop: 2, marginBottom: 0, lineHeight: 1.4 }}>
