@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Plus, Search } from "lucide-react"
+import { ArrowLeft, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { LuminaireFormModal } from "@/components/LuminaireFormModal"
@@ -290,168 +290,225 @@ export default function DesignerDetailPage() {
     designerImageFilename: designer.imagedesigner || "",
   }
 
+  // ── Tokens visuels ────────────────────────────────────────────────────────
+  const CREAM = "#f5f1e8"
+  const TEXT  = "#3d2b1f"
+  const MUTED = "#7a6654"
+  const LINE  = "#d8d0c0"
+  const SERIF = '"Playfair Display", Georgia, serif'
+  const SANS  = "Georgia, serif"
+
+  // ── Nom nettoyé (sans dates entre parenthèses) ────────────────────────────
+  const cleanedName = (designer.nom || "").replace(/\s*[,(]\s*\d{4}[\s\S]*$/, "").trim() || designer.nom
+  const lastSp   = cleanedName.lastIndexOf(" ")
+  const namePart1 = lastSp > 0 ? cleanedName.slice(0, lastSp) : cleanedName
+  const namePart2 = lastSp > 0 ? cleanedName.slice(lastSp + 1) : ""
+
+  // ── Dates : extraites du champ "Artiste / Dates" ou plage des années ──────
+  const artistField = (designerLuminaires[0]?.artist as string) || ""
+  const datesMatch  = artistField.match(/\((\d{4})\s*[-–]\s*(\d{4})?\s*\)/)
+  let yearsStr = ""
+  if (datesMatch) {
+    const y1 = datesMatch[1]
+    const y2 = datesMatch[2]?.trim()
+    yearsStr = y2 ? `${y1} — ${y2}` : `${y1} —`
+  } else {
+    const lumYears = designerLuminaires.map(l => parseInt(l.year as string)).filter(y => !isNaN(y) && y > 1800)
+    if (lumYears.length) {
+      const mn = Math.min(...lumYears); const mx = Math.max(...lumYears)
+      yearsStr = mn === mx ? `${mn}` : `${mn} — ${mx}`
+    }
+  }
+
+  // ── Collaborations sous forme de liste ────────────────────────────────────
+  const collabItems = collaboration
+    ? collaboration.split(/\s*•\s*/).map(s => s.trim()).filter(Boolean)
+    : []
+
   return (
-    <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 md:hidden">
-        <div className="flex items-center justify-between px-4 py-4">
-          <Link href="/designers" className="p-2">
-            <ArrowLeft className="w-6 h-6 text-gray-900" />
-          </Link>
-          <h1 className="text-lg font-serif text-gray-900 font-medium">{designer?.nom}</h1>
-          <button className="p-2">
-            <Search className="w-6 h-6 text-gray-900" />
-          </button>
+    <div style={{ background: CREAM, minHeight: "100vh" }}>
+
+      {/* ── En-tête mobile ─────────────────────────────────────────────────── */}
+      <div className="md:hidden" style={{ borderBottom: `1px solid ${LINE}`, padding: "14px 16px 14px 52px", display: "flex", alignItems: "center", gap: 10 }}>
+        <Link href="/designers" style={{ display: "flex", alignItems: "center" }}>
+          <ArrowLeft size={16} style={{ color: TEXT }} />
+        </Link>
+        <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.9rem", color: TEXT }}>
+          {cleanedName}
+        </span>
+      </div>
+
+      {/* ── Lien retour desktop ──────────────────────────────────────────────── */}
+      <div className="hidden md:block" style={{ padding: "28px 52px 0" }}>
+        <Link
+          href="/designers"
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: "0.62rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, textDecoration: "none" }}
+        >
+          <ArrowLeft size={11} /> Retour aux designers
+        </Link>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          HERO — Portrait + Identité
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div
+        className="flex flex-col md:flex-row pl-6 md:pl-[52px] pr-4 md:pr-[52px]"
+        style={{ paddingTop: 44, paddingBottom: 68 }}
+      >
+        {/* Portrait */}
+        <div className="w-full md:w-[min(360px,38%)] flex-shrink-0 mb-8 md:mb-0">
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: "3 / 4", background: "#e8e3d8" }}>
+            {designer.imagedesigner
+              ? <Image
+                  src={`/api/images/filename/${designer.imagedesigner}`}
+                  alt={cleanedName}
+                  fill
+                  unoptimized
+                  style={{ objectFit: "contain" }}
+                  onError={(e) => { e.currentTarget.style.display = "none" }}
+                />
+              : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#b8ad9e" }}>
+                  <span style={{ fontSize: 52 }}>👤</span>
+                </div>
+            }
+          </div>
+        </div>
+
+        {/* Identité */}
+        <div className="flex-1 md:pl-16 md:pt-2">
+
+          {/* Tag catégorie */}
+          <p style={{ fontFamily: SANS, fontSize: "0.57rem", letterSpacing: "0.3em", textTransform: "uppercase", color: MUTED, marginBottom: 22, marginTop: 0 }}>
+            Collection Gersaint Paris
+          </p>
+
+          {/* Nom — typographie display, 2 lignes */}
+          <div style={{ marginBottom: 22 }}>
+            <span style={{ display: "block", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "clamp(2.4rem, 5.8vw, 4.8rem)", color: TEXT, lineHeight: 0.9 }}>
+              {namePart1}
+            </span>
+            {namePart2 && (
+              <span style={{ display: "block", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "clamp(2.8rem, 6.6vw, 5.5rem)", color: TEXT, lineHeight: 0.92 }}>
+                {namePart2}
+              </span>
+            )}
+          </div>
+
+          {/* Dates + filet horizontal */}
+          {yearsStr && (
+            <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 44 }}>
+              <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "1rem", color: MUTED, whiteSpace: "nowrap" }}>
+                {yearsStr}
+              </span>
+              <div style={{ flex: 1, height: 1, background: LINE }} />
+            </div>
+          )}
+
+          {/* Biographie + Collaborations */}
+          <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 40, alignItems: "start" }}>
+
+            {description && (
+              <div>
+                <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 14, marginTop: 0 }}>
+                  Biographie
+                </p>
+                <div style={{ fontFamily: SANS, fontSize: "0.82rem", color: TEXT, lineHeight: 1.75 }}>
+                  <EditableField
+                    value={description}
+                    onSave={updateDesignerSpecialty}
+                    multiline
+                    disabled={!canEdit}
+                  />
+                </div>
+              </div>
+            )}
+
+            {collabItems.length > 0 && (
+              <div>
+                <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 0, marginTop: 0 }}>
+                  Collaborations
+                </p>
+                {collabItems.map((item, i) => (
+                  <div key={i} style={{ borderBottom: `1px solid ${LINE}`, padding: "12px 0", fontFamily: SERIF, fontStyle: "italic", fontSize: "0.88rem", color: TEXT, lineHeight: 1.3 }}>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Desktop back button */}
-          <div className="hidden md:block mb-8">
-            <Link href="/designers">
-              <Button variant="outline" className="flex items-center gap-2 bg-white">
-                <ArrowLeft className="w-4 h-4" />
-                Retour aux designers
-              </Button>
-            </Link>
+      {/* ══════════════════════════════════════════════════════════════════════
+          ŒUVRES SÉLECTIONNÉES
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div className="pl-6 md:pl-[52px] pr-4 md:pr-[52px]" style={{ paddingBottom: 80 }}>
+
+        <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 36, marginBottom: 36, display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <h2 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "clamp(1.4rem, 3vw, 2rem)", color: TEXT, margin: "0 0 6px" }}>
+              Œuvres Sélectionnées
+            </h2>
+            <p style={{ fontFamily: SANS, fontStyle: "italic", fontSize: "0.73rem", color: MUTED, margin: 0 }}>
+              {designerLuminaires.length} luminaire{designerLuminaires.length !== 1 ? "s" : ""} dans la collection
+            </p>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 mb-8">
-            {/* Portrait and info in horizontal layout on mobile */}
-            <div className="flex items-start gap-6 mb-6">
-              {/* Portrait image */}
-              <div className="w-48 h-48 relative flex-shrink-0">
-                <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg overflow-hidden">
-                  {designer.imagedesigner ? (
-                    <Image
-                      src={`/api/images/filename/${designer.imagedesigner}`}
-                      alt={designer.nom}
-                      fill
-                      className="object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none"
-                        const nextElement = e.currentTarget.nextElementSibling as HTMLElement
-                        if (nextElement) {
-                          nextElement.classList.remove("hidden")
-                        }
-                      }}
-                    />
-                  ) : null}
-                  <div className={`text-center ${designer.imagedesigner ? "hidden" : ""}`}>
-                    <div className="text-6xl text-gray-400">👤</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Designer info */}
-              <div className="flex-1">
-                <EditableField
-                  value={designer.nom}
-                  onSave={(newName) => {
-                    if (!canEdit) return
-                    updateDesignerName(newName)
-                  }}
-                  className="text-xl md:text-2xl font-serif text-gray-900 mb-2"
-                  placeholder="Nom du designer"
-                  disabled={!canEdit}
-                />
-                <p className="text-xs text-gray-500">{designer.count} Luminaires</p>
-              </div>
-            </div>
-
-            {/* Biography section */}
-            {description && (
-              <div className="mb-6 pt-6 border-t border-gray-100">
-                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Biographie</h3>
-                <EditableField
-                  value={description}
-                  onSave={updateDesignerSpecialty}
-                  multiline
-                  disabled={!canEdit}
-                  className="text-sm text-gray-700 leading-relaxed"
-                />
-              </div>
-            )}
-
-            {/* Collaboration / Œuvres / Éditeur section */}
-            {collaboration && (
-              <div className="pt-6 border-t border-gray-100">
-                <h3 className="text-lg font-serif font-medium text-gray-900 mb-3">Collaboration / Œuvres / Éditeur</h3>
-                <EditableField
-                  value={collaboration}
-                  onSave={updateDesignerCollaboration}
-                  multiline
-                  disabled={!canEdit}
-                  className="text-sm text-gray-700 leading-relaxed italic"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Luminaires section */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-serif font-medium text-gray-900">Luminaires</h2>
-              <Link href={`/luminaires?designer=${encodeURIComponent(designer.nom)}`}>
-                <button className="text-sm text-gray-600 hover:text-gray-900">Voir tout ({designer.count})</button>
-              </Link>
-            </div>
-
-            {designerLuminaires.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {designerLuminaires.slice(0, 4).map((luminaire) => (
-                  <Link key={luminaire.id} href={`/luminaires/${luminaire.id}`} className="block">
-                    <div className="bg-transparent rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="aspect-square relative bg-transparent overflow-hidden rounded-xl">
-                        {luminaire.image ? (
-                          <Image
-                            src={luminaire.image || "/placeholder.svg"}
-                            alt={luminaire.name}
-                            fill
-                            className="object-cover rounded-xl"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 rounded-xl">
-                            <div className="text-4xl">🏮</div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3 text-center">
-                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1">{luminaire.name}</h3>
-                        <p className="text-xs text-gray-600">
-                          {luminaire.editeur || "Artisan"}
-                          {luminaire.year && `, ${luminaire.year}`}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <p className="font-serif text-gray-500">Aucun luminaire trouvé.</p>
-              </div>
-            )}
-
-            {/* View Full Collection button */}
-            <Link href={`/luminaires?designer=${encodeURIComponent(designer.nom)}`}>
-              <button className="w-full py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
-                Voir la collection complète
-              </button>
-            </Link>
-          </div>
-
           {canEdit && (
-            <Button
+            <button
               onClick={() => setIsModalOpen(true)}
-              className="mt-6 bg-gray-900 text-white hover:bg-gray-800 flex items-center gap-2"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: TEXT, background: "transparent", border: `1px solid ${LINE}`, padding: "10px 18px", cursor: "pointer" }}
             >
-              <Plus className="w-4 h-4" />
-              Nouveau luminaire
-            </Button>
+              <Plus size={12} /> Nouveau luminaire
+            </button>
           )}
         </div>
+
+        {designerLuminaires.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: "clamp(10px, 2vw, 20px)" }}>
+            {designerLuminaires.map((luminaire) => (
+              <Link
+                key={luminaire.id}
+                href={`/luminaires/${luminaire.id}`}
+                className="group block"
+                style={{ textDecoration: "none" }}
+              >
+                <div className="relative overflow-hidden" style={{ aspectRatio: "1 / 1", background: "#2a2018", marginBottom: 14 }}>
+                  {luminaire.image
+                    ? <Image
+                        src={luminaire.image}
+                        alt={luminaire.name}
+                        fill
+                        unoptimized
+                        style={{ objectFit: "cover", transition: "transform 0.5s ease" }}
+                        className="group-hover:scale-[1.04]"
+                        onError={(e) => { e.currentTarget.src = "/placeholder.svg" }}
+                      />
+                    : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 28, opacity: 0.25 }}>🏮</span>
+                      </div>
+                  }
+                </div>
+                {luminaire.year && (
+                  <p style={{ fontFamily: SANS, fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, margin: "0 0 5px" }}>
+                    {/^\d{4}$/.test(String(luminaire.year)) ? `Circa ${luminaire.year}` : luminaire.year}
+                  </p>
+                )}
+                <h3 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "clamp(0.78rem, 1.1vw, 0.92rem)", color: TEXT, margin: "0 0 4px", lineHeight: 1.25 }}>
+                  {luminaire.name}
+                </h3>
+                {(luminaire.editeur || luminaire.collaboration) && (
+                  <p style={{ fontFamily: SANS, fontStyle: "italic", fontSize: "0.63rem", color: MUTED, margin: 0, lineHeight: 1.4 }}>
+                    {luminaire.editeur || luminaire.collaboration}
+                  </p>
+                )}
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding: "60px 0", textAlign: "center" }}>
+            <p style={{ fontFamily: SERIF, fontStyle: "italic", color: MUTED }}>Aucun luminaire trouvé.</p>
+          </div>
+        )}
       </div>
 
       <LuminaireFormModal
