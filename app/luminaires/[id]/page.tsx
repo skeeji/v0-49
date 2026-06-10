@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Download, Search, User, ArrowRight } from "lucide-react"
+import { ArrowLeft, Download, User, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { useAuth } from "@/contexts/AuthContext"
@@ -530,343 +530,302 @@ export default function LuminaireDetailPage() {
     )
   }
 
+  // ── Tokens visuels ────────────────────────────────────────────────────────
+  const CREAM = "#f5f1e8"
+  const TEXT  = "#3d2b1f"
+  const MUTED = "#7a6654"
+  const LINE  = "#d8d0c0"
+  const BROWN = "#8b7355"
+  const SERIF = '"Playfair Display", Georgia, serif'
+  const SANS  = "Georgia, serif"
+
+  const cleanArtistName = (name: string) =>
+    name.replace(/\s*\([^)]*[-–][^)]*\)[\s\S]*$/, "").trim() || name
+
+  const imageUrl = luminaire.image
+    || (luminaire.filename ? `/api/images/filename/${luminaire.filename}` : null)
+
+  const specFields = [
+    { label: "Éditeur",    value: luminaire.editeur,    field: "editeur" },
+    { label: "Année",      value: luminaire.year,       field: "year" },
+    { label: "Matériaux",  value: luminaire.materials,  field: "materials" },
+    { label: "Dimensions", value: luminaire.dimensions, field: "dimensions" },
+    { label: "Catégorie",  value: luminaire.categorie,  field: "categorie" },
+    { label: "Signé",      value: luminaire.signed,     field: "signed" },
+  ]
+  const visibleSpecs = specFields.filter(s => (s.value && String(s.value).trim()) || canEdit)
+
   return (
-    <div className="min-h-screen bg-[#f5f1e8] pb-20">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 md:hidden">
-        <div className="flex items-center justify-between px-4 py-4">
-          <Link href="/luminaires" className="p-2">
-            <ArrowLeft className="w-6 h-6 text-gray-900" />
-          </Link>
-          <h1 className="text-lg font-serif text-gray-900 font-medium line-clamp-1 flex-1 mx-2">
-            {luminaire?.artist} - {luminaire?.name}
-          </h1>
-          <button className="p-2">
-            <Search className="w-6 h-6 text-gray-900" />
-          </button>
+    <div style={{ background: CREAM, minHeight: "100vh" }}>
+
+      {/* ── En-tête mobile ─────────────────────────────────────────────────── */}
+      <div className="md:hidden" style={{ borderBottom: `1px solid ${LINE}`, padding: "14px 16px 14px 52px", display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+        <Link href="/luminaires" style={{ display: "flex", flexShrink: 0 }}>
+          <ArrowLeft size={16} style={{ color: TEXT }} />
+        </Link>
+        <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.88rem", color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {cleanArtistName(luminaire.artist)} — {luminaire.name}
+        </span>
+      </div>
+
+      {/* ── Actions desktop ──────────────────────────────────────────────────── */}
+      <div className="hidden md:flex items-center justify-between" style={{ padding: "28px 52px 0" }}>
+        <Link
+          href="/luminaires"
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: "0.62rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, textDecoration: "none" }}
+        >
+          <ArrowLeft size={11} /> Retour aux luminaires
+        </Link>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {canEdit && (
+            <DeleteLuminaireButton
+              luminaireId={String(luminaire._id)}
+              luminaireName={String(luminaire.name || "Luminaire")}
+              onDelete={() => handleDeleteLuminaire(String(luminaire._id))}
+            />
+          )}
+          {canSeeEstimation && (
+            <button
+              onClick={generatePDF}
+              disabled={generatingPDF}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: TEXT, background: "transparent", border: `1px solid ${LINE}`, padding: "9px 16px", cursor: "pointer" }}
+            >
+              <Download size={12} /> {generatingPDF ? "Génération…" : "Fiche PDF"}
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Desktop back button */}
-          <div className="hidden md:flex items-center justify-between mb-6">
-            <Link href="/luminaires">
-              <Button variant="outline" className="flex items-center gap-2 bg-white">
-                <ArrowLeft className="w-4 h-4" />
-                Retour
-              </Button>
-            </Link>
+      {/* ══════════════════════════════════════════════════════════════════════
+          HERO — Image + Informations
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div
+        className="flex flex-col md:flex-row pl-6 md:pl-[52px] pr-4 md:pr-[52px]"
+        style={{ paddingTop: 44, paddingBottom: 64 }}
+      >
 
-            <div className="flex items-center gap-4">
-              {canEdit && (
-                <DeleteLuminaireButton
-                  luminaireId={String(luminaire?._id)}
-                  luminaireName={String(luminaire?.name || "Luminaire")}
-                  onDelete={() => handleDeleteLuminaire(String(luminaire?._id))}
+        {/* ── Image ── */}
+        <div className="w-full md:w-[min(460px,48%)] flex-shrink-0 mb-8 md:mb-0">
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: "1 / 1", background: CREAM }}>
+            {imageUrl
+              ? <Image
+                  src={imageUrl}
+                  alt={String(luminaire.name || "Luminaire")}
+                  fill
+                  unoptimized
+                  style={{ objectFit: "contain" }}
+                  onError={(e) => { e.currentTarget.src = "/placeholder.svg" }}
                 />
-              )}
-              {(userData?.role === "admin" || userData?.role === "premium") && (
-                <Button
-                  onClick={generatePDF}
-                  className="bg-gray-900 text-white hover:bg-gray-800"
-                  disabled={generatingPDF}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  {generatingPDF ? "Génération..." : "PDF"}
-                </Button>
-              )}
-            </div>
+              : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 40, opacity: 0.18 }}>🏮</span>
+                </div>
+            }
+            {/* Bouton favori */}
+            <button
+              onClick={toggleFavorite}
+              style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}
+            >
+              <span style={{ color: isFavorite ? "#c0392b" : LINE }}>♥</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Informations ── */}
+        <div className="flex-1 md:pl-14">
+
+          {/* Tag */}
+          <p style={{ fontFamily: SANS, fontSize: "0.57rem", letterSpacing: "0.3em", textTransform: "uppercase", color: MUTED, marginBottom: 18, marginTop: 0 }}>
+            Collection Gersaint Paris
+          </p>
+
+          {/* Nom — display */}
+          <div style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "clamp(1.6rem, 3.5vw, 2.8rem)", color: TEXT, lineHeight: 1.08, marginBottom: 16 }}>
+            <EditableField value={luminaire.name || ""} onSave={(v) => handleUpdate("name", v)} disabled={!canEdit} className="font-normal" />
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
-            <div className="aspect-[4/3] max-w-2xl mx-auto relative bg-transparent flex items-center justify-center">
-              <button
-                onClick={toggleFavorite}
-                className="absolute top-6 right-6 z-10 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md hover:scale-110 transition-transform"
-              >
-                <span className={`text-xl ${isFavorite ? "text-red-500" : "text-gray-400"}`}>♥</span>
-              </button>
-
-              {luminaire.image ? (
-                <div className="relative w-full h-full">
-                  <Image
-                    src={luminaire.image || "/placeholder.svg"}
-                    alt={String(luminaire.name || "Luminaire")}
-                    fill
-                    className="object-contain"
-                    unoptimized
-                    onError={(e) => {
-                      e.currentTarget.src = "/placeholder.svg"
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-6xl text-gray-400 mb-2">🏮</div>
-                    <span className="text-sm text-gray-500 font-serif">Image non disponible</span>
-                  </div>
-                </div>
-              )}
+          {/* Année + filet */}
+          {luminaire.year && (
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
+              <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "1rem", color: MUTED, whiteSpace: "nowrap" }}>
+                {luminaire.year}
+              </span>
+              <div style={{ flex: 1, height: 1, background: LINE }} />
             </div>
+          )}
 
-            {/* Content section */}
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <EditableField
-                    value={luminaire.name || ""}
-                    onSave={(val) => handleUpdate("name", val)}
-                    className="text-2xl font-serif text-gray-900 mb-2"
-                    placeholder="Nom du luminaire"
-                    disabled={!canEdit}
-                  />
-                </div>
-
-                {/* MODIFICATION ICI : canSeeEstimation && (luminaire.estimation || canEdit) */}
-                {canSeeEstimation && (luminaire.estimation || canEdit) && (
-                  <div className="text-right">
-                    <div className="text-xs text-gray-500 mb-1">Estimation</div>
-                    <EditableField
-                      value={luminaire.estimation || ""}
-                      onSave={(val) => handleUpdate("estimation", val)}
-                      className="text-xl font-semibold text-gray-900"
-                      placeholder="Prix"
-                      disabled={!canEdit}
-                    />
-                  </div>
-                )}
+          {/* Lien designer */}
+          <Link href={`/designers/${encodeURIComponent(luminaire.artist)}`} style={{ textDecoration: "none", display: "block", marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${LINE}`, paddingBottom: 20, cursor: "pointer" }}>
+              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e5e0d6", overflow: "hidden", position: "relative", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {luminaire.designerImageFilename
+                  ? <Image src={`/api/images/filename/${luminaire.designerImageFilename}`} alt={cleanArtistName(luminaire.artist)} fill unoptimized style={{ objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none" }} />
+                  : <User size={18} style={{ color: "#b8ad9e" }} />
+                }
               </div>
-
-              {/* Designer section - unchanged */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6 flex items-center justify-between hover:bg-gray-100 transition-colors cursor-pointer">
-                <Link
-                  href={`/designers/${encodeURIComponent(luminaire.artist)}`}
-                  className="flex items-center gap-3 flex-1"
-                >
-                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
-                    {luminaire.designerImageFilename ? (
-                      <Image
-                        src={`/api/images/filename/${luminaire.designerImageFilename}`}
-                        alt={luminaire.artist}
-                        width={48}
-                        height={48}
-                        className="object-cover w-full h-full"
-                        unoptimized
-                        onError={(e) => {
-                          console.error("[v0] Failed to load designer image:", luminaire.designerImageFilename)
-                          const target = e.currentTarget
-                          target.style.display = "none"
-                          const parent = target.parentElement
-                          if (parent) {
-                            parent.innerHTML =
-                              '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="lucide lucide-user w-6 h-6 text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
-                          }
-                        }}
-                      />
-                    ) : (
-                      <User className="w-6 h-6 text-gray-400" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-gray-900">{luminaire.artist}</div>
-                    <p className="text-sm text-gray-600">Designer</p>
-                  </div>
-                </Link>
-                <ArrowRight className="w-5 h-5 text-gray-400" />
+              <div style={{ flex: 1 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.54rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, margin: "0 0 3px" }}>Designer</p>
+                <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.92rem", color: TEXT, margin: 0 }}>
+                  {cleanArtistName(luminaire.artist)}
+                </p>
               </div>
-
-              {/* Description visible for all, editable only for admin */}
-              {(luminaire.description || canEdit) && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Description</h3>
-                  <EditableField
-                    value={luminaire.description || ""}
-                    onSave={(val) => handleUpdate("description", val)}
-                    multiline
-                    className="text-sm text-gray-700 leading-relaxed"
-                    placeholder={canEdit ? "Ajouter une description..." : "—"}
-                    disabled={!canEdit}
-                  />
-                </div>
-              )}
-
-              <div className="border-t border-gray-100 pt-4">
-                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-y-2 gap-x-8 mb-4 text-sm">
-                  {((luminaire.editeur && luminaire.editeur.trim()) || canEdit) && (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-gray-500 min-w-[70px] sm:min-w-0">Éditeur</span>
-                      <EditableField
-                        value={luminaire.editeur || ""}
-                        onSave={(value) => handleUpdate("editeur", value)}
-                        className="text-gray-900 font-medium"
-                        placeholder="—"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  )}
-
-                  {((luminaire.year && luminaire.year.trim()) || canEdit) && (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-gray-500 min-w-[70px] sm:min-w-0">Année</span>
-                      <EditableField
-                        value={luminaire.year || ""}
-                        onSave={(value) => handleUpdate("year", value)}
-                        className="text-gray-900 font-medium"
-                        placeholder="—"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  )}
-
-                  {((luminaire.signed && luminaire.signed.trim()) || canEdit) && (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-gray-500 min-w-[70px] sm:min-w-0">Signé</span>
-                      <EditableField
-                        value={luminaire.signed || ""}
-                        onSave={(value) => handleUpdate("signed", value)}
-                        className="text-gray-900 font-medium"
-                        placeholder="—"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-y-2 gap-x-8 mb-4 text-sm">
-                  {((luminaire.categorie && luminaire.categorie.trim()) || canEdit) && (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-gray-500 min-w-[70px] sm:min-w-0">Catégorie</span>
-                      <EditableField
-                        value={luminaire.categorie || ""}
-                        onSave={(value) => handleUpdate("categorie", value)}
-                        className="text-gray-900 font-medium"
-                        placeholder="—"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  )}
-
-                  {((luminaire.materials && luminaire.materials.trim()) || canEdit) && (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-gray-500 min-w-[70px] sm:min-w-0">Matériaux</span>
-                      <EditableField
-                        value={luminaire.materials || ""}
-                        onSave={(value) => handleUpdate("materials", value)}
-                        className="text-gray-900 font-medium"
-                        placeholder="—"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  )}
-
-                  {((luminaire.dimensions && luminaire.dimensions.trim()) || canEdit) && (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-gray-500 min-w-[70px] sm:min-w-0">Dimensions</span>
-                      <EditableField
-                        value={luminaire.dimensions || ""}
-                        onSave={(value) => handleUpdate("dimensions", value)}
-                        className="text-gray-900 font-medium"
-                        placeholder="—"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {((luminaire.lienSiteMarchand && luminaire.lienSiteMarchand.trim()) || canEdit) && (
-                  <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 mb-3 text-sm">
-                    <span className="text-gray-500 shrink-0 min-w-[70px] sm:min-w-0">Lien marchand</span>
-                    <EditableField
-                      value={luminaire.lienSiteMarchand || ""}
-                      onSave={(value) => handleUpdate("lienSiteMarchand", value)}
-                      className="text-[#8b7355] hover:underline break-all"
-                      placeholder="—"
-                      disabled={!canEdit}
-                    />
-                  </div>
-                )}
-
-                {((luminaire.bibliographie && luminaire.bibliographie.trim()) || canEdit) && (
-                  <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 mb-3 text-sm">
-                    <span className="text-gray-500 shrink-0 min-w-[70px] sm:min-w-0">Bibliographie</span>
-                    <EditableField
-                      value={luminaire.bibliographie || ""}
-                      onSave={(value) => handleUpdate("bibliographie", value)}
-                      className="text-gray-900"
-                      placeholder="—"
-                      disabled={!canEdit}
-                    />
-                  </div>
-                )}
-
-                {canEdit && (
-                  <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 mb-3 text-sm">
-                    <span className="text-gray-500 shrink-0 min-w-[70px] sm:min-w-0">Étiquette</span>
-                    <EditableField
-                      value={luminaire.etiquette || ""}
-                      onSave={(value) => handleUpdate("etiquette", value)}
-                      className="text-gray-900"
-                      placeholder="—"
-                      disabled={!canEdit}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {(userData?.role === "admin" || userData?.role === "premium") && (
-                <button
-                  onClick={generatePDF}
-                  disabled={generatingPDF}
-                  className="w-full mt-6 flex items-center justify-center gap-2 px-6 py-3 bg-[#8b7355] text-white rounded-lg hover:bg-[#75614a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className="w-5 h-5" />
-                  {generatingPDF ? "Génération..." : "Télécharger PDF"}
-                </button>
-              )}
+              <ArrowRight size={14} style={{ color: MUTED, flexShrink: 0 }} />
             </div>
-          </div>
+          </Link>
 
-          {/* Similar luminaires section */}
-          {similarLuminaires.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 mt-8">
-              <h2 className="text-xl font-serif font-medium text-gray-900 mb-6">
-                Plus de {luminaire.artist?.split("(")[0]?.trim()}
-              </h2>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {similarLuminaires.slice(0, 4).map((similar) => (
-                  <Link key={similar._id} href={`/luminaires/${similar._id}`} className="block">
-                    <div className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
-                      <div className="aspect-square relative bg-gray-100 overflow-hidden">
-                        {similar.filename ? (
-                          <Image
-                            src={`/api/images/filename/${similar.filename}`}
-                            alt={similar["Nom luminaire"] || "Luminaire"}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            <div className="text-4xl">🏮</div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <h3 className="font-serif text-sm font-medium text-gray-900 mb-1 line-clamp-2">
-                          {similar["Nom luminaire"] || "Sans nom"}
-                        </h3>
-                        <p className="text-xs text-gray-600">{similar.year || "Année inconnue"}</p>
-                      </div>
+          {/* ── Fiche Technique ── */}
+          {visibleSpecs.length > 0 && (
+            <div style={{ marginBottom: 28 }}>
+              <p style={{ fontFamily: SANS, fontSize: "0.64rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 18, marginTop: 0 }}>
+                Fiche Technique
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 36px" }}>
+                {visibleSpecs.map(({ label, value, field }) => (
+                  <div key={field}>
+                    <p style={{ fontFamily: SANS, fontSize: "0.54rem", letterSpacing: "0.18em", textTransform: "uppercase", color: MUTED, margin: "0 0 5px", fontWeight: 600 }}>
+                      {label}
+                    </p>
+                    <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.88rem", color: TEXT, fontWeight: 400 }}>
+                      <EditableField value={String(value || "")} onSave={(v) => handleUpdate(field, v)} disabled={!canEdit} className="font-normal" />
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             </div>
           )}
+
+          {/* ── Estimation — admin/premium ── */}
+          {canSeeEstimation && (luminaire.estimation || canEdit) && (
+            <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 18, marginBottom: 28, display: "flex", alignItems: "baseline", gap: 20 }}>
+              <p style={{ fontFamily: SANS, fontSize: "0.64rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, margin: 0, flexShrink: 0 }}>
+                Estimation
+              </p>
+              <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "1.3rem", color: TEXT, fontWeight: 600 }}>
+                <EditableField value={luminaire.estimation || ""} onSave={(v) => handleUpdate("estimation", v)} disabled={!canEdit} className="font-semibold" placeholder="—" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Description ── */}
+          {(luminaire.description || canEdit) && (
+            <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 18, marginBottom: 24 }}>
+              <p style={{ fontFamily: SANS, fontSize: "0.64rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 12, marginTop: 0 }}>
+                Description
+              </p>
+              <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.88rem", color: TEXT, lineHeight: 1.78, fontWeight: 400 }}>
+                <EditableField value={luminaire.description || ""} onSave={(v) => handleUpdate("description", v)} multiline disabled={!canEdit} className="font-normal" placeholder={canEdit ? "Ajouter une description…" : "—"} />
+              </div>
+            </div>
+          )}
+
+          {/* ── Bibliographie ── */}
+          {(luminaire.bibliographie || canEdit) && (
+            <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 16, marginBottom: 16 }}>
+              <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 8, marginTop: 0 }}>
+                Bibliographie
+              </p>
+              <div style={{ fontFamily: SANS, fontSize: "0.82rem", color: MUTED, lineHeight: 1.6 }}>
+                <EditableField value={luminaire.bibliographie || ""} onSave={(v) => handleUpdate("bibliographie", v)} multiline disabled={!canEdit} className="font-normal" placeholder="—" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Lien marchand ── */}
+          {(luminaire.lienSiteMarchand || canEdit) && (
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 6, marginTop: 0 }}>
+                Lien marchand
+              </p>
+              <div style={{ fontFamily: SANS, fontSize: "0.82rem", color: BROWN }}>
+                <EditableField value={luminaire.lienSiteMarchand || ""} onSave={(v) => handleUpdate("lienSiteMarchand", v)} disabled={!canEdit} className="font-normal" placeholder="—" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Étiquette (admin) ── */}
+          {canEdit && (
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 6, marginTop: 0 }}>
+                Étiquette
+              </p>
+              <div style={{ fontFamily: SANS, fontSize: "0.82rem", color: TEXT }}>
+                <EditableField value={luminaire.etiquette || ""} onSave={(v) => handleUpdate("etiquette", v)} disabled={!canEdit} className="font-normal" placeholder="—" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Actions mobiles ── */}
+          <div className="md:hidden" style={{ borderTop: `1px solid ${LINE}`, paddingTop: 20, marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {canEdit && (
+              <DeleteLuminaireButton
+                luminaireId={String(luminaire._id)}
+                luminaireName={String(luminaire.name || "Luminaire")}
+                onDelete={() => handleDeleteLuminaire(String(luminaire._id))}
+              />
+            )}
+            {canSeeEstimation && (
+              <button
+                onClick={generatePDF}
+                disabled={generatingPDF}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: TEXT, background: "transparent", border: `1px solid ${LINE}`, padding: "10px 18px", cursor: "pointer" }}
+              >
+                <Download size={12} /> {generatingPDF ? "Génération…" : "Fiche PDF"}
+              </button>
+            )}
+          </div>
+
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ŒUVRES SIMILAIRES
+      ══════════════════════════════════════════════════════════════════════ */}
+      {similarLuminaires.length > 0 && (
+        <div className="pl-6 md:pl-[52px] pr-4 md:pr-[52px]" style={{ paddingBottom: 80 }}>
+          <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 36, marginBottom: 36 }}>
+            <h2 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "clamp(1.4rem, 3vw, 2rem)", color: TEXT, margin: "0 0 6px" }}>
+              Œuvres similaires
+            </h2>
+            <p style={{ fontFamily: SANS, fontStyle: "italic", fontSize: "0.73rem", color: MUTED, margin: 0 }}>
+              Du même atelier ou de la même période
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5" style={{ gap: "clamp(10px, 2vw, 14px)" }}>
+            {similarLuminaires.slice(0, 5).map((similar) => {
+              const simUrl = similar.image || (similar.filename ? `/api/images/filename/${similar.filename}` : null)
+              return (
+                <Link
+                  key={similar._id}
+                  href={`/luminaires/${similar._id}`}
+                  className="group block"
+                  style={{ textDecoration: "none" }}
+                >
+                  <div className="relative overflow-hidden" style={{ aspectRatio: "1 / 1", background: "#2a2018", marginBottom: 12 }}>
+                    {simUrl
+                      ? <Image src={simUrl} alt={similar.name} fill unoptimized style={{ objectFit: "cover", transition: "transform 0.5s ease" }} className="group-hover:scale-[1.04]" onError={(e) => { e.currentTarget.src = "/placeholder.svg" }} />
+                      : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 24, opacity: 0.2 }}>🏮</span></div>
+                    }
+                  </div>
+                  {similar.year && (
+                    <p style={{ fontFamily: SANS, fontSize: "0.53rem", letterSpacing: "0.18em", textTransform: "uppercase", color: MUTED, margin: "0 0 4px" }}>
+                      {/^\d{4}$/.test(String(similar.year)) ? `Circa ${similar.year}` : similar.year}
+                    </p>
+                  )}
+                  <h3 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "clamp(0.74rem, 1vw, 0.86rem)", color: TEXT, margin: "0 0 3px", lineHeight: 1.25 }}>
+                    {similar.name}
+                  </h3>
+                  {similar.artist && (
+                    <p style={{ fontFamily: SANS, fontStyle: "italic", fontSize: "0.58rem", color: MUTED, margin: 0 }}>
+                      {cleanArtistName(String(similar.artist))}
+                    </p>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <MobileFooter />
     </div>
   )
