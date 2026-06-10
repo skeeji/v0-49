@@ -397,7 +397,7 @@ export default function DesignerDetailPage() {
           {/* Dates + filet horizontal */}
           {yearsStr && (
             <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 44 }}>
-              <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "1rem", color: MUTED, whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "clamp(1.2rem, 2.5vw, 1.7rem)", color: MUTED, whiteSpace: "nowrap" }}>
                 {yearsStr}
               </span>
               <div style={{ flex: 1, height: 1, background: LINE }} />
@@ -407,18 +407,18 @@ export default function DesignerDetailPage() {
           {/* Biographie + Collaborations */}
           <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 40, alignItems: "start" }}>
 
-            {description && description.length > 60 && (
+            {description && (
               <div>
                 <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.26em", textTransform: "uppercase", color: MUTED, marginBottom: 14, marginTop: 0 }}>
                   Biographie
                 </p>
-                <div style={{ fontFamily: SANS, fontSize: "0.82rem", color: TEXT, lineHeight: 1.75, fontWeight: 400 }}>
+                <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: TEXT, lineHeight: 1.75, fontWeight: 600 }}>
                   <EditableField
                     value={description}
                     onSave={updateDesignerSpecialty}
                     multiline
                     disabled={!canEdit}
-                    className="font-normal"
+                    className="font-semibold"
                   />
                 </div>
               </div>
@@ -430,7 +430,7 @@ export default function DesignerDetailPage() {
                   Collaborations
                 </p>
                 {collabItems.map((item, i) => (
-                  <div key={i} style={{ borderBottom: `1px solid ${LINE}`, padding: "12px 0", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "0.88rem", color: TEXT, lineHeight: 1.3 }}>
+                  <div key={i} style={{ borderBottom: `1px solid ${LINE}`, padding: "12px 0", fontFamily: SERIF, fontStyle: "italic", fontWeight: 600, fontSize: "0.88rem", color: TEXT, lineHeight: 1.3 }}>
                     {item}
                   </div>
                 ))}
@@ -465,7 +465,7 @@ export default function DesignerDetailPage() {
         </div>
 
         {designerLuminaires.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: "clamp(10px, 2vw, 16px)", maxWidth: 860 }}>
+          <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: "clamp(10px, 2vw, 16px)" }}>
             {designerLuminaires.map((luminaire) => (
               <Link
                 key={luminaire.id}
