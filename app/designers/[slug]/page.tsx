@@ -322,12 +322,6 @@ export default function DesignerDetailPage() {
   return (
     <div style={{ background: CREAM, minHeight: "100vh" }}>
 
-      {/* ── En-tête mobile ─────────────────────────────────────────────────── */}
-      <div className="md:hidden" style={{ borderBottom: `1px solid ${LINE}`, padding: "14px 16px 14px 16px", display: "flex", alignItems: "center" }}>
-        <Link href="/designers" style={{ display: "flex", alignItems: "center" }}>
-          <ArrowLeft size={16} style={{ color: TEXT }} />
-        </Link>
-      </div>
 
       {/* ── Lien retour desktop ──────────────────────────────────────────────── */}
       <div className="hidden md:block" style={{ padding: "28px 52px 0" }}>

@@ -622,7 +622,7 @@ export default function RecherchePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f1e8] pb-20">
+    <div className="min-h-screen bg-[#f5f1e8] pb-20 md:pb-0">
       {user && userData && userData.role !== "premium" && userData.role !== "admin" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <Card className="max-w-md mx-4 p-8 text-center">
@@ -749,7 +749,7 @@ export default function RecherchePage() {
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto p-3 md:p-6">
               {!currentConversation && !isSearching && (
-                <div className="text-center mt-4 md:mt-12">
+                <div className="text-center mt-4 md:mt-6">
                   <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
                     <ImageIcon className="w-6 h-6 md:w-8 md:h-8" style={{ color: "#8b7355" }} />
                   </div>
