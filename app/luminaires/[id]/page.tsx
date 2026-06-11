@@ -684,15 +684,15 @@ export default function LuminaireDetailPage() {
           )}
 
           {/* ── Actions mobiles ── */}
-          <div className="md:hidden" style={{ paddingTop: 20, marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {canEdit && (
+          {canEdit && (
+            <div className="md:hidden" style={{ paddingTop: 20, marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap" }}>
               <DeleteLuminaireButton
                 luminaireId={String(luminaire._id)}
                 luminaireName={String(luminaire.name || "Luminaire")}
                 onDelete={() => handleDeleteLuminaire(String(luminaire._id))}
               />
-            )}
-          </div>
+            </div>
+          )}
 
         </div>
       </div>
@@ -702,8 +702,7 @@ export default function LuminaireDetailPage() {
       ══════════════════════════════════════════════════════════════════════ */}
       {(luminaire.description || canEdit || visibleSpecs.length > 0 || luminaire.bibliographie) && (
         <div
-          className="flex flex-col md:flex-row pl-6 md:pl-[52px] pr-4 md:pr-[52px]"
-          style={{ paddingTop: 48, paddingBottom: 64 }}
+          className="flex flex-col md:flex-row pl-6 md:pl-[52px] pr-4 md:pr-[52px] pt-8 md:pt-12 pb-16"
         >
 
           {/* ── Colonne gauche : Description + Bibliographie ── */}
@@ -711,10 +710,10 @@ export default function LuminaireDetailPage() {
 
             {(luminaire.description || canEdit) && (
               <div style={{ marginBottom: 36 }}>
-                <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 14, marginTop: 0 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 14, marginTop: 0 }}>
                   Description
                 </p>
-                <div style={{ fontFamily: SERIF, fontSize: "0.92rem", color: TEXT, lineHeight: 1.9, fontWeight: 400 }}>
+                <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: TEXT, lineHeight: 1.9, fontWeight: 400 }}>
                   <EditableField value={luminaire.description || ""} onSave={(v) => handleUpdate("description", v)} multiline disabled={!canEdit} className="font-normal" placeholder={canEdit ? "Ajouter une description…" : "—"} />
                 </div>
               </div>
@@ -722,10 +721,10 @@ export default function LuminaireDetailPage() {
 
             {(luminaire.bibliographie || canEdit) && (
               <div>
-                <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 10, marginTop: 0 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.68rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 10, marginTop: 0 }}>
                   Bibliographie
                 </p>
-                <div style={{ fontFamily: SANS, fontSize: "0.84rem", color: MUTED, lineHeight: 1.7 }}>
+                <div style={{ fontFamily: SANS, fontSize: "0.88rem", color: MUTED, lineHeight: 1.7 }}>
                   <EditableField value={luminaire.bibliographie || ""} onSave={(v) => handleUpdate("bibliographie", v)} multiline disabled={!canEdit} className="font-normal" placeholder="—" />
                 </div>
               </div>
