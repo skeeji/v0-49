@@ -559,7 +559,7 @@ export default function LuminaireDetailPage() {
     <div style={{ background: CREAM, minHeight: "100vh" }}>
 
       {/* ── En-tête mobile ─────────────────────────────────────────────────── */}
-      <div className="md:hidden" style={{ borderBottom: `1px solid ${LINE}`, padding: "14px 16px 14px 52px", display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+      <div className="md:hidden" style={{ padding: "14px 16px 14px 52px", display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
         <Link href="/luminaires" style={{ display: "flex", flexShrink: 0 }}>
           <ArrowLeft size={16} style={{ color: TEXT }} />
         </Link>
@@ -645,8 +645,8 @@ export default function LuminaireDetailPage() {
           )}
 
           {/* Lien designer */}
-          <Link href={`/designers/${encodeURIComponent(luminaire.artist)}`} style={{ textDecoration: "none", display: "block", marginBottom: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${LINE}`, paddingBottom: 20, cursor: "pointer" }}>
+          <Link href={`/designers/${encodeURIComponent(luminaire.artist)}`} style={{ textDecoration: "none", display: "block", marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
               <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e5e0d6", overflow: "hidden", position: "relative", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {luminaire.designerImageFilename
                   ? <Image src={`/api/images/filename/${luminaire.designerImageFilename}`} alt={cleanArtistName(luminaire.artist)} fill unoptimized style={{ objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none" }} />
@@ -665,7 +665,7 @@ export default function LuminaireDetailPage() {
 
           {/* ── Estimation + Fiche PDF ── */}
           {canSeeEstimation && (
-            <div style={{ borderBottom: `1px solid ${LINE}`, paddingTop: 18, paddingBottom: 18, marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ paddingTop: 4, marginBottom: 36, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
                 <p style={{ fontFamily: SANS, fontSize: "0.64rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, margin: 0, flexShrink: 0 }}>
                   Estimation
@@ -681,27 +681,6 @@ export default function LuminaireDetailPage() {
               >
                 <Download size={12} /> {generatingPDF ? "Génération…" : "Fiche PDF"}
               </button>
-            </div>
-          )}
-
-          {/* ── Information Technique ── */}
-          {visibleSpecs.length > 0 && (
-            <div style={{ marginBottom: 28 }}>
-              <p style={{ fontFamily: SANS, fontSize: "0.64rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 18, marginTop: 0 }}>
-                Information Technique
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 36px" }}>
-                {visibleSpecs.map(({ label, value, field }) => (
-                  <div key={field}>
-                    <p style={{ fontFamily: SANS, fontSize: "0.54rem", letterSpacing: "0.18em", textTransform: "uppercase", color: MUTED, margin: "0 0 5px", fontWeight: 600 }}>
-                      {label}
-                    </p>
-                    <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: TEXT, fontWeight: 400 }}>
-                      <EditableField value={String(value || "")} onSave={(v) => handleUpdate(field, v)} disabled={!canEdit} className="font-normal" />
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
@@ -730,7 +709,7 @@ export default function LuminaireDetailPage() {
           )}
 
           {/* ── Actions mobiles ── */}
-          <div className="md:hidden" style={{ borderTop: `1px solid ${LINE}`, paddingTop: 20, marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="md:hidden" style={{ paddingTop: 20, marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap" }}>
             {canEdit && (
               <DeleteLuminaireButton
                 luminaireId={String(luminaire._id)}
@@ -743,17 +722,24 @@ export default function LuminaireDetailPage() {
         </div>
       </div>
 
-      {/* ── Description + Bibliographie (en dessous de l'image) ── */}
-      {((luminaire.description || canEdit) || (luminaire.bibliographie || canEdit)) && (
-        <div className="pl-6 md:pl-[52px] pr-4 md:pr-[52px]" style={{ paddingTop: 0, paddingBottom: 64 }}>
-          <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 36 }}>
+      {/* ══════════════════════════════════════════════════════════════════════
+          Description (gauche) + Information Technique (droite, alignés)
+      ══════════════════════════════════════════════════════════════════════ */}
+      {(luminaire.description || canEdit || visibleSpecs.length > 0 || luminaire.bibliographie) && (
+        <div
+          className="flex flex-col md:flex-row pl-6 md:pl-[52px] pr-4 md:pr-[52px]"
+          style={{ paddingTop: 48, paddingBottom: 64 }}
+        >
+
+          {/* ── Colonne gauche : Description + Bibliographie ── */}
+          <div className="w-full md:w-[min(460px,48%)] flex-shrink-0 mb-10 md:mb-0">
 
             {(luminaire.description || canEdit) && (
               <div style={{ marginBottom: 36 }}>
-                <p style={{ fontFamily: SANS, fontSize: "0.64rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 16, marginTop: 0 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 14, marginTop: 0 }}>
                   Description
                 </p>
-                <div style={{ fontFamily: SERIF, fontSize: "0.92rem", color: TEXT, lineHeight: 1.9, fontWeight: 400, maxWidth: "72ch" }}>
+                <div style={{ fontFamily: SERIF, fontSize: "0.92rem", color: TEXT, lineHeight: 1.9, fontWeight: 400 }}>
                   <EditableField value={luminaire.description || ""} onSave={(v) => handleUpdate("description", v)} multiline disabled={!canEdit} className="font-normal" placeholder={canEdit ? "Ajouter une description…" : "—"} />
                 </div>
               </div>
@@ -764,13 +750,37 @@ export default function LuminaireDetailPage() {
                 <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 10, marginTop: 0 }}>
                   Bibliographie
                 </p>
-                <div style={{ fontFamily: SANS, fontSize: "0.84rem", color: MUTED, lineHeight: 1.7, maxWidth: "72ch" }}>
+                <div style={{ fontFamily: SANS, fontSize: "0.84rem", color: MUTED, lineHeight: 1.7 }}>
                   <EditableField value={luminaire.bibliographie || ""} onSave={(v) => handleUpdate("bibliographie", v)} multiline disabled={!canEdit} className="font-normal" placeholder="—" />
                 </div>
               </div>
             )}
 
           </div>
+
+          {/* ── Colonne droite : Information Technique ── */}
+          {visibleSpecs.length > 0 && (
+            <div className="flex-1 md:pl-14">
+              <div style={{ border: `1px solid rgba(216, 208, 192, 0.55)`, padding: "22px 24px", background: "rgba(216, 208, 192, 0.1)" }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 18, marginTop: 0 }}>
+                  Information Technique
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 32px" }}>
+                  {visibleSpecs.map(({ label, value, field }) => (
+                    <div key={field}>
+                      <p style={{ fontFamily: SANS, fontSize: "0.54rem", letterSpacing: "0.18em", textTransform: "uppercase", color: MUTED, margin: "0 0 5px", fontWeight: 600 }}>
+                        {label}
+                      </p>
+                      <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: TEXT, fontWeight: 400 }}>
+                        <EditableField value={String(value || "")} onSave={(v) => handleUpdate(field, v)} disabled={!canEdit} className="font-normal" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
@@ -779,7 +789,7 @@ export default function LuminaireDetailPage() {
       ══════════════════════════════════════════════════════════════════════ */}
       {similarLuminaires.length > 0 && (
         <div className="pl-6 md:pl-[52px] pr-4 md:pr-[52px]" style={{ paddingBottom: 80 }}>
-          <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 36, marginBottom: 36 }}>
+          <div style={{ paddingTop: 16, marginBottom: 36 }}>
             <h2 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(1.4rem, 3vw, 2rem)", color: TEXT, margin: "0 0 6px" }}>
               Œuvres similaires
             </h2>
