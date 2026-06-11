@@ -573,7 +573,7 @@ export default function LuminaireDetailPage() {
       >
 
         {/* ── Image ── */}
-        <div className="w-full md:w-[min(460px,48%)] flex-shrink-0 mb-8 md:mb-0">
+        <div className="w-full md:w-[min(460px,48%)] flex-shrink-0 mb-8 md:mb-0" style={{ position: "relative" }}>
           <div className="relative w-full overflow-hidden" style={{ aspectRatio: "1 / 1", background: CREAM }}>
             {imageUrl
               ? <Image
@@ -589,14 +589,12 @@ export default function LuminaireDetailPage() {
                 </div>
             }
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 10 }}>
-            <button
-              onClick={toggleFavorite}
-              style={{ width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}
-            >
-              <span style={{ color: isFavorite ? "#c0392b" : LINE }}>♥</span>
-            </button>
-          </div>
+          <button
+            onClick={toggleFavorite}
+            style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}
+          >
+            <span style={{ color: isFavorite ? "#c0392b" : LINE }}>♥</span>
+          </button>
         </div>
 
         {/* ── Informations ── */}
@@ -748,7 +746,7 @@ export default function LuminaireDetailPage() {
                       <p style={{ fontFamily: SANS, fontSize: "0.64rem", letterSpacing: "0.16em", textTransform: "uppercase", color: TEXT, margin: "0 0 6px", fontWeight: 700 }}>
                         {label}
                       </p>
-                      <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "1rem", color: TEXT, fontWeight: 500, letterSpacing: "0.01em" }}>
+                      <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "0.85rem", color: BROWN, fontWeight: 500, letterSpacing: "0.01em" }}>
                         <EditableField value={String(value || "")} onSave={(v) => handleUpdate(field, v)} disabled={!canEdit} className="font-normal" />
                       </div>
                     </div>
