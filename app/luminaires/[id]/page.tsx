@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Download, User, ArrowRight } from "lucide-react"
+import { ArrowLeft, User, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { useAuth } from "@/contexts/AuthContext"
@@ -564,7 +564,7 @@ export default function LuminaireDetailPage() {
           <ArrowLeft size={16} style={{ color: TEXT }} />
         </Link>
         <span style={{ fontFamily: SERIF, fontSize: "0.88rem", color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {cleanArtistName(luminaire.artist)} — {luminaire.name}
+          {cleanArtistName(luminaire.artist)} — {luminaire.name || "Luminaire sans titre"}
         </span>
       </div>
 
@@ -611,13 +611,6 @@ export default function LuminaireDetailPage() {
                   <span style={{ fontSize: 40, opacity: 0.18 }}>🏮</span>
                 </div>
             }
-            {/* Bouton favori */}
-            <button
-              onClick={toggleFavorite}
-              style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}
-            >
-              <span style={{ color: isFavorite ? "#c0392b" : LINE }}>♥</span>
-            </button>
           </div>
         </div>
 
@@ -629,15 +622,29 @@ export default function LuminaireDetailPage() {
             Collection Gersaint Paris
           </p>
 
-          {/* Nom */}
-          <div style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(1.6rem, 3.5vw, 2.8rem)", color: TEXT, lineHeight: 1.08, marginBottom: 16 }}>
-            <EditableField value={luminaire.name || ""} onSave={(v) => handleUpdate("name", v)} disabled={!canEdit} className="font-normal" />
+          {/* Nom + Favori */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+            <div style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(1.6rem, 3.5vw, 2.8rem)", color: TEXT, lineHeight: 1.08, flex: 1 }}>
+              {!canEdit && !luminaire.name
+                ? <span>Luminaire sans titre</span>
+                : <EditableField value={luminaire.name || ""} onSave={(v) => handleUpdate("name", v)} disabled={!canEdit} className="font-normal" />
+              }
+            </div>
+            <button
+              onClick={toggleFavorite}
+              style={{ marginTop: 6, width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, flexShrink: 0 }}
+            >
+              <span style={{ color: isFavorite ? "#c0392b" : LINE }}>♥</span>
+            </button>
           </div>
+
+          {/* Séparateur coloré */}
+          <div style={{ width: 44, height: 2, background: BROWN, marginBottom: 20 }} />
 
           {/* Année + filet */}
           {luminaire.year && (
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
-              <span style={{ fontFamily: SERIF, fontSize: "1rem", color: MUTED, whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: SERIF, fontSize: "1.35rem", color: TEXT, whiteSpace: "nowrap", fontWeight: 500 }}>
                 {luminaire.year}
               </span>
               <div style={{ flex: 1, height: 1, background: LINE }} />
@@ -655,7 +662,7 @@ export default function LuminaireDetailPage() {
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ fontFamily: SANS, fontSize: "0.54rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, margin: "0 0 3px" }}>Designer</p>
-                <p style={{ fontFamily: SERIF, fontSize: "0.92rem", color: TEXT, margin: 0 }}>
+                <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: TEXT, margin: 0, fontWeight: 500 }}>
                   {cleanArtistName(luminaire.artist)}
                 </p>
               </div>
@@ -677,9 +684,9 @@ export default function LuminaireDetailPage() {
               <button
                 onClick={generatePDF}
                 disabled={generatingPDF}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: TEXT, background: "transparent", border: `1px solid ${LINE}`, padding: "9px 16px", cursor: "pointer", flexShrink: 0 }}
+                style={{ display: "inline-flex", alignItems: "center", fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: CREAM, background: TEXT, border: "none", padding: "9px 18px", cursor: "pointer", flexShrink: 0, opacity: generatingPDF ? 0.7 : 1 }}
               >
-                <Download size={12} /> {generatingPDF ? "Génération…" : "Fiche PDF"}
+                {generatingPDF ? "Génération…" : "Fiche PDF"}
               </button>
             </div>
           )}
@@ -768,7 +775,7 @@ export default function LuminaireDetailPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 32px" }}>
                   {visibleSpecs.map(({ label, value, field }) => (
                     <div key={field}>
-                      <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.16em", textTransform: "uppercase", color: MUTED, margin: "0 0 6px", fontWeight: 600 }}>
+                      <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.16em", textTransform: "uppercase", color: TEXT, margin: "0 0 6px", fontWeight: 700 }}>
                         {label}
                       </p>
                       <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "0.95rem", color: TEXT, fontWeight: 500, letterSpacing: "0.01em" }}>
@@ -815,15 +822,15 @@ export default function LuminaireDetailPage() {
                     }
                   </div>
                   {similar.year && (
-                    <p style={{ fontFamily: SANS, fontSize: "0.53rem", letterSpacing: "0.18em", textTransform: "uppercase", color: MUTED, margin: "0 0 4px" }}>
+                    <p style={{ fontFamily: SANS, fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: TEXT, margin: "0 0 4px" }}>
                       {/^\d{4}$/.test(String(similar.year)) ? `Circa ${similar.year}` : similar.year}
                     </p>
                   )}
-                  <h3 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(0.74rem, 1vw, 0.86rem)", color: TEXT, margin: "0 0 3px", lineHeight: 1.25 }}>
+                  <h3 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(0.85rem, 1.1vw, 0.95rem)", color: TEXT, margin: "0 0 3px", lineHeight: 1.25 }}>
                     {similar.name}
                   </h3>
                   {similar.artist && (
-                    <p style={{ fontFamily: SANS, fontSize: "0.58rem", color: MUTED, margin: 0 }}>
+                    <p style={{ fontFamily: SANS, fontSize: "0.73rem", color: MUTED, margin: 0 }}>
                       {cleanArtistName(String(similar.artist))}
                     </p>
                   )}
