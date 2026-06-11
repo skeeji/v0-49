@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, User, ArrowRight } from "lucide-react"
+import { ArrowLeft, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EditableField } from "@/components/EditableField"
 import { useAuth } from "@/contexts/AuthContext"
@@ -27,16 +27,12 @@ export default function LuminaireDetailPage() {
   useEffect(() => {
     if (!params.id) return
 
-    async function fetchLuminaireData() {
+    async function fetchLuminaire() {
       setIsLoading(true)
       try {
-        console.log("🔍 Chargement luminaire ID:", params.id)
-
         const response = await fetch(`/api/luminaires/${params.id}`)
         if (!response.ok) throw new Error("Luminaire non trouvé")
-
         const result = await response.json()
-        console.log("📊 Réponse API luminaire:", result)
 
         if (result.success) {
           const formattedLuminaire = {
@@ -55,41 +51,26 @@ export default function LuminaireDetailPage() {
             designerImageFilename: result.data.designerImageFilename || result.data["Image du designer"] || "",
 
             specialty: (() => {
-              if (result.data.periode && String(result.data.periode).trim() !== "") {
-                return result.data.periode
-              }
-              if (result.data["Spécialité"] && String(result.data["Spécialité"]).trim() !== "") {
-                return result.data["Spécialité"]
-              }
+              if (result.data.periode && String(result.data.periode).trim() !== "") return result.data.periode
+              if (result.data["Spécialité"] && String(result.data["Spécialité"]).trim() !== "") return result.data["Spécialité"]
               return ""
             })(),
 
             collaboration: (() => {
-              if (result.data.collaboration && String(result.data.collaboration).trim() !== "") {
-                return result.data.collaboration
-              }
-              if (result.data["Collaboration / Œuvre"] && String(result.data["Collaboration / Œuvre"]).trim() !== "") {
-                return result.data["Collaboration / Œuvre"]
-              }
+              if (result.data.collaboration && String(result.data.collaboration).trim() !== "") return result.data.collaboration
+              if (result.data["Collaboration / Œuvre"] && String(result.data["Collaboration / Œuvre"]).trim() !== "") return result.data["Collaboration / Œuvre"]
               return ""
             })(),
 
             materials: (() => {
-              if (Array.isArray(result.data.materiaux) && result.data.materiaux.length > 0) {
-                return result.data.materiaux.join(", ")
-              }
-              if (result.data.Matériaux && String(result.data.Matériaux).trim() !== "") {
-                return result.data.Matériaux
-              }
+              if (Array.isArray(result.data.materiaux) && result.data.materiaux.length > 0) return result.data.materiaux.join(", ")
+              if (result.data.Matériaux && String(result.data.Matériaux).trim() !== "") return result.data.Matériaux
               return ""
             })(),
 
             signed: (() => {
-              const signeKeys = ["signe", "signed", "Signé", "SIGNE", "SIGNED"]
-              for (const key of signeKeys) {
-                if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") {
-                  return result.data[key]
-                }
+              for (const key of ["signe", "signed", "Signé", "SIGNE", "SIGNED"]) {
+                if (result.data[key] && typeof result.data[key] === "string" && result.data[key].trim() !== "") return result.data[key]
               }
               return ""
             })(),
@@ -99,20 +80,9 @@ export default function LuminaireDetailPage() {
             bibliographie: result.data.bibliographie || result.data["Bibliographie"] || "",
           }
 
-          console.log("✅ Luminaire formaté:", formattedLuminaire)
-
           setLuminaire(formattedLuminaire)
-
-          const allLuminairesResponse = await fetch("/api/luminaires?limit=9999")
-          const allLuminairesData = await allLuminairesResponse.json()
-
-          if (allLuminairesData.success) {
-            const similar = findSimilarLuminaires(formattedLuminaire, allLuminairesData.luminaires)
-            setSimilarLuminaires(similar)
-          }
         }
       } catch (error) {
-        console.error("❌ Erreur chargement:", error)
         setLuminaire(null)
       } finally {
         setIsLoading(false)
@@ -122,8 +92,24 @@ export default function LuminaireDetailPage() {
       setIsFavorite(favorites.includes(String(params.id)))
     }
 
-    fetchLuminaireData()
+    fetchLuminaire()
   }, [params.id])
+
+  useEffect(() => {
+    if (!luminaire) return
+
+    async function fetchSimilar() {
+      try {
+        const res = await fetch("/api/luminaires?limit=9999")
+        const data = await res.json()
+        if (data.success) {
+          setSimilarLuminaires(findSimilarLuminaires(luminaire, data.luminaires))
+        }
+      } catch {}
+    }
+
+    fetchSimilar()
+  }, [luminaire?._id])
 
   const findSimilarLuminaires = (current: any, all: any[]) => {
     const currentYear = Number.parseInt(current.year) || 0
@@ -532,8 +518,8 @@ export default function LuminaireDetailPage() {
 
   // ── Tokens visuels ────────────────────────────────────────────────────────
   const CREAM = "#f5f1e8"
-  const TEXT  = "#3d2b1f"
-  const MUTED = "#7a6654"
+  const TEXT  = "#1a1209"
+  const MUTED = "#4a3f35"
   const LINE  = "#d8d0c0"
   const BROWN = "#8b7355"
   const SERIF = '"Playfair Display", Georgia, serif'
@@ -611,6 +597,12 @@ export default function LuminaireDetailPage() {
                   <span style={{ fontSize: 40, opacity: 0.18 }}>🏮</span>
                 </div>
             }
+            <button
+              onClick={toggleFavorite}
+              style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}
+            >
+              <span style={{ color: isFavorite ? "#c0392b" : LINE }}>♥</span>
+            </button>
           </div>
         </div>
 
@@ -622,24 +614,13 @@ export default function LuminaireDetailPage() {
             Collection Gersaint Paris
           </p>
 
-          {/* Nom + Favori */}
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-            <div style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(1.6rem, 3.5vw, 2.8rem)", color: TEXT, lineHeight: 1.08, flex: 1 }}>
-              {!canEdit && !luminaire.name
-                ? <span>Luminaire sans titre</span>
-                : <EditableField value={luminaire.name || ""} onSave={(v) => handleUpdate("name", v)} disabled={!canEdit} className="font-normal" />
-              }
-            </div>
-            <button
-              onClick={toggleFavorite}
-              style={{ marginTop: 6, width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, flexShrink: 0 }}
-            >
-              <span style={{ color: isFavorite ? "#c0392b" : LINE }}>♥</span>
-            </button>
+          {/* Nom */}
+          <div style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(1.6rem, 3.5vw, 2.8rem)", color: TEXT, lineHeight: 1.08, marginBottom: 16 }}>
+            {luminaire.name
+              ? <EditableField value={luminaire.name} onSave={(v) => handleUpdate("name", v)} disabled={!canEdit} className="font-normal" />
+              : <span>Luminaire sans titre</span>
+            }
           </div>
-
-          {/* Séparateur coloré */}
-          <div style={{ width: 44, height: 2, background: BROWN, marginBottom: 20 }} />
 
           {/* Année + filet */}
           {luminaire.year && (
@@ -666,7 +647,6 @@ export default function LuminaireDetailPage() {
                   {cleanArtistName(luminaire.artist)}
                 </p>
               </div>
-              <ArrowRight size={14} style={{ color: MUTED, flexShrink: 0 }} />
             </div>
           </Link>
 
