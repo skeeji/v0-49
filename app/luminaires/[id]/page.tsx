@@ -684,8 +684,8 @@ export default function LuminaireDetailPage() {
             </div>
           )}
 
-          {/* ── Lien marchand ── */}
-          {(luminaire.lienSiteMarchand || canEdit) && (
+          {/* ── Lien marchand (admin uniquement) ── */}
+          {canEdit && (luminaire.lienSiteMarchand || canEdit) && (
             <div style={{ marginBottom: 16 }}>
               <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 6, marginTop: 0 }}>
                 Lien marchand
@@ -765,13 +765,13 @@ export default function LuminaireDetailPage() {
                 <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 18, marginTop: 0 }}>
                   Information Technique
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 32px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 32px" }}>
                   {visibleSpecs.map(({ label, value, field }) => (
                     <div key={field}>
-                      <p style={{ fontFamily: SANS, fontSize: "0.54rem", letterSpacing: "0.18em", textTransform: "uppercase", color: MUTED, margin: "0 0 5px", fontWeight: 600 }}>
+                      <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.16em", textTransform: "uppercase", color: MUTED, margin: "0 0 6px", fontWeight: 600 }}>
                         {label}
                       </p>
-                      <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: TEXT, fontWeight: 400 }}>
+                      <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "0.95rem", color: TEXT, fontWeight: 500, letterSpacing: "0.01em" }}>
                         <EditableField value={String(value || "")} onSave={(v) => handleUpdate(field, v)} disabled={!canEdit} className="font-normal" />
                       </div>
                     </div>
