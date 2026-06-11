@@ -81,6 +81,13 @@ export default function LuminaireDetailPage() {
           }
 
           setLuminaire(formattedLuminaire)
+
+          fetch("/api/luminaires?limit=9999")
+            .then(r => r.json())
+            .then(data => {
+              if (data.success) setSimilarLuminaires(findSimilarLuminaires(formattedLuminaire, data.luminaires))
+            })
+            .catch(() => {})
         }
       } catch (error) {
         setLuminaire(null)
@@ -94,22 +101,6 @@ export default function LuminaireDetailPage() {
 
     fetchLuminaire()
   }, [params.id])
-
-  useEffect(() => {
-    if (!luminaire) return
-
-    async function fetchSimilar() {
-      try {
-        const res = await fetch("/api/luminaires?limit=9999")
-        const data = await res.json()
-        if (data.success) {
-          setSimilarLuminaires(findSimilarLuminaires(luminaire, data.luminaires))
-        }
-      } catch {}
-    }
-
-    fetchSimilar()
-  }, [luminaire?._id])
 
   const findSimilarLuminaires = (current: any, all: any[]) => {
     const currentYear = Number.parseInt(current.year) || 0
@@ -748,16 +739,16 @@ export default function LuminaireDetailPage() {
           {visibleSpecs.length > 0 && (
             <div className="flex-1 md:pl-14">
               <div style={{ border: `1px solid rgba(216, 208, 192, 0.55)`, padding: "22px 24px", background: "rgba(216, 208, 192, 0.1)" }}>
-                <p style={{ fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 18, marginTop: 0 }}>
+                <p style={{ fontFamily: SANS, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: MUTED, fontWeight: 700, marginBottom: 18, marginTop: 0 }}>
                   Information Technique
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 32px" }}>
                   {visibleSpecs.map(({ label, value, field }) => (
                     <div key={field}>
-                      <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.16em", textTransform: "uppercase", color: BROWN, margin: "0 0 6px", fontWeight: 700 }}>
+                      <p style={{ fontFamily: SANS, fontSize: "0.64rem", letterSpacing: "0.16em", textTransform: "uppercase", color: TEXT, margin: "0 0 6px", fontWeight: 700 }}>
                         {label}
                       </p>
-                      <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "0.95rem", color: BROWN, fontWeight: 500, letterSpacing: "0.01em" }}>
+                      <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "1rem", color: TEXT, fontWeight: 500, letterSpacing: "0.01em" }}>
                         <EditableField value={String(value || "")} onSave={(v) => handleUpdate(field, v)} disabled={!canEdit} className="font-normal" />
                       </div>
                     </div>
