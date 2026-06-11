@@ -510,6 +510,14 @@ export default function LuminairesPage() {
         />
       </div>
 
+      {/* Trier par */}
+      <FilterSection title="Trier par" isOpen={openSections.tri} onToggle={() => toggleSection("tri")}>
+        {([["nom-asc","Nom A–Z"],["nom-desc","Nom Z–A"],["annee-asc","Année croissante"],["annee-desc","Année décroissante"]] as [string,string][]).map(([v, l]) => (
+          <RadioOpt key={v} label={l} checked={`${sortField}-${sortDirection}` === v}
+            onChange={() => { const [f, d] = v.split("-"); setSortField(f); setSortDirection(d as "asc"|"desc") }} />
+        ))}
+      </FilterSection>
+
       {/* Catégorie */}
       <FilterSection title="Catégorie" isOpen={openSections.categorie} onToggle={() => toggleSection("categorie")}>
         <RadioOpt label="Toutes" checked={!selectedCategorie} onChange={() => { setSelectedCategorie(""); setCurrentPage(1); setDisplayOffset(50) }} />
@@ -626,14 +634,6 @@ export default function LuminairesPage() {
           />
         </FilterSection>
       )}
-
-      {/* Trier par */}
-      <FilterSection title="Trier par" isOpen={openSections.tri} onToggle={() => toggleSection("tri")}>
-        {([["nom-asc","Nom A–Z"],["nom-desc","Nom Z–A"],["annee-asc","Année croissante"],["annee-desc","Année décroissante"]] as [string,string][]).map(([v, l]) => (
-          <RadioOpt key={v} label={l} checked={`${sortField}-${sortDirection}` === v}
-            onChange={() => { const [f, d] = v.split("-"); setSortField(f); setSortDirection(d as "asc"|"desc") }} />
-        ))}
-      </FilterSection>
 
       {hasFilters && (
         <div style={{ padding: "0.9rem 1.2rem" }}>

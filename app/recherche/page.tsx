@@ -643,7 +643,7 @@ export default function RecherchePage() {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem-5rem)] md:h-[calc(100vh-4rem)]">
         <div
           className={`${
             showHistory ? "h-48 md:h-auto md:w-64" : "h-0 md:w-0"
@@ -749,14 +749,14 @@ export default function RecherchePage() {
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto p-3 md:p-6">
               {!currentConversation && !isSearching && (
-                <div className="text-center mt-10 md:mt-20">
-                  <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                    <ImageIcon className="w-7 h-7 md:w-10 md:h-10" style={{ color: "#8b7355" }} />
+                <div className="text-center mt-4 md:mt-12">
+                  <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                    <ImageIcon className="w-6 h-6 md:w-8 md:h-8" style={{ color: "#8b7355" }} />
                   </div>
-                  <h2 className="text-xl md:text-2xl font-serif text-slate-800 mb-2 md:mb-3">
+                  <h2 className="text-lg md:text-xl font-serif text-slate-800 mb-1 md:mb-2">
                     Comment puis-je vous aider ?
                   </h2>
-                  <p className="text-sm md:text-base text-slate-600 mb-6 px-4">
+                  <p className="text-sm text-slate-600 mb-4 px-4">
                     Décrivez le luminaire que vous recherchez ou téléversez une image
                   </p>
                   <div className="flex flex-wrap justify-center gap-2 px-4">

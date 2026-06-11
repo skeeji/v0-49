@@ -114,10 +114,6 @@ export default function HomePage() {
 
         <ChronoSection homepageImages={homepageImages} />
 
-        <div className="py-10 text-center text-sm text-gray-400">
-          <p className="font-serif">Luminaires — Du Moyen-Âge à nos jours</p>
-        </div>
-
       </div>
 
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />

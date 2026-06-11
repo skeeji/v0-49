@@ -323,13 +323,10 @@ export default function DesignerDetailPage() {
     <div style={{ background: CREAM, minHeight: "100vh" }}>
 
       {/* ── En-tête mobile ─────────────────────────────────────────────────── */}
-      <div className="md:hidden" style={{ borderBottom: `1px solid ${LINE}`, padding: "14px 16px 14px 52px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="md:hidden" style={{ borderBottom: `1px solid ${LINE}`, padding: "14px 16px 14px 16px", display: "flex", alignItems: "center" }}>
         <Link href="/designers" style={{ display: "flex", alignItems: "center" }}>
           <ArrowLeft size={16} style={{ color: TEXT }} />
         </Link>
-        <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.9rem", color: TEXT }}>
-          {cleanedName}
-        </span>
       </div>
 
       {/* ── Lien retour desktop ──────────────────────────────────────────────── */}
