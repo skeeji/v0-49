@@ -1690,6 +1690,7 @@ export default function ImportPage() {
                           <SelectItem value="3">Lampadaire</SelectItem>
                           <SelectItem value="4">Lampe</SelectItem>
                           <SelectItem value="5">Lanterne</SelectItem>
+                          <SelectItem value="6">Plafonnier</SelectItem>
                         </>
                       )}
                       {selectedHomepageSection === "designer" && (

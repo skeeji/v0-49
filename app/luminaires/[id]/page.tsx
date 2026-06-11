@@ -600,11 +600,6 @@ export default function LuminaireDetailPage() {
         {/* ── Informations ── */}
         <div className="flex-1 md:pl-14">
 
-          {/* Tag */}
-          <p style={{ fontFamily: SANS, fontSize: "0.57rem", letterSpacing: "0.3em", textTransform: "uppercase", color: MUTED, marginBottom: 18, marginTop: 0 }}>
-            Collection Gersaint Paris
-          </p>
-
           {/* Nom */}
           <div style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(1.6rem, 3.5vw, 2.8rem)", color: TEXT, lineHeight: 1.08, marginBottom: 16 }}>
             <EditableField value={luminaire.name || ""} onSave={(v) => handleUpdate("name", v)} disabled={!canEdit} className="font-normal" emptyDisplay="Luminaire sans titre" />

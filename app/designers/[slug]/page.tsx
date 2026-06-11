@@ -371,11 +371,6 @@ export default function DesignerDetailPage() {
         {/* Identité */}
         <div className="flex-1 md:pl-16 md:pt-2">
 
-          {/* Tag catégorie */}
-          <p style={{ fontFamily: SANS, fontSize: "0.57rem", letterSpacing: "0.3em", textTransform: "uppercase", color: MUTED, marginBottom: 22, marginTop: 0 }}>
-            Collection Gersaint Paris
-          </p>
-
           {/* Nom — typographie display, 2 lignes */}
           <div style={{ marginBottom: 22 }}>
             <span style={{ display: "block", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "clamp(2.4rem, 5.8vw, 4.8rem)", color: TEXT, lineHeight: 0.9 }}>
