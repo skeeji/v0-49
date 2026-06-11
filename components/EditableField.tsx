@@ -9,6 +9,7 @@ interface EditableFieldProps {
   value: string
   onSave: (value: string) => void
   placeholder?: string
+  emptyDisplay?: string
   multiline?: boolean
   disabled?: boolean
   className?: string
@@ -18,6 +19,7 @@ export function EditableField({
   value,
   onSave,
   placeholder = "",
+  emptyDisplay,
   multiline = false,
   disabled = false,
   className = "",
@@ -39,7 +41,7 @@ export function EditableField({
   if (disabled) {
     return (
       <div className={`p-2 ${className}`} style={{ whiteSpace: "pre-wrap" }}>
-        {value || <span className="text-gray-400 italic">{placeholder}</span>}
+        {value || emptyDisplay || <span className="text-gray-400 italic">{placeholder}</span>}
       </div>
     )
   }
@@ -78,7 +80,7 @@ export function EditableField({
     >
       <div className="flex items-center justify-between">
         <span style={{ whiteSpace: "pre-wrap" }}>
-          {value || <span className="text-gray-400 italic">{placeholder}</span>}
+          {value || emptyDisplay || <span className="text-gray-400 italic">{placeholder}</span>}
         </span>
         <Edit className="w-4 h-4 opacity-0 group-hover:opacity-50" />
       </div>

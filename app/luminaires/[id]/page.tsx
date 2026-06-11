@@ -597,9 +597,11 @@ export default function LuminaireDetailPage() {
                   <span style={{ fontSize: 40, opacity: 0.18 }}>🏮</span>
                 </div>
             }
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 10 }}>
             <button
               onClick={toggleFavorite}
-              style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}
+              style={{ width: 34, height: 34, borderRadius: "50%", background: CREAM, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15 }}
             >
               <span style={{ color: isFavorite ? "#c0392b" : LINE }}>♥</span>
             </button>
@@ -616,10 +618,7 @@ export default function LuminaireDetailPage() {
 
           {/* Nom */}
           <div style={{ fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(1.6rem, 3.5vw, 2.8rem)", color: TEXT, lineHeight: 1.08, marginBottom: 16 }}>
-            {luminaire.name
-              ? <EditableField value={luminaire.name} onSave={(v) => handleUpdate("name", v)} disabled={!canEdit} className="font-normal" />
-              : <span>Luminaire sans titre</span>
-            }
+            <EditableField value={luminaire.name || ""} onSave={(v) => handleUpdate("name", v)} disabled={!canEdit} className="font-normal" emptyDisplay="Luminaire sans titre" />
           </div>
 
           {/* Année + filet */}
@@ -664,7 +663,7 @@ export default function LuminaireDetailPage() {
               <button
                 onClick={generatePDF}
                 disabled={generatingPDF}
-                style={{ display: "inline-flex", alignItems: "center", fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: CREAM, background: TEXT, border: "none", padding: "9px 18px", cursor: "pointer", flexShrink: 0, opacity: generatingPDF ? 0.7 : 1 }}
+                style={{ display: "inline-flex", alignItems: "center", fontFamily: SANS, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: CREAM, background: BROWN, border: "none", padding: "9px 18px", cursor: "pointer", flexShrink: 0, opacity: generatingPDF ? 0.7 : 1 }}
               >
                 {generatingPDF ? "Génération…" : "Fiche PDF"}
               </button>
@@ -755,10 +754,10 @@ export default function LuminaireDetailPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 32px" }}>
                   {visibleSpecs.map(({ label, value, field }) => (
                     <div key={field}>
-                      <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.16em", textTransform: "uppercase", color: TEXT, margin: "0 0 6px", fontWeight: 700 }}>
+                      <p style={{ fontFamily: SANS, fontSize: "0.56rem", letterSpacing: "0.16em", textTransform: "uppercase", color: BROWN, margin: "0 0 6px", fontWeight: 700 }}>
                         {label}
                       </p>
-                      <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "0.95rem", color: TEXT, fontWeight: 500, letterSpacing: "0.01em" }}>
+                      <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "0.95rem", color: BROWN, fontWeight: 500, letterSpacing: "0.01em" }}>
                         <EditableField value={String(value || "")} onSave={(v) => handleUpdate(field, v)} disabled={!canEdit} className="font-normal" />
                       </div>
                     </div>
