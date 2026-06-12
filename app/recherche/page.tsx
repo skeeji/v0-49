@@ -69,6 +69,7 @@ export default function RecherchePage() {
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [pageHeight, setPageHeight] = useState<string>("auto")
 
   const [imageContext, setImageContext] = useState<ImageContext | null>(null)
   const imageContextRef = useRef<ImageContext | null>(null)
@@ -79,6 +80,21 @@ export default function RecherchePage() {
 
   useEffect(() => {
     if (window.innerWidth >= 768) setShowHistory(true)
+  }, [])
+
+  useEffect(() => {
+    const update = () => {
+      if (window.innerWidth >= 768) {
+        const header = document.querySelector("header")
+        const h = header ? header.getBoundingClientRect().height : 112
+        setPageHeight(`${window.innerHeight - h}px`)
+      } else {
+        setPageHeight("auto")
+      }
+    }
+    update()
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
   }, [])
 
   useEffect(() => {
@@ -621,7 +637,7 @@ export default function RecherchePage() {
   }
 
   return (
-    <div className="bg-[#f5f1e8] pb-20 md:pb-0 md:h-[calc(100vh-4rem)] md:overflow-hidden">
+    <div className="bg-[#f5f1e8] pb-20 md:pb-0 overflow-hidden" style={{ height: pageHeight }}>
       {user && userData && userData.role !== "premium" && userData.role !== "admin" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <Card className="max-w-md mx-4 p-8 text-center">
@@ -642,7 +658,7 @@ export default function RecherchePage() {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem-5rem)] md:h-[calc(100vh-4rem)]">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-10rem)] md:h-full">
         <div
           className={`${
             showHistory ? "h-48 md:h-auto md:w-64" : "h-0 md:w-0"

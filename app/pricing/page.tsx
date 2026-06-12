@@ -78,18 +78,12 @@ export default function PricingPage() {
 
         {/* En-tête */}
         <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <p style={{ fontFamily: "Georgia, serif", fontSize: "0.75rem", letterSpacing: "0.18em", color: BROWN, textTransform: "uppercase", marginBottom: "0.8rem" }}>
-            Gersaint Paris
-          </p>
-          <h1 style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "clamp(2rem, 5vw, 3rem)", fontWeight: 400, color: TEXT, margin: 0, lineHeight: 1.15 }}>
-            L&rsquo;Expérience <em>Gersaint</em>
+          <h1 style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "clamp(1.6rem, 4vw, 2.2rem)", fontWeight: 400, color: TEXT, margin: 0, lineHeight: 1.2 }}>
+            Accès Premium
           </h1>
-          <p style={{ fontFamily: "Georgia, serif", fontSize: "1rem", color: MUTED, marginTop: "1rem", lineHeight: 1.65 }}>
-            Un soutien à la création, un accès à l&rsquo;excellence
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", margin: "1.8rem auto 0", maxWidth: 300 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", margin: "1.4rem auto 0", maxWidth: 260 }}>
             <div style={{ flex: 1, height: 1, background: LINE }} />
-            <span style={{ color: BROWN, fontSize: "1rem" }}>✦</span>
+            <span style={{ color: BROWN, fontSize: "0.9rem" }}>✦</span>
             <div style={{ flex: 1, height: 1, background: LINE }} />
           </div>
         </div>
@@ -116,9 +110,6 @@ export default function PricingPage() {
                   }}
                 >
                   {label}
-                  {label === "Annuel" && (
-                    <span style={{ fontSize: "0.7rem", marginLeft: "0.35rem", opacity: 0.85 }}>2 mois offerts</span>
-                  )}
                 </button>
               )
             })}
