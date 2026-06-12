@@ -7,7 +7,7 @@ import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, LayoutGrid, List, SlidersHorizontal, X, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { Loader2, Plus, LayoutGrid, List, SlidersHorizontal, X, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
 import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrollRestoration"
@@ -889,13 +889,6 @@ export default function LuminairesPage() {
 
       <LuminaireFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleCreateLuminaire} />
 
-      <nav className="bottom-nav">
-        <Link href="/"           className={`bottom-nav-item ${pathname === "/"                   ? "active" : ""}`}><Home    className="w-5 h-5" /><span>Home</span></Link>
-        <Link href="/designers"  className={`bottom-nav-item ${pathname.startsWith("/designers")  ? "active" : ""}`}><Users   className="w-5 h-5" /><span>Designers</span></Link>
-        <Link href="/luminaires" className={`bottom-nav-item ${pathname.startsWith("/luminaires") ? "active" : ""}`}><Grid3x3 className="w-5 h-5" /><span>Collection</span></Link>
-        <Link href="/recherche"  className={`bottom-nav-item ${pathname === "/recherche"          ? "active" : ""}`}><Mail    className="w-5 h-5" /><span>Inquire</span></Link>
-        <Link href="/pricing"    className={`bottom-nav-item ${pathname === "/pricing"            ? "active" : ""}`}><User    className="w-5 h-5" /><span>Account</span></Link>
-      </nav>
 
     </div>
   )
