@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
 import Link from "next/link"
 import { EditableField } from "@/components/EditableField"
-import { MobileFooter } from "@/components/MobileFooter"
 
 const periods = [
   {
@@ -299,7 +298,6 @@ export default function ChronologiePage() {
             <p className="font-serif text-gray-700">Chargement de la chronologie...</p>
           </div>
         </div>
-        <MobileFooter />
       </div>
     )
   }
@@ -431,7 +429,6 @@ export default function ChronologiePage() {
         </div>
       </div>
 
-      <MobileFooter />
     </div>
   )
 }

@@ -10,7 +10,6 @@ import { EditableField } from "@/components/EditableField"
 import { useAuth } from "@/contexts/AuthContext"
 import jsPDF from "jspdf"
 import { DeleteLuminaireButton } from "@/components/DeleteLuminaireButton"
-import MobileFooter from "@/components/MobileFooter"
 
 export default function LuminaireDetailPage() {
   const params = useParams()
@@ -803,7 +802,6 @@ export default function LuminaireDetailPage() {
         </div>
       )}
 
-      <MobileFooter />
     </div>
   )
 }

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginModal } from "@/components/LoginModal"
-import MobileFooter from "@/components/MobileFooter"
 import { PaintingSearchOverlay } from "@/components/PaintingSearchOverlay"
 import { PaintingGallery } from "@/components/PaintingGallery"
 import { CategorySection } from "@/components/CategorySection"
@@ -117,7 +116,6 @@ export default function HomePage() {
       </div>
 
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
-      <MobileFooter />
 
     </div>
   )

@@ -10,7 +10,6 @@ import { toast } from "sonner"
 import { Loader2, Home, Users, Grid3x3, Mail, User, Plus, LayoutGrid, List, SlidersHorizontal, X, ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LuminaireFormModal from "@/components/LuminaireFormModal"
-import MobileFooter from "@/components/MobileFooter"
 import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrollRestoration"
 
 const CATEGORIES = ["Lustre", "Applique", "Suspension", "Lampadaire", "Lampe", "Lanterne", "Plafonnier"]
@@ -898,7 +897,6 @@ export default function LuminairesPage() {
         <Link href="/pricing"    className={`bottom-nav-item ${pathname === "/pricing"            ? "active" : ""}`}><User    className="w-5 h-5" /><span>Account</span></Link>
       </nav>
 
-      <MobileFooter />
     </div>
   )
 }

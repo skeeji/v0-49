@@ -10,7 +10,6 @@ import { LuminaireFormModal } from "@/components/LuminaireFormModal"
 import { useAuth } from "@/contexts/AuthContext"
 import Image from "next/image"
 import { toast } from "sonner"
-import MobileFooter from "@/components/MobileFooter" // Import MobileFooter component
 
 export default function DesignerDetailPage() {
   const params = useParams()
@@ -499,7 +498,6 @@ export default function DesignerDetailPage() {
         defaultValues={defaultFormValues}
       />
 
-      <MobileFooter />
     </div>
   )
 }

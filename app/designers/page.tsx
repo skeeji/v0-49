@@ -7,7 +7,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { Loader2, Users, Search } from "lucide-react"
-import { MobileFooter } from "@/components/MobileFooter"
 import { useScrollRestoration, useMarkScrollRestoration } from "@/hooks/useScrollRestoration"
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")
@@ -362,24 +361,26 @@ export default function DesignersPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: CREAM, paddingBottom: 80 }}>
+    <div style={{ minHeight: "100vh", background: CREAM }}>
 
       {/* ── En-tête ── */}
-      <div className="pl-6 md:pl-[52px]" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingRight: 28, paddingTop: 36, paddingBottom: 18 }}>
-        <h1 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(1.5rem, 3vw, 2rem)", color: TEXT, margin: 0 }}>
-          Designers
-        </h1>
+      <div className="pl-6 md:pl-[52px]" style={{ paddingRight: 28, paddingTop: 36, paddingBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <h1 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(1.5rem, 3vw, 2rem)", color: TEXT, margin: 0, flexShrink: 0 }}>
+            Designers
+          </h1>
 
-        {/* Recherche — discrète, fond identique à la page */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${LINE}`, padding: "7px 14px", background: CREAM }}>
-          <Search size={13} style={{ color: MUTED, flexShrink: 0 }} />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Rechercher un designer…"
-            style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.78rem", color: TEXT, width: 220 }}
-          />
+          {/* Recherche — discrète, fond identique à la page */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${LINE}`, padding: "7px 14px", background: CREAM, minWidth: 0, flexShrink: 1 }}>
+            <Search size={13} style={{ color: MUTED, flexShrink: 0 }} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Rechercher…"
+              style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.78rem", color: TEXT, width: 160, minWidth: 0 }}
+            />
+          </div>
         </div>
       </div>
 
@@ -566,7 +567,6 @@ export default function DesignersPage() {
         </div>
       </div>
 
-      <MobileFooter />
     </div>
   )
 }

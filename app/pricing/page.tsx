@@ -1,82 +1,71 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
 import { CheckCircle, XCircle } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import MobileFooter from "@/components/MobileFooter"
+
+const CREAM  = "#f5f1e8"
+const TEXT   = "#1a1209"
+const MUTED  = "#4a3f35"
+const LINE   = "#d8d0c0"
+const BROWN  = "#8b7355"
+
+const FREE_FEATURES: { label: string; included: boolean }[] = [
+  { label: "Accès aux luminaires de la collection",         included: true  },
+  { label: "Recherche par texte",                          included: true  },
+  { label: "Recherche par image (3 / mois)",               included: false },
+  { label: "Accès à toute la collection de designers",     included: false },
+  { label: "Suppression de l'arrière-plan",                included: false },
+  { label: "Téléchargement des fiches en PDF",             included: false },
+  { label: "Favoris illimités",                            included: false },
+  { label: "Estimation de prix",                           included: false },
+]
+
+const PREMIUM_FEATURES: { label: string; included: boolean }[] = [
+  { label: "Accès aux luminaires de la collection",         included: true },
+  { label: "Recherche par texte",                          included: true },
+  { label: "Recherche par image illimitée",                included: true },
+  { label: "Accès à toute la collection de designers",     included: true },
+  { label: "Suppression de l'arrière-plan",                included: true },
+  { label: "Téléchargement des fiches en PDF",             included: true },
+  { label: "Favoris illimités",                            included: true },
+  { label: "Estimation de prix",                           included: true },
+]
 
 export default function PricingPage() {
-  const [isAnnual, setIsAnnual] = useState(false)
-
+  const [isAnnual,     setIsAnnual]     = useState(false)
+  const [contribution, setContribution] = useState(10)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [formData, setFormData] = useState({
-    nom: "",
-    prenom: "",
-    email: "",
-    telephone: "",
-    duree: "",
-    message: "",
-  })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData,     setFormData]     = useState({ nom: "", prenom: "", email: "", telephone: "", message: "" })
 
-  const monthlyPrice = 30
-  const annualPrice = 22 // 2 mois offerts
+  const monthly = contribution
+  const annual  = Math.round(contribution * 10)
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-      message:
-        field === "duree" && value
-          ? `Bonjour, Je souhaite avoir un abonnement premium pour une durée de ${value}.`
-          : prev.message,
-    }))
-  }
+  const handleInput = (field: string, value: string) =>
+    setFormData(prev => ({ ...prev, [field]: value }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-
     try {
-      const response = await fetch("/api/send-premium-request", {
+      const res = await fetch("/api/send-premium-request", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, contribution: isAnnual ? annual : monthly, periode: isAnnual ? "annuel" : "mensuel" }),
       })
-
-      if (response.ok) {
+      if (res.ok) {
         alert("Votre demande a été envoyée avec succès !")
         setIsDialogOpen(false)
-        setFormData({
-          nom: "",
-          prenom: "",
-          email: "",
-          telephone: "",
-          duree: "",
-          message: "",
-        })
+        setFormData({ nom: "", prenom: "", email: "", telephone: "", message: "" })
       } else {
         alert("Erreur lors de l'envoi de la demande")
       }
-    } catch (error) {
+    } catch {
       alert("Erreur lors de l'envoi de la demande")
     } finally {
       setIsSubmitting(false)
@@ -84,229 +73,214 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f1e8]">
-      <div className="container mx-auto px-4 py-16">
-        {/* Titre principal */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-serif text-gray-900 mb-4">
-            Choisissez le forfait qui vous convient
-          </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Découvrez notre collection complète de luminaires avec des fonctionnalités avancées
-          </p>
-        </div>
+    <div style={{ background: CREAM, minHeight: "100vh" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "3.5rem 1.5rem 6rem" }}>
 
-        {/* Sélecteur de facturation */}
-        <div className="flex items-center justify-center mb-12">
-          <div className="flex items-center space-x-4 bg-gray-100 rounded-lg p-1">
-            <span className={`px-4 py-2 text-sm font-medium ${!isAnnual ? "text-gray-900" : "text-gray-500"}`}>
-              Mensuel
-            </span>
-            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} className="data-[state=checked]:bg-[#8b7355]" />
-            <span className={`px-4 py-2 text-sm font-medium ${isAnnual ? "text-gray-900" : "text-gray-500"}`}>
-              Annuel (2 mois offerts)
-            </span>
+        {/* En-tête */}
+        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+          <p style={{ fontFamily: "Georgia, serif", fontSize: "0.75rem", letterSpacing: "0.18em", color: BROWN, textTransform: "uppercase", marginBottom: "0.8rem" }}>
+            Gersaint Paris
+          </p>
+          <h1 style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "clamp(2rem, 5vw, 3rem)", fontWeight: 400, color: TEXT, margin: 0, lineHeight: 1.15 }}>
+            L&rsquo;Expérience <em>Gersaint</em>
+          </h1>
+          <p style={{ fontFamily: "Georgia, serif", fontSize: "1rem", color: MUTED, marginTop: "1rem", lineHeight: 1.65 }}>
+            Un soutien à la création, un accès à l&rsquo;excellence
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", margin: "1.8rem auto 0", maxWidth: 300 }}>
+            <div style={{ flex: 1, height: 1, background: LINE }} />
+            <span style={{ color: BROWN, fontSize: "1rem" }}>✦</span>
+            <div style={{ flex: 1, height: 1, background: LINE }} />
           </div>
         </div>
 
-        {/* Cartes des forfaits */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Carte Gratuit */}
-          <Card className="relative">
-            <CardHeader className="text-center pb-8">
-              <CardTitle className="text-2xl font-serif">Gratuit</CardTitle>
-              <CardDescription className="text-gray-600">Découvrez notre collection</CardDescription>
-              <div className="mt-4">
-                <span className="text-4xl font-bold">€0</span>
-                <span className="text-gray-600 ml-2">/ mois</span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button disabled className="w-full bg-transparent" variant="outline">
-                Votre forfait actuel
-              </Button>
+        {/* Toggle Mensuel / Annuel */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "2.5rem" }}>
+          <div style={{ display: "inline-flex", background: "#ede8df", borderRadius: 40, padding: 3, gap: 3 }}>
+            {(["Mensuel", "Annuel"] as const).map((label) => {
+              const active = (label === "Annuel") === isAnnual
+              return (
+                <button
+                  key={label}
+                  onClick={() => setIsAnnual(label === "Annuel")}
+                  style={{
+                    padding: "0.5rem 1.4rem",
+                    borderRadius: 36,
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: "Georgia, serif",
+                    fontSize: "0.85rem",
+                    background: active ? BROWN : "transparent",
+                    color: active ? CREAM : MUTED,
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {label}
+                  {label === "Annuel" && (
+                    <span style={{ fontSize: "0.7rem", marginLeft: "0.35rem", opacity: 0.85 }}>2 mois offerts</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-              <div className="space-y-3 pt-4">
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Limite de 3 recherches par mois</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Accès à 10% des luminaires et designers</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Recherche par image via upload uniquement</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Pas de suppression de l'arrière-plan</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Pas de téléchargement PDF</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Pas d'ajout aux favoris</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Pas d'accès à l'estimation de prix</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Carte unique */}
+        <div style={{ background: "#fff", border: `1.5px solid ${LINE}`, borderRadius: 16, padding: "2.5rem", position: "relative", boxShadow: "0 4px 32px rgba(26,18,9,0.06)" }}>
 
-          {/* Carte Premium */}
-          <Card className="relative border-2 border-[#8b7355] shadow-lg">
-            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <span className="bg-[#8b7355] text-white px-4 py-1 rounded-full text-sm font-medium">Recommandé</span>
+          <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" }}>
+            <span style={{ background: BROWN, color: CREAM, padding: "0.3rem 1.2rem", borderRadius: 20, fontSize: "0.75rem", fontFamily: "Georgia, serif", letterSpacing: "0.08em" }}>
+              Recommandé
+            </span>
+          </div>
+
+          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <p style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "1.35rem", color: TEXT, margin: "0 0 0.4rem", fontWeight: 400 }}>
+              Soutien au Développement &amp; Accès Premium
+            </p>
+            <p style={{ fontFamily: "Georgia, serif", fontSize: "0.85rem", color: MUTED, margin: 0 }}>
+              Le site est en construction — votre participation libre nous aide à grandir
+            </p>
+          </div>
+
+          {/* Slider contribution */}
+          <div style={{ marginBottom: "2rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.6rem" }}>
+              <span style={{ fontFamily: "Georgia, serif", fontSize: "0.82rem", color: MUTED }}>
+                Votre participation {isAnnual ? "annuelle" : "mensuelle"}
+              </span>
+              <span style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: "1.6rem", color: BROWN, fontWeight: 400 }}>
+                {isAnnual ? annual : monthly} €
+              </span>
             </div>
-            <CardHeader className="text-center pb-8">
-              <CardTitle className="text-2xl font-serif">Premium</CardTitle>
-              <CardDescription className="text-gray-600">Accès complet à toutes les fonctionnalités</CardDescription>
-              <div className="mt-4">
-                <span className="text-4xl font-bold">€{isAnnual ? annualPrice : monthlyPrice}</span>
-                <span className="text-gray-600 ml-2">/ mois</span>
-                {isAnnual && <div className="text-sm text-green-600 mt-1">Économisez €96 par an</div>}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    className="w-full text-white"
-                    style={{ backgroundColor: "#8b7355" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#6d5c44")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#8b7355")}
-                  >
-                    Passer à Premium
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Demande d'abonnement Premium</DialogTitle>
-                    <DialogDescription>Remplissez ce formulaire pour demander un abonnement Premium</DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="nom">Nom *</Label>
-                        <Input
-                          id="nom"
-                          value={formData.nom}
-                          onChange={(e) => handleInputChange("nom", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="prenom">Prénom *</Label>
-                        <Input
-                          id="prenom"
-                          value={formData.prenom}
-                          onChange={(e) => handleInputChange("prenom", e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Adresse email *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange("email", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="telephone">Téléphone *</Label>
-                      <Input
-                        id="telephone"
-                        type="tel"
-                        value={formData.telephone}
-                        onChange={(e) => handleInputChange("telephone", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="duree">Durée souhaitée *</Label>
-                      <Select onValueChange={(value) => handleInputChange("duree", value)} required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez une durée" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1 mois">1 mois</SelectItem>
-                          <SelectItem value="3 mois">3 mois</SelectItem>
-                          <SelectItem value="6 mois">6 mois</SelectItem>
-                          <SelectItem value="1 an">1 an</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="message">Message</Label>
-                      <Textarea
-                        id="message"
-                        value={formData.message}
-                        onChange={(e) => handleInputChange("message", e.target.value)}
-                        rows={3}
-                        readOnly
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      className="w-full text-white hover:bg-[#6d5c44]"
-                      disabled={isSubmitting}
-                      style={{ backgroundColor: "#8b7355" }}
-                    >
-                      {isSubmitting ? "Envoi en cours..." : "Envoyer la demande"}
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+            <input
+              type="range"
+              min={5}
+              max={50}
+              step={1}
+              value={contribution}
+              onChange={(e) => setContribution(Number(e.target.value))}
+              style={{ width: "100%", accentColor: BROWN, cursor: "pointer" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.3rem" }}>
+              <span style={{ fontSize: "0.72rem", color: MUTED, fontFamily: "Georgia, serif" }}>5 €</span>
+              <span style={{ fontSize: "0.72rem", color: MUTED, fontFamily: "Georgia, serif" }}>50 €</span>
+            </div>
+          </div>
 
-              <div className="space-y-3 pt-4">
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Recherches par image illimitées</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Accès à toute la collection</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Recherche via upload et prise de photo</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Suppression de l'arrière-plan</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Téléchargement des fiches en PDF</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Ajout aux favoris</span>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-gray-700">Accès à l'estimation de prix</span>
-                </div>
+          <p style={{ fontFamily: "Georgia, serif", fontSize: "0.82rem", color: MUTED, lineHeight: 1.6, textAlign: "center", marginBottom: "2rem", padding: "0 1rem" }}>
+            Votre contribution, quelle qu&rsquo;elle soit, soutient notre développement et débloque l&rsquo;intégralité de ces fonctionnalités exclusives.
+          </p>
+
+          {/* Comparatif Gratuit / Premium */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
+            <div>
+              <p style={{ fontFamily: "Georgia, serif", fontSize: "0.78rem", letterSpacing: "0.12em", color: MUTED, textTransform: "uppercase", marginBottom: "1rem", textAlign: "center" }}>
+                Sans contribution
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                {FREE_FEATURES.map((f) => (
+                  <div key={f.label} style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                    {f.included
+                      ? <CheckCircle style={{ width: 15, height: 15, color: BROWN, flexShrink: 0, marginTop: 1 }} />
+                      : <XCircle    style={{ width: 15, height: 15, color: "#c8b89a", flexShrink: 0, marginTop: 1 }} />
+                    }
+                    <span style={{ fontFamily: "Georgia, serif", fontSize: "0.8rem", color: f.included ? TEXT : "#a89880", lineHeight: 1.45 }}>
+                      {f.label}
+                    </span>
+                  </div>
+                ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <div style={{ borderLeft: `1px solid ${LINE}`, paddingLeft: "1.5rem" }}>
+              <p style={{ fontFamily: "Georgia, serif", fontSize: "0.78rem", letterSpacing: "0.12em", color: BROWN, textTransform: "uppercase", marginBottom: "1rem", textAlign: "center" }}>
+                Avec votre soutien
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                {PREMIUM_FEATURES.map((f) => (
+                  <div key={f.label} style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                    <CheckCircle style={{ width: 15, height: 15, color: BROWN, flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontFamily: "Georgia, serif", fontSize: "0.8rem", color: TEXT, lineHeight: 1.45 }}>
+                      {f.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <button
+                style={{
+                  width: "100%",
+                  padding: "0.9rem 2rem",
+                  background: BROWN,
+                  color: CREAM,
+                  border: "none",
+                  borderRadius: 8,
+                  fontFamily: "Georgia, serif",
+                  fontSize: "0.95rem",
+                  cursor: "pointer",
+                  letterSpacing: "0.04em",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#6d5c44")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = BROWN)}
+              >
+                Confirmer ma participation et débloquer Premium
+              </button>
+            </DialogTrigger>
+            <DialogContent style={{ background: CREAM, borderColor: LINE }}>
+              <DialogHeader>
+                <DialogTitle style={{ fontFamily: '"Playfair Display", Georgia, serif', fontWeight: 400, color: TEXT }}>
+                  Votre participation
+                </DialogTitle>
+                <p style={{ fontFamily: "Georgia, serif", fontSize: "0.85rem", color: MUTED }}>
+                  {isAnnual ? annual : monthly} € / {isAnnual ? "an" : "mois"} — merci pour votre soutien
+                </p>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "0.5rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                  <div>
+                    <Label htmlFor="nom" style={{ fontFamily: "Georgia, serif", fontSize: "0.8rem", color: MUTED }}>Nom *</Label>
+                    <Input id="nom" value={formData.nom} onChange={(e) => handleInput("nom", e.target.value)} required style={{ background: "#fff", borderColor: LINE }} />
+                  </div>
+                  <div>
+                    <Label htmlFor="prenom" style={{ fontFamily: "Georgia, serif", fontSize: "0.8rem", color: MUTED }}>Prénom *</Label>
+                    <Input id="prenom" value={formData.prenom} onChange={(e) => handleInput("prenom", e.target.value)} required style={{ background: "#fff", borderColor: LINE }} />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="email" style={{ fontFamily: "Georgia, serif", fontSize: "0.8rem", color: MUTED }}>Adresse email *</Label>
+                  <Input id="email" type="email" value={formData.email} onChange={(e) => handleInput("email", e.target.value)} required style={{ background: "#fff", borderColor: LINE }} />
+                </div>
+                <div>
+                  <Label htmlFor="telephone" style={{ fontFamily: "Georgia, serif", fontSize: "0.8rem", color: MUTED }}>Téléphone</Label>
+                  <Input id="telephone" type="tel" value={formData.telephone} onChange={(e) => handleInput("telephone", e.target.value)} style={{ background: "#fff", borderColor: LINE }} />
+                </div>
+                <div>
+                  <Label htmlFor="message" style={{ fontFamily: "Georgia, serif", fontSize: "0.8rem", color: MUTED }}>Message (optionnel)</Label>
+                  <Textarea id="message" value={formData.message} onChange={(e) => handleInput("message", e.target.value)} rows={3} style={{ background: "#fff", borderColor: LINE }} />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  style={{ padding: "0.75rem", background: BROWN, color: CREAM, border: "none", borderRadius: 6, fontFamily: "Georgia, serif", fontSize: "0.9rem", cursor: isSubmitting ? "not-allowed" : "pointer", opacity: isSubmitting ? 0.7 : 1 }}
+                >
+                  {isSubmitting ? "Envoi en cours..." : "Envoyer ma demande"}
+                </button>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        {/* FAQ ou informations supplémentaires */}
-        <div className="text-center mt-12">
-          <p className="text-gray-600">Questions ? Contactez-nous pour plus d'informations sur nos forfaits.</p>
-        </div>
+        <p style={{ textAlign: "center", fontFamily: "Georgia, serif", fontSize: "0.8rem", color: MUTED, marginTop: "2.5rem", lineHeight: 1.65 }}>
+          Questions ? Contactez-nous pour plus d&rsquo;informations.
+        </p>
+
       </div>
-      <MobileFooter />
     </div>
   )
 }
