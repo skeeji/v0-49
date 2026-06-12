@@ -365,20 +365,19 @@ export default function DesignersPage() {
 
       {/* ── En-tête ── */}
       <div className="pl-6 md:pl-[52px]" style={{ paddingRight: 28, paddingTop: 36, paddingBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <h1 style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(1.5rem, 3vw, 2rem)", color: TEXT, margin: 0, flexShrink: 0 }}>
             Designers
           </h1>
 
-          {/* Recherche — discrète, fond identique à la page */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${LINE}`, padding: "7px 14px", background: CREAM, minWidth: 0, flexShrink: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${LINE}`, padding: "7px 12px", background: CREAM, minWidth: 0, flex: "0 1 200px" }}>
             <Search size={13} style={{ color: MUTED, flexShrink: 0 }} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher…"
-              style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.78rem", color: TEXT, width: 160, minWidth: 0 }}
+              style={{ background: "transparent", border: "none", outline: "none", fontFamily: SANS, fontStyle: "italic", fontSize: "0.78rem", color: TEXT, width: "100%", minWidth: 0 }}
             />
           </div>
         </div>
@@ -420,7 +419,7 @@ export default function DesignersPage() {
         </nav>
 
         {/* Nav alphabet mobile */}
-        <nav className="md:hidden" style={{ position: "fixed", left: 0, top: 60, height: "calc(100vh - 120px)", zIndex: 40, display: "flex", flexDirection: "column", padding: "4px 1px", background: "rgba(245,241,232,0.96)", backdropFilter: "blur(4px)", borderRight: `1px solid ${LINE}`, overflow: "hidden", width: 18 }}>
+        <nav className="md:hidden" style={{ position: "fixed", left: 0, top: 80, height: "calc(100vh - 80px)", zIndex: 40, display: "flex", flexDirection: "column", padding: "4px 1px", background: "rgba(245,241,232,0.96)", backdropFilter: "blur(4px)", borderRight: `1px solid ${LINE}`, overflow: "hidden", width: 18 }}>
           {ALPHABET.map((letter) => {
             const isAvailable = availableLetters.has(letter)
             const isActive    = activeLetter === letter

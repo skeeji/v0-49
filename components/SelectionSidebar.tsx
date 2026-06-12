@@ -93,20 +93,6 @@ export function SelectionSidebar() {
 
   return (
     <>
-      {/* Floating toggle button - Mobile only */}
-      <button
-        onClick={() => setIsSelectionOpen(true)}
-        className="fixed bottom-6 left-6 z-40 bg-[#8b7355] hover:bg-[#7a6548] text-white rounded-full p-4 shadow-lg transition-all duration-200 hover:scale-105 md:hidden"
-        aria-label="Ouvrir la sélection"
-      >
-        <ShoppingBag className="w-5 h-5" />
-        {selection.length > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
-            {selection.length}
-          </span>
-        )}
-      </button>
-
       {/* Overlay for mobile */}
       {isSelectionOpen && (
         <div
