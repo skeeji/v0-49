@@ -53,6 +53,12 @@
   * {
     @apply border-border;
   }
+  /* Empêche le scroll horizontal accidentel (ex: tooltips PaintingGallery hors-viewport).
+     Doit être sur html ET body : overflow-x sur body seul est promu au viewport mais
+     transforme body en scroll container — html garantit le clipping au niveau racine. */
+  html {
+    overflow-x: hidden;
+  }
   body {
     /* Fond crème selon images de référence */
     background-color: #f5f1e8;

@@ -81,7 +81,7 @@ export default function LuminaireDetailPage() {
 
           setLuminaire(formattedLuminaire)
 
-          fetch("/api/luminaires?limit=9999")
+          fetch("/api/luminaires?limit=500")
             .then(r => r.json())
             .then(data => {
               if (data.success) setSimilarLuminaires(findSimilarLuminaires(formattedLuminaire, data.luminaires))
