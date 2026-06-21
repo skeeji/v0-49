@@ -409,7 +409,7 @@ export default function DesignerDetailPage() {
                   Collaborations
                 </p>
                 {collabItems.map((item, i) => (
-                  <div key={i} style={{ borderBottom: `1px solid ${LINE}`, padding: "13px 0", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "1rem", color: TEXT, lineHeight: 1.3 }}>
+                  <div key={i} style={{ borderBottom: i < collabItems.length - 1 ? `1px solid ${LINE}` : "none", padding: "13px 0", fontFamily: SERIF, fontStyle: "italic", fontWeight: 400, fontSize: "1rem", color: TEXT, lineHeight: 1.3 }}>
                     {item}
                   </div>
                 ))}

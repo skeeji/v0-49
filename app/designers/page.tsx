@@ -419,13 +419,13 @@ export default function DesignersPage() {
         </nav>
 
         {/* Nav alphabet mobile */}
-        <nav className="md:hidden" style={{ position: "fixed", left: 0, top: 80, height: "calc(100vh - 80px)", zIndex: 40, display: "flex", flexDirection: "column", padding: "4px 1px", background: "rgba(245,241,232,0.96)", backdropFilter: "blur(4px)", borderRight: `1px solid ${LINE}`, overflow: "hidden", width: 18 }}>
+        <nav className="md:hidden" style={{ position: "fixed", left: 0, top: 80, height: "calc(100vh - 80px)", zIndex: 40, display: "flex", flexDirection: "column", padding: "4px 2px", background: "rgba(245,241,232,0.96)", backdropFilter: "blur(4px)", borderRight: `1px solid ${LINE}`, overflow: "hidden", width: 24 }}>
           {ALPHABET.map((letter) => {
             const isAvailable = availableLetters.has(letter)
             const isActive    = activeLetter === letter
             return (
               <button key={letter} onClick={() => isAvailable && scrollToLetter(letter)} disabled={!isAvailable}
-                style={{ flex: 1, background: "none", border: "none", padding: 0, fontFamily: SANS, fontSize: "0.48rem", cursor: isAvailable ? "pointer" : "default", color: isActive ? TEXT : isAvailable ? MUTED : LINE }}>
+                style={{ flex: 1, background: "none", border: "none", padding: 0, fontFamily: SANS, fontSize: isActive ? "0.72rem" : "0.6rem", fontWeight: isActive ? 700 : 400, lineHeight: 1, cursor: isAvailable ? "pointer" : "default", color: isActive ? "#8b7355" : isAvailable ? MUTED : LINE, transition: "color 0.15s, font-size 0.1s" }}>
                 {letter}
               </button>
             )
@@ -433,8 +433,8 @@ export default function DesignersPage() {
         </nav>
 
         {/* ── Contenu designers ── */}
-        {/* pl-6 mobile = dépasse le nav fixé de 18px / md:pl-0 car le nav est dans le flux desktop */}
-        <div className="pl-6 md:pl-0" style={{ flex: 1, minWidth: 0, paddingRight: 28 }}>
+        {/* pl-7 mobile = dépasse le nav fixé de 24px / md:pl-0 car le nav est dans le flux desktop */}
+        <div className="pl-7 md:pl-0" style={{ flex: 1, minWidth: 0, paddingRight: 28 }}>
           <div style={{ borderTop: `1px solid ${LINE}` }} />
 
           {displayedDesigners.map((designer, index) => {

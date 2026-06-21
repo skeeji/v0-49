@@ -535,7 +535,7 @@ export default function LuminaireDetailPage() {
     <div style={{ background: CREAM, minHeight: "100vh" }}>
 
       {/* ── En-tête mobile ─────────────────────────────────────────────────── */}
-      <div className="md:hidden" style={{ padding: "14px 16px 14px 52px", display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+      <div className="md:hidden" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
         <Link href="/luminaires" style={{ display: "flex", flexShrink: 0 }}>
           <ArrowLeft size={16} style={{ color: TEXT }} />
         </Link>
