@@ -44,7 +44,7 @@ export interface FlashcardCoachResponse {
 
 export interface RoleplayCoachResponse {
   coherent: boolean
-  suggestion_fr: string | null
+  suggestion_fr: string
   next_question_en: string
 }
 

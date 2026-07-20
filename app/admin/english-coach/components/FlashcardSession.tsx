@@ -198,9 +198,10 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
             <div className={`${styles.feedback} ${result.correct ? styles.feedbackOk : styles.feedbackNo}`}>
               {result.correct ? "✓ " : "✗ "}
               {result.feedback_fr}
-              {!result.correct && (
+              {result.better_phrasing_en && (
                 <div style={{ marginTop: 6 }}>
-                  En pro, on dirait : <strong>{result.better_phrasing_en}</strong>
+                  {result.correct ? "À connaître aussi : " : "En pro, on dirait : "}
+                  <strong>{result.better_phrasing_en}</strong>
                 </div>
               )}
             </div>

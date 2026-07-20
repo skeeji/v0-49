@@ -30,7 +30,7 @@ export function RoleplaySession() {
   const [lastTranscript, setLastTranscript] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lastFeedback, setLastFeedback] = useState<{ coherent: boolean; suggestion_fr: string | null } | null>(null)
+  const [lastFeedback, setLastFeedback] = useState<{ coherent: boolean; suggestion_fr: string } | null>(null)
   const askedQuestions = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -179,11 +179,10 @@ export function RoleplaySession() {
           ),
         )}
 
-        {lastFeedback && !lastFeedback.coherent && lastFeedback.suggestion_fr && (
-          <div className={`${styles.feedback} ${styles.feedbackNo}`}>✗ {lastFeedback.suggestion_fr}</div>
-        )}
-        {lastFeedback && lastFeedback.coherent && (
-          <div className={`${styles.feedback} ${styles.feedbackOk}`}>✓ Bien répondu</div>
+        {lastFeedback && (
+          <div className={`${styles.feedback} ${lastFeedback.coherent ? styles.feedbackOk : styles.feedbackNo}`}>
+            💡 {lastFeedback.suggestion_fr}
+          </div>
         )}
 
         {error && <div className={styles.errorText}>{error}</div>}
