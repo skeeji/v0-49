@@ -30,6 +30,31 @@ export function PhoneCallSession() {
 
   const scenario = scenarioKey ? SCENARIOS[scenarioKey] : null
 
+  const noResultRetries = useRef(0)
+
+  // Démarre l'écoute et, si la reconnaissance se termine sans résultat ni erreur
+  // (silence non capté — cas observé en test), relance automatiquement une fois
+  // avant de laisser l'utilisateur reprendre la main via le bouton manuel.
+  const listenForAnswer = () => {
+    startListening(
+      (transcript) => {
+        noResultRetries.current = 0
+        handleAnswer(transcript)
+      },
+      () => {
+        if (!callActiveRef.current) return
+        if (noResultRetries.current < 1) {
+          noResultRetries.current += 1
+          console.log("[phone-call] 🔁 Aucun résultat — relance automatique de l'écoute")
+          listenForAnswer()
+        } else {
+          console.warn("[phone-call] ⚠ Toujours aucun résultat après relance auto — bouton manuel disponible")
+          noResultRetries.current = 0
+        }
+      },
+    )
+  }
+
   const askNext = (question: string) => {
     console.log(`[phone-call] askNext("${question}") — callActive=${callActiveRef.current}`)
     lastQuestion.current = question
@@ -42,13 +67,14 @@ export function PhoneCallSession() {
         console.log("[phone-call] appel raccroché entre-temps, on n'active pas le micro")
         return
       }
-      startListening((transcript) => handleAnswer(transcript))
+      listenForAnswer()
     })
   }
 
   const retryListening = () => {
     console.log("[phone-call] 🎤 Réessayer l'écoute (manuel)")
-    startListening((transcript) => handleAnswer(transcript))
+    noResultRetries.current = 0
+    listenForAnswer()
   }
 
   const startCall = (key: string) => {

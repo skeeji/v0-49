@@ -26,7 +26,7 @@ export function useSpeechRecognition() {
 
   const supported = typeof window !== "undefined" && !!getSpeechRecognitionCtor()
 
-  const startListening = useCallback((onResult: (transcript: string) => void) => {
+  const startListening = useCallback((onResult: (transcript: string) => void, onNoResult?: () => void) => {
     console.log("[speech] ▶ startListening() appelé")
     const SR = getSpeechRecognitionCtor()
     if (!SR) {
@@ -41,21 +41,28 @@ export function useSpeechRecognition() {
       rec.maxAlternatives = 1
       setError(null)
       setListening(true)
+      let outcome: "result" | "error" | null = null
 
       rec.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript
         console.log(`[speech] ✅ onresult — transcript="${transcript}"`)
+        outcome = "result"
         onResult(transcript)
         setListening(false)
       }
       rec.onerror = (event: any) => {
         console.error("[speech] ❌ onerror —", event?.error || event)
+        outcome = "error"
         setError(`Micro bloqué ou refusé (${event?.error || "erreur inconnue"}) — utilise le clavier vocal de ton téléphone à la place.`)
         setListening(false)
       }
       rec.onend = () => {
-        console.log("[speech] ⏹ onend (recognition terminée)")
+        console.log(`[speech] ⏹ onend (recognition terminée) — outcome=${outcome ?? "aucun"}`)
         setListening(false)
+        if (outcome === null) {
+          console.warn("[speech] ⚠ Recognition terminée sans résultat ni erreur (silence non capté)")
+          onNoResult?.()
+        }
       }
       // Handlers de diagnostic supplémentaires (non standardisés partout mais
       // supportés par Chrome/Edge) — permettent de voir jusqu'où le pipeline
