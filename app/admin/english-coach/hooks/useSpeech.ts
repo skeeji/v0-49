@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react"
 interface MinimalSpeechRecognition {
   lang: string
   interimResults: boolean
+  continuous: boolean
   maxAlternatives: number
   onresult: ((event: any) => void) | null
   onerror: ((event: any) => void) | null
@@ -12,6 +13,12 @@ interface MinimalSpeechRecognition {
   start: () => void
   stop: () => void
 }
+
+// Délai de silence toléré avant de considérer que l'utilisateur a fini de parler.
+// Plus généreux au tout début (temps de démarrer à parler) que pendant les pauses
+// naturelles au milieu d'une phrase (utilisateur débutant en anglais qui hésite).
+const INITIAL_SILENCE_MS = 8000
+const TRAILING_SILENCE_MS = 2200
 
 function getSpeechRecognitionCtor(): (new () => MinimalSpeechRecognition) | null {
   if (typeof window === "undefined") return null
@@ -37,29 +44,70 @@ export function useSpeechRecognition() {
     try {
       const rec = new SR()
       rec.lang = "en-US"
-      rec.interimResults = false
+      // Mode continu + résultats intermédiaires : on gère nous-mêmes la détection
+      // de fin de parole via un timer de silence, plutôt que de dépendre de
+      // l'endpointing automatique de Chrome — trop agressif pour un utilisateur
+      // qui hésite en anglais (coupait la reconnaissance avant la fin de la
+      // phrase, ou l'abandonnait carrément sans résultat).
+      rec.continuous = true
+      rec.interimResults = true
       rec.maxAlternatives = 1
       setError(null)
       setListening(true)
+
       let outcome: "result" | "error" | null = null
+      let finalTranscript = ""
+      let silenceTimer: ReturnType<typeof setTimeout> | null = null
+
+      const clearSilenceTimer = () => {
+        if (silenceTimer) {
+          clearTimeout(silenceTimer)
+          silenceTimer = null
+        }
+      }
+      const scheduleStop = (delayMs: number) => {
+        clearSilenceTimer()
+        silenceTimer = setTimeout(() => {
+          console.log(`[speech] ⏱ Silence de ${delayMs}ms détecté — arrêt de l'écoute`)
+          try {
+            rec.stop()
+          } catch (e) {
+            // no-op
+          }
+        }, delayMs)
+      }
 
       rec.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript
-        console.log(`[speech] ✅ onresult — transcript="${transcript}"`)
-        outcome = "result"
-        onResult(transcript)
-        setListening(false)
+        let interim = ""
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i]
+          if (res.isFinal) {
+            finalTranscript = (finalTranscript ? finalTranscript + " " : "") + res[0].transcript
+            console.log(`[speech] 📝 segment final — "${res[0].transcript}" (cumul="${finalTranscript}")`)
+          } else {
+            interim += res[0].transcript
+          }
+        }
+        if (interim) console.log(`[speech] ✏️ intermédiaire — "${interim}"`)
+        // Tant que ça parle (résultat intermédiaire ou final), on repousse l'arrêt.
+        scheduleStop(TRAILING_SILENCE_MS)
       }
       rec.onerror = (event: any) => {
         console.error("[speech] ❌ onerror —", event?.error || event)
         outcome = "error"
+        clearSilenceTimer()
         setError(`Micro bloqué ou refusé (${event?.error || "erreur inconnue"}) — utilise le clavier vocal de ton téléphone à la place.`)
         setListening(false)
       }
       rec.onend = () => {
-        console.log(`[speech] ⏹ onend (recognition terminée) — outcome=${outcome ?? "aucun"}`)
+        clearSilenceTimer()
+        const transcript = finalTranscript.trim()
+        console.log(`[speech] ⏹ onend (recognition terminée) — transcript accumulé="${transcript}"`)
         setListening(false)
-        if (outcome === null) {
+        if (transcript) {
+          outcome = "result"
+          onResult(transcript)
+        } else if (outcome === null) {
           console.warn("[speech] ⚠ Recognition terminée sans résultat ni erreur (silence non capté)")
           onNoResult?.()
         }
@@ -81,6 +129,7 @@ export function useSpeechRecognition() {
       recognitionRef.current = rec
       rec.start()
       console.log("[speech] rec.start() appelé sans exception")
+      scheduleStop(INITIAL_SILENCE_MS)
     } catch (e) {
       console.error("[speech] ❌ Exception synchrone sur rec.start() —", e)
       setError("Micro indisponible ici — utilise le clavier vocal de ton téléphone.")
