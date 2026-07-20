@@ -19,6 +19,7 @@ export function PhoneCallSession() {
   const [callActive, setCallActive] = useState(false)
   const [log, setLog] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const askedQuestions = useRef<string[]>([])
   const lastQuestion = useRef<string>("")
@@ -32,7 +33,9 @@ export function PhoneCallSession() {
   const askNext = (question: string) => {
     lastQuestion.current = question
     setLog((l) => [...l, { isUser: false, line: question }])
+    setSpeaking(true)
     speak(question, () => {
+      setSpeaking(false)
       if (!callActiveRef.current) return
       startListening((transcript) => handleAnswer(transcript))
     })
@@ -85,11 +88,15 @@ export function PhoneCallSession() {
         })
       }
 
+      setLoading(false)
       if (data.next_question_en) {
         askedQuestions.current = [data.next_question_en, ...askedQuestions.current].slice(0, 10)
+        askNext(data.next_question_en)
+      } else {
+        // Ne devrait plus arriver (le serveur garantit next_question_en non-vide),
+        // mais on ne laisse jamais l'appel se bloquer silencieusement.
+        setError("Le coach n'a pas pu relancer la conversation, réessaie ou raccroche.")
       }
-      setLoading(false)
-      if (data.next_question_en) askNext(data.next_question_en)
     } catch (e) {
       console.error(e)
       setError("Le coach n'a pas pu répondre. Vérifie ta connexion.")
@@ -100,6 +107,7 @@ export function PhoneCallSession() {
   const hangUp = () => {
     callActiveRef.current = false
     setCallActive(false)
+    setSpeaking(false)
     stopListening()
     cancelSpeech()
   }
@@ -165,7 +173,13 @@ export function PhoneCallSession() {
 
         {callActive && (
           <div className={`${styles.muted} ${styles.mono}`} style={{ textAlign: "center", fontSize: 12 }}>
-            {loading ? "Analyse de ta réponse..." : listening ? "🔴 Écoute en cours..." : "🔊 Le correspondant parle..."}
+            {loading
+              ? "Analyse de ta réponse..."
+              : listening
+                ? "🔴 Écoute en cours..."
+                : speaking
+                  ? "🔊 Le correspondant parle..."
+                  : "⏳ Connexion..."}
           </div>
         )}
 

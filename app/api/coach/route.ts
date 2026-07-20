@@ -41,12 +41,17 @@ Contrainte de longueur : suggestion_fr doit faire 1 à 2 phrases maximum, jamais
 
 Varie systématiquement tes questions de suivi (next_question_en) — pioche parmi plusieurs formulations possibles pour chaque situation, ne répète jamais la question précédente ni une question déjà posée dans l'historique fourni, afin que deux sessions ne se ressemblent jamais.
 
+IMPORTANT : next_question_en est un champ OBLIGATOIRE et ne doit JAMAIS être vide, quelle que soit la réponse de l'utilisateur — la conversation doit toujours continuer.
+
 Réponds UNIQUEMENT en JSON strict, format :
 {
   "coherent": boolean,
   "suggestion_fr": "string ou null — si coherent=true, laisse null ; si coherent=false, explique en français, très court, comment mieux répondre",
-  "next_question_en": "la prochaine réplique du personnage en anglais, dans la continuité du contexte, jamais identique à une question précédente"
-}`
+  "next_question_en": "la prochaine réplique du personnage en anglais, dans la continuité du contexte, jamais identique à une question précédente, jamais vide"
+}
+
+Exemple :
+{"coherent": true, "suggestion_fr": null, "next_question_en": "Great, and what about the dimming curve, did you set it to logarithmic?"}`
 
 const SYSTEM_PROMPT_PHONE_CALL = `${PERSONA}
 
@@ -63,13 +68,18 @@ Règles :
 - Si needs_repeat=true : next_question_en doit être une reformulation variée et naturelle de "Sorry, could you say that again?" (jamais deux fois la même formulation de relance).
 - Si needs_repeat=false : next_question_en est la prochaine question normale de la conversation, jamais identique à la question précédente ni à une question déjà posée dans l'historique fourni.
 
+IMPORTANT : next_question_en est un champ OBLIGATOIRE et ne doit JAMAIS être vide — l'appel téléphonique doit toujours continuer, quelle que soit la réponse de l'utilisateur.
+
 Réponds UNIQUEMENT en JSON strict, format :
 {
   "understood": boolean,
   "needs_repeat": boolean,
   "correction_fr": "string ou null",
-  "next_question_en": "string"
-}`
+  "next_question_en": "string, jamais vide"
+}
+
+Exemple :
+{"understood": true, "needs_repeat": false, "correction_fr": null, "next_question_en": "Alright, and how long will the commissioning take, roughly?"}`
 
 function fallbackFlashcard(targetPhrase: string): FlashcardCoachResponse {
   return {
@@ -198,11 +208,15 @@ ${historyLine}`
         SYSTEM_PROMPT_ROLEPLAY,
         userMessage,
         550,
-        (parsed) => ({
-          coherent: Boolean(parsed.coherent),
-          suggestion_fr: parsed.coherent ? null : String(parsed.suggestion_fr || ""),
-          next_question_en: String(parsed.next_question_en || ""),
-        }),
+        (parsed) => {
+          const next_question_en = String(parsed.next_question_en || "").trim()
+          if (!next_question_en) throw new Error("next_question_en vide dans la réponse du modèle")
+          return {
+            coherent: Boolean(parsed.coherent),
+            suggestion_fr: parsed.coherent ? null : String(parsed.suggestion_fr || ""),
+            next_question_en,
+          }
+        },
       )
       return NextResponse.json(result ?? fallbackRoleplay())
     }
@@ -218,12 +232,16 @@ ${historyLine}`
         SYSTEM_PROMPT_PHONE_CALL,
         userMessage,
         550,
-        (parsed) => ({
-          understood: Boolean(parsed.understood),
-          needs_repeat: Boolean(parsed.needs_repeat),
-          correction_fr: parsed.correction_fr ? String(parsed.correction_fr) : null,
-          next_question_en: String(parsed.next_question_en || ""),
-        }),
+        (parsed) => {
+          const next_question_en = String(parsed.next_question_en || "").trim()
+          if (!next_question_en) throw new Error("next_question_en vide dans la réponse du modèle")
+          return {
+            understood: Boolean(parsed.understood),
+            needs_repeat: Boolean(parsed.needs_repeat),
+            correction_fr: parsed.correction_fr ? String(parsed.correction_fr) : null,
+            next_question_en,
+          }
+        },
       )
       return NextResponse.json(result ?? fallbackPhoneCall())
     }
