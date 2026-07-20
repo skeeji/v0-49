@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { SCENARIOS } from "../data"
 import { useSpeechRecognition, speak, cancelSpeech } from "../hooks/useSpeech"
-import type { PhoneCallCoachResponse } from "../types"
+import type { PhoneCallCoachResponse, Scenario } from "../types"
 
 const CALLABLE_SCENARIOS = ["customs", "electrician", "manager"]
 
@@ -24,11 +24,15 @@ export function PhoneCallSession() {
   const askedQuestions = useRef<string[]>([])
   const lastQuestion = useRef<string>("")
   const callActiveRef = useRef(false)
+  // Ref (et non simple const dérivée du render) car startCall() enchaîne de façon
+  // synchrone sur askNext() -> speak() -> listenForAnswer() -> handleAnswer avant
+  // que React n'ait eu l'occasion de re-render avec le nouveau scenarioKey : une
+  // closure basée sur le state aurait encore vu l'ancien scenario (null) au tout
+  // premier tour et ignorait la réponse de l'utilisateur.
+  const activeScenarioRef = useRef<Scenario | null>(null)
 
   const { listening, error: micError, supported: micSupported, startListening, stopListening } =
     useSpeechRecognition()
-
-  const scenario = scenarioKey ? SCENARIOS[scenarioKey] : null
 
   const noResultRetries = useRef(0)
 
@@ -84,6 +88,7 @@ export function PhoneCallSession() {
       return
     }
     const sc = SCENARIOS[key]
+    activeScenarioRef.current = sc
     setScenarioKey(key)
     setCallActive(true)
     callActiveRef.current = true
@@ -96,7 +101,8 @@ export function PhoneCallSession() {
 
   const handleAnswer = async (transcript: string) => {
     console.log(`[phone-call] handleAnswer("${transcript}")`)
-    if (!scenario || !callActiveRef.current) {
+    const activeScenario = activeScenarioRef.current
+    if (!activeScenario || !callActiveRef.current) {
       console.log("[phone-call] handleAnswer ignoré (pas de scénario actif ou appel raccroché)")
       return
     }
@@ -116,7 +122,7 @@ export function PhoneCallSession() {
           mode: "phone_call",
           targetPhrase: lastQuestion.current,
           userAnswer: transcript,
-          context: scenario.context,
+          context: activeScenario.context,
           history: askedQuestions.current,
         }),
       })
@@ -165,6 +171,7 @@ export function PhoneCallSession() {
   }
 
   const backToPicker = () => {
+    activeScenarioRef.current = null
     setScenarioKey(null)
     setLog([])
     setError(null)
