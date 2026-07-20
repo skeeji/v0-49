@@ -31,17 +31,28 @@ export function PhoneCallSession() {
   const scenario = scenarioKey ? SCENARIOS[scenarioKey] : null
 
   const askNext = (question: string) => {
+    console.log(`[phone-call] askNext("${question}") — callActive=${callActiveRef.current}`)
     lastQuestion.current = question
     setLog((l) => [...l, { isUser: false, line: question }])
     setSpeaking(true)
     speak(question, () => {
+      console.log(`[phone-call] speak() onEnd reçu — callActive=${callActiveRef.current}`)
       setSpeaking(false)
-      if (!callActiveRef.current) return
+      if (!callActiveRef.current) {
+        console.log("[phone-call] appel raccroché entre-temps, on n'active pas le micro")
+        return
+      }
       startListening((transcript) => handleAnswer(transcript))
     })
   }
 
+  const retryListening = () => {
+    console.log("[phone-call] 🎤 Réessayer l'écoute (manuel)")
+    startListening((transcript) => handleAnswer(transcript))
+  }
+
   const startCall = (key: string) => {
+    console.log(`[phone-call] startCall("${key}") — micSupported=${micSupported}`)
     if (!micSupported) {
       setError("Ce mode nécessite un micro compatible (Chrome/Edge, sur une connexion HTTPS).")
       return
@@ -58,12 +69,20 @@ export function PhoneCallSession() {
   }
 
   const handleAnswer = async (transcript: string) => {
-    if (!scenario || !callActiveRef.current) return
+    console.log(`[phone-call] handleAnswer("${transcript}")`)
+    if (!scenario || !callActiveRef.current) {
+      console.log("[phone-call] handleAnswer ignoré (pas de scénario actif ou appel raccroché)")
+      return
+    }
     setLog((l) => [...l, { isUser: true, line: transcript }])
     setLoading(true)
     setError(null)
 
     try {
+      console.log("[phone-call] POST /api/coach mode=phone_call —", {
+        targetPhrase: lastQuestion.current,
+        userAnswer: transcript,
+      })
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,10 +94,15 @@ export function PhoneCallSession() {
           history: askedQuestions.current,
         }),
       })
+      console.log(`[phone-call] Réponse HTTP ${res.status}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: PhoneCallCoachResponse = await res.json()
+      console.log("[phone-call] Données reçues —", data)
 
-      if (!callActiveRef.current) return
+      if (!callActiveRef.current) {
+        console.log("[phone-call] appel raccroché avant réception de la réponse, on ignore")
+        return
+      }
 
       if (data.correction_fr) {
         setLog((l) => {
@@ -95,16 +119,18 @@ export function PhoneCallSession() {
       } else {
         // Ne devrait plus arriver (le serveur garantit next_question_en non-vide),
         // mais on ne laisse jamais l'appel se bloquer silencieusement.
+        console.error("[phone-call] ❌ next_question_en vide malgré la garantie serveur")
         setError("Le coach n'a pas pu relancer la conversation, réessaie ou raccroche.")
       }
     } catch (e) {
-      console.error(e)
+      console.error("[phone-call] ❌ Erreur handleAnswer —", e)
       setError("Le coach n'a pas pu répondre. Vérifie ta connexion.")
       setLoading(false)
     }
   }
 
   const hangUp = () => {
+    console.log("[phone-call] 📴 hangUp()")
     callActiveRef.current = false
     setCallActive(false)
     setSpeaking(false)
@@ -180,6 +206,14 @@ export function PhoneCallSession() {
                 : speaking
                   ? "🔊 Le correspondant parle..."
                   : "⏳ Connexion..."}
+          </div>
+        )}
+
+        {callActive && !loading && !listening && !speaking && (
+          <div className={styles.row}>
+            <button className={`${styles.action} ${styles.primary}`} onClick={retryListening}>
+              🎤 Le micro ne s'est pas relancé — réessayer
+            </button>
           </div>
         )}
 
