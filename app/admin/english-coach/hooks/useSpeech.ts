@@ -57,9 +57,19 @@ export function useSpeechRecognition() {
         console.log("[speech] ⏹ onend (recognition terminée)")
         setListening(false)
       }
-      if ("onstart" in rec) {
-        ;(rec as any).onstart = () => console.log("[speech] 🎙 onstart (recognition démarrée)")
-      }
+      // Handlers de diagnostic supplémentaires (non standardisés partout mais
+      // supportés par Chrome/Edge) — permettent de voir jusqu'où le pipeline
+      // audio va réellement : capture micro → détection de son → détection de
+      // parole → résultat.
+      const r = rec as any
+      r.onstart = () => console.log("[speech] 🎙 onstart (recognition démarrée)")
+      r.onaudiostart = () => console.log("[speech] 🎚 onaudiostart (capture audio démarrée)")
+      r.onsoundstart = () => console.log("[speech] 🔉 onsoundstart (un son a été détecté)")
+      r.onspeechstart = () => console.log("[speech] 💬 onspeechstart (de la parole a été détectée)")
+      r.onspeechend = () => console.log("[speech] 💬 onspeechend (fin de la parole détectée)")
+      r.onsoundend = () => console.log("[speech] 🔉 onsoundend (fin du son détecté)")
+      r.onaudioend = () => console.log("[speech] 🎚 onaudioend (fin de la capture audio)")
+      r.onnomatch = () => console.warn("[speech] ⚠ onnomatch (son reçu mais non reconnu comme parole)")
 
       recognitionRef.current = rec
       rec.start()
