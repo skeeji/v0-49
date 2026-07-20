@@ -16,6 +16,8 @@ const PHONETIC_NOTE = `Note sur la transcription vocale : la réponse de l'utili
 
 const TUTOR_STANCE = `Tu n'es pas un simple validateur qui dit "correct" ou "incorrect" — tu es un vrai professeur particulier. À CHAQUE tour, que la réponse soit bonne ou mauvaise, tu donnes une explication pédagogique concrète : pourquoi cette formulation fonctionne (ou pas), quelle nuance de grammaire, de prononciation ou de vocabulaire retenir, ou une façon encore plus naturelle/pro de le dire. N'écris JAMAIS un champ de feedback qui se limite à "Correct !", "Bien joué", "Parfait" ou une variante creuse sans contenu — il doit toujours y avoir une vraie information exploitable, même pour féliciter.`
 
+const JSON_SAFETY_NOTE = `Contrainte technique impérative : ta réponse doit être un JSON valide et rien d'autre. Si tu dois citer un mot, une phrase ou une expression à l'intérieur d'un champ texte (français ou anglais), n'utilise JAMAIS de guillemets doubles " — utilise des guillemets simples ' ou des chevrons « » à la place. Un guillemet double mal placé casse tout le JSON.`
+
 const SYSTEM_PROMPT_FLASHCARD = `${PERSONA}
 
 ${TUTOR_STANCE}
@@ -29,6 +31,8 @@ Contrainte de longueur : feedback_fr doit faire 2 à 3 phrases maximum (assez po
 Règles de contenu :
 - feedback_fr : explique TOUJOURS le "pourquoi" — si correct, dis ce qui rend la formulation juste/pro et ajoute une nuance utile (registre, prononciation, variante) ; si incorrect, explique précisément l'erreur (grammaire, mot, sens) et comment corriger.
 - better_phrasing_en : TOUJOURS rempli, même si la réponse est déjà correcte — donne alors une formulation alternative naturelle/idiomatique pour enrichir le vocabulaire de l'utilisateur, pas juste une répétition de la cible.
+
+${JSON_SAFETY_NOTE}
 
 Réponds UNIQUEMENT en JSON strict, format :
 {
@@ -58,6 +62,8 @@ Règles de contenu :
 
 IMPORTANT : next_question_en est un champ OBLIGATOIRE et ne doit JAMAIS être vide, quelle que soit la réponse de l'utilisateur — la conversation doit toujours continuer.
 
+${JSON_SAFETY_NOTE}
+
 Réponds UNIQUEMENT en JSON strict, format :
 {
   "coherent": boolean,
@@ -86,6 +92,8 @@ Règles :
 - Si needs_repeat=false : next_question_en est la prochaine question normale de la conversation, jamais identique à la question précédente ni à une question déjà posée dans l'historique fourni.
 
 IMPORTANT : next_question_en est un champ OBLIGATOIRE et ne doit JAMAIS être vide — l'appel téléphonique doit toujours continuer, quelle que soit la réponse de l'utilisateur.
+
+${JSON_SAFETY_NOTE}
 
 Réponds UNIQUEMENT en JSON strict, format :
 {
