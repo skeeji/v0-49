@@ -5,7 +5,8 @@
       "WebSearch",
       "Bash(npx tsc:*)",
       "Bash(npm run *)",
-      "Bash(echo \"EXIT_CODE=$?\")"
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(sed -E 's/.*client\\\\.db\\\\\\(\\([^\\)]*\\)\\\\\\).*/\\\\1/')"
     ]
   }
 }
