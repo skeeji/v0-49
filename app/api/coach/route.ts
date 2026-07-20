@@ -169,7 +169,20 @@ async function callAnthropicRaw(systemPrompt: string, userMessage: string, maxTo
   }
 
   const data = await res.json()
-  return data.content?.[0]?.text || "{}"
+  // Ne pas supposer que le premier bloc de `content` est du texte — Anthropic peut
+  // renvoyer d'autres types de blocs en premier (ex: thinking). On cherche le
+  // premier bloc de type "text" où qu'il soit.
+  const textBlock = Array.isArray(data.content) ? data.content.find((b: any) => b?.type === "text") : null
+  const text = textBlock?.text
+  if (!text) {
+    console.error(
+      "[coach] ⚠ Aucun bloc texte dans la réponse Anthropic — stop_reason:",
+      data.stop_reason,
+      "| structure complète:",
+      JSON.stringify(data),
+    )
+  }
+  return text || "{}"
 }
 
 // Appelle Claude et parse le JSON, avec un retry unique en cas d'échec (appel réseau ou parsing).
