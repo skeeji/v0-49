@@ -1,64 +1,93 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { SCENARIOS } from "../data"
 import { useSpeechRecognition, speak } from "../hooks/useSpeech"
-import type { CoachResponse } from "../types"
+import type { RoleplayCoachResponse, Scenario, ScenarioPart } from "../types"
 
-const MAX_TURNS = 4
+const TURNS_PER_PART = 3
 
-interface DialogueEntry {
-  who: string
-  line: string
-  isUser: boolean
+type DialogueEntry =
+  | { type: "bubble"; who: string; line: string; isUser: boolean }
+  | { type: "transition"; text: string }
+
+function pickRandom<T>(list: T[]): T {
+  return list[Math.floor(Math.random() * list.length)]
+}
+
+function getParts(scenario: Scenario, key: string): ScenarioPart[] {
+  return scenario.parts && scenario.parts.length ? scenario.parts : [{ scenarioKey: key }]
 }
 
 export function RoleplaySession() {
-  const [scenarioKey, setScenarioKey] = useState<string | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [parts, setParts] = useState<ScenarioPart[]>([])
+  const [partIndex, setPartIndex] = useState(0)
+  const [turnInPart, setTurnInPart] = useState(0)
   const [dialogue, setDialogue] = useState<DialogueEntry[]>([])
-  const [turn, setTurn] = useState(0)
   const [inputValue, setInputValue] = useState("")
+  const [lastTranscript, setLastTranscript] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lastFeedback, setLastFeedback] = useState<CoachResponse | null>(null)
-  const recentlyWrong = useRef<string[]>([])
+  const [lastFeedback, setLastFeedback] = useState<{ coherent: boolean; suggestion_fr: string | null } | null>(null)
+  const askedQuestions = useRef<string[]>([])
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const { listening, error: micError, startListening } = useSpeechRecognition()
 
-  const scenario = scenarioKey ? SCENARIOS[scenarioKey] : null
+  const activePart = parts[partIndex]
+  const activeScenario = activePart ? SCENARIOS[activePart.scenarioKey] : null
+  const finished = selectedKey !== null && partIndex >= parts.length
 
-  useEffect(() => {
-    if (scenario && dialogue.length === 1) {
-      speak(dialogue[0].line)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scenarioKey])
+  const openPart = (scenario: Scenario, transition?: string) => {
+    const line = pickRandom(scenario.openingLines)
+    askedQuestions.current = [line, ...askedQuestions.current].slice(0, 10)
+    const entries: DialogueEntry[] = []
+    if (transition) entries.push({ type: "transition", text: transition })
+    entries.push({ type: "bubble", who: scenario.who, line, isUser: false })
+    setDialogue((d) => [...d, ...entries])
+    speak(line)
+  }
 
   const startScenario = (key: string) => {
-    const sc = SCENARIOS[key]
-    setScenarioKey(key)
-    setDialogue([{ who: sc.steps[0].who, line: sc.steps[0].line, isUser: false }])
-    setTurn(0)
+    const scenario = SCENARIOS[key]
+    const scenarioParts = getParts(scenario, key)
+    setSelectedKey(key)
+    setParts(scenarioParts)
+    setPartIndex(0)
+    setTurnInPart(0)
     setInputValue("")
+    setLastTranscript(null)
     setLastFeedback(null)
     setError(null)
-    recentlyWrong.current = []
+
+    const firstScenario = SCENARIOS[scenarioParts[0].scenarioKey]
+    const line = pickRandom(firstScenario.openingLines)
+    askedQuestions.current = [line]
+    setDialogue([{ type: "bubble", who: firstScenario.who, line, isUser: false }])
+    setTimeout(() => speak(line), 300)
   }
 
   const backToScenarios = () => {
-    setScenarioKey(null)
+    setSelectedKey(null)
     setDialogue([])
+    setParts([])
   }
 
   const submit = async () => {
-    if (!scenario || !inputValue.trim() || loading) return
+    if (!activeScenario || !inputValue.trim() || loading) return
     const userLine = inputValue.trim()
     setLoading(true)
     setError(null)
     setLastFeedback(null)
 
-    const lastCharacterLine = [...dialogue].reverse().find((d) => !d.isUser)?.line || scenario.steps[0].line
+    const lastCharacterLine =
+      [...dialogue]
+        .reverse()
+        .find((d): d is Extract<DialogueEntry, { type: "bubble" }> => d.type === "bubble" && !d.isUser)?.line ||
+      askedQuestions.current[0] ||
+      ""
 
     try {
       const res = await fetch("/api/coach", {
@@ -68,28 +97,39 @@ export function RoleplaySession() {
           mode: "roleplay",
           targetPhrase: lastCharacterLine,
           userAnswer: userLine,
-          context: scenario.context,
-          history: recentlyWrong.current,
+          context: activeScenario.context,
+          history: askedQuestions.current,
         }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data: CoachResponse = await res.json()
+      const data: RoleplayCoachResponse = await res.json()
 
-      setDialogue((d) => [...d, { who: "Toi", line: userLine, isUser: true }])
-      setLastFeedback(data)
+      setDialogue((d) => [...d, { type: "bubble", who: "Toi", line: userLine, isUser: true }])
+      setLastFeedback({ coherent: data.coherent, suggestion_fr: data.suggestion_fr })
       setInputValue("")
+      setLastTranscript(null)
 
-      if (!data.correct) {
-        recentlyWrong.current = [data.better_phrasing_en, ...recentlyWrong.current].slice(0, 5)
-      }
+      const nextTurn = turnInPart + 1
 
-      const nextTurn = turn + 1
-      setTurn(nextTurn)
-
-      if (nextTurn < MAX_TURNS && data.follow_up_en) {
-        const character = scenario.steps[0].who
-        setDialogue((d) => [...d, { who: character, line: data.follow_up_en, isUser: false }])
-        speak(data.follow_up_en)
+      if (nextTurn < TURNS_PER_PART && data.next_question_en) {
+        askedQuestions.current = [data.next_question_en, ...askedQuestions.current].slice(0, 10)
+        setDialogue((d) => [
+          ...d,
+          { type: "bubble", who: activeScenario.who, line: data.next_question_en, isUser: false },
+        ])
+        speak(data.next_question_en)
+        setTurnInPart(nextTurn)
+      } else {
+        const nextPartIndex = partIndex + 1
+        setTurnInPart(0)
+        if (nextPartIndex < parts.length) {
+          const nextPart = parts[nextPartIndex]
+          const nextScenario = SCENARIOS[nextPart.scenarioKey]
+          setPartIndex(nextPartIndex)
+          openPart(nextScenario, nextPart.transition)
+        } else {
+          setPartIndex(nextPartIndex)
+        }
       }
     } catch (e) {
       console.error(e)
@@ -99,50 +139,51 @@ export function RoleplaySession() {
     }
   }
 
-  if (!scenario) {
+  if (!selectedKey) {
     return (
       <div>
-        <div className={`${styles.muted}`} style={{ marginBottom: 14 }}>
+        <div className={styles.muted} style={{ marginBottom: 14 }}>
           Choisis une simulation. Le personnage te parle à voix haute (🔊), tu réponds à l'écrit ou au micro.
         </div>
         <div className={styles.scenarioGrid}>
           {Object.entries(SCENARIOS).map(([key, s]) => (
-            <div key={key} className={styles.scenarioCard} onClick={() => startScenario(key)}>
+            <button key={key} type="button" className={styles.scenarioCard} onClick={() => startScenario(key)}>
               <div className={styles.scenarioIcon}>{s.icon}</div>
               <div className={styles.scenarioTitle}>{s.title}</div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
     )
   }
 
-  const finished = turn >= MAX_TURNS
+  const scenarioTitle = SCENARIOS[selectedKey].title
 
   return (
     <div>
-      <div className={styles.badge}>{scenario.title}</div>
+      <div className={styles.badge}>{scenarioTitle}</div>
       <div className={styles.dialogue} style={{ marginTop: 14 }}>
-        {dialogue.map((entry, i) => (
-          <div key={i} className={`${styles.bubble} ${entry.isUser ? styles.bubbleMe : styles.bubbleThem}`}>
-            <div className={styles.bubbleWho}>
-              {entry.who}
-              {!entry.isUser && " 🔊"}
+        {dialogue.map((entry, i) =>
+          entry.type === "transition" ? (
+            <div key={i} className={`${styles.muted} ${styles.mono}`} style={{ textAlign: "center", fontSize: 12 }}>
+              — {entry.text} —
             </div>
-            {entry.line}
-          </div>
-        ))}
-
-        {lastFeedback && (
-          <div className={`${styles.feedback} ${lastFeedback.correct ? styles.feedbackOk : styles.feedbackNo}`}>
-            {lastFeedback.correct ? "✓ " : "✗ "}
-            {lastFeedback.feedback_fr}
-            {!lastFeedback.correct && (
-              <div style={{ marginTop: 6 }}>
-                En pro, on dirait : <strong>{lastFeedback.better_phrasing_en}</strong>
+          ) : (
+            <div key={i} className={`${styles.bubble} ${entry.isUser ? styles.bubbleMe : styles.bubbleThem}`}>
+              <div className={styles.bubbleWho}>
+                {entry.who}
+                {!entry.isUser && " 🔊"}
               </div>
-            )}
-          </div>
+              {entry.line}
+            </div>
+          ),
+        )}
+
+        {lastFeedback && !lastFeedback.coherent && lastFeedback.suggestion_fr && (
+          <div className={`${styles.feedback} ${styles.feedbackNo}`}>✗ {lastFeedback.suggestion_fr}</div>
+        )}
+        {lastFeedback && lastFeedback.coherent && (
+          <div className={`${styles.feedback} ${styles.feedbackOk}`}>✓ Bien répondu</div>
         )}
 
         {error && <div className={styles.errorText}>{error}</div>}
@@ -151,6 +192,7 @@ export function RoleplaySession() {
           <>
             <div className={styles.rowLeft}>
               <input
+                ref={inputRef}
                 type="text"
                 className={styles.input}
                 placeholder="Ta réponse en anglais..."
@@ -163,7 +205,12 @@ export function RoleplaySession() {
               />
               <button
                 className={styles.action}
-                onClick={() => startListening((t) => setInputValue(t))}
+                onClick={() =>
+                  startListening((t) => {
+                    setInputValue(t)
+                    setLastTranscript(t)
+                  })
+                }
                 disabled={loading}
               >
                 {listening ? "🔴 Écoute..." : "🎤 Parler"}
@@ -174,13 +221,27 @@ export function RoleplaySession() {
               <button
                 className={styles.action}
                 onClick={() => {
-                  const lastLine = [...dialogue].reverse().find((d) => !d.isUser)?.line
-                  if (lastLine) speak(lastLine)
+                  const lastBubble = [...dialogue]
+                    .reverse()
+                    .find((d): d is Extract<DialogueEntry, { type: "bubble" }> => d.type === "bubble" && !d.isUser)
+                  if (lastBubble) speak(lastBubble.line)
                 }}
               >
                 🔊 Réécouter
               </button>
             </div>
+            {lastTranscript && (
+              <div className={`${styles.muted} ${styles.mono}`} style={{ fontSize: 12 }}>
+                🎤 Transcription détectée : « {lastTranscript} » —{" "}
+                <button
+                  className={styles.resetLink}
+                  style={{ margin: 0, display: "inline" }}
+                  onClick={() => inputRef.current?.focus()}
+                >
+                  corriger le texte
+                </button>
+              </div>
+            )}
             {micError && <div className={styles.errorText}>{micError}</div>}
           </>
         ) : (

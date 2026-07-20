@@ -10,19 +10,21 @@ export interface Word {
   wrong: number
 }
 
-export interface ScenarioStep {
-  who: string
-  line: string
+export interface ScenarioPart {
+  scenarioKey: string
+  transition?: string
 }
 
 export interface Scenario {
   title: string
   icon: string
   context: string
-  steps: ScenarioStep[]
+  who: string
+  openingLines: string[]
+  parts?: ScenarioPart[]
 }
 
-export type CoachMode = "flashcard" | "roleplay"
+export type CoachMode = "flashcard" | "roleplay" | "phone_call"
 
 export interface CoachRequest {
   mode: CoachMode
@@ -32,13 +34,28 @@ export interface CoachRequest {
   history: string[]
 }
 
-export interface CoachResponse {
+export interface FlashcardCoachResponse {
   correct: boolean
   score: number
   feedback_fr: string
   better_phrasing_en: string
   follow_up_en: string
 }
+
+export interface RoleplayCoachResponse {
+  coherent: boolean
+  suggestion_fr: string | null
+  next_question_en: string
+}
+
+export interface PhoneCallCoachResponse {
+  understood: boolean
+  needs_repeat: boolean
+  correction_fr: string | null
+  next_question_en: string
+}
+
+export type CoachResponse = FlashcardCoachResponse
 
 export interface ProgressRow {
   word_id: string

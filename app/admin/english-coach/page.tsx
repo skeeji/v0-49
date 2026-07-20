@@ -6,13 +6,14 @@ import styles from "./coach.module.css"
 import { DEFAULT_WORDS } from "./data"
 import { FlashcardSession } from "./components/FlashcardSession"
 import { RoleplaySession } from "./components/RoleplaySession"
+import { PhoneCallSession } from "./components/PhoneCallSession"
 import { Dictionary } from "./components/Dictionary"
 import { ProgressDashboard } from "./components/ProgressDashboard"
 import type { ProgressRow, Word } from "./types"
 
 const TARGET_DATE = new Date("2026-08-20T00:00:00")
 
-type Tab = "flash" | "role" | "dico" | "progress"
+type Tab = "flash" | "role" | "phone" | "dico" | "progress"
 
 function daysLeft(): number {
   const diff = TARGET_DATE.getTime() - Date.now()
@@ -73,6 +74,7 @@ function CoachApp() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "flash", label: "Flashcards" },
     { key: "role", label: "Jeu de rôle" },
+    { key: "phone", label: "Appel" },
     { key: "dico", label: "Dictionnaire" },
     { key: "progress", label: "Progression" },
   ]
@@ -117,6 +119,7 @@ function CoachApp() {
                 />
               )}
               {tab === "role" && <RoleplaySession />}
+              {tab === "phone" && <PhoneCallSession />}
               {tab === "dico" && <Dictionary words={words} onAddWord={handleAddWord} />}
               {tab === "progress" && (
                 <ProgressDashboard words={words} sessions={sessions} daysLeft={daysLeft()} onReset={handleReset} />

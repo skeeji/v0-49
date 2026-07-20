@@ -6,7 +6,7 @@
   --amber: #ff9d42;
   --cyan: #4fd1ff;
   --text: #e8ecef;
-  --muted: #7a8590;
+  --muted: #9aa5b0;
   --green: #57c7a3;
   --red: #ff6b6b;
 
@@ -99,7 +99,14 @@
   100% { left: 130%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .busLine::after { animation: none; }
+  .app *,
+  .app *::before,
+  .app *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* TABS */
@@ -202,7 +209,7 @@
   color: var(--text);
   padding: 10px 12px;
   border-radius: 6px;
-  font-size: 15px;
+  font-size: 16px;
   width: 260px;
   font-family: inherit;
 }
@@ -216,8 +223,13 @@
   color: var(--text);
   padding: 8px 10px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 16px;
   font-family: inherit;
+}
+.input:focus-visible,
+.select:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
 }
 .action {
   background: var(--panel2);
@@ -236,6 +248,12 @@
 .action:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.action:focus-visible,
+.tabButton:focus-visible,
+.resetLink:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
 }
 .primary {
   border-color: var(--amber);
@@ -352,9 +370,16 @@
   cursor: pointer;
   text-align: center;
   transition: 0.15s;
+  width: 100%;
+  color: inherit;
+  font-family: inherit;
 }
 .scenarioCard:hover {
   border-color: var(--amber);
+}
+.scenarioCard:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
 }
 .scenarioIcon {
   font-size: 22px;
@@ -499,11 +524,47 @@
   margin-top: 8px;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
+  .app {
+    padding: 14px 12px 40px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .countdown {
+    text-align: left;
+  }
+  .countdownNum {
+    font-size: 26px;
+  }
+
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+  }
+  .tabButton {
+    flex: 0 0 auto;
+    min-width: 108px;
+  }
+
   .scenarioGrid {
     grid-template-columns: 1fr;
   }
   .statRow {
+    grid-template-columns: 1fr;
+  }
+
+  .bubble {
+    max-width: 90%;
+  }
+
+  .addForm {
     grid-template-columns: 1fr;
   }
 }

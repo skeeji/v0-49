@@ -74,37 +74,49 @@ export const CAT_LABELS: Record<WordCategory, string> = {
 }
 
 export const SCENARIOS: Record<string, Scenario> = {
+  customs: {
+    title: "Douanes / aéroport",
+    icon: "🛃",
+    context: "Customs officer at Dubai airport, business trip for lighting commissioning work",
+    who: "Customs Officer",
+    openingLines: [
+      "Passport, please. What is the purpose of your visit?",
+      "Good morning. Business or leisure, sir?",
+      "Passport and boarding pass, please. Are you here for work?",
+    ],
+  },
   electrician: {
     title: "Électricien sur échelle",
     icon: "🪜",
     context: "Electrician on a ladder, DALI lighting commissioning, luxury retail store in Dubai",
-    steps: [
-      {
-        who: "Electrician",
-        line: "The strip is flickering when I dim it below 20 percent, what do you want me to do?",
-      },
+    who: "Electrician",
+    openingLines: [
+      "The strip is flickering when I dim it below 20 percent, what do you want me to do?",
+      "Hey, this fixture won't respond to the DALI address, any idea what's wrong?",
+      "I'm up on the ladder, the downlight next to the mannequin is showing a hot spot. What should I check first?",
     ],
   },
   manager: {
     title: "Manager stressé",
     icon: "👔",
     context: "Stressed brand manager, luxury retail store opening in 2 days, Dubai",
-    steps: [
-      {
-        who: "Brand Manager",
-        line: "The color temperature on the showcase looks too cold, the opening is in 2 days, can you fix this now?",
-      },
+    who: "Brand Manager",
+    openingLines: [
+      "The color temperature on the showcase looks too cold, the opening is in 2 days, can you fix this now?",
+      "I need this fixed before the client walkthrough this afternoon, how long will it take?",
+      "There's a reflection on the showcase glass, it's distracting. Can we solve that today?",
     ],
   },
-  customs: {
-    title: "Douanes / aéroport",
-    icon: "🛃",
-    context: "Customs officer at Dubai airport, business trip for lighting commissioning work",
-    steps: [
-      {
-        who: "Customs Officer",
-        line: "Passport, please. What is the purpose of your visit?",
-      },
+  full_day: {
+    title: "Parcours complet (Jour J-2)",
+    icon: "🗓️",
+    context: "",
+    who: "",
+    openingLines: [],
+    parts: [
+      { scenarioKey: "customs" },
+      { scenarioKey: "electrician", transition: "Plus tard dans la journée, sur le chantier..." },
+      { scenarioKey: "manager", transition: "En fin de journée, en boutique..." },
     ],
   },
 }

@@ -10,6 +10,7 @@ interface MinimalSpeechRecognition {
   onerror: ((event: any) => void) | null
   onend: (() => void) | null
   start: () => void
+  stop: () => void
 }
 
 function getSpeechRecognitionCtor(): (new () => MinimalSpeechRecognition) | null {
@@ -60,18 +61,46 @@ export function useSpeechRecognition() {
     }
   }, [])
 
-  return { listening, error, supported, startListening }
+  const stopListening = useCallback(() => {
+    try {
+      recognitionRef.current?.stop()
+    } catch (e) {
+      // no-op
+    }
+    setListening(false)
+  }, [])
+
+  return { listening, error, supported, startListening, stopListening }
 }
 
-export function speak(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+// onEnd est appelé une fois la synthèse vocale terminée — utilisé pour enchaîner
+// automatiquement sur l'écoute du micro (mode appel téléphonique).
+export function speak(text: string, onEnd?: () => void) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    onEnd?.()
+    return
+  }
   try {
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = "en-GB"
     utterance.rate = 0.92
+    if (onEnd) {
+      utterance.onend = () => onEnd()
+      utterance.onerror = () => onEnd()
+    }
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(utterance)
   } catch (e) {
     console.error("TTS indisponible", e)
+    onEnd?.()
+  }
+}
+
+export function cancelSpeech() {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  try {
+    window.speechSynthesis.cancel()
+  } catch (e) {
+    // no-op
   }
 }

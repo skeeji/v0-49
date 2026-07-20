@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { CAT_LABELS } from "../data"
 import { useSpeechRecognition } from "../hooks/useSpeech"
@@ -22,8 +22,33 @@ const CAT_CONTEXT: Record<string, string> = {
   TRB: "Troubleshooting technical issues on site, luxury retail lighting in Dubai",
 }
 
+function shuffle<T>(list: T[]): T[] {
+  const arr = [...list]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
 function buildQueue(words: Word[]): Word[] {
-  return [...words].sort((a, b) => a.mastery - b.mastery || b.wrong - a.wrong).slice(0, 5)
+  // Groupe par priorité (mastery croissant, wrong décroissant), puis mélange chaque
+  // groupe de priorité égale (Fisher-Yates) pour éviter un ordre toujours identique
+  // quand plusieurs mots ont le même mastery/wrong (ex: tous à 0 en début de session).
+  const groups = new Map<string, Word[]>()
+  for (const w of words) {
+    const key = `${w.mastery}-${w.wrong}`
+    const group = groups.get(key)
+    if (group) group.push(w)
+    else groups.set(key, [w])
+  }
+  const sortedKeys = [...groups.keys()].sort((a, b) => {
+    const [masteryA, wrongA] = a.split("-").map(Number)
+    const [masteryB, wrongB] = b.split("-").map(Number)
+    return masteryA - masteryB || wrongB - wrongA
+  })
+  const ordered = sortedKeys.flatMap((key) => shuffle(groups.get(key)!))
+  return ordered.slice(0, 5)
 }
 
 export function FlashcardSession({ words, onUpdateWord, onSessionTick }: FlashcardSessionProps) {
@@ -33,7 +58,9 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<CoachResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [lastTranscript, setLastTranscript] = useState<string | null>(null)
   const recentlyWrong = useRef<string[]>([])
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const { listening, error: micError, startListening } = useSpeechRecognition()
 
@@ -46,6 +73,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setInputValue("")
     setResult(null)
     setError(null)
+    setLastTranscript(null)
   }
 
   const submit = async () => {
@@ -89,6 +117,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setInputValue("")
     setResult(null)
     setError(null)
+    setLastTranscript(null)
   }
 
   if (done) {
@@ -116,6 +145,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
         {!result && (
           <div className={styles.row}>
             <input
+              ref={inputRef}
               type="text"
               className={styles.input}
               placeholder="Traduis en anglais..."
@@ -129,13 +159,31 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
             />
             <button
               className={styles.action}
-              onClick={() => startListening((t) => setInputValue(t))}
+              onClick={() =>
+                startListening((t) => {
+                  setInputValue(t)
+                  setLastTranscript(t)
+                })
+              }
               disabled={loading}
             >
               {listening ? "🔴 Écoute..." : "🎤 Parler"}
             </button>
             <button className={`${styles.action} ${styles.primary}`} onClick={submit} disabled={loading}>
               {loading ? "Analyse..." : "Vérifier"}
+            </button>
+          </div>
+        )}
+
+        {lastTranscript && !result && (
+          <div className={`${styles.muted} ${styles.mono}`} style={{ fontSize: 12 }}>
+            🎤 Transcription détectée : « {lastTranscript} » —{" "}
+            <button
+              className={styles.resetLink}
+              style={{ margin: 0, display: "inline" }}
+              onClick={() => inputRef.current?.focus()}
+            >
+              corriger le texte
             </button>
           </div>
         )}
