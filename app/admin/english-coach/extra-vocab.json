@@ -1,0 +1,2690 @@
+[
+  {
+    "id": "w55",
+    "fr": "présentoir",
+    "en": "display stand",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w56",
+    "fr": "étagère",
+    "en": "shelf",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w57",
+    "fr": "niche",
+    "en": "niche / alcove",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w58",
+    "fr": "niche murale",
+    "en": "wall niche",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w59",
+    "fr": "laiton brossé",
+    "en": "brushed brass",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w60",
+    "fr": "laiton poli",
+    "en": "polished brass",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w61",
+    "fr": "miroir anti-reflet",
+    "en": "anti-reflective mirror",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w62",
+    "fr": "onyx",
+    "en": "onyx",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w63",
+    "fr": "marbre translucide",
+    "en": "translucent marble",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w64",
+    "fr": "vernis",
+    "en": "varnish / lacquer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w65",
+    "fr": "finition laquée",
+    "en": "lacquered finish",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w66",
+    "fr": "comptoir de vente",
+    "en": "sales counter",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w67",
+    "fr": "flacon de parfum",
+    "en": "perfume bottle",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w68",
+    "fr": "rouge à lèvres",
+    "en": "lipstick",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w69",
+    "fr": "vernis à ongles",
+    "en": "nail polish",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w70",
+    "fr": "gamme de teintes",
+    "en": "shade range",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w71",
+    "fr": "présentoir cosmétique",
+    "en": "cosmetics display",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w72",
+    "fr": "zone de maquillage",
+    "en": "makeup area",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w73",
+    "fr": "testeur",
+    "en": "tester",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w74",
+    "fr": "rendu des couleurs",
+    "en": "color rendering",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w75",
+    "fr": "kelvin",
+    "en": "Kelvin",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w76",
+    "fr": "température de couleur",
+    "en": "color temperature",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w77",
+    "fr": "halo lumineux",
+    "en": "light halo",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w78",
+    "fr": "auréole",
+    "en": "glow ring",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w79",
+    "fr": "angle de faisceau",
+    "en": "beam angle",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w80",
+    "fr": "étude d'éclairage",
+    "en": "lighting study",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w81",
+    "fr": "puissance",
+    "en": "power (wattage)",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w82",
+    "fr": "flux lumineux",
+    "en": "luminous flux",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w83",
+    "fr": "éclairement",
+    "en": "illuminance",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w84",
+    "fr": "variateur de lumière",
+    "en": "dimmer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w85",
+    "fr": "point chaud",
+    "en": "hot spot",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w86",
+    "fr": "reflet parasite",
+    "en": "stray reflection",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w87",
+    "fr": "éclairage rasant",
+    "en": "grazing light",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w88",
+    "fr": "bandeau LED",
+    "en": "LED strip",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w89",
+    "fr": "ruban",
+    "en": "strip",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w90",
+    "fr": "zone trop sombre",
+    "en": "underlit area",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w91",
+    "fr": "zone suréclairée",
+    "en": "overlit area",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w92",
+    "fr": "réduire la lumière",
+    "en": "dim the light",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w93",
+    "fr": "baisser l'intensité",
+    "en": "lower the intensity",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w94",
+    "fr": "augmenter l'intensité",
+    "en": "increase the intensity",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w95",
+    "fr": "raccordement électrique",
+    "en": "electrical connection",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w96",
+    "fr": "ajuster le spot",
+    "en": "adjust the spotlight",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w97",
+    "fr": "orienter le spot",
+    "en": "aim the spotlight",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w98",
+    "fr": "emplacement du driver",
+    "en": "driver location",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w99",
+    "fr": "transfo",
+    "en": "transformer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w100",
+    "fr": "scène d'éclairage",
+    "en": "lighting scene",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w101",
+    "fr": "scintillement",
+    "en": "flickering",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w102",
+    "fr": "clignotement",
+    "en": "blinking",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w103",
+    "fr": "éblouissement du client",
+    "en": "customer glare",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w104",
+    "fr": "cosmétique",
+    "en": "cosmetics",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w105",
+    "fr": "accessoires",
+    "en": "accessories",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w106",
+    "fr": "angle",
+    "en": "angle",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w107",
+    "fr": "emplacement",
+    "en": "location",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w108",
+    "fr": "rose",
+    "en": "ceiling rose",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w109",
+    "fr": "projecteur encastré",
+    "en": "recessed spotlight",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w110",
+    "fr": "spot orientable",
+    "en": "adjustable spotlight",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w111",
+    "fr": "rail d'éclairage",
+    "en": "lighting track",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w112",
+    "fr": "projecteur sur rail",
+    "en": "track spotlight",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w113",
+    "fr": "applique murale",
+    "en": "wall sconce",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w114",
+    "fr": "suspension",
+    "en": "pendant light",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w115",
+    "fr": "lèche-mur",
+    "en": "wall grazer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w116",
+    "fr": "lèche-plafond",
+    "en": "ceiling grazer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w117",
+    "fr": "profilé aluminium",
+    "en": "aluminum profile",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w118",
+    "fr": "diffuseur opale",
+    "en": "opal diffuser",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w119",
+    "fr": "optique",
+    "en": "optic",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w120",
+    "fr": "lentille",
+    "en": "lens",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w121",
+    "fr": "réflecteur",
+    "en": "reflector",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w122",
+    "fr": "grille anti-éblouissement",
+    "en": "anti-glare louvre",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w123",
+    "fr": "visière anti-éblouissement",
+    "en": "anti-glare shield",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w124",
+    "fr": "nid d'abeille",
+    "en": "honeycomb louvre",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w125",
+    "fr": "filtre correcteur",
+    "en": "correction filter",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w126",
+    "fr": "filtre couleur",
+    "en": "color filter",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w127",
+    "fr": "module LED",
+    "en": "LED module",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w128",
+    "fr": "puce LED",
+    "en": "LED chip",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w129",
+    "fr": "transformateur",
+    "en": "transformer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w130",
+    "fr": "alimentation électrique",
+    "en": "power supply",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w131",
+    "fr": "boîtier de dérivation",
+    "en": "junction box",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w132",
+    "fr": "driver graduable",
+    "en": "dimmable driver",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w133",
+    "fr": "système DALI",
+    "en": "DALI system",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w134",
+    "fr": "régie lumière",
+    "en": "lighting control desk",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w135",
+    "fr": "contrôleur",
+    "en": "controller",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w136",
+    "fr": "télécommande",
+    "en": "remote control",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w137",
+    "fr": "potentiomètre",
+    "en": "potentiometer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w138",
+    "fr": "bornier de raccordement",
+    "en": "terminal block",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w139",
+    "fr": "câble d'alimentation",
+    "en": "power cable",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w140",
+    "fr": "prise secteur",
+    "en": "mains outlet",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w141",
+    "fr": "disjoncteur",
+    "en": "circuit breaker",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w142",
+    "fr": "mise à la terre",
+    "en": "grounding",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w143",
+    "fr": "gaine",
+    "en": "conduit",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w144",
+    "fr": "réservation",
+    "en": "structural opening",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w145",
+    "fr": "saignée",
+    "en": "wall chase",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w146",
+    "fr": "faux plafond",
+    "en": "suspended ceiling",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w147",
+    "fr": "plâtre",
+    "en": "plaster",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w148",
+    "fr": "coffrage",
+    "en": "boxing-in",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w149",
+    "fr": "intégration",
+    "en": "integration",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w150",
+    "fr": "encastrement",
+    "en": "recessing",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w151",
+    "fr": "saillie",
+    "en": "surface-mounted / protrusion",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w152",
+    "fr": "patère",
+    "en": "hook",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w153",
+    "fr": "tige de suspension",
+    "en": "suspension rod",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w154",
+    "fr": "rotule",
+    "en": "ball joint",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w155",
+    "fr": "fixation",
+    "en": "fixing",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w156",
+    "fr": "support de montage",
+    "en": "mounting bracket",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w157",
+    "fr": "bride",
+    "en": "clamp",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w158",
+    "fr": "pince",
+    "en": "clip",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w159",
+    "fr": "étrier",
+    "en": "bracket",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w160",
+    "fr": "visserie",
+    "en": "screws / fasteners",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w161",
+    "fr": "niveau à bulle",
+    "en": "spirit level",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w162",
+    "fr": "télémètre",
+    "en": "laser rangefinder",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w163",
+    "fr": "luxmètre",
+    "en": "lux meter",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w164",
+    "fr": "spectromètre",
+    "en": "spectrometer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w165",
+    "fr": "matrice de LED",
+    "en": "LED matrix",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w166",
+    "fr": "densité de LED",
+    "en": "LED density",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w167",
+    "fr": "pas de LED",
+    "en": "LED pitch",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w168",
+    "fr": "ruban étanche",
+    "en": "waterproof strip",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w169",
+    "fr": "silicone",
+    "en": "silicone",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w170",
+    "fr": "résine",
+    "en": "resin",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w171",
+    "fr": "câblage en série",
+    "en": "series wiring",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w172",
+    "fr": "câblage en parallèle",
+    "en": "parallel wiring",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w173",
+    "fr": "chute de tension",
+    "en": "voltage drop",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w174",
+    "fr": "surchauffe",
+    "en": "overheating",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w175",
+    "fr": "dissipateur thermique",
+    "en": "heat sink",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w176",
+    "fr": "aluminium anodisé",
+    "en": "anodized aluminum",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w177",
+    "fr": "acier inoxydable",
+    "en": "stainless steel",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w178",
+    "fr": "finition chromée",
+    "en": "chrome finish",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w179",
+    "fr": "verre trempé",
+    "en": "tempered glass",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w180",
+    "fr": "verre sablé",
+    "en": "sandblasted glass",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w181",
+    "fr": "plexiglas",
+    "en": "acrylic / plexiglass",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w182",
+    "fr": "verre feuilleté",
+    "en": "laminated glass",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w183",
+    "fr": "panneau rétroéclairé",
+    "en": "backlit panel",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w184",
+    "fr": "soffite",
+    "en": "soffit",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w185",
+    "fr": "gorge lumineuse",
+    "en": "light coving",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w186",
+    "fr": "corniche",
+    "en": "cove",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w187",
+    "fr": "plinthe lumineuse",
+    "en": "illuminated skirting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w188",
+    "fr": "sous-étagère",
+    "en": "under-shelf",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w189",
+    "fr": "fond de niche",
+    "en": "niche backdrop",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w190",
+    "fr": "fond de vitrine",
+    "en": "showcase backdrop",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w191",
+    "fr": "vitrine d'exposition",
+    "en": "display window",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w192",
+    "fr": "podium",
+    "en": "podium",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w193",
+    "fr": "totem",
+    "en": "display tower",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w194",
+    "fr": "mannequin",
+    "en": "mannequin",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w195",
+    "fr": "buste",
+    "en": "mannequin bust",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w196",
+    "fr": "tête de gondole",
+    "en": "end cap display",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w197",
+    "fr": "linéaire",
+    "en": "shelving run",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w198",
+    "fr": "caisse",
+    "en": "checkout counter",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w199",
+    "fr": "cabine d'essayage",
+    "en": "fitting room",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w200",
+    "fr": "zone VIP",
+    "en": "VIP area",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w201",
+    "fr": "salon d'essayage",
+    "en": "VIP fitting lounge",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w202",
+    "fr": "réserve",
+    "en": "stockroom",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w203",
+    "fr": "coulisses",
+    "en": "back of house",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w204",
+    "fr": "entrée de boutique",
+    "en": "store entrance",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w205",
+    "fr": "façade",
+    "en": "storefront",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w206",
+    "fr": "enseigne",
+    "en": "signage",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w207",
+    "fr": "vitre",
+    "en": "window pane",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w208",
+    "fr": "vitrage",
+    "en": "glazing",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w209",
+    "fr": "réflexion",
+    "en": "reflection",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w210",
+    "fr": "spectre lumineux",
+    "en": "light spectrum",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w211",
+    "fr": "fidélité des couleurs",
+    "en": "color fidelity (CRI)",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w212",
+    "fr": "saturation",
+    "en": "saturation",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w213",
+    "fr": "nuance",
+    "en": "shade / hue",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w214",
+    "fr": "consistance de la couleur",
+    "en": "color consistency",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w215",
+    "fr": "écart de couleur",
+    "en": "color deviation",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w216",
+    "fr": "macro-ellipse",
+    "en": "MacAdam ellipse",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w217",
+    "fr": "tolérance",
+    "en": "tolerance",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w218",
+    "fr": "éclairage d'accentuation",
+    "en": "accent lighting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w219",
+    "fr": "éclairage d'ambiance",
+    "en": "ambient lighting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w220",
+    "fr": "éclairage architectural",
+    "en": "architectural lighting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w221",
+    "fr": "éclairage fonctionnel",
+    "en": "functional lighting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w222",
+    "fr": "éclairage direct",
+    "en": "direct lighting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w223",
+    "fr": "éclairage indirect",
+    "en": "indirect lighting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w224",
+    "fr": "éclairage diffus",
+    "en": "diffuse lighting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w225",
+    "fr": "faisceau étroit",
+    "en": "narrow beam",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w226",
+    "fr": "faisceau moyen",
+    "en": "medium beam",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w227",
+    "fr": "faisceau large",
+    "en": "wide beam",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w228",
+    "fr": "faisceau très large",
+    "en": "very wide / flood beam",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w229",
+    "fr": "symétrique",
+    "en": "symmetrical",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w230",
+    "fr": "asymétrique",
+    "en": "asymmetrical",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w231",
+    "fr": "découpe",
+    "en": "beam framing / cutout",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w232",
+    "fr": "bord flou",
+    "en": "soft edge",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w233",
+    "fr": "bord net",
+    "en": "sharp edge",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w234",
+    "fr": "contraste",
+    "en": "contrast",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w235",
+    "fr": "pénombre",
+    "en": "semi-darkness",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w236",
+    "fr": "ombre portée",
+    "en": "cast shadow",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w237",
+    "fr": "ombre douce",
+    "en": "soft shadow",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w238",
+    "fr": "ombre nette",
+    "en": "sharp shadow",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w239",
+    "fr": "éblouissement direct",
+    "en": "direct glare",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w240",
+    "fr": "éblouissement d'inconfort",
+    "en": "discomfort glare",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w241",
+    "fr": "temps de charge",
+    "en": "charging time",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w242",
+    "fr": "autonomie",
+    "en": "battery life",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w243",
+    "fr": "batterie de secours",
+    "en": "backup battery",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w244",
+    "fr": "éclairage de sécurité",
+    "en": "emergency lighting",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w245",
+    "fr": "plan de câblage",
+    "en": "wiring diagram",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w246",
+    "fr": "schéma électrique",
+    "en": "electrical schematic",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w247",
+    "fr": "implantation",
+    "en": "layout",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w248",
+    "fr": "synoptique",
+    "en": "single-line diagram",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w249",
+    "fr": "légende",
+    "en": "drawing legend",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w250",
+    "fr": "nomenclature",
+    "en": "bill of materials",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w251",
+    "fr": "cahier des charges",
+    "en": "specification brief",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w252",
+    "fr": "réception de chantier",
+    "en": "site handover",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w253",
+    "fr": "levée de réserves",
+    "en": "snag list resolution",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w254",
+    "fr": "calibrage",
+    "en": "calibration",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w255",
+    "fr": "programmation",
+    "en": "programming",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w256",
+    "fr": "préréglage",
+    "en": "preset",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w257",
+    "fr": "sauvegarde de scène",
+    "en": "scene save",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w258",
+    "fr": "mode démonstration",
+    "en": "demo mode",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w259",
+    "fr": "mode nuit",
+    "en": "night mode",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w260",
+    "fr": "mode nettoyage",
+    "en": "cleaning mode",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w261",
+    "fr": "transition",
+    "en": "transition / fade",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w262",
+    "fr": "temporisation",
+    "en": "time delay",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w263",
+    "fr": "détecteur de présence",
+    "en": "occupancy sensor",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w264",
+    "fr": "cellule photoélectrique",
+    "en": "photocell",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w265",
+    "fr": "horloge programmative",
+    "en": "programmable time clock",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w266",
+    "fr": "capteur de luminosité",
+    "en": "light sensor",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w267",
+    "fr": "consommation électrique",
+    "en": "power consumption",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w268",
+    "fr": "efficacité lumineuse",
+    "en": "luminous efficacy",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w269",
+    "fr": "rendement",
+    "en": "efficiency",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w270",
+    "fr": "durée de vie",
+    "en": "lifespan",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w271",
+    "fr": "dépréciation lumineuse",
+    "en": "lumen depreciation",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w272",
+    "fr": "maintenance",
+    "en": "maintenance",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w273",
+    "fr": "remplacement",
+    "en": "replacement",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w274",
+    "fr": "pièces de rechange",
+    "en": "spare parts",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w275",
+    "fr": "gant blanc",
+    "en": "white glove",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w276",
+    "fr": "empreinte",
+    "en": "fingerprint mark",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w277",
+    "fr": "poussière",
+    "en": "dust",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w278",
+    "fr": "salissure",
+    "en": "smudge",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w279",
+    "fr": "alignement",
+    "en": "alignment",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w280",
+    "fr": "centrage",
+    "en": "centering",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w281",
+    "fr": "hauteur de pose",
+    "en": "mounting height",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w282",
+    "fr": "distance de recul",
+    "en": "viewing distance",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w283",
+    "fr": "champ de vision",
+    "en": "field of view",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w284",
+    "fr": "confort visuel",
+    "en": "visual comfort",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w285",
+    "fr": "théâtralisation",
+    "en": "theatrical staging",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w286",
+    "fr": "mise en scène",
+    "en": "staging",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w287",
+    "fr": "relief",
+    "en": "depth / relief",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w288",
+    "fr": "volume",
+    "en": "form / volume",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w289",
+    "fr": "texture",
+    "en": "texture",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w290",
+    "fr": "mat",
+    "en": "matte",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w291",
+    "fr": "brillant",
+    "en": "glossy",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w292",
+    "fr": "satiné",
+    "en": "satin finish",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w293",
+    "fr": "miroir biseauté",
+    "en": "beveled mirror",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w294",
+    "fr": "verre dépoli",
+    "en": "frosted glass",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w295",
+    "fr": "miroir teinté",
+    "en": "tinted mirror",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w296",
+    "fr": "marbre veiné",
+    "en": "veined marble",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w297",
+    "fr": "pierre naturelle",
+    "en": "natural stone",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w298",
+    "fr": "boiserie",
+    "en": "wood paneling",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w299",
+    "fr": "placage wood",
+    "en": "wood veneer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w300",
+    "fr": "velours",
+    "en": "velvet",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w301",
+    "fr": "cuir",
+    "en": "leather",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w302",
+    "fr": "tissu tendre",
+    "en": "stretched fabric",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w303",
+    "fr": "dorure",
+    "en": "gilding",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w304",
+    "fr": "feuille d'or",
+    "en": "gold leaf",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w305",
+    "fr": "teinte sur mesure",
+    "en": "custom color",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w306",
+    "fr": "blanc chaud",
+    "en": "warm white",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w307",
+    "fr": "blanc neutre",
+    "en": "neutral white",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w308",
+    "fr": "blanc froid",
+    "en": "cool white",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w309",
+    "fr": "blanc dynamique",
+    "en": "tunable white",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w310",
+    "fr": "changement de couleur",
+    "en": "color change",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w311",
+    "fr": "gradation",
+    "en": "dimming",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w312",
+    "fr": "étalonnage",
+    "en": "calibration",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w313",
+    "fr": "équilibrage",
+    "en": "balancing",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w314",
+    "fr": "uniformité",
+    "en": "uniformity",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w315",
+    "fr": "homogénéité",
+    "en": "evenness",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w316",
+    "fr": "point focal",
+    "en": "focal point",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w317",
+    "fr": "axe de visée",
+    "en": "sightline",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w318",
+    "fr": "trajectoire",
+    "en": "beam path",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w319",
+    "fr": "inclinaison",
+    "en": "tilt",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w320",
+    "fr": "rotation",
+    "en": "rotation / pan",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w321",
+    "fr": "blocage",
+    "en": "locking",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w322",
+    "fr": "verrouillage",
+    "en": "locking mechanism",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w323",
+    "fr": "patine",
+    "en": "patina",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w324",
+    "fr": "finition martelée",
+    "en": "hammered finish",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w325",
+    "fr": "finition brossée",
+    "en": "brushed finish",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w326",
+    "fr": "capotage",
+    "en": "housing / cover",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w327",
+    "fr": "cache",
+    "en": "cover cap",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w328",
+    "fr": "masque",
+    "en": "shield",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w329",
+    "fr": "déflecteur",
+    "en": "baffle",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w330",
+    "fr": "volet occultant",
+    "en": "barn door / shutter",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w331",
+    "fr": "potence",
+    "en": "bracket arm",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w332",
+    "fr": "bras articulé",
+    "en": "articulated arm",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w333",
+    "fr": "socle",
+    "en": "base",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w334",
+    "fr": "piédestal",
+    "en": "pedestal",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w335",
+    "fr": "niche suspendue",
+    "en": "suspended niche",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w336",
+    "fr": "coffre technique",
+    "en": "technical enclosure",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w337",
+    "fr": "trappe d'accès",
+    "en": "access hatch",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w338",
+    "fr": "registre de sécurité",
+    "en": "safety logbook",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w339",
+    "fr": "mise en service",
+    "en": "commissioning",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w340",
+    "fr": "compte-rendu",
+    "en": "report",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w341",
+    "fr": "relevé photométrique",
+    "en": "photometric survey",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w342",
+    "fr": "test de charge",
+    "en": "load test",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w343",
+    "fr": "vérification de polarité",
+    "en": "polarity check",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w344",
+    "fr": "court-circuit",
+    "en": "short circuit",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w345",
+    "fr": "fuite de courant",
+    "en": "current leakage",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w346",
+    "fr": "surtension",
+    "en": "power surge",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w347",
+    "fr": "baisse de tension",
+    "en": "voltage sag",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w348",
+    "fr": "parasite radio",
+    "en": "radio interference",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w349",
+    "fr": "ronflement",
+    "en": "hum / buzz",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w350",
+    "fr": "bruit de driver",
+    "en": "driver noise",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w351",
+    "fr": "bourdonnement",
+    "en": "buzzing",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w352",
+    "fr": "surchauffe driver",
+    "en": "driver overheating",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w353",
+    "fr": "micro-coupure",
+    "en": "power micro-outage",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w354",
+    "fr": "temporisation d'allumage",
+    "en": "switch-on delay",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w355",
+    "fr": "amorçage",
+    "en": "lamp strike / ignition",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w356",
+    "fr": "cycle d'allumage",
+    "en": "switching cycle",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w357",
+    "fr": "groupe de projecteurs",
+    "en": "fixture group",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w358",
+    "fr": "zone d'éclairage",
+    "en": "lighting zone",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w359",
+    "fr": "canal DALI",
+    "en": "DALI channel",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w360",
+    "fr": "adressage",
+    "en": "addressing",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w361",
+    "fr": "programmation Bluetooth",
+    "en": "Bluetooth programming",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w362",
+    "fr": "passerelle",
+    "en": "gateway",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w363",
+    "fr": "interface",
+    "en": "interface",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w364",
+    "fr": "contrôleur murale",
+    "en": "wall controller",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w365",
+    "fr": "bouton poussoir",
+    "en": "push button",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w366",
+    "fr": "variateur rotatif",
+    "en": "rotary dimmer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w367",
+    "fr": "plaque de finition",
+    "en": "faceplate",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w368",
+    "fr": "boîtier d'encastrement",
+    "en": "recessed mounting box",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w369",
+    "fr": "gaine technique",
+    "en": "service conduit",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w370",
+    "fr": "passe-câble",
+    "en": "cable grommet",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w371",
+    "fr": "serre-câble",
+    "en": "cable clamp",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w372",
+    "fr": "domino",
+    "en": "wire connector",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w373",
+    "fr": "connecteur rapide",
+    "en": "quick connector",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w374",
+    "fr": "manchon",
+    "en": "sleeve",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w375",
+    "fr": "isolant",
+    "en": "insulation",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w376",
+    "fr": "tresse",
+    "en": "grounding braid",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w377",
+    "fr": "domotique",
+    "en": "building automation",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w378",
+    "fr": "protocole",
+    "en": "protocol",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w379",
+    "fr": "intégrateur",
+    "en": "systems integrator",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w380",
+    "fr": "installateur",
+    "en": "installer",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w381",
+    "fr": "électricien",
+    "en": "electrician",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w382",
+    "fr": "plaquiste",
+    "en": "drywaller",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w383",
+    "fr": "menuisier",
+    "en": "carpenter",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w384",
+    "fr": "agenceur",
+    "en": "shopfitter",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w385",
+    "fr": "architecte d'intérieur",
+    "en": "interior architect",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w386",
+    "fr": "directeur de création",
+    "en": "creative director",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w387",
+    "fr": "visual merchandiser",
+    "en": "visual merchandiser",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w388",
+    "fr": "responsable de boutique",
+    "en": "store manager",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w389",
+    "fr": "chef de chantier",
+    "en": "site supervisor",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w390",
+    "fr": "conducteur de travaux",
+    "en": "works manager",
+    "cat": "EXT",
+    "mastery": 0,
+    "wrong": 0
+  }
+]

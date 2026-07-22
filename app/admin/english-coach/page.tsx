@@ -118,7 +118,7 @@ function CoachApp() {
                   onSessionTick={() => setSessions((s) => s + 1)}
                 />
               )}
-              {tab === "role" && <RoleplaySession />}
+              {tab === "role" && <RoleplaySession words={words} />}
               {tab === "phone" && <PhoneCallSession />}
               {tab === "dico" && <Dictionary words={words} onAddWord={handleAddWord} />}
               {tab === "progress" && (

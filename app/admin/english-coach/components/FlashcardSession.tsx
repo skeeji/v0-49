@@ -4,6 +4,8 @@ import { useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { CAT_LABELS } from "../data"
 import { useSpeechRecognition } from "../hooks/useSpeech"
+import { HoverWord } from "./HoverWord"
+import { PronunciationCheck } from "./PronunciationCheck"
 import type { CoachResponse, Word } from "../types"
 
 interface FlashcardSessionProps {
@@ -59,6 +61,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
   const [result, setResult] = useState<CoachResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastTranscript, setLastTranscript] = useState<string | null>(null)
+  const [feedbackTab, setFeedbackTab] = useState<"grammar" | "pron">("grammar")
   const recentlyWrong = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -74,6 +77,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setResult(null)
     setError(null)
     setLastTranscript(null)
+    setFeedbackTab("grammar")
   }
 
   const submit = async () => {
@@ -118,6 +122,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setResult(null)
     setError(null)
     setLastTranscript(null)
+    setFeedbackTab("grammar")
   }
 
   if (done) {
@@ -193,18 +198,43 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
 
         {result && (
           <>
-            <div className={`${styles.cardEn} ${styles.display}`}>{current.en}</div>
-            <div className={`${styles.cardTip} ${styles.mono}`}>{current.tip}</div>
-            <div className={`${styles.feedback} ${result.correct ? styles.feedbackOk : styles.feedbackNo}`}>
-              {result.correct ? "✓ " : "✗ "}
-              {result.feedback_fr}
-              {result.better_phrasing_en && (
-                <div style={{ marginTop: 6 }}>
-                  {result.correct ? "À connaître aussi : " : "En pro, on dirait : "}
-                  <strong>{result.better_phrasing_en}</strong>
-                </div>
-              )}
+            <div className={`${styles.cardEn} ${styles.display}`}>
+              <HoverWord fr={current.fr}>{current.en}</HoverWord>
             </div>
+            <div className={`${styles.cardTip} ${styles.mono}`}>{current.tip}</div>
+
+            <div className={styles.pronTabs}>
+              <button
+                className={`${styles.pronTab} ${feedbackTab === "grammar" ? styles.pronTabActive : ""}`}
+                onClick={() => setFeedbackTab("grammar")}
+              >
+                Grammaire
+              </button>
+              <button
+                className={`${styles.pronTab} ${feedbackTab === "pron" ? styles.pronTabActive : ""}`}
+                onClick={() => setFeedbackTab("pron")}
+              >
+                Prononciation
+              </button>
+            </div>
+
+            {feedbackTab === "grammar" ? (
+              <div className={`${styles.feedback} ${result.correct ? styles.feedbackOk : styles.feedbackNo}`}>
+                {result.correct ? "✓ " : "✗ "}
+                {result.feedback_fr}
+                {result.better_phrasing_en && (
+                  <div style={{ marginTop: 6 }}>
+                    {result.correct ? "À connaître aussi : " : "En pro, on dirait : "}
+                    <strong>{result.better_phrasing_en}</strong>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className={styles.pronPanel}>
+                <PronunciationCheck referenceText={current.en} />
+              </div>
+            )}
+
             <div className={styles.row}>
               <button className={`${styles.action} ${styles.primary}`} onClick={next}>
                 Suivant

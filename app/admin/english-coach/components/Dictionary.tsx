@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import styles from "../coach.module.css"
 import { CAT_LABELS } from "../data"
+import { HoverWord } from "./HoverWord"
 import type { Word, WordCategory } from "../types"
 
 interface DictionaryProps {
@@ -15,7 +16,9 @@ function WordRow({ word }: { word: Word }) {
     <div className={styles.wordItem}>
       <div>
         <div className={styles.wordItemFr}>{word.fr}</div>
-        <div className={`${styles.wordItemEn} ${styles.display}`}>{word.en}</div>
+        <div className={`${styles.wordItemEn} ${styles.display}`}>
+          <HoverWord fr={word.fr}>{word.en}</HoverWord>
+        </div>
         <div className={`${styles.wordItemTip} ${styles.mono}`}>{word.tip}</div>
       </div>
       <div className={styles.masteryBar}>

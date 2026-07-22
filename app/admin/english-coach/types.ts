@@ -1,4 +1,4 @@
-export type WordCategory = "OPT" | "DALI" | "LUX" | "TRV" | "NUM" | "DIP" | "TRB"
+export type WordCategory = "OPT" | "DALI" | "LUX" | "TRV" | "NUM" | "DIP" | "TRB" | "EXT"
 
 export interface Word {
   id: string
@@ -62,4 +62,15 @@ export interface ProgressRow {
   mastery: number
   wrong_count: number
   last_seen: string
+}
+
+export interface PronunciationWordScore {
+  word: string
+  accuracy: number
+}
+
+export interface PronunciationResult {
+  overall: number
+  fluency: number
+  words: PronunciationWordScore[]
 }

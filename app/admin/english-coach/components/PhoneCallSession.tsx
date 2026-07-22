@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { SCENARIOS } from "../data"
 import { useSpeechRecognition, speak, cancelSpeech } from "../hooks/useSpeech"
@@ -21,6 +21,8 @@ export function PhoneCallSession() {
   const [loading, setLoading] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [revealed, setRevealed] = useState<Set<number>>(new Set())
+  const [fallbackText, setFallbackText] = useState("")
   const askedQuestions = useRef<string[]>([])
   const lastQuestion = useRef<string>("")
   const callActiveRef = useRef(false)
@@ -30,11 +32,19 @@ export function PhoneCallSession() {
   // closure basée sur le state aurait encore vu l'ancien scenario (null) au tout
   // premier tour et ignorait la réponse de l'utilisateur.
   const activeScenarioRef = useRef<Scenario | null>(null)
+  const dialogueRef = useRef<HTMLDivElement>(null)
 
   const { listening, error: micError, supported: micSupported, startListening, stopListening } =
     useSpeechRecognition()
 
   const noResultRetries = useRef(0)
+
+  // Auto-scroll fluide du journal de dialogue à chaque nouvelle bulle ou
+  // correction ajoutée, pour garder le dernier échange visible sans action
+  // manuelle de l'utilisateur.
+  useEffect(() => {
+    dialogueRef.current?.scrollTo({ top: dialogueRef.current.scrollHeight, behavior: "smooth" })
+  }, [log])
 
   // Démarre l'écoute et, si la reconnaissance se termine sans résultat ni erreur
   // (silence non capté — cas observé en test), relance automatiquement une fois
@@ -93,6 +103,8 @@ export function PhoneCallSession() {
     setCallActive(true)
     callActiveRef.current = true
     setLog([])
+    setRevealed(new Set())
+    setFallbackText("")
     setError(null)
     const opening = sc.openingLines[Math.floor(Math.random() * sc.openingLines.length)]
     askedQuestions.current = [opening]
@@ -161,6 +173,27 @@ export function PhoneCallSession() {
     }
   }
 
+  // Saisie de secours : utilisable à tout moment pendant l'appel (bruit de
+  // chantier, micro capricieux) sans raccrocher ni relancer l'appel. On coupe
+  // l'écoute en cours pour éviter qu'une réponse vocale tardive et la réponse
+  // tapée n'arrivent en double.
+  const submitFallbackText = () => {
+    const text = fallbackText.trim()
+    if (!text || !callActiveRef.current || loading) return
+    stopListening()
+    setFallbackText("")
+    handleAnswer(text)
+  }
+
+  const toggleReveal = (index: number) => {
+    setRevealed((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }
+
   const hangUp = () => {
     console.log("[phone-call] 📴 hangUp()")
     callActiveRef.current = false
@@ -200,9 +233,17 @@ export function PhoneCallSession() {
     )
   }
 
+  const statusLabel = loading
+    ? "Analyse de ta réponse..."
+    : listening
+      ? "Écoute en cours..."
+      : speaking
+        ? "Le correspondant parle..."
+        : "Connexion..."
+
   return (
-    <div>
-      <div className={styles.rowLeft} style={{ justifyContent: "space-between", marginBottom: 10 }}>
+    <div className={styles.phoneFullscreen}>
+      <div className={styles.phoneTopBar}>
         <div className={styles.badge}>📞 {SCENARIOS[scenarioKey].title}</div>
         {callActive ? (
           <button className={`${styles.action} ${styles.bad}`} onClick={hangUp}>
@@ -215,32 +256,44 @@ export function PhoneCallSession() {
         )}
       </div>
 
-      <div className={styles.dialogue}>
-        {log.map((entry, i) => (
-          <div key={i}>
-            <div className={`${styles.bubble} ${entry.isUser ? styles.bubbleMe : styles.bubbleThem}`}>
-              <div className={styles.bubbleWho}>{entry.isUser ? "Toi" : "🔊 Correspondant"}</div>
-              {entry.line}
-            </div>
-            {entry.correction_fr && (
-              <div className={`${styles.feedback} ${styles.feedbackNo}`} style={{ marginTop: 4 }}>
-                💬 {entry.correction_fr}
-              </div>
-            )}
-          </div>
-        ))}
+      <div className={styles.phonePulseWrap}>
+        <div className={`${styles.phonePulseCircle} ${speaking ? styles.phonePulseCircleActive : ""}`} />
+        {callActive && <div className={styles.phoneStatusLabel}>{statusLabel}</div>}
+      </div>
 
-        {callActive && (
-          <div className={`${styles.muted} ${styles.mono}`} style={{ textAlign: "center", fontSize: 12 }}>
-            {loading
-              ? "Analyse de ta réponse..."
-              : listening
-                ? "🔴 Écoute en cours..."
-                : speaking
-                  ? "🔊 Le correspondant parle..."
-                  : "⏳ Connexion..."}
-          </div>
-        )}
+      <div className={styles.phoneDialogueLog} ref={dialogueRef}>
+        {log.map((entry, i) => {
+          const isHiddenCorrespondentLine = !entry.isUser && !revealed.has(i)
+          return (
+            <div key={i}>
+              <div className={`${styles.bubble} ${entry.isUser ? styles.bubbleMe : styles.bubbleThem}`}>
+                <div className={styles.bubbleWho}>{entry.isUser ? "Toi" : "🔊 Correspondant"}</div>
+                {isHiddenCorrespondentLine ? (
+                  <>
+                    <div className={styles.phoneHiddenLine}>Écoute la voix — texte masqué pour forcer l'écoute active.</div>
+                    <button className={`${styles.resetLink} ${styles.phoneRevealBtn}`} onClick={() => toggleReveal(i)}>
+                      Afficher le texte
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {entry.line}
+                    {!entry.isUser && (
+                      <button className={`${styles.resetLink} ${styles.phoneRevealBtn}`} onClick={() => toggleReveal(i)}>
+                        Masquer le texte
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+              {entry.correction_fr && (
+                <div className={`${styles.feedback} ${styles.feedbackNo}`} style={{ marginTop: 4 }}>
+                  💬 {entry.correction_fr}
+                </div>
+              )}
+            </div>
+          )
+        })}
 
         {callActive && !loading && !listening && !speaking && (
           <div className={styles.row}>
@@ -267,6 +320,27 @@ export function PhoneCallSession() {
         {micError && <div className={styles.errorText}>{micError}</div>}
         {error && <div className={styles.errorText}>{error}</div>}
       </div>
+
+      {callActive && (
+        <div className={styles.phoneBottomBar}>
+          <div className={styles.phoneFallbackRow}>
+            <input
+              type="text"
+              className={`${styles.input} ${styles.phoneFallbackInput}`}
+              placeholder="Micro capricieux ? Tape ta réponse ici..."
+              value={fallbackText}
+              onChange={(e) => setFallbackText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitFallbackText()
+              }}
+              disabled={loading}
+            />
+            <button className={styles.action} onClick={submitFallbackText} disabled={loading || !fallbackText.trim()}>
+              Envoyer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

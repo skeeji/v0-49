@@ -2,11 +2,24 @@
 
 import { useRef, useState } from "react"
 import styles from "../coach.module.css"
-import { SCENARIOS } from "../data"
+import { SCENARIOS, ROLEPLAY_TOPICS } from "../data"
 import { useSpeechRecognition, speak } from "../hooks/useSpeech"
-import type { RoleplayCoachResponse, Scenario, ScenarioPart } from "../types"
+import { renderWithHoverWords } from "./HoverWord"
+import { PronunciationCheck } from "./PronunciationCheck"
+import type { RoleplayCoachResponse, Scenario, ScenarioPart, Word } from "../types"
 
-const TURNS_PER_PART = 3
+// Une "session de sujets" dure entre 5 et 8 tours avant que l'échange soit
+// considéré comme naturellement terminé et qu'un nouveau tirage de sujets ait
+// lieu — voir pickTurnsTarget().
+function pickTurnsTarget(): number {
+  return 5 + Math.floor(Math.random() * 4)
+}
+
+function pickTopics(): string[] {
+  const shuffled = [...ROLEPLAY_TOPICS].sort(() => Math.random() - 0.5)
+  const count = 1 + Math.floor(Math.random() * 3)
+  return shuffled.slice(0, count)
+}
 
 type DialogueEntry =
   | { type: "bubble"; who: string; line: string; isUser: boolean }
@@ -20,7 +33,11 @@ function getParts(scenario: Scenario, key: string): ScenarioPart[] {
   return scenario.parts && scenario.parts.length ? scenario.parts : [{ scenarioKey: key }]
 }
 
-export function RoleplaySession() {
+interface RoleplaySessionProps {
+  words: Word[]
+}
+
+export function RoleplaySession({ words }: RoleplaySessionProps) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [parts, setParts] = useState<ScenarioPart[]>([])
   const [partIndex, setPartIndex] = useState(0)
@@ -31,8 +48,12 @@ export function RoleplaySession() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastFeedback, setLastFeedback] = useState<{ coherent: boolean; suggestion_fr: string } | null>(null)
+  const [lastUserLine, setLastUserLine] = useState<string | null>(null)
+  const [feedbackTab, setFeedbackTab] = useState<"grammar" | "pron">("grammar")
   const askedQuestions = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const sessionTopics = useRef<string[]>([])
+  const turnsTarget = useRef<number>(pickTurnsTarget())
 
   const { listening, error: micError, startListening } = useSpeechRecognition()
 
@@ -41,6 +62,8 @@ export function RoleplaySession() {
   const finished = selectedKey !== null && partIndex >= parts.length
 
   const openPart = (scenario: Scenario, transition?: string) => {
+    sessionTopics.current = pickTopics()
+    turnsTarget.current = pickTurnsTarget()
     const line = pickRandom(scenario.openingLines)
     askedQuestions.current = [line, ...askedQuestions.current].slice(0, 10)
     const entries: DialogueEntry[] = []
@@ -53,6 +76,8 @@ export function RoleplaySession() {
   const startScenario = (key: string) => {
     const scenario = SCENARIOS[key]
     const scenarioParts = getParts(scenario, key)
+    sessionTopics.current = pickTopics()
+    turnsTarget.current = pickTurnsTarget()
     setSelectedKey(key)
     setParts(scenarioParts)
     setPartIndex(0)
@@ -60,6 +85,8 @@ export function RoleplaySession() {
     setInputValue("")
     setLastTranscript(null)
     setLastFeedback(null)
+    setLastUserLine(null)
+    setFeedbackTab("grammar")
     setError(null)
 
     const firstScenario = SCENARIOS[scenarioParts[0].scenarioKey]
@@ -89,6 +116,10 @@ export function RoleplaySession() {
       askedQuestions.current[0] ||
       ""
 
+    const topicsContext = sessionTopics.current.length
+      ? ` Sujets à garder en fil rouge pour cette session (contexte pour toi, ne les lis jamais mot pour mot au joueur) : ${sessionTopics.current.join(" · ")}.`
+      : ""
+
     try {
       const res = await fetch("/api/coach", {
         method: "POST",
@@ -97,7 +128,7 @@ export function RoleplaySession() {
           mode: "roleplay",
           targetPhrase: lastCharacterLine,
           userAnswer: userLine,
-          context: activeScenario.context,
+          context: activeScenario.context + topicsContext,
           history: askedQuestions.current,
         }),
       })
@@ -106,12 +137,14 @@ export function RoleplaySession() {
 
       setDialogue((d) => [...d, { type: "bubble", who: "Toi", line: userLine, isUser: true }])
       setLastFeedback({ coherent: data.coherent, suggestion_fr: data.suggestion_fr })
+      setLastUserLine(userLine)
+      setFeedbackTab("grammar")
       setInputValue("")
       setLastTranscript(null)
 
       const nextTurn = turnInPart + 1
 
-      if (nextTurn < TURNS_PER_PART && data.next_question_en) {
+      if (nextTurn < turnsTarget.current && data.next_question_en) {
         askedQuestions.current = [data.next_question_en, ...askedQuestions.current].slice(0, 10)
         setDialogue((d) => [
           ...d,
@@ -174,14 +207,36 @@ export function RoleplaySession() {
                 {entry.who}
                 {!entry.isUser && " 🔊"}
               </div>
-              {entry.line}
+              {entry.isUser ? entry.line : renderWithHoverWords(entry.line, words)}
             </div>
           ),
         )}
 
         {lastFeedback && (
-          <div className={`${styles.feedback} ${lastFeedback.coherent ? styles.feedbackOk : styles.feedbackNo}`}>
-            💡 {lastFeedback.suggestion_fr}
+          <div>
+            <div className={styles.pronTabs}>
+              <button
+                className={`${styles.pronTab} ${feedbackTab === "grammar" ? styles.pronTabActive : ""}`}
+                onClick={() => setFeedbackTab("grammar")}
+              >
+                Grammaire
+              </button>
+              <button
+                className={`${styles.pronTab} ${feedbackTab === "pron" ? styles.pronTabActive : ""}`}
+                onClick={() => setFeedbackTab("pron")}
+              >
+                Prononciation
+              </button>
+            </div>
+            {feedbackTab === "grammar" ? (
+              <div className={`${styles.feedback} ${lastFeedback.coherent ? styles.feedbackOk : styles.feedbackNo}`}>
+                💡 {lastFeedback.suggestion_fr}
+              </div>
+            ) : (
+              <div className={styles.pronPanel}>
+                <PronunciationCheck referenceText={lastUserLine || ""} />
+              </div>
+            )}
           </div>
         )}
 

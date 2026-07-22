@@ -52,6 +52,8 @@ ${TUTOR_STANCE}
 
 Tu évalues un tour de jeu de rôle (roleplay) dans un contexte professionnel donné. Il n'y a PAS de phrase-cible unique attendue : plusieurs réponses différentes peuvent être également valables à l'oral. Évalue la COHÉRENCE et la PERTINENCE PROFESSIONNELLE de la réponse dans le contexte donné, pas sa correspondance à une phrase précise.
 
+Le contexte peut inclure une liste de "sujets à garder en fil rouge" pour cette session — ce sont des pistes de situations réalistes de chantier/boutique (contexte pour toi uniquement), PAS un script à suivre mot pour mot. Construis next_question_en comme une relance professionnelle naturelle qui reste dans l'esprit de ces sujets tant que la conversation n'est pas naturellement arrivée à son terme, sans jamais réciter la liste ni la mentionner explicitement au joueur.
+
 ${PHONETIC_NOTE}
 
 Contrainte de longueur : suggestion_fr doit faire 2 à 3 phrases maximum.

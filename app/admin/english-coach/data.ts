@@ -1,4 +1,10 @@
 import type { Word, WordCategory, Scenario } from "./types"
+import extraVocabRaw from "./extra-vocab.json"
+
+// Vocabulaire boutique & matériaux (336 termes) fourni déjà traduit — pas de tip
+// phonétique fourni pour ce lot, donc valeur par défaut cohérente avec celle
+// utilisée pour les mots ajoutés manuellement via le dictionnaire.
+const EXTRA_WORDS: Word[] = (extraVocabRaw as Omit<Word, "tip">[]).map((w) => ({ ...w, tip: "—" }))
 
 export const DEFAULT_WORDS: Word[] = [
   { id: "w1", fr: "Spot encastré", en: "Recessed downlight", tip: '"ri-SESS-d DAOWN-lite"', cat: "OPT", mastery: 0, wrong: 0 },
@@ -61,6 +67,8 @@ export const DEFAULT_WORDS: Word[] = [
   { id: "w52", fr: "On dirait que le problème c'est...", en: "It looks like the problem is...", tip: '"it luks lyk ze PROB-lem"', cat: "TRB", mastery: 0, wrong: 0 },
   { id: "w53", fr: "Essayez ça et dites-moi ce qui se passe", en: "Try this and tell me what happens", tip: '"try this and tel mee"', cat: "TRB", mastery: 0, wrong: 0 },
   { id: "w54", fr: "Ça scintille encore ?", en: "Is it still flickering?", tip: '"iz it stil FLIK-er-ing"', cat: "TRB", mastery: 0, wrong: 0 },
+
+  ...EXTRA_WORDS,
 ]
 
 export const CAT_LABELS: Record<WordCategory, string> = {
@@ -71,7 +79,46 @@ export const CAT_LABELS: Record<WordCategory, string> = {
   NUM: "Chiffres & unités",
   DIP: "Diplomatie",
   TRB: "Dépannage",
+  EXT: "Vocabulaire boutique & matériaux",
 }
+
+// Pool de situations de chantier/boutique — contexte fourni à l'IA pour le mode
+// roleplay, PAS des scripts. À chaque session, 1 à 3 sujets sont piochés au hasard
+// dans ce pool pour ancrer une conversation professionnelle réaliste (chantier
+// Dubai Mall / boutique de luxe / Emaar) sans jamais suivre un déroulé figé.
+export const ROLEPLAY_TOPICS: string[] = [
+  "checking the shop window lighting before opening",
+  "aligning the light lines along the display shelving",
+  "masking exposed cables behind the boxing-in",
+  "adjusting a hot spot on a mannequin's face",
+  "fixing a flickering LED strip under a shelf",
+  "correcting the color temperature on the cosmetics counter",
+  "dealing with a stray reflection on the showcase glass",
+  "positioning a spotlight on a perfume display",
+  "resolving a DALI address conflict on site",
+  "reviewing the snag list before client walkthrough",
+  "explaining a delay in the delivery of spare parts",
+  "briefing the electrician on the wiring diagram",
+  "checking the dimming curve on the entrance signage",
+  "handling a driver overheating issue on a track spotlight",
+  "coordinating with the shopfitter on niche backlighting",
+  "verifying the color rendering on the jewellery vitrine",
+  "discussing the site handover schedule with the site supervisor",
+  "adjusting the beam angle on the VIP fitting lounge lighting",
+  "troubleshooting a short circuit found during commissioning",
+  "presenting the lighting scenes to the brand manager",
+  "checking grounding and polarity before energizing a circuit",
+  "resolving a customer glare complaint near the fitting rooms",
+  "coordinating the cleaning mode schedule with the store manager",
+  "reviewing the bill of materials with the systems integrator",
+  "fixing a buzzing noise coming from a dimmable driver",
+  "adjusting the wall grazer alignment on the marble backdrop",
+  "explaining a delay caused by a structural opening not ready",
+  "calibrating the DALI scenes for the demo mode",
+  "checking battery backup for the emergency lighting",
+  "walking the creative director through the accent lighting",
+  "transferring spare parts and tools to the incoming shift",
+]
 
 export const SCENARIOS: Record<string, Scenario> = {
   customs: {

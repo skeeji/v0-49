@@ -524,6 +524,188 @@
   margin-top: 8px;
 }
 
+/* HOVER WORD */
+.hoverWord {
+  position: relative;
+  cursor: help;
+  border-bottom: 1px dotted var(--cyan);
+}
+.hoverWordBubble {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel2);
+  border: 1px solid var(--cyan);
+  color: var(--text);
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* PRONUNCIATION */
+.pronTabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.pronTab {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 6px 6px 0 0;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.pronTabActive {
+  color: var(--amber);
+  border-color: var(--amber);
+  border-bottom-color: transparent;
+}
+.pronPanel {
+  border: 1px solid var(--line);
+  border-radius: 0 8px 8px 8px;
+  padding: 14px;
+  background: var(--panel2);
+}
+.pronWords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.pronWord {
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 13px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid;
+}
+.pronWordGood {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(87, 199, 163, 0.08);
+}
+.pronWordMid {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(255, 157, 66, 0.08);
+}
+.pronWordBad {
+  color: var(--red);
+  border-color: var(--red);
+  background: rgba(255, 107, 107, 0.08);
+}
+.pronScores {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.pronScores strong {
+  color: var(--text);
+  font-family: var(--font-ibm-plex-mono), monospace;
+}
+
+/* PHONE CALL — plein écran */
+.phoneFullscreen {
+  position: fixed;
+  inset: 0;
+  background: #05070a;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+}
+.phoneTopBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+  flex-shrink: 0;
+}
+.phonePulseWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 10px 20px;
+  flex-shrink: 0;
+}
+.phonePulseCircle {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: 2px solid var(--cyan);
+  background: radial-gradient(circle, rgba(79, 209, 255, 0.18), transparent 70%);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.phonePulseCircleActive {
+  animation: phonePulse 1.2s ease-in-out infinite;
+}
+@keyframes phonePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 209, 255, 0.35); }
+  50% { transform: scale(1.18); box-shadow: 0 0 0 16px rgba(79, 209, 255, 0); }
+}
+.phoneStatusLabel {
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.phoneDialogueLog {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 18px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.phoneHiddenLine {
+  font-style: italic;
+  color: var(--muted);
+}
+.phoneRevealBtn {
+  margin-top: 6px;
+  font-size: 11px;
+}
+.phoneBottomBar {
+  flex-shrink: 0;
+  padding: 10px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.phoneFallbackRow {
+  display: flex;
+  gap: 8px;
+}
+.phoneFallbackInput {
+  flex: 1;
+  opacity: 0.75;
+}
+.phoneFallbackInput:focus {
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .phonePulseCircle {
+    width: 68px;
+    height: 68px;
+  }
+}
+
 @media (max-width: 640px) {
   .app {
     padding: 14px 12px 40px;
