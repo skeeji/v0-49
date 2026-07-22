@@ -210,7 +210,14 @@
   border-radius: 6px;
   font-size: 16px;
   width: 260px;
+  /* Sans min-width:0, un <input> flex a une taille minimale intrinsèque
+     (~180-200px selon le navigateur) qui empêche flex-shrink de vraiment
+     rétrécir l'élément — c'est ce qui causait un débordement horizontal sur
+     mobile (écran <320px) au lieu d'un simple rétrécissement dans la ligne. */
+  min-width: 0;
+  max-width: 100%;
   font-family: inherit;
+  box-sizing: border-box;
 }
 .input:focus {
   outline: none;
@@ -288,6 +295,7 @@
 }
 .searchWrap .input {
   width: 100%;
+  max-width: none;
 }
 .wordList {
   display: flex;
@@ -549,7 +557,14 @@
   color: var(--text);
   font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 12px;
-  white-space: nowrap;
+  /* Les traductions peuvent être des phrases entières (roleplay/appel) —
+     nowrap sans limite de largeur les faisait déborder hors de l'écran sur
+     mobile. On autorise le retour à la ligne dans une largeur bornée à la
+     fenêtre pour que le texte reste toujours visible en entier. */
+  white-space: normal;
+  width: max-content;
+  max-width: min(280px, 80vw);
+  text-align: center;
   padding: 4px 8px;
   border-radius: 6px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -660,6 +675,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   padding: 16px 18px;
   flex-shrink: 0;
 }
@@ -780,5 +797,23 @@
 
   .addForm {
     grid-template-columns: 1fr;
+  }
+
+  /* Moins de marge perdue sur les petits écrans, pour laisser plus de place
+     réelle au contenu (cartes, boutons, chips de prononciation). */
+  .panel {
+    padding: 16px;
+  }
+
+  /* Le libellé de catégorie ("Vocabulaire boutique & matériaux") ne rentre
+     pas à côté de la barre de progression dans les 150px prévus pour desktop
+     — on empile verticalement plutôt que de le compresser/tronquer. */
+  .catRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .catRowName {
+    width: 100%;
   }
 }
