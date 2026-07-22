@@ -74,7 +74,8 @@ export function PhoneCallSession() {
     lastQuestion.current = question
     setLog((l) => [...l, { isUser: false, line: question }])
     setSpeaking(true)
-    speak(question, () => {
+    const voice = activeScenarioRef.current?.voice || "en-GB-SoniaNeural"
+    speak(question, voice, () => {
       console.log(`[phone-call] speak() onEnd reçu — callActive=${callActiveRef.current}`)
       setSpeaking(false)
       if (!callActiveRef.current) {

@@ -149,87 +149,82 @@ export function useSpeechRecognition() {
   return { listening, error, supported, startListening, stopListening }
 }
 
-// Sélectionne la voix la plus "humaine" disponible pour en-GB (accent britannique
-// courant dans le milieu professionnel à Dubaï). Les navigateurs listent souvent
-// plusieurs voix pour une même langue ; sans sélection explicite, le moteur retombe
-// sur un choix par défaut parfois très synthétique. On préfère les voix identifiées
-// comme "Natural"/"Neural"/"Online" (rendu nettement plus humain) et, à défaut,
-// n'importe quelle voix en-GB puis n'importe quelle voix anglaise.
-//
-// getVoices() peut renvoyer un tableau vide tant que le navigateur n'a pas fini de
-// charger la liste (chargement asynchrone) ; dans ce cas on laisse simplement le
-// moteur utiliser son choix par défaut pour ce lang, sans bloquer la parole.
-function pickHumanVoice(): SpeechSynthesisVoice | null {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null
-  const voices = window.speechSynthesis.getVoices()
-  if (!voices.length) return null
+// Synthèse vocale via Azure Neural TTS (route serveur /api/tts) — remplace
+// l'ancien speechSynthesis du navigateur, dont la voix par défaut variait d'un
+// appareil à l'autre et ne permettait pas de choisir un accent par personnage.
+// Un seul <audio> partagé pour toute la page : un nouvel appel à speak() doit
+// toujours couper court à la réplique précédente, jamais les superposer.
+let sharedAudio: HTMLAudioElement | null = null
+let sharedObjectUrl: string | null = null
 
-  const gbVoices = voices.filter((v) => v.lang?.toLowerCase().startsWith("en-gb"))
-  const pool = gbVoices.length ? gbVoices : voices.filter((v) => v.lang?.toLowerCase().startsWith("en"))
-  if (!pool.length) return null
-
-  const qualityPattern = /natural|neural|online|google/i
-  return pool.find((v) => qualityPattern.test(v.name)) || pool[0]
+function stopSharedAudio() {
+  if (sharedAudio) {
+    sharedAudio.onended = null
+    sharedAudio.onerror = null
+    sharedAudio.pause()
+    sharedAudio = null
+  }
+  if (sharedObjectUrl) {
+    URL.revokeObjectURL(sharedObjectUrl)
+    sharedObjectUrl = null
+  }
 }
 
-// onEnd est appelé une fois la synthèse vocale terminée — utilisé pour enchaîner
+// onEnd est appelé une fois la lecture audio terminée — utilisé pour enchaîner
 // automatiquement sur l'écoute du micro (mode appel téléphonique).
-//
-// Note Chrome : appeler speechSynthesis.speak() juste après .cancel() dans le même
-// tick peut faire planter silencieusement l'utterance (ni onstart, ni onend, ni
-// onerror ne se déclenchent alors) — bug connu du moteur. On laisse donc un court
-// délai entre cancel() et speak() pour l'éviter.
-export function speak(text: string, onEnd?: () => void) {
-  console.log(`[speech] 🗣 speak() appelé — "${text}"`)
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-    console.error("[speech] ❌ speechSynthesis indisponible")
+export async function speak(text: string, voice: string, onEnd?: () => void): Promise<void> {
+  console.log(`[speech] 🗣 speak() (Azure TTS) appelé — voice=${voice} — "${text}"`)
+  stopSharedAudio()
+
+  if (typeof window === "undefined") {
     onEnd?.()
     return
   }
+
+  let ended = false
+  const finish = (label: string) => {
+    if (ended) return
+    ended = true
+    console.log(`[speech] ⏹ lecture Azure terminée (${label})`)
+    onEnd?.()
+  }
+
   try {
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = "en-GB"
-    utterance.rate = 0.92
-    const humanVoice = pickHumanVoice()
-    if (humanVoice) utterance.voice = humanVoice
-    let ended = false
-    const finish = (label: string) => {
-      if (ended) return
-      ended = true
-      console.log(`[speech] ⏹ utterance terminée (${label})`)
-      onEnd?.()
-    }
-    utterance.onstart = () => console.log("[speech] ▶ utterance.onstart")
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, voice }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    sharedObjectUrl = url
+    const audio = new Audio(url)
+    sharedAudio = audio
+
     if (onEnd) {
-      utterance.onend = () => finish("onend")
-      utterance.onerror = (e: any) => {
-        console.error("[speech] ❌ utterance.onerror —", e?.error || e)
-        finish("onerror")
+      audio.onended = () => finish("ended")
+      audio.onerror = (e: any) => {
+        console.error("[speech] ❌ lecture audio Azure —", e)
+        finish("error")
       }
-      // Filet de sécurité : si ni onend ni onerror ne se déclenchent (bug navigateur),
-      // on débloque quand même l'enchaînement après un délai raisonnable.
-      const estimatedMs = Math.max(3000, text.length * 80)
+      // Filet de sécurité : si ni onended ni onerror ne se déclenchent (bug
+      // navigateur), on débloque quand même l'enchaînement après un délai estimé.
+      const estimatedMs = Math.max(4000, text.length * 90)
       setTimeout(() => {
-        if (!ended) console.warn("[speech] ⏱ Timeout de secours — onend/onerror jamais reçu")
+        if (!ended) console.warn("[speech] ⏱ Timeout de secours — onended/onerror jamais reçu")
         finish("timeout")
       }, estimatedMs)
     }
-    window.speechSynthesis.cancel()
-    setTimeout(() => {
-      console.log("[speech] window.speechSynthesis.speak() appelé")
-      window.speechSynthesis.speak(utterance)
-    }, 60)
+
+    await audio.play()
   } catch (e) {
-    console.error("[speech] ❌ Exception dans speak() —", e)
-    onEnd?.()
+    console.error("[speech] ❌ Erreur speak() Azure —", e)
+    finish("exception")
   }
 }
 
 export function cancelSpeech() {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
-  try {
-    window.speechSynthesis.cancel()
-  } catch (e) {
-    // no-op
-  }
+  stopSharedAudio()
 }

@@ -25,6 +25,10 @@ export interface Scenario {
   icon: string
   context: string
   who: string
+  // Nom court d'une voix Azure Neural TTS (ex: "en-IN-PrabhatNeural") — donne à
+  // chaque personnage un accent cohérent avec son rôle plutôt que la voix par
+  // défaut du navigateur.
+  voice: string
   openingLines: ScenarioLine[]
   parts?: ScenarioPart[]
 }

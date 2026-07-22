@@ -66,7 +66,7 @@ export function RoleplaySession() {
     if (transition) entries.push({ type: "transition", text: transition })
     entries.push({ type: "bubble", who: scenario.who, line: line.en, fr: line.fr, isUser: false })
     setDialogue((d) => [...d, ...entries])
-    speak(line.en)
+    speak(line.en, scenario.voice)
   }
 
   const startScenario = (key: string) => {
@@ -89,7 +89,7 @@ export function RoleplaySession() {
     const line = pickRandom(firstScenario.openingLines)
     askedQuestions.current = [line.en]
     setDialogue([{ type: "bubble", who: firstScenario.who, line: line.en, fr: line.fr, isUser: false }])
-    setTimeout(() => speak(line.en), 300)
+    setTimeout(() => speak(line.en, firstScenario.voice), 300)
   }
 
   const backToScenarios = () => {
@@ -146,7 +146,7 @@ export function RoleplaySession() {
           ...d,
           { type: "bubble", who: activeScenario.who, line: data.next_question_en, fr: data.next_question_fr, isUser: false },
         ])
-        speak(data.next_question_en)
+        speak(data.next_question_en, activeScenario.voice)
         setTurnInPart(nextTurn)
       } else {
         const nextPartIndex = partIndex + 1
@@ -274,7 +274,7 @@ export function RoleplaySession() {
                   const lastBubble = [...dialogue]
                     .reverse()
                     .find((d): d is Extract<DialogueEntry, { type: "bubble" }> => d.type === "bubble" && !d.isUser)
-                  if (lastBubble) speak(lastBubble.line)
+                  if (lastBubble && activeScenario) speak(lastBubble.line, activeScenario.voice)
                 }}
               >
                 🔊 Réécouter

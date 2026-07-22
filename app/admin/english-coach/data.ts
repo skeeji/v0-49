@@ -126,6 +126,7 @@ export const SCENARIOS: Record<string, Scenario> = {
     icon: "🛃",
     context: "Customs officer at Dubai airport, business trip for lighting commissioning work",
     who: "Customs Officer",
+    voice: "en-GB-SoniaNeural",
     openingLines: [
       { en: "Passport, please. What is the purpose of your visit?", fr: "Passeport, s'il vous plaît. Quel est le motif de votre visite ?" },
       { en: "Good morning. Business or leisure, sir?", fr: "Bonjour. Affaires ou tourisme, monsieur ?" },
@@ -137,6 +138,8 @@ export const SCENARIOS: Record<string, Scenario> = {
     icon: "🪜",
     context: "Electrician on a ladder, DALI lighting commissioning, luxury retail store in Dubai",
     who: "Electrician",
+    // Accent anglais indien (main-d'œuvre technique très présente sur les chantiers à Dubaï).
+    voice: "en-IN-PrabhatNeural",
     openingLines: [
       { en: "The strip is flickering when I dim it below 20 percent, what do you want me to do?", fr: "Le ruban scintille quand je le baisse en dessous de 20 %, qu'est-ce que vous voulez que je fasse ?" },
       { en: "Hey, this fixture won't respond to the DALI address, any idea what's wrong?", fr: "Hé, ce luminaire ne répond pas à l'adresse DALI, une idée de ce qui cloche ?" },
@@ -148,6 +151,8 @@ export const SCENARIOS: Record<string, Scenario> = {
     icon: "👔",
     context: "Stressed brand manager, luxury retail store opening in 2 days, Dubai",
     who: "Brand Manager",
+    // Accent anglais britannique neutre, cohérent avec le milieu du retail de luxe à Dubaï.
+    voice: "en-GB-RyanNeural",
     openingLines: [
       { en: "The color temperature on the showcase looks too cold, the opening is in 2 days, can you fix this now?", fr: "La température de couleur de la vitrine paraît trop froide, l'ouverture est dans 2 jours, vous pouvez régler ça maintenant ?" },
       { en: "I need this fixed before the client walkthrough this afternoon, how long will it take?", fr: "J'ai besoin que ce soit réglé avant la visite du client cet après-midi, ça va prendre combien de temps ?" },
@@ -159,6 +164,7 @@ export const SCENARIOS: Record<string, Scenario> = {
     icon: "🗓️",
     context: "",
     who: "",
+    voice: "en-GB-SoniaNeural",
     openingLines: [],
     parts: [
       { scenarioKey: "customs" },
