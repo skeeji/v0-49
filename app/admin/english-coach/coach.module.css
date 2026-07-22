@@ -1,14 +1,14 @@
 .app {
-  --bg: #0b0e11;
-  --panel: #12161b;
-  --panel2: #171c22;
-  --line: #232a31;
-  --amber: #ff9d42;
-  --cyan: #4fd1ff;
-  --text: #e8ecef;
-  --muted: #9aa5b0;
-  --green: #57c7a3;
-  --red: #ff6b6b;
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --panel2: #eef0f4;
+  --line: #dde1e7;
+  --amber: #b45309;
+  --cyan: #0e7490;
+  --text: #1a1f24;
+  --muted: #5b6472;
+  --green: #15803d;
+  --red: #dc2626;
 
   background: var(--bg);
   color: var(--text);
@@ -65,7 +65,6 @@
   font-size: 34px;
   font-weight: 600;
   color: var(--amber);
-  text-shadow: 0 0 18px rgba(255, 157, 66, 0.45);
   line-height: 1;
 }
 .countdownLbl {
@@ -91,7 +90,7 @@
   left: -30%;
   width: 30%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, #fff, transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
   animation: pulse 3.2s linear infinite;
 }
 @keyframes pulse {
@@ -133,13 +132,13 @@
 }
 .tabButton:hover {
   color: var(--text);
-  border-color: #3a4450;
+  border-color: #b7bfc9;
 }
 .tabButtonActive {
   background: var(--panel2);
   color: var(--amber);
   border-color: var(--amber);
-  box-shadow: 0 0 0 1px rgba(255, 157, 66, 0.15) inset;
+  box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.15) inset;
 }
 
 .panel {
@@ -243,7 +242,7 @@
   font-weight: 500;
 }
 .action:hover {
-  border-color: #3a4450;
+  border-color: #b7bfc9;
 }
 .action:disabled {
   opacity: 0.5;
@@ -407,7 +406,7 @@
   align-self: flex-start;
 }
 .bubbleMe {
-  background: rgba(79, 209, 255, 0.08);
+  background: rgba(14, 116, 144, 0.08);
   border: 1px solid var(--cyan);
   align-self: flex-end;
   color: var(--text);
@@ -426,12 +425,12 @@
   margin-top: 4px;
 }
 .feedbackOk {
-  background: rgba(87, 199, 163, 0.1);
+  background: rgba(21, 128, 61, 0.08);
   color: var(--green);
   border: 1px solid var(--green);
 }
 .feedbackNo {
-  background: rgba(255, 107, 107, 0.08);
+  background: rgba(220, 38, 38, 0.06);
   color: var(--red);
   border: 1px solid var(--red);
 }
@@ -493,7 +492,7 @@
 .weakChip {
   font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 11px;
-  background: rgba(255, 107, 107, 0.08);
+  background: rgba(220, 38, 38, 0.06);
   border: 1px solid var(--red);
   color: var(--red);
   padding: 4px 8px;
@@ -591,17 +590,17 @@
 .pronWordGood {
   color: var(--green);
   border-color: var(--green);
-  background: rgba(87, 199, 163, 0.08);
+  background: rgba(21, 128, 61, 0.08);
 }
 .pronWordMid {
   color: var(--amber);
   border-color: var(--amber);
-  background: rgba(255, 157, 66, 0.08);
+  background: rgba(180, 83, 9, 0.08);
 }
 .pronWordBad {
   color: var(--red);
   border-color: var(--red);
-  background: rgba(255, 107, 107, 0.08);
+  background: rgba(220, 38, 38, 0.06);
 }
 .pronScores {
   display: flex;
@@ -618,7 +617,7 @@
 .phoneFullscreen {
   position: fixed;
   inset: 0;
-  background: #05070a;
+  background: var(--bg);
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -646,15 +645,15 @@
   height: 88px;
   border-radius: 50%;
   border: 2px solid var(--cyan);
-  background: radial-gradient(circle, rgba(79, 209, 255, 0.18), transparent 70%);
+  background: radial-gradient(circle, rgba(14, 116, 144, 0.14), transparent 70%);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .phonePulseCircleActive {
   animation: phonePulse 1.2s ease-in-out infinite;
 }
 @keyframes phonePulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(79, 209, 255, 0.35); }
-  50% { transform: scale(1.18); box-shadow: 0 0 0 16px rgba(79, 209, 255, 0); }
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14, 116, 144, 0.3); }
+  50% { transform: scale(1.18); box-shadow: 0 0 0 16px rgba(14, 116, 144, 0); }
 }
 .phoneStatusLabel {
   font-family: var(--font-ibm-plex-mono), monospace;

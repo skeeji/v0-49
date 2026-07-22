@@ -61,8 +61,9 @@ Contrainte de longueur : suggestion_fr doit faire 2 à 3 phrases maximum.
 Règles de contenu :
 - suggestion_fr est un champ TOUJOURS rempli (jamais null, jamais vide, jamais réduit à "bien joué") : si coherent=true, explique ce qui rend la réponse crédible/pro et donne une nuance pour aller plus loin (variante plus idiomatique, registre, détail culturel) ; si coherent=false, explique précisément pourquoi ça ne passerait pas à l'oral et comment mieux dire.
 - Varie systématiquement tes questions de suivi (next_question_en) — pioche parmi plusieurs formulations possibles pour chaque situation, ne répète jamais la question précédente ni une question déjà posée dans l'historique fourni, afin que deux sessions ne se ressemblent jamais.
+- next_question_fr est la traduction française fidèle de next_question_en (pas une paraphrase, une vraie traduction du sens), utilisée uniquement pour afficher une bulle de traduction au survol côté interface — elle doit rester courte et naturelle.
 
-IMPORTANT : next_question_en est un champ OBLIGATOIRE et ne doit JAMAIS être vide, quelle que soit la réponse de l'utilisateur — la conversation doit toujours continuer.
+IMPORTANT : next_question_en et next_question_fr sont des champs OBLIGATOIRES et ne doivent JAMAIS être vides, quelle que soit la réponse de l'utilisateur — la conversation doit toujours continuer.
 
 ${JSON_SAFETY_NOTE}
 
@@ -70,11 +71,12 @@ Réponds UNIQUEMENT en JSON strict, format :
 {
   "coherent": boolean,
   "suggestion_fr": "vraie explication pédagogique en français, TOUJOURS remplie, jamais null",
-  "next_question_en": "la prochaine réplique du personnage en anglais, dans la continuité du contexte, jamais identique à une question précédente, jamais vide"
+  "next_question_en": "la prochaine réplique du personnage en anglais, dans la continuité du contexte, jamais identique à une question précédente, jamais vide",
+  "next_question_fr": "traduction française fidèle et courte de next_question_en, jamais vide"
 }
 
 Exemple (réponse déjà cohérente, note quand même substantielle) :
-{"coherent": true, "suggestion_fr": "Bonne réponse, claire et professionnelle. Pour sonner encore plus naturel sur un chantier à Dubaï, tu peux ajouter 'right away' à la fin pour montrer la réactivité.", "next_question_en": "Great, and what about the dimming curve, did you set it to logarithmic?"}`
+{"coherent": true, "suggestion_fr": "Bonne réponse, claire et professionnelle. Pour sonner encore plus naturel sur un chantier à Dubaï, tu peux ajouter 'right away' à la fin pour montrer la réactivité.", "next_question_en": "Great, and what about the dimming curve, did you set it to logarithmic?", "next_question_fr": "Parfait, et la courbe de gradation, tu l'as réglée en logarithmique ?"}`
 
 const SYSTEM_PROMPT_PHONE_CALL = `${PERSONA}
 
@@ -123,6 +125,7 @@ function fallbackRoleplay(): RoleplayCoachResponse {
     coherent: false,
     suggestion_fr: "Le coach n'a pas pu analyser ta réponse cette fois-ci, réessaie.",
     next_question_en: "Can you try again?",
+    next_question_fr: "Tu peux réessayer ?",
   }
 }
 
@@ -250,13 +253,16 @@ ${historyLine}`
         650,
         (parsed) => {
           const next_question_en = String(parsed.next_question_en || "").trim()
+          const next_question_fr = String(parsed.next_question_fr || "").trim()
           const suggestion_fr = String(parsed.suggestion_fr || "").trim()
           if (!next_question_en) throw new Error("next_question_en vide dans la réponse du modèle")
+          if (!next_question_fr) throw new Error("next_question_fr vide dans la réponse du modèle")
           if (!suggestion_fr) throw new Error("suggestion_fr vide dans la réponse du modèle")
           return {
             coherent: Boolean(parsed.coherent),
             suggestion_fr,
             next_question_en,
+            next_question_fr,
           }
         },
       )

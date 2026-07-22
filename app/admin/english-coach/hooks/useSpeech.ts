@@ -149,6 +149,29 @@ export function useSpeechRecognition() {
   return { listening, error, supported, startListening, stopListening }
 }
 
+// Sélectionne la voix la plus "humaine" disponible pour en-GB (accent britannique
+// courant dans le milieu professionnel à Dubaï). Les navigateurs listent souvent
+// plusieurs voix pour une même langue ; sans sélection explicite, le moteur retombe
+// sur un choix par défaut parfois très synthétique. On préfère les voix identifiées
+// comme "Natural"/"Neural"/"Online" (rendu nettement plus humain) et, à défaut,
+// n'importe quelle voix en-GB puis n'importe quelle voix anglaise.
+//
+// getVoices() peut renvoyer un tableau vide tant que le navigateur n'a pas fini de
+// charger la liste (chargement asynchrone) ; dans ce cas on laisse simplement le
+// moteur utiliser son choix par défaut pour ce lang, sans bloquer la parole.
+function pickHumanVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null
+  const voices = window.speechSynthesis.getVoices()
+  if (!voices.length) return null
+
+  const gbVoices = voices.filter((v) => v.lang?.toLowerCase().startsWith("en-gb"))
+  const pool = gbVoices.length ? gbVoices : voices.filter((v) => v.lang?.toLowerCase().startsWith("en"))
+  if (!pool.length) return null
+
+  const qualityPattern = /natural|neural|online|google/i
+  return pool.find((v) => qualityPattern.test(v.name)) || pool[0]
+}
+
 // onEnd est appelé une fois la synthèse vocale terminée — utilisé pour enchaîner
 // automatiquement sur l'écoute du micro (mode appel téléphonique).
 //
@@ -167,6 +190,8 @@ export function speak(text: string, onEnd?: () => void) {
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = "en-GB"
     utterance.rate = 0.92
+    const humanVoice = pickHumanVoice()
+    if (humanVoice) utterance.voice = humanVoice
     let ended = false
     const finish = (label: string) => {
       if (ended) return

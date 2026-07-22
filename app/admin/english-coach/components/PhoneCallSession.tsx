@@ -106,7 +106,7 @@ export function PhoneCallSession() {
     setRevealed(new Set())
     setFallbackText("")
     setError(null)
-    const opening = sc.openingLines[Math.floor(Math.random() * sc.openingLines.length)]
+    const opening = sc.openingLines[Math.floor(Math.random() * sc.openingLines.length)].en
     askedQuestions.current = [opening]
     askNext(opening)
   }

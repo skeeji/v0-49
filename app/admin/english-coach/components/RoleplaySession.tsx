@@ -4,9 +4,9 @@ import { useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { SCENARIOS, ROLEPLAY_TOPICS } from "../data"
 import { useSpeechRecognition, speak } from "../hooks/useSpeech"
-import { renderWithHoverWords } from "./HoverWord"
+import { HoverWord } from "./HoverWord"
 import { PronunciationCheck } from "./PronunciationCheck"
-import type { RoleplayCoachResponse, Scenario, ScenarioPart, Word } from "../types"
+import type { RoleplayCoachResponse, Scenario, ScenarioPart } from "../types"
 
 // Une "session de sujets" dure entre 5 et 8 tours avant que l'échange soit
 // considéré comme naturellement terminé et qu'un nouveau tirage de sujets ait
@@ -22,7 +22,7 @@ function pickTopics(): string[] {
 }
 
 type DialogueEntry =
-  | { type: "bubble"; who: string; line: string; isUser: boolean }
+  | { type: "bubble"; who: string; line: string; fr?: string; isUser: boolean }
   | { type: "transition"; text: string }
 
 function pickRandom<T>(list: T[]): T {
@@ -33,11 +33,7 @@ function getParts(scenario: Scenario, key: string): ScenarioPart[] {
   return scenario.parts && scenario.parts.length ? scenario.parts : [{ scenarioKey: key }]
 }
 
-interface RoleplaySessionProps {
-  words: Word[]
-}
-
-export function RoleplaySession({ words }: RoleplaySessionProps) {
+export function RoleplaySession() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [parts, setParts] = useState<ScenarioPart[]>([])
   const [partIndex, setPartIndex] = useState(0)
@@ -65,12 +61,12 @@ export function RoleplaySession({ words }: RoleplaySessionProps) {
     sessionTopics.current = pickTopics()
     turnsTarget.current = pickTurnsTarget()
     const line = pickRandom(scenario.openingLines)
-    askedQuestions.current = [line, ...askedQuestions.current].slice(0, 10)
+    askedQuestions.current = [line.en, ...askedQuestions.current].slice(0, 10)
     const entries: DialogueEntry[] = []
     if (transition) entries.push({ type: "transition", text: transition })
-    entries.push({ type: "bubble", who: scenario.who, line, isUser: false })
+    entries.push({ type: "bubble", who: scenario.who, line: line.en, fr: line.fr, isUser: false })
     setDialogue((d) => [...d, ...entries])
-    speak(line)
+    speak(line.en)
   }
 
   const startScenario = (key: string) => {
@@ -91,9 +87,9 @@ export function RoleplaySession({ words }: RoleplaySessionProps) {
 
     const firstScenario = SCENARIOS[scenarioParts[0].scenarioKey]
     const line = pickRandom(firstScenario.openingLines)
-    askedQuestions.current = [line]
-    setDialogue([{ type: "bubble", who: firstScenario.who, line, isUser: false }])
-    setTimeout(() => speak(line), 300)
+    askedQuestions.current = [line.en]
+    setDialogue([{ type: "bubble", who: firstScenario.who, line: line.en, fr: line.fr, isUser: false }])
+    setTimeout(() => speak(line.en), 300)
   }
 
   const backToScenarios = () => {
@@ -148,7 +144,7 @@ export function RoleplaySession({ words }: RoleplaySessionProps) {
         askedQuestions.current = [data.next_question_en, ...askedQuestions.current].slice(0, 10)
         setDialogue((d) => [
           ...d,
-          { type: "bubble", who: activeScenario.who, line: data.next_question_en, isUser: false },
+          { type: "bubble", who: activeScenario.who, line: data.next_question_en, fr: data.next_question_fr, isUser: false },
         ])
         speak(data.next_question_en)
         setTurnInPart(nextTurn)
@@ -207,7 +203,7 @@ export function RoleplaySession({ words }: RoleplaySessionProps) {
                 {entry.who}
                 {!entry.isUser && " 🔊"}
               </div>
-              {entry.isUser ? entry.line : renderWithHoverWords(entry.line, words)}
+              {entry.isUser ? entry.line : <HoverWord fr={entry.fr || ""}>{entry.line}</HoverWord>}
             </div>
           ),
         )}

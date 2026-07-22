@@ -1,10 +1,10 @@
 import type { Word, WordCategory, Scenario } from "./types"
 import extraVocabRaw from "./extra-vocab.json"
 
-// Vocabulaire boutique & matériaux (336 termes) fourni déjà traduit — pas de tip
-// phonétique fourni pour ce lot, donc valeur par défaut cohérente avec celle
-// utilisée pour les mots ajoutés manuellement via le dictionnaire.
-const EXTRA_WORDS: Word[] = (extraVocabRaw as Omit<Word, "tip">[]).map((w) => ({ ...w, tip: "—" }))
+// Vocabulaire boutique & matériaux (336 termes), fr/en déjà fournis + tip
+// phonétique dans le même style que les 54 mots d'origine (respelling simplifié,
+// syllabe accentuée en majuscules).
+const EXTRA_WORDS: Word[] = extraVocabRaw as Word[]
 
 export const DEFAULT_WORDS: Word[] = [
   { id: "w1", fr: "Spot encastré", en: "Recessed downlight", tip: '"ri-SESS-d DAOWN-lite"', cat: "OPT", mastery: 0, wrong: 0 },
@@ -127,9 +127,9 @@ export const SCENARIOS: Record<string, Scenario> = {
     context: "Customs officer at Dubai airport, business trip for lighting commissioning work",
     who: "Customs Officer",
     openingLines: [
-      "Passport, please. What is the purpose of your visit?",
-      "Good morning. Business or leisure, sir?",
-      "Passport and boarding pass, please. Are you here for work?",
+      { en: "Passport, please. What is the purpose of your visit?", fr: "Passeport, s'il vous plaît. Quel est le motif de votre visite ?" },
+      { en: "Good morning. Business or leisure, sir?", fr: "Bonjour. Affaires ou tourisme, monsieur ?" },
+      { en: "Passport and boarding pass, please. Are you here for work?", fr: "Passeport et carte d'embarquement, s'il vous plaît. Vous êtes ici pour le travail ?" },
     ],
   },
   electrician: {
@@ -138,9 +138,9 @@ export const SCENARIOS: Record<string, Scenario> = {
     context: "Electrician on a ladder, DALI lighting commissioning, luxury retail store in Dubai",
     who: "Electrician",
     openingLines: [
-      "The strip is flickering when I dim it below 20 percent, what do you want me to do?",
-      "Hey, this fixture won't respond to the DALI address, any idea what's wrong?",
-      "I'm up on the ladder, the downlight next to the mannequin is showing a hot spot. What should I check first?",
+      { en: "The strip is flickering when I dim it below 20 percent, what do you want me to do?", fr: "Le ruban scintille quand je le baisse en dessous de 20 %, qu'est-ce que vous voulez que je fasse ?" },
+      { en: "Hey, this fixture won't respond to the DALI address, any idea what's wrong?", fr: "Hé, ce luminaire ne répond pas à l'adresse DALI, une idée de ce qui cloche ?" },
+      { en: "I'm up on the ladder, the downlight next to the mannequin is showing a hot spot. What should I check first?", fr: "Je suis sur l'échelle, le spot encastré à côté du mannequin montre un point chaud. Je vérifie quoi en premier ?" },
     ],
   },
   manager: {
@@ -149,9 +149,9 @@ export const SCENARIOS: Record<string, Scenario> = {
     context: "Stressed brand manager, luxury retail store opening in 2 days, Dubai",
     who: "Brand Manager",
     openingLines: [
-      "The color temperature on the showcase looks too cold, the opening is in 2 days, can you fix this now?",
-      "I need this fixed before the client walkthrough this afternoon, how long will it take?",
-      "There's a reflection on the showcase glass, it's distracting. Can we solve that today?",
+      { en: "The color temperature on the showcase looks too cold, the opening is in 2 days, can you fix this now?", fr: "La température de couleur de la vitrine paraît trop froide, l'ouverture est dans 2 jours, vous pouvez régler ça maintenant ?" },
+      { en: "I need this fixed before the client walkthrough this afternoon, how long will it take?", fr: "J'ai besoin que ce soit réglé avant la visite du client cet après-midi, ça va prendre combien de temps ?" },
+      { en: "There's a reflection on the showcase glass, it's distracting. Can we solve that today?", fr: "Il y a un reflet sur le verre de la vitrine, c'est gênant. On peut régler ça aujourd'hui ?" },
     ],
   },
   full_day: {

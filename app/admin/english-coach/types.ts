@@ -15,12 +15,17 @@ export interface ScenarioPart {
   transition?: string
 }
 
+export interface ScenarioLine {
+  en: string
+  fr: string
+}
+
 export interface Scenario {
   title: string
   icon: string
   context: string
   who: string
-  openingLines: string[]
+  openingLines: ScenarioLine[]
   parts?: ScenarioPart[]
 }
 
@@ -46,6 +51,7 @@ export interface RoleplayCoachResponse {
   coherent: boolean
   suggestion_fr: string
   next_question_en: string
+  next_question_fr: string
 }
 
 export interface PhoneCallCoachResponse {
