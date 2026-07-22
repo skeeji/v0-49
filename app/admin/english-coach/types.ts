@@ -63,6 +63,7 @@ export interface PhoneCallCoachResponse {
   needs_repeat: boolean
   correction_fr: string | null
   next_question_en: string
+  next_question_fr: string
 }
 
 export type CoachResponse = FlashcardCoachResponse
@@ -74,9 +75,19 @@ export interface ProgressRow {
   last_seen: string
 }
 
+export interface PronunciationPhonemeScore {
+  phoneme: string
+  accuracy: number
+}
+
 export interface PronunciationWordScore {
   word: string
   accuracy: number
+  // "None" si bien prononcé — sinon "Mispronunciation" / "Omission" / "Insertion" / etc.
+  errorType: string
+  // Détail phonème par phonème, fourni par Azure pour aider à cibler précisément
+  // le son fautif — présent uniquement pour les mots mal notés.
+  phonemes: PronunciationPhonemeScore[]
 }
 
 export interface PronunciationResult {

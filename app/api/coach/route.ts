@@ -8,7 +8,12 @@ import type {
 
 // Clé API détenue uniquement côté serveur — jamais exposée au client.
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-const ANTHROPIC_MODEL = "claude-sonnet-5"
+// Sonnet 5 pour le flashcard (l'utilisateur lit et prend le temps, la nuance
+// compte plus que la vitesse). Haiku 4.5 pour roleplay/phone_call (modes
+// conversationnels en direct où la fluidité prime) — même system prompt,
+// seul le modèle change.
+const MODEL_FLASHCARD = "claude-sonnet-5"
+const MODEL_LIVE = "claude-haiku-4-5"
 
 const PERSONA = `Tu es un coach d'anglais professionnel spécialisé en éclairage retail de luxe et commissioning DALI. L'utilisateur est un expert technique français, niveau anglais débutant (6ème), qui doit être opérationnel à l'oral dans un mois à Dubaï. Sois exigeant mais bienveillant.`
 
@@ -94,8 +99,9 @@ Règles :
 - correction_fr : rempli dans la quasi-totalité des cas avec une vraie note pédagogique — si understood=true, explique ce qui fonctionne bien et donne une nuance pour sonner encore plus naturel/pro ; si understood=false mais needs_repeat=false (compris mais avec erreur), explique la correction et pourquoi. Laisse correction_fr à null UNIQUEMENT si needs_repeat=true (tu n'as vraiment rien pu évaluer, le son était incompréhensible).
 - Si needs_repeat=true : next_question_en doit être une reformulation variée et naturelle de "Sorry, could you say that again?" (jamais deux fois la même formulation de relance).
 - Si needs_repeat=false : next_question_en est la prochaine question normale de la conversation, jamais identique à la question précédente ni à une question déjà posée dans l'historique fourni.
+- next_question_fr est la traduction française fidèle de next_question_en (pas une paraphrase), utilisée uniquement pour une bulle de traduction au survol/tap côté interface — courte et naturelle.
 
-IMPORTANT : next_question_en est un champ OBLIGATOIRE et ne doit JAMAIS être vide — l'appel téléphonique doit toujours continuer, quelle que soit la réponse de l'utilisateur.
+IMPORTANT : next_question_en et next_question_fr sont des champs OBLIGATOIRES et ne doivent JAMAIS être vides — l'appel téléphonique doit toujours continuer, quelle que soit la réponse de l'utilisateur.
 
 ${JSON_SAFETY_NOTE}
 
@@ -104,11 +110,12 @@ Réponds UNIQUEMENT en JSON strict, format :
   "understood": boolean,
   "needs_repeat": boolean,
   "correction_fr": "vraie explication pédagogique en français, ou null uniquement si needs_repeat=true",
-  "next_question_en": "string, jamais vide"
+  "next_question_en": "string, jamais vide",
+  "next_question_fr": "traduction française fidèle et courte de next_question_en, jamais vide"
 }
 
 Exemple (compris, note quand même substantielle) :
-{"understood": true, "needs_repeat": false, "correction_fr": "Très clair, bien compris. Une nuance : 'a business meeting' sonne plus précis que juste 'business' pour un douanier — ça évite une relance.", "next_question_en": "Alright, and how long will the commissioning take, roughly?"}`
+{"understood": true, "needs_repeat": false, "correction_fr": "Très clair, bien compris. Une nuance : 'a business meeting' sonne plus précis que juste 'business' pour un douanier — ça évite une relance.", "next_question_en": "Alright, and how long will the commissioning take, roughly?", "next_question_fr": "D'accord, et ça va prendre combien de temps, le commissioning, à peu près ?"}`
 
 function fallbackFlashcard(targetPhrase: string): FlashcardCoachResponse {
   return {
@@ -135,6 +142,7 @@ function fallbackPhoneCall(): PhoneCallCoachResponse {
     needs_repeat: true,
     correction_fr: null,
     next_question_en: "Sorry, could you say that again?",
+    next_question_fr: "Désolé, tu peux répéter ?",
   }
 }
 
@@ -152,7 +160,12 @@ function extractJSON(raw: string): any {
   }
 }
 
-async function callAnthropicRaw(systemPrompt: string, userMessage: string, maxTokens: number): Promise<string> {
+async function callAnthropicRaw(
+  model: string,
+  systemPrompt: string,
+  userMessage: string,
+  maxTokens: number,
+): Promise<string> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -161,7 +174,7 @@ async function callAnthropicRaw(systemPrompt: string, userMessage: string, maxTo
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
+      model,
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -193,15 +206,20 @@ async function callAnthropicRaw(systemPrompt: string, userMessage: string, maxTo
 // Appelle Claude et parse le JSON, avec un retry unique en cas d'échec (appel réseau ou parsing).
 async function callCoachAI<T>(
   mode: string,
+  model: string,
   systemPrompt: string,
   userMessage: string,
   maxTokens: number,
   buildResult: (parsed: any) => T,
 ): Promise<T | null> {
+  const t0 = Date.now()
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const raw = await callAnthropicRaw(systemPrompt, userMessage, maxTokens)
-      console.log(`[coach:${mode}] ✅ Réponse brute (essai ${attempt}/2):`, raw)
+      const raw = await callAnthropicRaw(model, systemPrompt, userMessage, maxTokens)
+      console.log(
+        `[coach:${mode}] ✅ Réponse brute (essai ${attempt}/2, modèle=${model}, ${Date.now() - t0}ms):`,
+        raw,
+      )
       const parsed = extractJSON(raw)
       return buildResult(parsed)
     } catch (error: any) {
@@ -238,6 +256,7 @@ export async function POST(request: NextRequest) {
       ? `Questions/mots déjà utilisés récemment (ne les répète pas, adapte la difficulté) : ${history.join(", ")}`
       : ""
 
+    const requestStart = Date.now()
     console.log(`[coach] ▶ mode=${mode} target="${targetPhrase}" answer="${userAnswer}"`)
 
     if (mode === "roleplay") {
@@ -248,6 +267,7 @@ ${historyLine}`
 
       const result = await callCoachAI<RoleplayCoachResponse>(
         "roleplay",
+        MODEL_LIVE,
         SYSTEM_PROMPT_ROLEPLAY,
         userMessage,
         650,
@@ -266,6 +286,7 @@ ${historyLine}`
           }
         },
       )
+      console.log(`[coach] ⏱ mode=roleplay total ${Date.now() - requestStart}ms`)
       return NextResponse.json(result ?? fallbackRoleplay())
     }
 
@@ -277,20 +298,25 @@ ${historyLine}`
 
       const result = await callCoachAI<PhoneCallCoachResponse>(
         "phone_call",
+        MODEL_LIVE,
         SYSTEM_PROMPT_PHONE_CALL,
         userMessage,
         650,
         (parsed) => {
           const next_question_en = String(parsed.next_question_en || "").trim()
+          const next_question_fr = String(parsed.next_question_fr || "").trim()
           if (!next_question_en) throw new Error("next_question_en vide dans la réponse du modèle")
+          if (!next_question_fr) throw new Error("next_question_fr vide dans la réponse du modèle")
           return {
             understood: Boolean(parsed.understood),
             needs_repeat: Boolean(parsed.needs_repeat),
             correction_fr: parsed.correction_fr ? String(parsed.correction_fr) : null,
             next_question_en,
+            next_question_fr,
           }
         },
       )
+      console.log(`[coach] ⏱ mode=phone_call total ${Date.now() - requestStart}ms`)
       return NextResponse.json(result ?? fallbackPhoneCall())
     }
 
@@ -302,6 +328,7 @@ ${history.length ? `Mots récemment ratés (adapte la difficulté) : ${history.j
 
     const result = await callCoachAI<FlashcardCoachResponse>(
       "flashcard",
+      MODEL_FLASHCARD,
       SYSTEM_PROMPT_FLASHCARD,
       userMessage,
       400,
@@ -317,6 +344,7 @@ ${history.length ? `Mots récemment ratés (adapte la difficulté) : ${history.j
         }
       },
     )
+    console.log(`[coach] ⏱ mode=flashcard total ${Date.now() - requestStart}ms`)
     return NextResponse.json(result ?? fallbackFlashcard(targetPhrase))
   } catch (error: any) {
     console.error("[coach] ❌ Erreur route inattendue:", error?.message || error, error?.stack ? `\n${error.stack}` : "")

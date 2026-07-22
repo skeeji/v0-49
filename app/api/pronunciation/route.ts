@@ -62,13 +62,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No speech recognized" }, { status: 422 })
     }
 
+    // Le détail phonème par phonème (déjà inclus dans cette même réponse Azure
+    // grâce à Granularity: "Phoneme" côté requête, donc aucun appel supplémentaire)
+    // n'est utile que pour les mots mal prononcés — inutile d'alourdir la réponse
+    // pour les mots déjà bien notés.
     const result: PronunciationResult = {
       overall: Math.round(best.PronunciationAssessment?.AccuracyScore ?? 0),
       fluency: Math.round(best.PronunciationAssessment?.FluencyScore ?? 0),
-      words: (best.Words || []).map((w: any) => ({
-        word: w.Word,
-        accuracy: Math.round(w.PronunciationAssessment?.AccuracyScore ?? 0),
-      })),
+      words: (best.Words || []).map((w: any) => {
+        const accuracy = Math.round(w.PronunciationAssessment?.AccuracyScore ?? 0)
+        const errorType = String(w.PronunciationAssessment?.ErrorType ?? "None")
+        const phonemes =
+          accuracy < 85
+            ? (w.Phonemes || []).map((p: any) => ({
+                phoneme: p.Phoneme,
+                accuracy: Math.round(p.PronunciationAssessment?.AccuracyScore ?? 0),
+              }))
+            : []
+        return { word: w.Word, accuracy, errorType, phonemes }
+      }),
     }
 
     return NextResponse.json(result)

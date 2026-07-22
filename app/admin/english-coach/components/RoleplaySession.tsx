@@ -46,6 +46,7 @@ export function RoleplaySession() {
   const [lastFeedback, setLastFeedback] = useState<{ coherent: boolean; suggestion_fr: string } | null>(null)
   const [lastUserLine, setLastUserLine] = useState<string | null>(null)
   const [feedbackTab, setFeedbackTab] = useState<"grammar" | "pron">("grammar")
+  const [capturedAudio, setCapturedAudio] = useState<Blob | null>(null)
   const askedQuestions = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const sessionTopics = useRef<string[]>([])
@@ -83,6 +84,7 @@ export function RoleplaySession() {
     setLastFeedback(null)
     setLastUserLine(null)
     setFeedbackTab("grammar")
+    setCapturedAudio(null)
     setError(null)
 
     const firstScenario = SCENARIOS[scenarioParts[0].scenarioKey]
@@ -116,6 +118,9 @@ export function RoleplaySession() {
       ? ` Sujets à garder en fil rouge pour cette session (contexte pour toi, ne les lis jamais mot pour mot au joueur) : ${sessionTopics.current.join(" · ")}.`
       : ""
 
+    // Mesure de latence bout-en-bout : de l'envoi de la réponse jusqu'au début
+    // de la voix du personnage (voir speak() dans useSpeech.ts pour la suite).
+    const t0 = performance.now()
     try {
       const res = await fetch("/api/coach", {
         method: "POST",
@@ -130,6 +135,7 @@ export function RoleplaySession() {
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: RoleplayCoachResponse = await res.json()
+      console.log(`[roleplay] ⏱ /api/coach répondu après ${Math.round(performance.now() - t0)}ms`)
 
       setDialogue((d) => [...d, { type: "bubble", who: "Toi", line: userLine, isUser: true }])
       setLastFeedback({ coherent: data.coherent, suggestion_fr: data.suggestion_fr })
@@ -146,7 +152,7 @@ export function RoleplaySession() {
           ...d,
           { type: "bubble", who: activeScenario.who, line: data.next_question_en, fr: data.next_question_fr, isUser: false },
         ])
-        speak(data.next_question_en, activeScenario.voice)
+        speak(data.next_question_en, activeScenario.voice, undefined, t0)
         setTurnInPart(nextTurn)
       } else {
         const nextPartIndex = partIndex + 1
@@ -208,6 +214,10 @@ export function RoleplaySession() {
           ),
         )}
 
+        {loading && (
+          <div className={`${styles.muted} ${styles.thinkingIndicator}`}>💭 Le correspondant réfléchit...</div>
+        )}
+
         {lastFeedback && (
           <div>
             <div className={styles.pronTabs}>
@@ -230,7 +240,7 @@ export function RoleplaySession() {
               </div>
             ) : (
               <div className={styles.pronPanel}>
-                <PronunciationCheck referenceText={lastUserLine || ""} />
+                <PronunciationCheck referenceText={lastUserLine || ""} audioBlob={capturedAudio} />
               </div>
             )}
           </div>
@@ -247,7 +257,10 @@ export function RoleplaySession() {
                 className={styles.input}
                 placeholder="Ta réponse en anglais..."
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={(e) => {
+                  setInputValue(e.target.value)
+                  setCapturedAudio(null)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") submit()
                 }}
@@ -256,9 +269,10 @@ export function RoleplaySession() {
               <button
                 className={styles.action}
                 onClick={() =>
-                  startListening((t) => {
+                  startListening((t, audioBlob) => {
                     setInputValue(t)
                     setLastTranscript(t)
+                    setCapturedAudio(audioBlob)
                   })
                 }
                 disabled={loading}

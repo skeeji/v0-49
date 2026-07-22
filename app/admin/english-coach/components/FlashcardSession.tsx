@@ -62,6 +62,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
   const [error, setError] = useState<string | null>(null)
   const [lastTranscript, setLastTranscript] = useState<string | null>(null)
   const [feedbackTab, setFeedbackTab] = useState<"grammar" | "pron">("grammar")
+  const [capturedAudio, setCapturedAudio] = useState<Blob | null>(null)
   const recentlyWrong = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -78,6 +79,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setError(null)
     setLastTranscript(null)
     setFeedbackTab("grammar")
+    setCapturedAudio(null)
   }
 
   const submit = async () => {
@@ -123,6 +125,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setError(null)
     setLastTranscript(null)
     setFeedbackTab("grammar")
+    setCapturedAudio(null)
   }
 
   if (done) {
@@ -156,7 +159,10 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
               placeholder="Traduis en anglais..."
               autoComplete="off"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                setInputValue(e.target.value)
+                setCapturedAudio(null)
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") submit()
               }}
@@ -165,9 +171,10 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
             <button
               className={styles.action}
               onClick={() =>
-                startListening((t) => {
+                startListening((t, audioBlob) => {
                   setInputValue(t)
                   setLastTranscript(t)
+                  setCapturedAudio(audioBlob)
                 })
               }
               disabled={loading}
@@ -231,7 +238,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
               </div>
             ) : (
               <div className={styles.pronPanel}>
-                <PronunciationCheck referenceText={current.en} />
+                <PronunciationCheck referenceText={current.en} audioBlob={capturedAudio} />
               </div>
             )}
 

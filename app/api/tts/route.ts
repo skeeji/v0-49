@@ -64,8 +64,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Azure Speech API error" }, { status: 502 })
     }
 
-    const audioBuffer = await res.arrayBuffer()
-    return new NextResponse(audioBuffer, {
+    // Transfert en streaming : on ne bufferise plus la réponse Azure (pas de
+    // `await res.arrayBuffer()`) — le format "Streaming" demandé (voir
+    // OUTPUT_FORMAT) arrive en chunked transfer-encoding, et on relaie ce
+    // flux tel quel au client dès les premiers octets, pour qu'il puisse
+    // démarrer la lecture avant la fin du téléchargement complet.
+    if (!res.body) {
+      console.error("[tts] ❌ Réponse Azure sans corps exploitable")
+      return NextResponse.json({ error: "empty Azure response" }, { status: 502 })
+    }
+
+    return new NextResponse(res.body, {
       headers: {
         "Content-Type": "audio/mpeg",
         "Cache-Control": "no-store",

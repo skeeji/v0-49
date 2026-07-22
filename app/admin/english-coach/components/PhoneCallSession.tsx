@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { SCENARIOS } from "../data"
 import { useSpeechRecognition, speak, cancelSpeech } from "../hooks/useSpeech"
+import { HoverWord } from "./HoverWord"
 import type { PhoneCallCoachResponse, Scenario } from "../types"
 
 const CALLABLE_SCENARIOS = ["customs", "electrician", "manager"]
@@ -11,6 +12,7 @@ const CALLABLE_SCENARIOS = ["customs", "electrician", "manager"]
 interface LogEntry {
   isUser: boolean
   line: string
+  fr?: string
   correction_fr?: string | null
 }
 
@@ -69,21 +71,26 @@ export function PhoneCallSession() {
     )
   }
 
-  const askNext = (question: string) => {
+  const askNext = (question: string, questionFr?: string, perfMark?: number) => {
     console.log(`[phone-call] askNext("${question}") — callActive=${callActiveRef.current}`)
     lastQuestion.current = question
-    setLog((l) => [...l, { isUser: false, line: question }])
+    setLog((l) => [...l, { isUser: false, line: question, fr: questionFr }])
     setSpeaking(true)
     const voice = activeScenarioRef.current?.voice || "en-GB-SoniaNeural"
-    speak(question, voice, () => {
-      console.log(`[phone-call] speak() onEnd reçu — callActive=${callActiveRef.current}`)
-      setSpeaking(false)
-      if (!callActiveRef.current) {
-        console.log("[phone-call] appel raccroché entre-temps, on n'active pas le micro")
-        return
-      }
-      listenForAnswer()
-    })
+    speak(
+      question,
+      voice,
+      () => {
+        console.log(`[phone-call] speak() onEnd reçu — callActive=${callActiveRef.current}`)
+        setSpeaking(false)
+        if (!callActiveRef.current) {
+          console.log("[phone-call] appel raccroché entre-temps, on n'active pas le micro")
+          return
+        }
+        listenForAnswer()
+      },
+      perfMark,
+    )
   }
 
   const retryListening = () => {
@@ -107,9 +114,9 @@ export function PhoneCallSession() {
     setRevealed(new Set())
     setFallbackText("")
     setError(null)
-    const opening = sc.openingLines[Math.floor(Math.random() * sc.openingLines.length)].en
-    askedQuestions.current = [opening]
-    askNext(opening)
+    const opening = sc.openingLines[Math.floor(Math.random() * sc.openingLines.length)]
+    askedQuestions.current = [opening.en]
+    askNext(opening.en, opening.fr)
   }
 
   const handleAnswer = async (transcript: string) => {
@@ -123,6 +130,9 @@ export function PhoneCallSession() {
     setLoading(true)
     setError(null)
 
+    // Mesure de latence bout-en-bout : de l'envoi de la réponse jusqu'au début
+    // de la voix du correspondant (voir speak() dans useSpeech.ts pour la suite).
+    const t0 = performance.now()
     try {
       console.log("[phone-call] POST /api/coach mode=phone_call —", {
         targetPhrase: lastQuestion.current,
@@ -139,7 +149,7 @@ export function PhoneCallSession() {
           history: askedQuestions.current,
         }),
       })
-      console.log(`[phone-call] Réponse HTTP ${res.status}`)
+      console.log(`[phone-call] Réponse HTTP ${res.status} — ⏱ ${Math.round(performance.now() - t0)}ms`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: PhoneCallCoachResponse = await res.json()
       console.log("[phone-call] Données reçues —", data)
@@ -160,7 +170,7 @@ export function PhoneCallSession() {
       setLoading(false)
       if (data.next_question_en) {
         askedQuestions.current = [data.next_question_en, ...askedQuestions.current].slice(0, 10)
-        askNext(data.next_question_en)
+        askNext(data.next_question_en, data.next_question_fr, t0)
       } else {
         // Ne devrait plus arriver (le serveur garantit next_question_en non-vide),
         // mais on ne laisse jamais l'appel se bloquer silencieusement.
@@ -278,7 +288,7 @@ export function PhoneCallSession() {
                   </>
                 ) : (
                   <>
-                    {entry.line}
+                    {entry.isUser ? entry.line : <HoverWord fr={entry.fr || ""}>{entry.line}</HoverWord>}
                     {!entry.isUser && (
                       <button className={`${styles.resetLink} ${styles.phoneRevealBtn}`} onClick={() => toggleReveal(i)}>
                         Masquer le texte
