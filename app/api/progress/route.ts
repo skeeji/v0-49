@@ -13,6 +13,7 @@ export async function GET() {
       word_id: r.word_id,
       mastery: r.mastery ?? 0,
       wrong_count: r.wrong_count ?? 0,
+      times_shown: r.times_shown ?? 0,
       last_seen: r.last_seen ?? "",
     }))
 
@@ -33,16 +34,17 @@ export async function POST(request: NextRequest) {
 
     const mastery = Math.min(Math.max(Number(body.mastery) || 0, 0), 5)
     const wrong_count = Math.max(Number(body.wrong_count) || 0, 0)
+    const times_shown = Math.max(Number(body.times_shown) || 0, 0)
     const last_seen = new Date().toISOString()
 
     const db = await getDatabase()
     await db.collection(COLLECTION).updateOne(
       { word_id },
-      { $set: { word_id, mastery, wrong_count, last_seen } },
+      { $set: { word_id, mastery, wrong_count, times_shown, last_seen } },
       { upsert: true },
     )
 
-    return NextResponse.json({ success: true, progress: { word_id, mastery, wrong_count, last_seen } })
+    return NextResponse.json({ success: true, progress: { word_id, mastery, wrong_count, times_shown, last_seen } })
   } catch (error: any) {
     console.error("[progress] ❌ Erreur POST:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })

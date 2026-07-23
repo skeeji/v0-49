@@ -45,12 +45,11 @@ Réponds UNIQUEMENT en JSON strict, format :
   "correct": boolean,
   "score": 0-5,
   "feedback_fr": "vraie explication pédagogique en français, jamais un simple verdict",
-  "better_phrasing_en": "la formulation professionnelle, toujours remplie",
-  "follow_up_en": "une nouvelle question ou relance en anglais, différente de la précédente"
+  "better_phrasing_en": "la formulation professionnelle, toujours remplie"
 }
 
 Exemple (réponse déjà correcte, feedback quand même substantiel) :
-{"correct": true, "score": 5, "feedback_fr": "Exactement le bon terme technique, et bien prononcé dans ta transcription. Sur un vrai chantier, les électriciens disent souvent juste 'downlight' sans 'recessed' à l'oral quand le contexte est clair.", "better_phrasing_en": "Recessed downlight (or just 'downlight' informally)", "follow_up_en": "How would you ask a colleague to dim it to 50 percent?"}`
+{"correct": true, "score": 5, "feedback_fr": "Exactement le bon terme technique, et bien prononcé dans ta transcription. Sur un vrai chantier, les électriciens disent souvent juste 'downlight' sans 'recessed' à l'oral quand le contexte est clair.", "better_phrasing_en": "Recessed downlight (or just 'downlight' informally)"}`
 
 const SYSTEM_PROMPT_ROLEPLAY = `${PERSONA}
 
@@ -127,7 +126,6 @@ function fallbackFlashcard(targetPhrase: string): FlashcardCoachResponse {
     // sous une étiquette "formulation pro" trompeuse (source du bug où deux
     // formulations semblaient collées sans séparateur à l'écran).
     better_phrasing_en: "",
-    follow_up_en: "Can you try answering again?",
     isFallback: true,
   }
 }
@@ -344,7 +342,7 @@ ${history.length ? `Mots récemment ratés (adapte la difficulté) : ${history.j
       MODEL_FLASHCARD,
       SYSTEM_PROMPT_FLASHCARD,
       userMessage,
-      400,
+      300,
       (parsed) => {
         const feedback_fr = String(parsed.feedback_fr || "").trim()
         if (!feedback_fr) throw new Error("feedback_fr vide dans la réponse du modèle")
@@ -353,7 +351,6 @@ ${history.length ? `Mots récemment ratés (adapte la difficulté) : ${history.j
           score: Math.min(Math.max(Number(parsed.score) || 0, 0), 5),
           feedback_fr,
           better_phrasing_en: String(parsed.better_phrasing_en || targetPhrase),
-          follow_up_en: String(parsed.follow_up_en || ""),
         }
       },
     )

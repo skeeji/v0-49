@@ -8,6 +8,11 @@ export interface Word {
   cat: WordCategory
   mastery: number
   wrong: number
+  // Nombre de fois où la carte a été présentée (répondue ou passée) — sert à
+  // garantir que chaque mot du pool ressort au moins une fois avant de faire
+  // remonter deux fois le même mot (voir buildQueue). Optionnel car les mots
+  // définis statiquement (data.ts, extra-vocab.json) n'ont pas ce champ.
+  timesShown?: number
 }
 
 export interface ScenarioPart {
@@ -48,7 +53,6 @@ export interface FlashcardCoachResponse {
   score: number
   feedback_fr: string
   better_phrasing_en: string
-  follow_up_en: string
   // true uniquement quand l'IA n'a pas pu être appelée/parsée et qu'on affiche
   // la réponse de secours — permet à l'UI de ne pas la présenter comme un vrai verdict.
   isFallback?: boolean
@@ -75,6 +79,7 @@ export interface ProgressRow {
   word_id: string
   mastery: number
   wrong_count: number
+  times_shown: number
   last_seen: string
 }
 

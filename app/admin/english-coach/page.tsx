@@ -38,7 +38,9 @@ function CoachApp() {
         setWords((prev) =>
           prev.map((w) => {
             const saved = byId.get(w.id)
-            return saved ? { ...w, mastery: saved.mastery, wrong: saved.wrong_count } : w
+            return saved
+              ? { ...w, mastery: saved.mastery, wrong: saved.wrong_count, timesShown: saved.times_shown }
+              : w
           }),
         )
       } catch (e) {
@@ -53,12 +55,39 @@ function CoachApp() {
   }, [])
 
   const handleUpdateWord = (wordId: string, mastery: number, wrong: number) => {
-    setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, mastery, wrong } : w)))
-    fetch("/api/progress", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ word_id: wordId, mastery, wrong_count: wrong }),
-    }).catch((e) => console.error("Erreur sauvegarde progression:", e))
+    setWords((prev) => {
+      const updated = prev.map((w) => (w.id === wordId ? { ...w, mastery, wrong } : w))
+      const w = updated.find((x) => x.id === wordId)
+      fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word_id: wordId, mastery, wrong_count: wrong, times_shown: w?.timesShown ?? 0 }),
+      }).catch((e) => console.error("Erreur sauvegarde progression:", e))
+      return updated
+    })
+  }
+
+  // Incrémente le compteur d'apparitions d'un mot (répondu ou passé) — sert à
+  // garantir que chaque mot du pool ressorte au moins une fois avant qu'un mot
+  // déjà vu ne remonte une seconde fois (voir buildQueue dans FlashcardSession).
+  const handleWordShown = (wordId: string) => {
+    setWords((prev) => {
+      const updated = prev.map((w) => (w.id === wordId ? { ...w, timesShown: (w.timesShown ?? 0) + 1 } : w))
+      const w = updated.find((x) => x.id === wordId)
+      if (w) {
+        fetch("/api/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            word_id: wordId,
+            mastery: w.mastery,
+            wrong_count: w.wrong,
+            times_shown: w.timesShown ?? 0,
+          }),
+        }).catch((e) => console.error("Erreur sauvegarde progression:", e))
+      }
+      return updated
+    })
   }
 
   const handleAddWord = (word: Word) => {
@@ -115,6 +144,7 @@ function CoachApp() {
                 <FlashcardSession
                   words={words}
                   onUpdateWord={handleUpdateWord}
+                  onWordShown={handleWordShown}
                   onSessionTick={() => setSessions((s) => s + 1)}
                 />
               )}

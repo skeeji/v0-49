@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { CAT_LABELS } from "../data"
 import { useSpeechRecognition } from "../hooks/useSpeech"
@@ -11,6 +11,7 @@ import type { CoachResponse, Word } from "../types"
 interface FlashcardSessionProps {
   words: Word[]
   onUpdateWord: (wordId: string, mastery: number, wrong: number) => void
+  onWordShown: (wordId: string) => void
   onSessionTick: () => void
 }
 
@@ -32,11 +33,12 @@ const CAT_CONTEXT: Record<string, string> = {
   TRB: "Troubleshooting technical issues on site, luxury retail lighting in Dubai",
 }
 
-// Nombre de mots parmi les moins maîtrisés dans lesquels on pioche, avant de
-// mélanger et de n'en garder que QUEUE_SIZE — un pool trop petit (ex: prendre
-// strictement les 5 pires) fait retomber sur les mêmes cartes à chaque série.
-const POOL_SIZE = 30
-const QUEUE_SIZE = 10
+const SERIES_SIZES = [10, 20, 30, 50] as const
+const DEFAULT_SERIES_SIZE = 10
+// Le pool dans lequel on pioche est plus large que la série elle-même, pour
+// éviter de retomber toujours sur les mêmes cartes.
+const POOL_MULTIPLIER = 3
+const MIN_POOL_SIZE = 20
 
 function shuffle<T>(list: T[]): T[] {
   const arr = [...list]
@@ -47,14 +49,34 @@ function shuffle<T>(list: T[]): T[] {
   return arr
 }
 
-function buildQueue(words: Word[]): Word[] {
-  const byPriority = [...words].sort((a, b) => a.mastery - b.mastery || b.wrong - a.wrong)
-  const pool = shuffle(byPriority.slice(0, Math.min(POOL_SIZE, byPriority.length)))
-  return pool.slice(0, QUEUE_SIZE)
+function buildQueue(words: Word[], size: number): Word[] {
+  // Priorité 1 : les mots jamais (ou moins) montrés remontent en premier — c'est
+  // ce qui garantit qu'au fil des séries, chaque mot du pool finit par sortir au
+  // moins une fois avant qu'un mot déjà vu ne repasse une deuxième fois.
+  // Priorité 2 : parmi une même "fraîcheur", les moins maîtrisés / plus ratés.
+  const byPriority = [...words].sort((a, b) => {
+    const shownA = a.timesShown ?? 0
+    const shownB = b.timesShown ?? 0
+    if (shownA !== shownB) return shownA - shownB
+    if (a.mastery !== b.mastery) return a.mastery - b.mastery
+    return b.wrong - a.wrong
+  })
+  const poolSize = Math.min(byPriority.length, Math.max(size * POOL_MULTIPLIER, MIN_POOL_SIZE))
+  const pool = shuffle(byPriority.slice(0, poolSize))
+  return pool.slice(0, size)
 }
 
-export function FlashcardSession({ words, onUpdateWord, onSessionTick }: FlashcardSessionProps) {
-  const [queue, setQueue] = useState<Word[]>(() => buildQueue(words))
+function normalizeAnswer(s: string): string {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[.,!?;:'"()]/g, "")
+    .replace(/\s+/g, " ")
+}
+
+export function FlashcardSession({ words, onUpdateWord, onWordShown, onSessionTick }: FlashcardSessionProps) {
+  const [seriesSize, setSeriesSize] = useState<number>(DEFAULT_SERIES_SIZE)
+  const [queue, setQueue] = useState<Word[]>(() => buildQueue(words, DEFAULT_SERIES_SIZE))
   const [index, setIndex] = useState(0)
   const [inputValue, setInputValue] = useState("")
   const [loading, setLoading] = useState(false)
@@ -73,9 +95,15 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
   const current = queue[index]
   const done = index >= queue.length
 
-  const restart = () => {
-    setQueue(buildQueue(words))
-    setIndex(0)
+  // Marque chaque carte comme "vue" dès qu'elle s'affiche, indépendamment du
+  // fait qu'elle soit ensuite répondue ou passée — c'est ce compteur qui nourrit
+  // la priorité de buildQueue pour garantir la couverture de tout le pool.
+  useEffect(() => {
+    if (current) onWordShown(current.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id])
+
+  const resetCardUi = () => {
     setInputValue("")
     setResult(null)
     setSubmittedAnswer("")
@@ -83,12 +111,41 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setLastTranscript(null)
     setFeedbackTab("grammar")
     setCapturedAudio(null)
+  }
+
+  const restart = (size: number = seriesSize) => {
+    setSeriesSize(size)
+    setQueue(buildQueue(words, size))
+    setIndex(0)
+    resetCardUi()
     setSessionResults([])
   }
 
   const submit = async () => {
     if (!current || !inputValue.trim() || loading) return
     const answer = inputValue.trim()
+
+    // Court-circuit : si la réponse correspond (à la casse/ponctuation près) au
+    // mot-cible, on valide instantanément sans appeler l'IA — inutile de payer
+    // une latence réseau pour juger une correspondance déjà évidente.
+    if (normalizeAnswer(answer) === normalizeAnswer(current.en)) {
+      const instant: CoachResponse = {
+        correct: true,
+        score: 5,
+        feedback_fr: "Formulation strictement identique à la référence — validée instantanément, sans appel IA.",
+        better_phrasing_en: "",
+      }
+      setResult(instant)
+      setSubmittedAnswer(answer)
+      onSessionTick()
+      onUpdateWord(current.id, Math.min(5, current.mastery + 1), current.wrong)
+      setSessionResults((prev) => [
+        ...prev,
+        { word: current, userAnswer: answer, correct: true, betterPhrasing: "", skipped: false },
+      ])
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -135,13 +192,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
 
   const next = () => {
     setIndex((i) => i + 1)
-    setInputValue("")
-    setResult(null)
-    setSubmittedAnswer("")
-    setError(null)
-    setLastTranscript(null)
-    setFeedbackTab("grammar")
-    setCapturedAudio(null)
+    resetCardUi()
   }
 
   const skip = () => {
@@ -153,6 +204,24 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     next()
   }
 
+  const seriesSizeSelector = (
+    <div className={styles.row} style={{ marginTop: 0, marginBottom: 4 }}>
+      <span className={`${styles.muted} ${styles.mono}`} style={{ fontSize: 11, alignSelf: "center" }}>
+        Questions par série :
+      </span>
+      {SERIES_SIZES.map((size) => (
+        <button
+          key={size}
+          className={`${styles.action} ${size === seriesSize ? styles.primary : ""}`}
+          style={{ padding: "4px 10px" }}
+          onClick={() => restart(size)}
+        >
+          {size}
+        </button>
+      ))}
+    </div>
+  )
+
   if (done) {
     const answered = sessionResults.filter((r) => !r.skipped)
     const correctCount = answered.filter((r) => r.correct).length
@@ -161,6 +230,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
 
     return (
       <div className={styles.cardStage}>
+        {seriesSizeSelector}
         <div className={styles.badge}>Série terminée</div>
         <div className={`${styles.cardFr} ${styles.display}`}>Bien joué 👏</div>
 
@@ -204,7 +274,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
           </>
         )}
 
-        <button className={`${styles.action} ${styles.primary}`} onClick={restart}>
+        <button className={`${styles.action} ${styles.primary}`} onClick={() => restart()}>
           Refaire une série
         </button>
       </div>
@@ -213,6 +283,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
 
   return (
     <div>
+      {seriesSizeSelector}
       <div className={styles.badge}>{CAT_LABELS[current.cat]}</div>
       <div className={styles.cardStage}>
         <div className={`${styles.cardFr} ${styles.display}`}>{current.fr}</div>
