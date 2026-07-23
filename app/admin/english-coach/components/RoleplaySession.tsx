@@ -46,7 +46,6 @@ export function RoleplaySession() {
   const [lastFeedback, setLastFeedback] = useState<{ coherent: boolean; suggestion_fr: string } | null>(null)
   const [lastUserLine, setLastUserLine] = useState<string | null>(null)
   const [feedbackTab, setFeedbackTab] = useState<"grammar" | "pron">("grammar")
-  const [capturedAudio, setCapturedAudio] = useState<Blob | null>(null)
   const askedQuestions = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const sessionTopics = useRef<string[]>([])
@@ -84,7 +83,6 @@ export function RoleplaySession() {
     setLastFeedback(null)
     setLastUserLine(null)
     setFeedbackTab("grammar")
-    setCapturedAudio(null)
     setError(null)
 
     const firstScenario = SCENARIOS[scenarioParts[0].scenarioKey]
@@ -240,7 +238,7 @@ export function RoleplaySession() {
               </div>
             ) : (
               <div className={styles.pronPanel}>
-                <PronunciationCheck referenceText={lastUserLine || ""} audioBlob={capturedAudio} />
+                <PronunciationCheck referenceText={lastUserLine || ""} />
               </div>
             )}
           </div>
@@ -257,10 +255,7 @@ export function RoleplaySession() {
                 className={styles.input}
                 placeholder="Ta réponse en anglais..."
                 value={inputValue}
-                onChange={(e) => {
-                  setInputValue(e.target.value)
-                  setCapturedAudio(null)
-                }}
+                onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") submit()
                 }}
@@ -269,10 +264,9 @@ export function RoleplaySession() {
               <button
                 className={styles.action}
                 onClick={() =>
-                  startListening((t, audioBlob) => {
+                  startListening((t) => {
                     setInputValue(t)
                     setLastTranscript(t)
-                    setCapturedAudio(audioBlob)
                   })
                 }
                 disabled={loading}

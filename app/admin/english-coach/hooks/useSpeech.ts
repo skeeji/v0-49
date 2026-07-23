@@ -20,15 +20,6 @@ interface MinimalSpeechRecognition {
 const INITIAL_SILENCE_MS = 8000
 const TRAILING_SILENCE_MS = 2200
 
-const AUDIO_CAPTURE_MIME_TYPES = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm"]
-
-function pickAudioCaptureMimeType(): string {
-  for (const type of AUDIO_CAPTURE_MIME_TYPES) {
-    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) return type
-  }
-  return ""
-}
-
 function getSpeechRecognitionCtor(): (new () => MinimalSpeechRecognition) | null {
   if (typeof window === "undefined") return null
   const w = window as any
@@ -39,46 +30,19 @@ export function useSpeechRecognition() {
   const [listening, setListening] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const recognitionRef = useRef<MinimalSpeechRecognition | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
-  const micStreamRef = useRef<MediaStream | null>(null)
 
   const supported = typeof window !== "undefined" && !!getSpeechRecognitionCtor()
 
-  const stopAudioCapture = useCallback((): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      const recorder = mediaRecorderRef.current
-      if (!recorder || recorder.state === "inactive") {
-        resolve(null)
-        return
-      }
-      recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" })
-        micStreamRef.current?.getTracks().forEach((t) => t.stop())
-        micStreamRef.current = null
-        mediaRecorderRef.current = null
-        resolve(blob.size > 0 ? blob : null)
-      }
-      recorder.stop()
-    })
-  }, [])
-
-  // startListening(onResult, onNoResult) capture aussi l'audio brut du micro en
-  // parallèle de la reconnaissance vocale (deux flux indépendants sur le même
-  // micro), pour que le bouton "Vérifier ma prononciation" (Azure) puisse
-  // réutiliser cette prise sans redemander à l'utilisateur de reparler.
-  //
-  // Important : cette capture parallèle est volontairement fire-and-forget (pas
-  // de await avant rec.start()). Chrome ne supporte pas de façon fiable un
-  // getUserMedia()/MediaRecorder actif en même temps qu'une SpeechRecognition en
-  // cours de négociation d'accès au micro (conflit connu, cf. tracker Chromium) :
-  // si on attend que ce flux démarre avant de lancer rec.start(), la
-  // reconnaissance vocale ne capte plus jamais rien (plus aucun onresult). On
-  // lance donc rec.start() sans attendre, quitte à ce que les tout premiers ms
-  // d'un mot très court manquent à l'enregistrement parallèle envoyé à Azure
-  // Pronunciation Assessment.
-  const startListening = useCallback(
-    (onResult: (transcript: string, audioBlob: Blob | null) => void, onNoResult?: () => void) => {
+  // startListening(onResult, onNoResult) n'utilise QUE SpeechRecognition — aucune
+  // capture getUserMedia/MediaRecorder ici. Les deux flux micro (dictée via
+  // SpeechRecognition et enregistrement brut pour la prononciation via
+  // useAudioRecorder) ne doivent jamais tourner en même temps : Chrome ne
+  // supporte pas de façon fiable un getUserMedia()/MediaRecorder actif en même
+  // temps qu'une SpeechRecognition en cours (conflit connu, cf. tracker
+  // Chromium) — la reconnaissance vocale ne capte alors plus jamais rien (plus
+  // aucun onresult). La vérification de prononciation (bouton dédié, voir
+  // PronunciationCheck.tsx) fait sa propre capture, séparée dans le temps.
+  const startListening = useCallback((onResult: (transcript: string) => void, onNoResult?: () => void) => {
     console.log("[speech] ▶ startListening() appelé")
     const SR = getSpeechRecognitionCtor()
     if (!SR) {
@@ -86,23 +50,6 @@ export function useSpeechRecognition() {
       setError("Micro non supporté ici — utilise le clavier vocal de ton téléphone directement dans le champ texte.")
       return
     }
-
-    navigator.mediaDevices
-      ?.getUserMedia({ audio: true })
-      .then((stream) => {
-        micStreamRef.current = stream
-        const mimeType = pickAudioCaptureMimeType()
-        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
-        audioChunksRef.current = []
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunksRef.current.push(e.data)
-        }
-        recorder.start()
-        mediaRecorderRef.current = recorder
-      })
-      .catch((e) => {
-        console.warn("[speech] ⚠ Capture audio parallèle indisponible (pronunciation check désactivé pour cette prise) —", e)
-      })
 
     try {
       const rec = new SR()
@@ -161,22 +108,19 @@ export function useSpeechRecognition() {
         clearSilenceTimer()
         setError(`Micro bloqué ou refusé (${event?.error || "erreur inconnue"}) — utilise le clavier vocal de ton téléphone à la place.`)
         setListening(false)
-        stopAudioCapture()
       }
       rec.onend = () => {
         clearSilenceTimer()
         const transcript = finalTranscript.trim()
         console.log(`[speech] ⏹ onend (recognition terminée) — transcript accumulé="${transcript}"`)
         setListening(false)
-        stopAudioCapture().then((audioBlob) => {
-          if (transcript) {
-            outcome = "result"
-            onResult(transcript, audioBlob)
-          } else if (outcome === null) {
-            console.warn("[speech] ⚠ Recognition terminée sans résultat ni erreur (silence non capté)")
-            onNoResult?.()
-          }
-        })
+        if (transcript) {
+          outcome = "result"
+          onResult(transcript)
+        } else if (outcome === null) {
+          console.warn("[speech] ⚠ Recognition terminée sans résultat ni erreur (silence non capté)")
+          onNoResult?.()
+        }
       }
       // Handlers de diagnostic supplémentaires (non standardisés partout mais
       // supportés par Chrome/Edge) — permettent de voir jusqu'où le pipeline
@@ -210,8 +154,7 @@ export function useSpeechRecognition() {
       // no-op
     }
     setListening(false)
-    stopAudioCapture()
-  }, [stopAudioCapture])
+  }, [])
 
   return { listening, error, supported, startListening, stopListening }
 }

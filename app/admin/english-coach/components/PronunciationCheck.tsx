@@ -8,10 +8,6 @@ import type { PronunciationResult } from "../types"
 
 interface PronunciationCheckProps {
   referenceText: string
-  // Audio déjà capturé en parallèle de la reconnaissance vocale pendant la
-  // réponse au micro (voir useSpeechRecognition) — quand disponible, on l'utilise
-  // directement pour éviter de faire reparler l'utilisateur une seconde fois.
-  audioBlob?: Blob | null
 }
 
 // Voix neutre fixe pour la prononciation "modèle" — volontairement indépendante
@@ -37,19 +33,20 @@ const ERROR_LABELS_FR: Record<string, string> = {
 // Composant volontairement isolé : ne s'appelle QUE sur clic explicite du
 // bouton (jamais automatiquement à chaque échange), pour rester dans le palier
 // gratuit Azure Speech (5h audio/mois).
-export function PronunciationCheck({ referenceText, audioBlob }: PronunciationCheckProps) {
+//
+// Capture audio strictement séparée de la dictée (SpeechRecognition) : ce
+// composant démarre son propre getUserMedia/MediaRecorder uniquement quand
+// l'utilisateur clique sur "Vérifier ma prononciation", jamais en parallèle
+// d'une reconnaissance vocale en cours ailleurs sur la page. L'utilisateur
+// reparle la phrase spécifiquement pour cette vérification.
+export function PronunciationCheck({ referenceText }: PronunciationCheckProps) {
   const [result, setResult] = useState<PronunciationResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Index du mot dont le détail (type d'erreur + phonèmes) est déplié.
   const [expandedWord, setExpandedWord] = useState<number | null>(null)
-  // Si l'utilisateur préfère reparler (ou qu'aucun audio n'a été capturé, ex:
-  // réponse tapée au clavier), on repasse sur le flux d'enregistrement manuel.
-  const [manualMode, setManualMode] = useState(false)
   const [playingReference, setPlayingReference] = useState(false)
   const { recording, error: micError, startRecording, stopRecording } = useAudioRecorder()
-
-  const useCapturedAudio = Boolean(audioBlob) && !manualMode
 
   const playReference = () => {
     if (!referenceText.trim() || playingReference) return
@@ -74,14 +71,6 @@ export function PronunciationCheck({ referenceText, audioBlob }: PronunciationCh
     } finally {
       setLoading(false)
     }
-  }
-
-  const checkCapturedAudio = () => {
-    if (!audioBlob) return
-    setResult(null)
-    setExpandedWord(null)
-    setError(null)
-    analyze(audioBlob)
   }
 
   const toggleManualRecording = async () => {
@@ -111,20 +100,9 @@ export function PronunciationCheck({ referenceText, audioBlob }: PronunciationCh
         <button className={styles.action} onClick={playReference} disabled={playingReference}>
           {playingReference ? "🔊 Lecture..." : "🔊 Écouter la prononciation correcte"}
         </button>
-        {useCapturedAudio ? (
-          <>
-            <button className={`${styles.action} ${styles.primary}`} onClick={checkCapturedAudio} disabled={loading}>
-              {loading ? "Analyse..." : "🎙️ Vérifier la prononciation de ta réponse orale"}
-            </button>
-            <button className={styles.action} onClick={() => setManualMode(true)} disabled={loading}>
-              🔁 Reparler et ré-enregistrer
-            </button>
-          </>
-        ) : (
-          <button className={`${styles.action} ${recording ? styles.bad : styles.primary}`} onClick={toggleManualRecording} disabled={loading}>
-            {loading ? "Analyse..." : recording ? "⏹ Arrêter et analyser" : "🎙️ Vérifier ma prononciation"}
-          </button>
-        )}
+        <button className={`${styles.action} ${recording ? styles.bad : styles.primary}`} onClick={toggleManualRecording} disabled={loading}>
+          {loading ? "Analyse..." : recording ? "⏹ Arrêter et analyser" : "🎙️ Vérifier ma prononciation"}
+        </button>
       </div>
 
       {micError && <div className={styles.errorText}>{micError}</div>}

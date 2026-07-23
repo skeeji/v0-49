@@ -85,7 +85,6 @@ export function FlashcardSession({ words, onUpdateWord, onWordShown, onSessionTi
   const [error, setError] = useState<string | null>(null)
   const [lastTranscript, setLastTranscript] = useState<string | null>(null)
   const [feedbackTab, setFeedbackTab] = useState<"grammar" | "pron">("grammar")
-  const [capturedAudio, setCapturedAudio] = useState<Blob | null>(null)
   const [sessionResults, setSessionResults] = useState<SessionResult[]>([])
   const recentlyWrong = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
@@ -110,7 +109,6 @@ export function FlashcardSession({ words, onUpdateWord, onWordShown, onSessionTi
     setError(null)
     setLastTranscript(null)
     setFeedbackTab("grammar")
-    setCapturedAudio(null)
   }
 
   const restart = (size: number = seriesSize) => {
@@ -297,10 +295,7 @@ export function FlashcardSession({ words, onUpdateWord, onWordShown, onSessionTi
               placeholder="Traduis en anglais..."
               autoComplete="off"
               value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value)
-                setCapturedAudio(null)
-              }}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") submit()
               }}
@@ -309,10 +304,9 @@ export function FlashcardSession({ words, onUpdateWord, onWordShown, onSessionTi
             <button
               className={styles.action}
               onClick={() =>
-                startListening((t, audioBlob) => {
+                startListening((t) => {
                   setInputValue(t)
                   setLastTranscript(t)
-                  setCapturedAudio(audioBlob)
                 })
               }
               disabled={loading}
@@ -388,7 +382,7 @@ export function FlashcardSession({ words, onUpdateWord, onWordShown, onSessionTi
               </div>
             ) : (
               <div className={styles.pronPanel}>
-                <PronunciationCheck referenceText={current.en} audioBlob={capturedAudio} />
+                <PronunciationCheck referenceText={current.en} />
               </div>
             )}
 
