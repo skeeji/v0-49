@@ -8,11 +8,10 @@ import type {
 
 // Clé API détenue uniquement côté serveur — jamais exposée au client.
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-// Sonnet 5 pour le flashcard (l'utilisateur lit et prend le temps, la nuance
-// compte plus que la vitesse). Haiku 4.5 pour roleplay/phone_call (modes
-// conversationnels en direct où la fluidité prime) — même system prompt,
-// seul le modèle change.
-const MODEL_FLASHCARD = "claude-sonnet-5"
+// Haiku 4.5 partout (flashcard, roleplay, phone_call) — même system prompt,
+// seul le modèle change. Le jugement d'une flashcard reste un cas simple, et
+// l'utilisateur attend une réponse en moins de 10s, donc la vitesse prime ici aussi.
+const MODEL_FLASHCARD = "claude-haiku-4-5"
 const MODEL_LIVE = "claude-haiku-4-5"
 
 const PERSONA = `Tu es un coach d'anglais professionnel spécialisé en éclairage retail de luxe et commissioning DALI. L'utilisateur est un expert technique français, niveau anglais débutant (6ème), qui doit être opérationnel à l'oral dans un mois à Dubaï. Sois exigeant mais bienveillant.`
@@ -28,6 +27,8 @@ const SYSTEM_PROMPT_FLASHCARD = `${PERSONA}
 ${TUTOR_STANCE}
 
 Évalue sa réponse sur le FOND (serait-elle comprise et jugée professionnelle par un anglophone natif sur un chantier ou en boutique de luxe), pas sur la présence exacte de mots-clés. Varie systématiquement tes phrases d'exemple et tes relances — ne répète jamais la même formulation deux fois de suite.
+
+La "Phrase/mot attendu en anglais" fournie dans le contexte est une traduction de référence, utilisée pour l'affichage de la carte — ce n'est PAS la seule réponse acceptée. Marque correct=true pour TOUT synonyme, formulation équivalente ou variante professionnellement correcte qui transmettrait le même sens à un anglophone natif dans ce contexte métier, même si elle diffère complètement des mots de la cible (ex: si la cible est "checkout counter", "cash desk" ou "cash register" doivent aussi être acceptés). Ne marque JAMAIS une réponse comme incorrecte au seul motif qu'elle ne correspond pas mot pour mot à la traduction stockée.
 
 ${PHONETIC_NOTE}
 
@@ -122,8 +123,12 @@ function fallbackFlashcard(targetPhrase: string): FlashcardCoachResponse {
     correct: false,
     score: 0,
     feedback_fr: "Le coach n'a pas pu analyser ta réponse cette fois-ci, réessaie.",
-    better_phrasing_en: targetPhrase,
+    // Volontairement vide : mieux vaut ne rien afficher que réafficher la cible
+    // sous une étiquette "formulation pro" trompeuse (source du bug où deux
+    // formulations semblaient collées sans séparateur à l'écran).
+    better_phrasing_en: "",
     follow_up_en: "Can you try answering again?",
+    isFallback: true,
   }
 }
 
@@ -146,18 +151,18 @@ function fallbackPhoneCall(): PhoneCallCoachResponse {
   }
 }
 
+// Extraction stricte : on ne fait jamais confiance à la chaîne brute telle
+// quelle (le modèle peut préfixer/suffixer du texte autour du JSON). On isole
+// systématiquement le contenu entre la première "{" et la dernière "}" avant
+// de parser — un échec ici remonte à l'appelant, qui retente l'appel IA une fois.
 function extractJSON(raw: string): any {
   const cleaned = raw.replace(/```json|```/g, "").trim()
-  try {
-    return JSON.parse(cleaned)
-  } catch {
-    const start = cleaned.indexOf("{")
-    const end = cleaned.lastIndexOf("}")
-    if (start !== -1 && end !== -1 && end > start) {
-      return JSON.parse(cleaned.slice(start, end + 1))
-    }
+  const start = cleaned.indexOf("{")
+  const end = cleaned.lastIndexOf("}")
+  if (start === -1 || end === -1 || end <= start) {
     throw new Error("Aucun objet JSON exploitable dans la réponse du modèle")
   }
+  return JSON.parse(cleaned.slice(start, end + 1))
 }
 
 async function callAnthropicRaw(
@@ -326,6 +331,14 @@ Phrase/mot attendu en anglais : "${targetPhrase}"
 Réponse de l'utilisateur : "${userAnswer}"
 ${history.length ? `Mots récemment ratés (adapte la difficulté) : ${history.join(", ")}` : ""}`
 
+    // Diagnostic complet demandé pour investiguer les faux-négatifs de correction :
+    // réponse brute utilisateur + prompt intégral envoyé à l'IA, avant tout appel.
+    console.log(
+      `[coach:flashcard] 📨 Réponse brute utilisateur reçue par l'API : "${userAnswer}"\n` +
+        `[coach:flashcard] 📝 Prompt système :\n${SYSTEM_PROMPT_FLASHCARD}\n` +
+        `[coach:flashcard] 📝 Prompt utilisateur :\n${userMessage}`,
+    )
+
     const result = await callCoachAI<FlashcardCoachResponse>(
       "flashcard",
       MODEL_FLASHCARD,
@@ -344,8 +357,13 @@ ${history.length ? `Mots récemment ratés (adapte la difficulté) : ${history.j
         }
       },
     )
+    const finalVerdict = result ?? fallbackFlashcard(targetPhrase)
+    console.log(
+      `[coach:flashcard] 🏁 Verdict final renvoyé au client (answer="${userAnswer}"):`,
+      JSON.stringify(finalVerdict),
+    )
     console.log(`[coach] ⏱ mode=flashcard total ${Date.now() - requestStart}ms`)
-    return NextResponse.json(result ?? fallbackFlashcard(targetPhrase))
+    return NextResponse.json(finalVerdict)
   } catch (error: any) {
     console.error("[coach] ❌ Erreur route inattendue:", error?.message || error, error?.stack ? `\n${error.stack}` : "")
     return NextResponse.json(fallbackFlashcard(""), { status: 200 })

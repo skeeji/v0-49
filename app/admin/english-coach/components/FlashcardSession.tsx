@@ -14,6 +14,14 @@ interface FlashcardSessionProps {
   onSessionTick: () => void
 }
 
+interface SessionResult {
+  word: Word
+  userAnswer: string
+  correct: boolean
+  betterPhrasing: string
+  skipped: boolean
+}
+
 const CAT_CONTEXT: Record<string, string> = {
   OPT: "Optics & Fixtures, luxury retail lighting commissioning in Dubai",
   DALI: "DALI protocol & electrical wiring, luxury retail lighting commissioning in Dubai",
@@ -23,6 +31,12 @@ const CAT_CONTEXT: Record<string, string> = {
   DIP: "Diplomatic workplace English on a retail construction site in Dubai",
   TRB: "Troubleshooting technical issues on site, luxury retail lighting in Dubai",
 }
+
+// Nombre de mots parmi les moins maîtrisés dans lesquels on pioche, avant de
+// mélanger et de n'en garder que QUEUE_SIZE — un pool trop petit (ex: prendre
+// strictement les 5 pires) fait retomber sur les mêmes cartes à chaque série.
+const POOL_SIZE = 30
+const QUEUE_SIZE = 10
 
 function shuffle<T>(list: T[]): T[] {
   const arr = [...list]
@@ -34,23 +48,9 @@ function shuffle<T>(list: T[]): T[] {
 }
 
 function buildQueue(words: Word[]): Word[] {
-  // Groupe par priorité (mastery croissant, wrong décroissant), puis mélange chaque
-  // groupe de priorité égale (Fisher-Yates) pour éviter un ordre toujours identique
-  // quand plusieurs mots ont le même mastery/wrong (ex: tous à 0 en début de session).
-  const groups = new Map<string, Word[]>()
-  for (const w of words) {
-    const key = `${w.mastery}-${w.wrong}`
-    const group = groups.get(key)
-    if (group) group.push(w)
-    else groups.set(key, [w])
-  }
-  const sortedKeys = [...groups.keys()].sort((a, b) => {
-    const [masteryA, wrongA] = a.split("-").map(Number)
-    const [masteryB, wrongB] = b.split("-").map(Number)
-    return masteryA - masteryB || wrongB - wrongA
-  })
-  const ordered = sortedKeys.flatMap((key) => shuffle(groups.get(key)!))
-  return ordered.slice(0, 5)
+  const byPriority = [...words].sort((a, b) => a.mastery - b.mastery || b.wrong - a.wrong)
+  const pool = shuffle(byPriority.slice(0, Math.min(POOL_SIZE, byPriority.length)))
+  return pool.slice(0, QUEUE_SIZE)
 }
 
 export function FlashcardSession({ words, onUpdateWord, onSessionTick }: FlashcardSessionProps) {
@@ -59,10 +59,12 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
   const [inputValue, setInputValue] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<CoachResponse | null>(null)
+  const [submittedAnswer, setSubmittedAnswer] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [lastTranscript, setLastTranscript] = useState<string | null>(null)
   const [feedbackTab, setFeedbackTab] = useState<"grammar" | "pron">("grammar")
   const [capturedAudio, setCapturedAudio] = useState<Blob | null>(null)
+  const [sessionResults, setSessionResults] = useState<SessionResult[]>([])
   const recentlyWrong = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -76,14 +78,17 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setIndex(0)
     setInputValue("")
     setResult(null)
+    setSubmittedAnswer("")
     setError(null)
     setLastTranscript(null)
     setFeedbackTab("grammar")
     setCapturedAudio(null)
+    setSessionResults([])
   }
 
   const submit = async () => {
     if (!current || !inputValue.trim() || loading) return
+    const answer = inputValue.trim()
     setLoading(true)
     setError(null)
     try {
@@ -93,7 +98,7 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
         body: JSON.stringify({
           mode: "flashcard",
           targetPhrase: current.en,
-          userAnswer: inputValue.trim(),
+          userAnswer: answer,
           context: CAT_CONTEXT[current.cat] || "Luxury retail lighting commissioning in Dubai",
           history: recentlyWrong.current,
         }),
@@ -101,14 +106,24 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: CoachResponse = await res.json()
       setResult(data)
+      setSubmittedAnswer(answer)
       onSessionTick()
 
-      const newMastery = data.correct ? Math.min(5, current.mastery + 1) : Math.max(0, current.mastery - 1)
-      const newWrong = data.correct ? current.wrong : current.wrong + 1
-      onUpdateWord(current.id, newMastery, newWrong)
+      // Une réponse de secours (échec IA) n'est pas un vrai verdict : elle ne doit
+      // ni impacter la maîtrise du mot ni compter comme une faute dans le récap.
+      if (!data.isFallback) {
+        const newMastery = data.correct ? Math.min(5, current.mastery + 1) : Math.max(0, current.mastery - 1)
+        const newWrong = data.correct ? current.wrong : current.wrong + 1
+        onUpdateWord(current.id, newMastery, newWrong)
 
-      if (!data.correct) {
-        recentlyWrong.current = [current.en, ...recentlyWrong.current].slice(0, 5)
+        if (!data.correct) {
+          recentlyWrong.current = [current.en, ...recentlyWrong.current].slice(0, 5)
+        }
+
+        setSessionResults((prev) => [
+          ...prev,
+          { word: current, userAnswer: answer, correct: data.correct, betterPhrasing: data.better_phrasing_en, skipped: false },
+        ])
       }
     } catch (e) {
       console.error(e)
@@ -122,21 +137,73 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
     setIndex((i) => i + 1)
     setInputValue("")
     setResult(null)
+    setSubmittedAnswer("")
     setError(null)
     setLastTranscript(null)
     setFeedbackTab("grammar")
     setCapturedAudio(null)
   }
 
+  const skip = () => {
+    if (!current || loading) return
+    setSessionResults((prev) => [
+      ...prev,
+      { word: current, userAnswer: inputValue.trim(), correct: false, betterPhrasing: "", skipped: true },
+    ])
+    next()
+  }
+
   if (done) {
+    const answered = sessionResults.filter((r) => !r.skipped)
+    const correctCount = answered.filter((r) => r.correct).length
+    const wrongOnes = answered.filter((r) => !r.correct)
+    const skippedCount = sessionResults.filter((r) => r.skipped).length
+
     return (
       <div className={styles.cardStage}>
-        <div className={styles.badge}>Session terminée</div>
+        <div className={styles.badge}>Série terminée</div>
         <div className={`${styles.cardFr} ${styles.display}`}>Bien joué 👏</div>
-        <div className={styles.cardTip}>
-          {queue.length} mots retravaillés avec un vrai feedback IA. Reviens plus tard, les mots ratés remonteront en
-          priorité.
+
+        <div className={styles.statRow} style={{ width: "100%" }}>
+          <div className={styles.stat}>
+            <div className={styles.statVal}>{correctCount}</div>
+            <div className={styles.statLbl}>bonnes réponses</div>
+          </div>
+          <div className={styles.stat}>
+            <div className={styles.statVal}>{wrongOnes.length}</div>
+            <div className={styles.statLbl}>à retravailler</div>
+          </div>
+          <div className={styles.stat}>
+            <div className={styles.statVal}>{skippedCount}</div>
+            <div className={styles.statLbl}>passées</div>
+          </div>
         </div>
+
+        {wrongOnes.length > 0 && (
+          <>
+            <div className={styles.badge} style={{ marginTop: 10 }}>
+              Cartes à retravailler
+            </div>
+            <div className={styles.recapList}>
+              {wrongOnes.map((r, i) => (
+                <div key={i} className={styles.recapItem}>
+                  <div className={styles.recapItemWord}>
+                    {r.word.fr} <span className={styles.muted}>— {r.word.en}</span>
+                  </div>
+                  <div className={styles.recapItemRow}>
+                    <span className={styles.muted}>Ta réponse : </span>
+                    {r.userAnswer || "—"}
+                  </div>
+                  <div className={styles.recapItemRow}>
+                    <span className={styles.muted}>En pro, on dirait : </span>
+                    <strong>{r.betterPhrasing || r.word.en}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <button className={`${styles.action} ${styles.primary}`} onClick={restart}>
           Refaire une série
         </button>
@@ -184,6 +251,9 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
             <button className={`${styles.action} ${styles.primary}`} onClick={submit} disabled={loading}>
               {loading ? "Analyse..." : "Vérifier"}
             </button>
+            <button className={styles.action} onClick={skip} disabled={loading}>
+              Passer cette carte
+            </button>
           </div>
         )}
 
@@ -205,6 +275,11 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
 
         {result && (
           <>
+            <div className={styles.userAnswerBox}>
+              <span className={styles.muted}>Ta réponse : </span>
+              <strong>{submittedAnswer}</strong>
+            </div>
+
             <div className={`${styles.cardEn} ${styles.display}`}>
               <HoverWord fr={current.fr}>{current.en}</HoverWord>
             </div>
@@ -226,10 +301,14 @@ export function FlashcardSession({ words, onUpdateWord, onSessionTick }: Flashca
             </div>
 
             {feedbackTab === "grammar" ? (
-              <div className={`${styles.feedback} ${result.correct ? styles.feedbackOk : styles.feedbackNo}`}>
-                {result.correct ? "✓ " : "✗ "}
+              <div
+                className={`${styles.feedback} ${
+                  result.isFallback ? styles.errorText : result.correct ? styles.feedbackOk : styles.feedbackNo
+                }`}
+              >
+                {result.isFallback ? "⚠ " : result.correct ? "✓ " : "✗ "}
                 {result.feedback_fr}
-                {result.better_phrasing_en && (
+                {!result.isFallback && result.better_phrasing_en && (
                   <div style={{ marginTop: 6 }}>
                     {result.correct ? "À connaître aussi : " : "En pro, on dirait : "}
                     <strong>{result.better_phrasing_en}</strong>

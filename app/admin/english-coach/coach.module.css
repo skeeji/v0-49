@@ -531,6 +531,39 @@
   margin-top: 8px;
 }
 
+.userAnswerBox {
+  align-self: stretch;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.recapList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  width: 100%;
+  text-align: left;
+}
+.recapItem {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.recapItemWord {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.recapItemRow {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
 .thinkingIndicator {
   font-size: 13px;
   padding: 6px 2px;

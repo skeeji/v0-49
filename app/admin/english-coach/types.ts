@@ -49,6 +49,9 @@ export interface FlashcardCoachResponse {
   feedback_fr: string
   better_phrasing_en: string
   follow_up_en: string
+  // true uniquement quand l'IA n'a pas pu être appelée/parsée et qu'on affiche
+  // la réponse de secours — permet à l'UI de ne pas la présenter comme un vrai verdict.
+  isFallback?: boolean
 }
 
 export interface RoleplayCoachResponse {
