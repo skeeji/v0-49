@@ -68,16 +68,17 @@ export function useSpeechRecognition() {
   // micro), pour que le bouton "Vérifier ma prononciation" (Azure) puisse
   // réutiliser cette prise sans redemander à l'utilisateur de reparler.
   //
-  // Important : on ATTEND que l'enregistrement démarre réellement avant de
-  // lancer la reconnaissance vocale. getUserMedia() est asynchrone ; sans cette
-  // attente, rec.start() partait aussitôt pendant que le MediaRecorder pouvait
-  // démarrer plus tard (course), ratant le tout début — voire la totalité —
-  // d'un mot court ("please"). Résultat observé : un audio quasi vide envoyé à
-  // Azure Pronunciation Assessment, qui renvoyait alors 0% partout (aucun son
-  // à aligner sur le texte de référence), sans rapport avec la vraie
-  // prononciation de l'utilisateur.
+  // Important : cette capture parallèle est volontairement fire-and-forget (pas
+  // de await avant rec.start()). Chrome ne supporte pas de façon fiable un
+  // getUserMedia()/MediaRecorder actif en même temps qu'une SpeechRecognition en
+  // cours de négociation d'accès au micro (conflit connu, cf. tracker Chromium) :
+  // si on attend que ce flux démarre avant de lancer rec.start(), la
+  // reconnaissance vocale ne capte plus jamais rien (plus aucun onresult). On
+  // lance donc rec.start() sans attendre, quitte à ce que les tout premiers ms
+  // d'un mot très court manquent à l'enregistrement parallèle envoyé à Azure
+  // Pronunciation Assessment.
   const startListening = useCallback(
-    async (onResult: (transcript: string, audioBlob: Blob | null) => void, onNoResult?: () => void) => {
+    (onResult: (transcript: string, audioBlob: Blob | null) => void, onNoResult?: () => void) => {
     console.log("[speech] ▶ startListening() appelé")
     const SR = getSpeechRecognitionCtor()
     if (!SR) {
@@ -86,20 +87,22 @@ export function useSpeechRecognition() {
       return
     }
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      micStreamRef.current = stream
-      const mimeType = pickAudioCaptureMimeType()
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
-      audioChunksRef.current = []
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data)
-      }
-      recorder.start()
-      mediaRecorderRef.current = recorder
-    } catch (e) {
-      console.warn("[speech] ⚠ Capture audio parallèle indisponible (pronunciation check désactivé pour cette prise) —", e)
-    }
+    navigator.mediaDevices
+      ?.getUserMedia({ audio: true })
+      .then((stream) => {
+        micStreamRef.current = stream
+        const mimeType = pickAudioCaptureMimeType()
+        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
+        audioChunksRef.current = []
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data)
+        }
+        recorder.start()
+        mediaRecorderRef.current = recorder
+      })
+      .catch((e) => {
+        console.warn("[speech] ⚠ Capture audio parallèle indisponible (pronunciation check désactivé pour cette prise) —", e)
+      })
 
     try {
       const rec = new SR()
