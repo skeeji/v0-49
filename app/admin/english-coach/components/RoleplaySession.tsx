@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { SCENARIOS, ROLEPLAY_TOPICS } from "../data"
 import { useSpeechRecognition, speak } from "../hooks/useSpeech"
@@ -51,11 +51,24 @@ export function RoleplaySession() {
   const sessionTopics = useRef<string[]>([])
   const turnsTarget = useRef<number>(pickTurnsTarget())
 
-  const { listening, error: micError, startListening } = useSpeechRecognition()
+  const { listening, micReady, error: micError, startListening, stopListening, prewarm } = useSpeechRecognition()
 
   const activePart = parts[partIndex]
   const activeScenario = activePart ? SCENARIOS[activePart.scenarioKey] : null
   const finished = selectedKey !== null && partIndex >= parts.length
+
+  // Réchauffe la reconnaissance vocale dès que l'écran de réponse est affiché
+  // (et à nouveau après chaque tour), plutôt que d'attendre le clic sur
+  // "🎤 Parler" : le micro est ainsi déjà actif quand l'utilisateur clique,
+  // ce qui évite de perdre les tout premiers mots pendant le démarrage du
+  // moteur de reconnaissance (permission + init audio).
+  useEffect(() => {
+    if (selectedKey && !finished && !listening) prewarm()
+  }, [selectedKey, finished, listening, prewarm])
+
+  // Libère le micro si l'utilisateur quitte l'écran de roleplay en cours de
+  // pré-chauffage (jamais utilisé).
+  useEffect(() => stopListening, [stopListening])
 
   const openPart = (scenario: Scenario, transition?: string) => {
     sessionTopics.current = pickTopics()
@@ -288,6 +301,11 @@ export function RoleplaySession() {
                 🔊 Réécouter
               </button>
             </div>
+            {listening && (
+              <div className={`${styles.muted} ${styles.mono}`} style={{ fontSize: 12 }}>
+                {micReady ? "🎤 Prêt, tu peux parler" : "🎤 Démarrage du micro..."}
+              </div>
+            )}
             {lastTranscript && (
               <div className={`${styles.muted} ${styles.mono}`} style={{ fontSize: 12 }}>
                 🎤 Transcription détectée : « {lastTranscript} » —{" "}

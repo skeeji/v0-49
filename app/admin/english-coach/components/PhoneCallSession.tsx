@@ -36,7 +36,7 @@ export function PhoneCallSession() {
   const activeScenarioRef = useRef<Scenario | null>(null)
   const dialogueRef = useRef<HTMLDivElement>(null)
 
-  const { listening, error: micError, supported: micSupported, startListening, stopListening } =
+  const { listening, micReady, error: micError, supported: micSupported, startListening, stopListening, prewarm } =
     useSpeechRecognition()
 
   const noResultRetries = useRef(0)
@@ -47,6 +47,10 @@ export function PhoneCallSession() {
   useEffect(() => {
     dialogueRef.current?.scrollTo({ top: dialogueRef.current.scrollHeight, behavior: "smooth" })
   }, [log])
+
+  // Libère le micro si l'utilisateur quitte l'écran d'appel en cours de
+  // pré-chauffage ou d'écoute (ex : navigation ailleurs sans raccrocher).
+  useEffect(() => stopListening, [stopListening])
 
   // Démarre l'écoute et, si la reconnaissance se termine sans résultat ni erreur
   // (silence non capté — cas observé en test), relance automatiquement une fois
@@ -76,6 +80,13 @@ export function PhoneCallSession() {
     lastQuestion.current = question
     setLog((l) => [...l, { isUser: false, line: question, fr: questionFr }])
     setSpeaking(true)
+    // Réchauffe la reconnaissance vocale dès le début de la question posée à
+    // voix haute : le temps que speak() joue l'audio (plusieurs secondes)
+    // laisse largement au moteur de reconnaissance le temps de s'initialiser,
+    // pour que listenForAnswer() (déclenché juste après, à la fin de la
+    // question) démarre avec un micro déjà actif — au lieu de perdre les
+    // premiers mots de la réponse pendant que le micro finit de démarrer.
+    prewarm()
     const voice = activeScenarioRef.current?.voice || "en-GB-SoniaNeural"
     speak(
       question,
@@ -247,7 +258,9 @@ export function PhoneCallSession() {
   const statusLabel = loading
     ? "Analyse de ta réponse..."
     : listening
-      ? "Écoute en cours..."
+      ? micReady
+        ? "🎤 Prêt, tu peux parler"
+        : "Démarrage du micro..."
       : speaking
         ? "Le correspondant parle..."
         : "Connexion..."
