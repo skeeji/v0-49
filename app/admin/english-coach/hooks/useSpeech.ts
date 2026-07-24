@@ -88,17 +88,32 @@ export function useSpeechRecognition() {
       }
 
       rec.onresult = (event: any) => {
+        // On reconstruit l'intégralité du transcript final à partir de TOUT
+        // event.results (indices 0 à length), jamais en n'ajoutant que ce qui
+        // se trouve à partir de event.resultIndex. Chrome, en mode continuous,
+        // n'a pas un resultIndex fiable d'un onresult à l'autre : il lui arrive
+        // de renvoyer à nouveau, comme "final", un segment déjà finalisé lors
+        // d'un événement précédent. En accumulant (finalTranscript + res[0].transcript)
+        // à chaque onresult au lieu de reconstruire depuis la liste complète,
+        // ce segment déjà présent se retrouvait dupliqué/concaténé plusieurs
+        // fois — c'était la cause du texte répété ("check check the check the
+        // connection..."). En reconstruisant systématiquement l'intégralité du
+        // texte final à partir des segments isFinal actuellement présents dans
+        // event.results, un même segment ne peut plus jamais être compté deux fois.
+        let finalText = ""
         let interim = ""
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        for (let i = 0; i < event.results.length; i++) {
           const res = event.results[i]
           if (res.isFinal) {
-            finalTranscript = (finalTranscript ? finalTranscript + " " : "") + res[0].transcript
-            console.log(`[speech] 📝 segment final — "${res[0].transcript}" (cumul="${finalTranscript}")`)
+            finalText += (finalText ? " " : "") + res[0].transcript
           } else {
+            // Résultat provisoire : remplace le précédent, jamais additionné.
             interim += res[0].transcript
           }
         }
-        if (interim) console.log(`[speech] ✏️ intermédiaire — "${interim}"`)
+        finalTranscript = finalText
+        console.log(`[speech] 📝 transcript final reconstruit — "${finalTranscript}"`)
+        if (interim) console.log(`[speech] ✏️ intermédiaire (affichage seulement, non retenu) — "${interim}"`)
         // Tant que ça parle (résultat intermédiaire ou final), on repousse l'arrêt.
         scheduleStop(TRAILING_SILENCE_MS)
       }
