@@ -1,266 +1,293 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
+import { DEFAULT_WORDS } from "../data"
 
-interface MinimalSpeechRecognition {
-  lang: string
-  interimResults: boolean
-  continuous: boolean
-  maxAlternatives: number
-  onresult: ((event: any) => void) | null
-  onerror: ((event: any) => void) | null
-  onend: (() => void) | null
-  start: () => void
-  stop: () => void
-}
+// Bundle navigateur officiel du SDK Azure Speech, chargé à la demande via une
+// balise <script> plutôt qu'un import npm — évite de toucher au package.json
+// racine du site (hors du périmètre de cette page) et ne charge ce SDK
+// (volumineux) que pour les visiteurs qui utilisent réellement le micro sur
+// /admin/english-coach. URL officielle référencée par les échantillons
+// Azure-Samples/cognitive-services-speech-sdk (quickstart navigateur) :
+// https://github.com/Azure-Samples/cognitive-services-speech-sdk/blob/master/quickstart/javascript/browser/from-microphone/index.html
+const SPEECH_SDK_SCRIPT_URL = "https://aka.ms/csspeech/jsbrowserpackageraw"
 
-// Durée max pendant laquelle une instance pré-chauffée reste ouverte sans être
-// récupérée par startListening() — évite de garder le micro actif indéfiniment
-// si l'utilisateur n'utilise finalement jamais le micro sur cet écran.
+// Route serveur (sous /admin/english-coach, voir api/speech-token/route.ts)
+// qui échange AZURE_SPEECH_KEY contre un jeton d'autorisation de courte durée
+// (10 min) — le SDK tournant dans le navigateur ne doit jamais recevoir la
+// clé d'abonnement directement.
+const TOKEN_ENDPOINT = "/admin/english-coach/api/speech-token"
+
+// Poids de biaisage de la Phrase List Azure (échelle documentée : 0.0 la
+// désactive, 1.0 = poids par défaut, 2.0 = poids maximal). On choisit 1.5 —
+// un biais fort vers le vocabulaire technique du projet (wallwasher,
+// downlight, flickering, DALI...) sans aller jusqu'au poids maximal, qui
+// risquerait de pénaliser la reconnaissance des phrases "normales" autour de
+// ce vocabulaire (salutations, tournures générales) qui ne font pas partie
+// de la liste. Voir https://learn.microsoft.com/azure/ai-services/speech-service/improve-accuracy-phrase-list
+const PHRASE_LIST_WEIGHT = 1.5
+
+// Durée max pendant laquelle une instance pré-chauffée (micro + jeton + SDK
+// prêts) reste ouverte sans être récupérée par startListening() — évite de
+// garder le micro actif indéfiniment si l'utilisateur n'utilise finalement
+// jamais le micro sur cet écran.
 const WARM_MAX_IDLE_MS = 60000
 
-function getSpeechRecognitionCtor(): (new () => MinimalSpeechRecognition) | null {
-  if (typeof window === "undefined") return null
+// Charge le SDK une seule fois par page (le script s'ajoute au <head> et
+// expose window.SpeechSDK) ; les appels suivants réutilisent la même promesse
+// même si plusieurs composants (Flashcard/Roleplay/Appel) appellent le hook
+// indépendamment.
+let sdkLoadPromise: Promise<any> | null = null
+function loadSpeechSDK(): Promise<any> {
+  if (typeof window === "undefined") return Promise.reject(new Error("no window"))
   const w = window as any
-  return w.SpeechRecognition || w.webkitSpeechRecognition || null
+  if (w.SpeechSDK) return Promise.resolve(w.SpeechSDK)
+  if (sdkLoadPromise) return sdkLoadPromise
+  sdkLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script")
+    script.src = SPEECH_SDK_SCRIPT_URL
+    script.async = true
+    script.onload = () => {
+      if (w.SpeechSDK) resolve(w.SpeechSDK)
+      else reject(new Error("SpeechSDK introuvable après chargement du script"))
+    }
+    script.onerror = () => reject(new Error("échec du chargement du script Azure Speech SDK"))
+    document.head.appendChild(script)
+  })
+  return sdkLoadPromise
 }
 
-// Instance "en attente" créée par prewarm() : le moteur de reconnaissance a
-// déjà démarré (permission micro négociée, pipeline audio initialisé) avant
-// même que l'utilisateur ait commencé à parler, mais aucun handler métier
-// n'y est encore branché. startListening() la récupère telle quelle plutôt
-// que d'en créer une nouvelle, ce qui évite de repayer la latence de
-// démarrage (souvent plusieurs centaines de ms) au moment précis où les tout
-// premiers mots de l'utilisateur risquent d'être perdus.
+// Construit la liste de phrases à partir du champ `en` de TOUT le vocabulaire
+// du projet (data.ts, ~390 mots/phrases). Certaines entrées combinent deux
+// variantes séparées par " / " (ex: "Driver / Transformer") — on les éclate
+// en deux phrases distinctes, chacune utile individuellement à la
+// reconnaissance, plutôt que de biaiser vers la chaîne littérale complète
+// avec le slash (jamais prononcée telle quelle). Les slashs collés sans
+// espace (ex: "narrow/wide") restent intacts, ce sont de vraies parenthèses
+// de contenu. Calculé une seule fois au chargement du module. Azure plafonne
+// une phrase list à 500 entrées (doc officielle) ; le résultat réel
+// (~400 après dédoublonnage) reste largement en dessous.
+const PHRASE_LIST_CANDIDATES: string[] = (() => {
+  const seen = new Set<string>()
+  const phrases: string[] = []
+  for (const w of DEFAULT_WORDS) {
+    for (const part of w.en.split(/\s+\/\s+/)) {
+      const phrase = part.trim()
+      if (phrase && !seen.has(phrase.toLowerCase())) {
+        seen.add(phrase.toLowerCase())
+        phrases.push(phrase)
+      }
+    }
+  }
+  return phrases.slice(0, 500)
+})()
+
+interface AzureToken {
+  token: string
+  region: string
+}
+
+async function fetchAzureToken(): Promise<AzureToken> {
+  const res = await fetch(TOKEN_ENDPOINT, { cache: "no-store" })
+  if (!res.ok) throw new Error(`jeton Azure — HTTP ${res.status}`)
+  const data = await res.json()
+  if (!data?.token || !data?.region) throw new Error("réponse de jeton Azure invalide")
+  return { token: data.token, region: data.region }
+}
+
+// Instance "en attente" créée par prewarm() : micro négocié (getUserMedia
+// déjà résolu — c'est le moment précis où le voyant micro du navigateur
+// s'allume), jeton Azure récupéré, SDK chargé — mais aucune reconnaissance
+// n'est encore lancée dessus. startListening() récupère ces trois éléments
+// tels quels plutôt que de repartir de zéro, ce qui évite de repayer leur
+// latence cumulée (permission micro, aller-retour réseau du jeton, poids du
+// SDK) au moment précis où les tout premiers mots de l'utilisateur risquent
+// d'être perdus.
 interface WarmEntry {
-  rec: MinimalSpeechRecognition
-  ready: boolean
+  stream: MediaStream
+  token: AzureToken
+  sdk: any
   consumed: boolean
   idleTimer: ReturnType<typeof setTimeout> | null
-}
-
-function createConfiguredRecognition(SR: new () => MinimalSpeechRecognition): MinimalSpeechRecognition {
-  const rec = new SR()
-  rec.lang = "en-US"
-  // Mode non-continu + un seul résultat final : on laisse le moteur natif du
-  // navigateur (VAD/endpointing intégré) décider seul du début et de la fin
-  // de l'utterance, comme dans la toute première version de cette page.
-  // Un essai avec continuous=true + interimResults=true (accumulation de
-  // segments via un timer de silence géré côté app) a été tenté entre-temps
-  // pour tolérer les pauses d'un débutant en anglais, mais a dégradé la
-  // précision : chaque segment est reconnu par le moteur sur une fenêtre de
-  // contexte plus courte que la phrase entière, ce qui a produit des
-  // transcriptions plus fragmentaires/moins fiables qu'une reconnaissance
-  // "one-shot" sur la phrase complète. Le compromis accepté en repassant en
-  // mode natif : le moteur peut couper une phrase avec hésitation trop tôt
-  // (filet de sécurité : bouton clavier manuel côté composants).
-  rec.continuous = false
-  rec.interimResults = false
-  rec.maxAlternatives = 1
-  return rec
 }
 
 export function useSpeechRecognition() {
   const [listening, setListening] = useState(false)
   const [micReady, setMicReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const recognitionRef = useRef<MinimalSpeechRecognition | null>(null)
+  const recognizerRef = useRef<any>(null)
+  const activeStreamRef = useRef<MediaStream | null>(null)
   const warmRef = useRef<WarmEntry | null>(null)
 
-  const supported = typeof window !== "undefined" && !!getSpeechRecognitionCtor()
+  const supported = typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia
 
-  // prewarm() démarre la reconnaissance en avance (dès l'affichage de l'écran
-  // d'appel/roleplay, ou dès que le champ de réponse s'ouvre), avant que
-  // l'utilisateur ait la moindre intention de parler. Sans ça, le tout premier
-  // rec.start() d'une interaction paie une latence de démarrage (négociation
-  // du micro + init du pipeline audio) pendant laquelle les premiers mots
-  // prononcés juste après le clic ne sont jamais captés — c'est ce qui
-  // tronquait le début des phrases ("I am here for work" -> "here for work").
-  // micReady ne passe à true qu'à la réception de onaudiostart, c'est-à-dire
-  // quand le micro capte réellement de l'audio — pas avant.
+  // prewarm() réchauffe les trois ingrédients d'une écoute Azure — micro,
+  // jeton, SDK — dès l'affichage de l'écran de réponse (ou dès le début de la
+  // question en appel téléphonique), avant que l'utilisateur ait la moindre
+  // intention de parler. Sans ça, le tout premier démarrage d'une interaction
+  // paie leur latence cumulée pendant laquelle les premiers mots prononcés
+  // juste après le clic peuvent être perdus.
   const prewarm = useCallback(() => {
-    if (warmRef.current || recognitionRef.current) return // déjà chaud ou déjà en écoute réelle
-    const SR = getSpeechRecognitionCtor()
-    if (!SR) return
-    try {
-      const rec = createConfiguredRecognition(SR)
-      const entry: WarmEntry = { rec, ready: false, consumed: false, idleTimer: null }
-      warmRef.current = entry
-      const r = rec as any
-      r.onaudiostart = () => {
-        console.log("[speech] 🔥 pré-chauffage — micro actif, prêt à capter")
-        entry.ready = true
-        if (warmRef.current === entry) setMicReady(true)
-      }
-      r.onerror = (event: any) => {
-        console.warn("[speech] ⚠ pré-chauffage interrompu —", event?.error || event)
-        if (warmRef.current === entry) {
-          if (entry.idleTimer) clearTimeout(entry.idleTimer)
-          warmRef.current = null
-          setMicReady(false)
+    if (warmRef.current || recognizerRef.current) return // déjà chaud ou déjà en écoute réelle
+    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) return
+    ;(async () => {
+      let stream: MediaStream | null = null
+      try {
+        const [sdk, micStream, token] = await Promise.all([
+          loadSpeechSDK(),
+          navigator.mediaDevices.getUserMedia({ audio: true }),
+          fetchAzureToken(),
+        ])
+        stream = micStream
+        // Une écoute réelle a pu démarrer (ou un autre préchauffage aboutir)
+        // pendant ces await : ce préchauffage est alors obsolète, on libère
+        // le micro qu'on vient d'ouvrir sans l'installer.
+        if (warmRef.current || recognizerRef.current) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
         }
-      }
-      r.onend = () => {
-        // Si startListening() ne l'a jamais récupérée (utilisateur reparti
-        // avant de parler, écran quitté...), on nettoie proprement.
-        if (warmRef.current === entry) {
-          if (entry.idleTimer) clearTimeout(entry.idleTimer)
-          warmRef.current = null
-          setMicReady(false)
-        }
-      }
-      rec.start()
-      console.log("[speech] 🔥 prewarm() — démarrage anticipé de la reconnaissance")
-      entry.idleTimer = setTimeout(() => {
-        if (warmRef.current === entry && !entry.consumed) {
-          console.log("[speech] 🔥 pré-chauffage jamais utilisé — extinction du micro après inactivité")
-          try {
-            rec.stop()
-          } catch (e) {
-            // no-op
+        const entry: WarmEntry = { stream, token, sdk, consumed: false, idleTimer: null }
+        warmRef.current = entry
+        setMicReady(true)
+        console.log("[speech] 🔥 prewarm() Azure — micro + jeton + SDK prêts")
+        entry.idleTimer = setTimeout(() => {
+          if (warmRef.current === entry && !entry.consumed) {
+            console.log("[speech] 🔥 pré-chauffage jamais utilisé — libération du micro après inactivité")
+            stream?.getTracks().forEach((t) => t.stop())
+            warmRef.current = null
+            setMicReady(false)
           }
-          warmRef.current = null
-          setMicReady(false)
-        }
-      }, WARM_MAX_IDLE_MS)
-    } catch (e) {
-      console.warn("[speech] ⚠ prewarm() impossible —", e)
-      warmRef.current = null
-    }
+        }, WARM_MAX_IDLE_MS)
+      } catch (e) {
+        console.warn("[speech] ⚠ prewarm() Azure impossible —", e)
+        stream?.getTracks().forEach((t) => t.stop())
+      }
+    })()
   }, [])
 
-  // startListening(onResult, onNoResult) n'utilise QUE SpeechRecognition — aucune
-  // capture getUserMedia/MediaRecorder ici. Les deux flux micro (dictée via
-  // SpeechRecognition et enregistrement brut pour la prononciation via
-  // useAudioRecorder) ne doivent jamais tourner en même temps : Chrome ne
-  // supporte pas de façon fiable un getUserMedia()/MediaRecorder actif en même
-  // temps qu'une SpeechRecognition en cours (conflit connu, cf. tracker
-  // Chromium) — la reconnaissance vocale ne capte alors plus jamais rien (plus
-  // aucun onresult). La vérification de prononciation (bouton dédié, voir
-  // PronunciationCheck.tsx) fait sa propre capture, séparée dans le temps.
-  const wireUpRealListening = useCallback(
-    (
-      rec: MinimalSpeechRecognition,
-      onResult: (transcript: string) => void,
-      onNoResult: (() => void) | undefined,
-      alreadyStarted: boolean,
-      startedReady: boolean,
-    ) => {
+  // Démarre une reconnaissance Azure réelle (sdk/stream/token déjà en main,
+  // pré-chauffés ou tout juste acquis) avec la Phrase List de vocabulaire
+  // technique attachée, en mode "un seul résultat final" (recognizeOnceAsync)
+  // — le service Azure gère lui-même le début et la fin de l'utterance,
+  // comme le faisait le VAD natif du navigateur avant cette migration.
+  const runRecognition = useCallback(
+    (sdk: any, stream: MediaStream, token: AzureToken, onResult: (t: string) => void, onNoResult: (() => void) | undefined) => {
       setError(null)
       setListening(true)
-      setMicReady(startedReady)
+      setMicReady(true) // le stream est déjà actif (pré-chauffé ou tout juste acquis)
 
-      let outcome: "result" | "error" | null = null
-      let finalTranscript = ""
-
-      rec.onresult = (event: any) => {
-        // En mode non-continu + interimResults=false, le navigateur ne
-        // déclenche onresult qu'une seule fois par écoute, avec un unique
-        // résultat final couvrant toute la phrase (event.results[0][0]) —
-        // c'est lui qui gère le début et la fin de l'utterance (VAD natif),
-        // pas nous. On reconstruit quand même le texte à partir de TOUS les
-        // segments isFinal de event.results (plutôt que de coder en dur
-        // l'index 0) : ça reste correct dans ce mode (un seul segment) tout
-        // en restant immunisé si jamais le navigateur renvoyait plusieurs
-        // segments — c'est cette reconstruction complète à chaque onresult
-        // (au lieu d'accumuler event.resultIndex en plus de ce qui existait
-        // déjà) qui avait corrigé la duplication de mots observée en mode
-        // continuous.
-        let finalText = ""
-        for (let i = 0; i < event.results.length; i++) {
-          const res = event.results[i]
-          if (res.isFinal) finalText += (finalText ? " " : "") + res[0].transcript
-        }
-        finalTranscript = finalText
-        console.log(`[speech] 📝 transcript final — "${finalTranscript}"`)
-      }
-      rec.onerror = (event: any) => {
-        console.error("[speech] ❌ onerror —", event?.error || event)
-        outcome = "error"
-        setError(`Micro bloqué ou refusé (${event?.error || "erreur inconnue"}) — utilise le clavier vocal de ton téléphone à la place.`)
+      let finished = false
+      let recognizer: any
+      const cleanup = () => {
+        if (finished) return
+        finished = true
         setListening(false)
         setMicReady(false)
-      }
-      rec.onend = () => {
-        const transcript = finalTranscript.trim()
-        console.log(`[speech] ⏹ onend (recognition terminée) — transcript="${transcript}"`)
-        setListening(false)
-        setMicReady(false)
-        if (transcript) {
-          outcome = "result"
-          onResult(transcript)
-        } else if (outcome === null) {
-          console.warn("[speech] ⚠ Recognition terminée sans résultat ni erreur (silence non capté)")
-          onNoResult?.()
+        recognizerRef.current = null
+        activeStreamRef.current = null
+        try {
+          recognizer?.close()
+        } catch (e) {
+          // no-op
         }
-      }
-      // Handlers de diagnostic supplémentaires (non standardisés partout mais
-      // supportés par Chrome/Edge) — permettent de voir jusqu'où le pipeline
-      // audio va réellement : capture micro → détection de son → détection de
-      // parole → résultat.
-      const r = rec as any
-      r.onstart = () => console.log("[speech] 🎙 onstart (recognition démarrée)")
-      r.onaudiostart = () => {
-        console.log("[speech] 🎚 onaudiostart (capture audio démarrée) — micro prêt")
-        setMicReady(true)
-      }
-      r.onsoundstart = () => console.log("[speech] 🔉 onsoundstart (un son a été détecté)")
-      r.onspeechstart = () => console.log("[speech] 💬 onspeechstart (de la parole a été détectée)")
-      r.onspeechend = () => console.log("[speech] 💬 onspeechend (fin de la parole détectée)")
-      r.onsoundend = () => console.log("[speech] 🔉 onsoundend (fin du son détecté)")
-      r.onaudioend = () => console.log("[speech] 🎚 onaudioend (fin de la capture audio)")
-      r.onnomatch = () => console.warn("[speech] ⚠ onnomatch (son reçu mais non reconnu comme parole)")
-
-      recognitionRef.current = rec
-
-      if (alreadyStarted) {
-        // Instance pré-chauffée : déjà démarrée, ne surtout pas rappeler
-        // .start() (lèverait une InvalidStateError côté navigateur).
-        console.log("[speech] instance pré-chauffée branchée, pas de nouveau .start()")
-        return
+        // Idempotent : si stopListening() a déjà coupé ces pistes entre-temps
+        // (arrêt manuel pendant une reconnaissance en cours), les re-stopper
+        // ici ne fait rien de plus.
+        stream.getTracks().forEach((t) => t.stop())
       }
 
       try {
-        rec.start()
-        console.log("[speech] rec.start() appelé sans exception")
+        const speechConfig = sdk.SpeechConfig.fromAuthorizationToken(token.token, token.region)
+        speechConfig.speechRecognitionLanguage = "en-US"
+        const audioConfig = sdk.AudioConfig.fromStreamInput(stream)
+        recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig)
+
+        const phraseList = sdk.PhraseListGrammar.fromRecognizer(recognizer)
+        phraseList.addPhrases(PHRASE_LIST_CANDIDATES)
+        phraseList.setWeight(PHRASE_LIST_WEIGHT)
+        console.log(`[speech] 📋 Phrase List Azure attachée — ${PHRASE_LIST_CANDIDATES.length} termes, poids=${PHRASE_LIST_WEIGHT}`)
+
+        recognizerRef.current = recognizer
+        activeStreamRef.current = stream
+
+        recognizer.recognizeOnceAsync(
+          (result: any) => {
+            const text = String(result?.text || "").trim()
+            console.log(`[speech] 📝 Azure — reason=${result?.reason} texte="${text}"`)
+            const recognizedSpeech = result?.reason === sdk.ResultReason.RecognizedSpeech
+            cleanup()
+            if (recognizedSpeech && text) {
+              onResult(text)
+            } else {
+              console.warn("[speech] ⚠ Azure — aucun résultat exploitable (NoMatch ou annulé)")
+              onNoResult?.()
+            }
+          },
+          (err: any) => {
+            console.error("[speech] ❌ Azure recognizeOnceAsync erreur —", err)
+            cleanup()
+            setError(`Micro ou service vocal indisponible (${err}) — utilise le clavier vocal de ton téléphone à la place.`)
+          },
+        )
       } catch (e) {
-        console.error("[speech] ❌ Exception synchrone sur rec.start() —", e)
-        setError("Micro indisponible ici — utilise le clavier vocal de ton téléphone.")
+        console.error("[speech] ❌ Exception synchrone init Azure —", e)
         setListening(false)
         setMicReady(false)
+        setError("Micro ou service vocal indisponible ici — utilise le clavier vocal de ton téléphone.")
+        stream.getTracks().forEach((t) => t.stop())
       }
     },
     [],
   )
 
+  // startListening(onResult, onNoResult) n'utilise QUE le SDK Azure Speech
+  // (dictée) — jamais en parallèle de getUserMedia/MediaRecorder utilisé par
+  // ailleurs sur la page. Les deux flux micro (dictée via Azure et
+  // enregistrement brut pour la prononciation via useAudioRecorder) ne
+  // doivent jamais tourner en même temps : Chrome ne supporte pas de façon
+  // fiable deux captures micro actives simultanément (conflit connu). La
+  // vérification de prononciation (bouton dédié, voir PronunciationCheck.tsx)
+  // fait sa propre capture, strictement séparée dans le temps — startListening
+  // et useAudioRecorder.startRecording() ne sont jamais invoqués ensemble
+  // par les composants de cette page.
   const startListening = useCallback(
     (onResult: (transcript: string) => void, onNoResult?: () => void) => {
-      console.log("[speech] ▶ startListening() appelé")
+      console.log("[speech] ▶ startListening() appelé (Azure)")
 
-      // Réutilise l'instance pré-chauffée si elle existe : elle tourne déjà, on
-      // se contente de brancher les vrais handlers dessus (surtout ne pas
-      // rappeler .start() sur une reconnaissance déjà démarrée) — c'est ce qui
-      // permet au micro d'être déjà actif avant les premiers mots.
+      // Réutilise le micro/jeton/SDK pré-chauffés s'ils existent : rien à
+      // réacquérir, on part directement sur recognizeOnceAsync.
       const warm = warmRef.current
       if (warm && !warm.consumed) {
         warm.consumed = true
         if (warm.idleTimer) clearTimeout(warm.idleTimer)
         warmRef.current = null
-        console.log(`[speech] ♻️ réutilisation de l'instance pré-chauffée (ready=${warm.ready})`)
-        wireUpRealListening(warm.rec, onResult, onNoResult, true, warm.ready)
+        console.log("[speech] ♻️ réutilisation micro+jeton+SDK pré-chauffés")
+        runRecognition(warm.sdk, warm.stream, warm.token, onResult, onNoResult)
         return
       }
 
-      const SR = getSpeechRecognitionCtor()
-      if (!SR) {
-        console.error("[speech] ❌ Aucune API SpeechRecognition disponible dans ce navigateur")
+      if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
         setError("Micro non supporté ici — utilise le clavier vocal de ton téléphone directement dans le champ texte.")
         return
       }
-      const rec = createConfiguredRecognition(SR)
-      wireUpRealListening(rec, onResult, onNoResult, false, false)
+
+      setError(null)
+      ;(async () => {
+        try {
+          const [sdk, stream, token] = await Promise.all([
+            loadSpeechSDK(),
+            navigator.mediaDevices.getUserMedia({ audio: true }),
+            fetchAzureToken(),
+          ])
+          runRecognition(sdk, stream, token, onResult, onNoResult)
+        } catch (e) {
+          console.error("[speech] ❌ Échec initialisation Azure (cold start) —", e)
+          setError("Micro ou service vocal indisponible — utilise le clavier vocal de ton téléphone à la place.")
+          setListening(false)
+        }
+      })()
     },
-    [wireUpRealListening],
+    [runRecognition],
   )
 
   const stopListening = useCallback(() => {
@@ -268,17 +295,24 @@ export function useSpeechRecognition() {
     // l'utilisateur quitte l'écran avant d'avoir parlé) pour libérer le micro.
     if (warmRef.current && !warmRef.current.consumed) {
       if (warmRef.current.idleTimer) clearTimeout(warmRef.current.idleTimer)
+      warmRef.current.stream.getTracks().forEach((t) => t.stop())
+      warmRef.current = null
+    }
+    if (recognizerRef.current) {
       try {
-        warmRef.current.rec.stop()
+        recognizerRef.current.close()
       } catch (e) {
         // no-op
       }
-      warmRef.current = null
+      recognizerRef.current = null
     }
-    try {
-      recognitionRef.current?.stop()
-    } catch (e) {
-      // no-op
+    // Coupe directement les pistes micro de la reconnaissance en cours, sans
+    // dépendre du callback recognizeOnceAsync pour le faire : close() peut
+    // interrompre la reconnaissance sans jamais rappeler ni le callback de
+    // succès ni celui d'erreur, ce qui laisserait le micro allumé sinon.
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach((t) => t.stop())
+      activeStreamRef.current = null
     }
     setListening(false)
     setMicReady(false)
