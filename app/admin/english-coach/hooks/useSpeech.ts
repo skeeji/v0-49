@@ -14,11 +14,6 @@ interface MinimalSpeechRecognition {
   stop: () => void
 }
 
-// Délai de silence toléré avant de considérer que l'utilisateur a fini de parler.
-// Plus généreux au tout début (temps de démarrer à parler) que pendant les pauses
-// naturelles au milieu d'une phrase (utilisateur débutant en anglais qui hésite).
-const INITIAL_SILENCE_MS = 8000
-const TRAILING_SILENCE_MS = 2200
 // Durée max pendant laquelle une instance pré-chauffée reste ouverte sans être
 // récupérée par startListening() — évite de garder le micro actif indéfiniment
 // si l'utilisateur n'utilise finalement jamais le micro sur cet écran.
@@ -47,13 +42,20 @@ interface WarmEntry {
 function createConfiguredRecognition(SR: new () => MinimalSpeechRecognition): MinimalSpeechRecognition {
   const rec = new SR()
   rec.lang = "en-US"
-  // Mode continu + résultats intermédiaires : on gère nous-mêmes la détection
-  // de fin de parole via un timer de silence, plutôt que de dépendre de
-  // l'endpointing automatique de Chrome — trop agressif pour un utilisateur
-  // qui hésite en anglais (coupait la reconnaissance avant la fin de la
-  // phrase, ou l'abandonnait carrément sans résultat).
-  rec.continuous = true
-  rec.interimResults = true
+  // Mode non-continu + un seul résultat final : on laisse le moteur natif du
+  // navigateur (VAD/endpointing intégré) décider seul du début et de la fin
+  // de l'utterance, comme dans la toute première version de cette page.
+  // Un essai avec continuous=true + interimResults=true (accumulation de
+  // segments via un timer de silence géré côté app) a été tenté entre-temps
+  // pour tolérer les pauses d'un débutant en anglais, mais a dégradé la
+  // précision : chaque segment est reconnu par le moteur sur une fenêtre de
+  // contexte plus courte que la phrase entière, ce qui a produit des
+  // transcriptions plus fragmentaires/moins fiables qu'une reconnaissance
+  // "one-shot" sur la phrase complète. Le compromis accepté en repassant en
+  // mode natif : le moteur peut couper une phrase avec hésitation trop tôt
+  // (filet de sécurité : bouton clavier manuel côté composants).
+  rec.continuous = false
+  rec.interimResults = false
   rec.maxAlternatives = 1
   return rec
 }
@@ -150,68 +152,38 @@ export function useSpeechRecognition() {
 
       let outcome: "result" | "error" | null = null
       let finalTranscript = ""
-      let silenceTimer: ReturnType<typeof setTimeout> | null = null
-
-      const clearSilenceTimer = () => {
-        if (silenceTimer) {
-          clearTimeout(silenceTimer)
-          silenceTimer = null
-        }
-      }
-      const scheduleStop = (delayMs: number) => {
-        clearSilenceTimer()
-        silenceTimer = setTimeout(() => {
-          console.log(`[speech] ⏱ Silence de ${delayMs}ms détecté — arrêt de l'écoute`)
-          try {
-            rec.stop()
-          } catch (e) {
-            // no-op
-          }
-        }, delayMs)
-      }
 
       rec.onresult = (event: any) => {
-        // On reconstruit l'intégralité du transcript final à partir de TOUT
-        // event.results (indices 0 à length), jamais en n'ajoutant que ce qui
-        // se trouve à partir de event.resultIndex. Chrome, en mode continuous,
-        // n'a pas un resultIndex fiable d'un onresult à l'autre : il lui arrive
-        // de renvoyer à nouveau, comme "final", un segment déjà finalisé lors
-        // d'un événement précédent. En accumulant (finalTranscript + res[0].transcript)
-        // à chaque onresult au lieu de reconstruire depuis la liste complète,
-        // ce segment déjà présent se retrouvait dupliqué/concaténé plusieurs
-        // fois — c'était la cause du texte répété ("check check the check the
-        // connection..."). En reconstruisant systématiquement l'intégralité du
-        // texte final à partir des segments isFinal actuellement présents dans
-        // event.results, un même segment ne peut plus jamais être compté deux fois.
+        // En mode non-continu + interimResults=false, le navigateur ne
+        // déclenche onresult qu'une seule fois par écoute, avec un unique
+        // résultat final couvrant toute la phrase (event.results[0][0]) —
+        // c'est lui qui gère le début et la fin de l'utterance (VAD natif),
+        // pas nous. On reconstruit quand même le texte à partir de TOUS les
+        // segments isFinal de event.results (plutôt que de coder en dur
+        // l'index 0) : ça reste correct dans ce mode (un seul segment) tout
+        // en restant immunisé si jamais le navigateur renvoyait plusieurs
+        // segments — c'est cette reconstruction complète à chaque onresult
+        // (au lieu d'accumuler event.resultIndex en plus de ce qui existait
+        // déjà) qui avait corrigé la duplication de mots observée en mode
+        // continuous.
         let finalText = ""
-        let interim = ""
         for (let i = 0; i < event.results.length; i++) {
           const res = event.results[i]
-          if (res.isFinal) {
-            finalText += (finalText ? " " : "") + res[0].transcript
-          } else {
-            // Résultat provisoire : remplace le précédent, jamais additionné.
-            interim += res[0].transcript
-          }
+          if (res.isFinal) finalText += (finalText ? " " : "") + res[0].transcript
         }
         finalTranscript = finalText
-        console.log(`[speech] 📝 transcript final reconstruit — "${finalTranscript}"`)
-        if (interim) console.log(`[speech] ✏️ intermédiaire (affichage seulement, non retenu) — "${interim}"`)
-        // Tant que ça parle (résultat intermédiaire ou final), on repousse l'arrêt.
-        scheduleStop(TRAILING_SILENCE_MS)
+        console.log(`[speech] 📝 transcript final — "${finalTranscript}"`)
       }
       rec.onerror = (event: any) => {
         console.error("[speech] ❌ onerror —", event?.error || event)
         outcome = "error"
-        clearSilenceTimer()
         setError(`Micro bloqué ou refusé (${event?.error || "erreur inconnue"}) — utilise le clavier vocal de ton téléphone à la place.`)
         setListening(false)
         setMicReady(false)
       }
       rec.onend = () => {
-        clearSilenceTimer()
         const transcript = finalTranscript.trim()
-        console.log(`[speech] ⏹ onend (recognition terminée) — transcript accumulé="${transcript}"`)
+        console.log(`[speech] ⏹ onend (recognition terminée) — transcript="${transcript}"`)
         setListening(false)
         setMicReady(false)
         if (transcript) {
@@ -245,14 +217,12 @@ export function useSpeechRecognition() {
         // Instance pré-chauffée : déjà démarrée, ne surtout pas rappeler
         // .start() (lèverait une InvalidStateError côté navigateur).
         console.log("[speech] instance pré-chauffée branchée, pas de nouveau .start()")
-        scheduleStop(INITIAL_SILENCE_MS)
         return
       }
 
       try {
         rec.start()
         console.log("[speech] rec.start() appelé sans exception")
-        scheduleStop(INITIAL_SILENCE_MS)
       } catch (e) {
         console.error("[speech] ❌ Exception synchrone sur rec.start() —", e)
         setError("Micro indisponible ici — utilise le clavier vocal de ton téléphone.")

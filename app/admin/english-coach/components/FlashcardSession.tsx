@@ -89,10 +89,24 @@ export function FlashcardSession({ words, onUpdateWord, onWordShown, onSessionTi
   const recentlyWrong = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { listening, error: micError, startListening } = useSpeechRecognition()
+  const { listening, micReady, error: micError, startListening, stopListening, prewarm } = useSpeechRecognition()
 
   const current = queue[index]
   const done = index >= queue.length
+
+  // Réchauffe la reconnaissance vocale dès qu'une carte est affichée (et à
+  // nouveau après chaque tour), plutôt que d'attendre le clic sur "🎤 Parler" :
+  // le micro est ainsi déjà actif quand l'utilisateur clique, ce qui évite de
+  // perdre les tout premiers mots pendant le démarrage du moteur de
+  // reconnaissance (permission + init audio).
+  useEffect(() => {
+    if (current && !done && !listening) prewarm()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, done, listening, prewarm])
+
+  // Libère le micro si l'utilisateur quitte l'écran flashcard en cours de
+  // pré-chauffage (jamais utilisé).
+  useEffect(() => stopListening, [stopListening])
 
   // Marque chaque carte comme "vue" dès qu'elle s'affiche, indépendamment du
   // fait qu'elle soit ensuite répondue ou passée — c'est ce compteur qui nourrit
@@ -319,6 +333,12 @@ export function FlashcardSession({ words, onUpdateWord, onWordShown, onSessionTi
             <button className={styles.action} onClick={skip} disabled={loading}>
               Passer cette carte
             </button>
+          </div>
+        )}
+
+        {listening && !result && (
+          <div className={`${styles.muted} ${styles.mono}`} style={{ fontSize: 12 }}>
+            {micReady ? "🎤 Prêt, tu peux parler" : "🎤 Démarrage du micro..."}
           </div>
         )}
 
