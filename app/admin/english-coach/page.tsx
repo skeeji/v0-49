@@ -9,11 +9,12 @@ import { RoleplaySession } from "./components/RoleplaySession"
 import { PhoneCallSession } from "./components/PhoneCallSession"
 import { Dictionary } from "./components/Dictionary"
 import { ProgressDashboard } from "./components/ProgressDashboard"
+import { MusicSession } from "./components/MusicSession"
 import type { ProgressRow, Word } from "./types"
 
 const TARGET_DATE = new Date("2026-08-20T00:00:00")
 
-type Tab = "flash" | "role" | "phone" | "dico" | "progress"
+type Tab = "flash" | "role" | "phone" | "dico" | "music" | "progress"
 
 function daysLeft(): number {
   const diff = TARGET_DATE.getTime() - Date.now()
@@ -105,6 +106,7 @@ function CoachApp() {
     { key: "role", label: "Jeu de rôle" },
     { key: "phone", label: "Appel" },
     { key: "dico", label: "Dictionnaire" },
+    { key: "music", label: "Musique" },
     { key: "progress", label: "Progression" },
   ]
 
@@ -151,6 +153,7 @@ function CoachApp() {
               {tab === "role" && <RoleplaySession />}
               {tab === "phone" && <PhoneCallSession />}
               {tab === "dico" && <Dictionary words={words} onAddWord={handleAddWord} />}
+              {tab === "music" && <MusicSession words={words} />}
               {tab === "progress" && (
                 <ProgressDashboard words={words} sessions={sessions} daysLeft={daysLeft()} onReset={handleReset} />
               )}

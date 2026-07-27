@@ -1,17 +1,20 @@
 import type { Word, WordCategory, Scenario } from "./types"
 import extraVocabRaw from "./extra-vocab.json"
 
-// Vocabulaire boutique & matériaux (336 termes), fr/en déjà fournis + tip
+// Vocabulaire boutique & matériaux (248 termes), fr/en déjà fournis + tip
 // phonétique dans le même style que les 54 mots d'origine (respelling simplifié,
-// syllabe accentuée en majuscules).
+// syllabe accentuée en majuscules). Dédoublonné une fois avec DEFAULT_WORDS,
+// complété de 3 mots (zone de consultation, vestibule, zone de massage), puis
+// élagué de 83 termes trop périphériques (finitions/câblage très en détail)
+// pour resserrer le vocabulaire sur l'essentiel (voir historique).
 const EXTRA_WORDS: Word[] = extraVocabRaw as Word[]
 
 export const DEFAULT_WORDS: Word[] = [
-  { id: "w1", fr: "Spot encastré", en: "Recessed downlight", tip: '"ri-SESS-d DAOWN-lite"', cat: "OPT", mastery: 0, wrong: 0 },
-  { id: "w2", fr: "Ruban LED", en: "LED strip", tip: '"el-ee-DEE strip"', cat: "OPT", mastery: 0, wrong: 0 },
-  { id: "w3", fr: "Corniche lumineuse", en: "Cove lighting", tip: '"kohv LY-ting"', cat: "OPT", mastery: 0, wrong: 0 },
+  { id: "w1", fr: "Spot encastré", en: "Recessed downlight", tip: '"ri-SESS-d DAOWN-lite"', cat: "LUM", mastery: 0, wrong: 0 },
+  { id: "w2", fr: "Ruban LED", en: "LED strip", tip: '"el-ee-DEE strip"', cat: "LUM", mastery: 0, wrong: 0 },
+  { id: "w3", fr: "Corniche lumineuse", en: "Cove lighting", tip: '"kohv LY-ting"', cat: "LUM", mastery: 0, wrong: 0 },
   { id: "w4", fr: "Angle de faisceau (étroit/large)", en: "Beam angle (narrow/wide)", tip: '"beem ANG-gul"', cat: "OPT", mastery: 0, wrong: 0 },
-  { id: "w5", fr: "Grille anti-éblouissement", en: "Honeycomb louvre / Anti-glare mesh", tip: '"HUN-ee-kohm LOO-ver"', cat: "OPT", mastery: 0, wrong: 0 },
+  { id: "w5", fr: "Grille anti-éblouissement", en: "Honeycomb louvre / Anti-glare mesh", tip: '"HUN-ee-kohm LOO-ver / AN-ty-glair mesh"', cat: "OPT", mastery: 0, wrong: 0 },
   { id: "w6", fr: "Effet de coquillage (tache lumineuse)", en: "Scallop effect", tip: '"SKAL-up ee-fekt"', cat: "OPT", mastery: 0, wrong: 0 },
   { id: "w7", fr: "Point chaud (surexposition)", en: "Hot spot", tip: '"hot spot"', cat: "OPT", mastery: 0, wrong: 0 },
   { id: "w8", fr: "Wallwasher asymétrique", en: "Asymmetrical wallwasher", tip: '"ay-see-MET-ri-kul WALL-wosh-er"', cat: "OPT", mastery: 0, wrong: 0 },
@@ -21,24 +24,24 @@ export const DEFAULT_WORDS: Word[] = [
   { id: "w11", fr: "Sans polarité", en: "Polarity-free", tip: '"poh-LAR-i-tee free"', cat: "DALI", mastery: 0, wrong: 0 },
   { id: "w12", fr: "Tension secteur / basse tension", en: "Mains voltage / Low voltage", tip: '"maynz VOHL-tij"', cat: "DALI", mastery: 0, wrong: 0 },
   { id: "w13", fr: "Court-circuit / circuit ouvert", en: "Short circuit / Open circuit", tip: '"short SER-kit"', cat: "DALI", mastery: 0, wrong: 0 },
-  { id: "w14", fr: "Mise en service", en: "Commissioning", tip: '"kuh-MISH-uh-ning"', cat: "DALI", mastery: 0, wrong: 0 },
+  { id: "w14", fr: "Mise en service", en: "Commissioning", tip: '"kuh-MISH-uh-ning"', cat: "MAT", mastery: 0, wrong: 0 },
   { id: "w15", fr: "Forcer / outrepasser", en: "To override", tip: '"oh-ver-RYD"', cat: "DALI", mastery: 0, wrong: 0 },
   { id: "w16", fr: "Driver / transformateur", en: "Driver / Transformer", tip: '"DRY-ver"', cat: "DALI", mastery: 0, wrong: 0 },
   { id: "w17", fr: "Scintillement", en: "Flickering", tip: '"FLIK-er-ing"', cat: "DALI", mastery: 0, wrong: 0 },
   { id: "w18", fr: "Adressage", en: "Addressing", tip: '"uh-DRESS-ing"', cat: "DALI", mastery: 0, wrong: 0 },
   { id: "w19", fr: "Commande générale", en: "Broadcast command", tip: '"BRAWD-kast kuh-MAND"', cat: "DALI", mastery: 0, wrong: 0 },
 
-  { id: "w20", fr: "Trop chaud / froid (température de couleur)", en: "Too warm / cold", tip: '"too warm"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w21", fr: "Éblouissement", en: "Glare", tip: '"glair"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w22", fr: "Ombres", en: "Shadows", tip: '"SHAD-ohz"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w23", fr: "Reflets", en: "Reflections", tip: '"ri-FLEK-shunz"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w24", fr: "Mettre en valeur le produit", en: "Highlight the product", tip: '"HY-lyt ze PROD-ukt"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w25", fr: "Vitrine", en: "Showcase", tip: '"SHOH-kayss"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w26", fr: "Verre de vitrine", en: "Showcase glass", tip: '"SHOH-kayss glass"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w27", fr: "Mannequin", en: "Mannequin", tip: '"MAN-i-kin"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w28", fr: "Ne vous inquiétez pas, je m'en occupe", en: "Don't worry, I will fix it", tip: '"dohnt WUR-ee"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w29", fr: "Bien reçu / compris", en: "Copy that / Clear", tip: '"KOP-ee that"', cat: "LUX", mastery: 0, wrong: 0 },
-  { id: "w30", fr: "On teste les scènes en ce moment", en: "We are testing scenes right now", tip: '"tes-ting seenz"', cat: "LUX", mastery: 0, wrong: 0 },
+  { id: "w20", fr: "Trop chaud / froid (température de couleur)", en: "Too warm / cold", tip: '"too warm"', cat: "COL", mastery: 0, wrong: 0 },
+  { id: "w21", fr: "Éblouissement", en: "Glare", tip: '"glair"', cat: "COL", mastery: 0, wrong: 0 },
+  { id: "w22", fr: "Ombres", en: "Shadows", tip: '"SHAD-ohz"', cat: "COL", mastery: 0, wrong: 0 },
+  { id: "w23", fr: "Reflets", en: "Reflections", tip: '"ri-FLEK-shunz"', cat: "COL", mastery: 0, wrong: 0 },
+  { id: "w24", fr: "Mettre en valeur le produit", en: "Highlight the product", tip: '"HY-lyt ze PROD-ukt"', cat: "SHOP", mastery: 0, wrong: 0 },
+  { id: "w25", fr: "Vitrine", en: "Showcase", tip: '"SHOH-kayss"', cat: "SHOP", mastery: 0, wrong: 0 },
+  { id: "w26", fr: "Verre de vitrine", en: "Showcase glass", tip: '"SHOH-kayss glass"', cat: "SHOP", mastery: 0, wrong: 0 },
+  { id: "w27", fr: "Mannequin", en: "Mannequin", tip: '"MAN-i-kin"', cat: "SHOP", mastery: 0, wrong: 0 },
+  { id: "w28", fr: "Ne vous inquiétez pas, je m'en occupe", en: "Don't worry, I will fix it", tip: '"dohnt WUR-ee"', cat: "PRO", mastery: 0, wrong: 0 },
+  { id: "w29", fr: "Bien reçu / compris", en: "Copy that / Clear", tip: '"KOP-ee that"', cat: "PRO", mastery: 0, wrong: 0 },
+  { id: "w30", fr: "On teste les scènes en ce moment", en: "We are testing scenes right now", tip: '"tes-ting seenz"', cat: "PRO", mastery: 0, wrong: 0 },
 
   { id: "w31", fr: "Contrôle des passeports", en: "Passport control", tip: '"PASS-port kun-TROHL"', cat: "TRV", mastery: 0, wrong: 0 },
   { id: "w32", fr: "Porte d'embarquement", en: "Gate", tip: '"gayt"', cat: "TRV", mastery: 0, wrong: 0 },
@@ -50,36 +53,38 @@ export const DEFAULT_WORDS: Word[] = [
   { id: "w38", fr: "Taxi", en: "Taxi", tip: '"TAK-see"', cat: "TRV", mastery: 0, wrong: 0 },
   { id: "w39", fr: "Addition", en: "Bill / Check", tip: '"bill"', cat: "TRV", mastery: 0, wrong: 0 },
 
-  { id: "w40", fr: "Lux", en: "Lux", tip: '"luks"', cat: "NUM", mastery: 0, wrong: 0 },
-  { id: "w41", fr: "Kelvin (température de couleur)", en: "Kelvin", tip: '"KEL-vin"', cat: "NUM", mastery: 0, wrong: 0 },
-  { id: "w42", fr: "Millimètre", en: "Millimeter", tip: '"MIL-i-mee-ter"', cat: "NUM", mastery: 0, wrong: 0 },
-  { id: "w43", fr: "Pourcentage de gradation", en: "Percent dimming", tip: '"per-SENT DIM-ing"', cat: "NUM", mastery: 0, wrong: 0 },
-  { id: "w44", fr: "Numéro de circuit", en: "Circuit number", tip: '"SER-kit NUM-ber"', cat: "NUM", mastery: 0, wrong: 0 },
-  { id: "w45", fr: "Ampérage", en: "Amperage", tip: '"AM-per-ij"', cat: "NUM", mastery: 0, wrong: 0 },
+  { id: "w40", fr: "Lux", en: "Lux", tip: '"luks"', cat: "COL", mastery: 0, wrong: 0 },
+  { id: "w41", fr: "Kelvin (température de couleur)", en: "Kelvin", tip: '"KEL-vin"', cat: "COL", mastery: 0, wrong: 0 },
+  { id: "w42", fr: "Millimètre", en: "Millimeter", tip: '"MIL-i-mee-ter"', cat: "CAB", mastery: 0, wrong: 0 },
+  { id: "w43", fr: "Pourcentage de gradation", en: "Percent dimming", tip: '"per-SENT DIM-ing"', cat: "DALI", mastery: 0, wrong: 0 },
+  { id: "w44", fr: "Numéro de circuit", en: "Circuit number", tip: '"SER-kit NUM-ber"', cat: "DALI", mastery: 0, wrong: 0 },
+  { id: "w45", fr: "Ampérage", en: "Amperage", tip: '"AM-per-ij"', cat: "DALI", mastery: 0, wrong: 0 },
 
-  { id: "w46", fr: "Il me faut 5 minutes de plus", en: "I need 5 more minutes", tip: '"I need five mor MIN-its"', cat: "DIP", mastery: 0, wrong: 0 },
-  { id: "w47", fr: "Ce n'est pas idéal pour moi non plus, mais...", en: "This isn't ideal for me either, but...", tip: '"this IZ-unt eye-DEE-ul"', cat: "DIP", mastery: 0, wrong: 0 },
-  { id: "w48", fr: "Trouvons un compromis", en: "Let's find a compromise", tip: '"lets fynd a KOM-pruh-myz"', cat: "DIP", mastery: 0, wrong: 0 },
-  { id: "w49", fr: "Je comprends votre préoccupation", en: "I hear your concern", tip: '"eye heer yor kun-SERN"', cat: "DIP", mastery: 0, wrong: 0 },
-  { id: "w50", fr: "Laissez-moi un instant pour vérifier", en: "Give me a moment to check", tip: '"giv mee a MOH-ment"', cat: "DIP", mastery: 0, wrong: 0 },
+  { id: "w46", fr: "Il me faut 5 minutes de plus", en: "I need 5 more minutes", tip: '"I need five mor MIN-its"', cat: "PRO", mastery: 0, wrong: 0 },
+  { id: "w47", fr: "Ce n'est pas idéal pour moi non plus, mais...", en: "This isn't ideal for me either, but...", tip: '"this IZ-unt eye-DEE-ul"', cat: "PRO", mastery: 0, wrong: 0 },
+  { id: "w48", fr: "Trouvons un compromis", en: "Let's find a compromise", tip: '"lets fynd a KOM-pruh-myz"', cat: "PRO", mastery: 0, wrong: 0 },
+  { id: "w49", fr: "Je comprends votre préoccupation", en: "I hear your concern", tip: '"eye heer yor kun-SERN"', cat: "PRO", mastery: 0, wrong: 0 },
+  { id: "w50", fr: "Laissez-moi un instant pour vérifier", en: "Give me a moment to check", tip: '"giv mee a MOH-ment"', cat: "PRO", mastery: 0, wrong: 0 },
 
-  { id: "w51", fr: "Pouvez-vous vérifier le... ?", en: "Can you check the...?", tip: '"kan yoo chek ze"', cat: "TRB", mastery: 0, wrong: 0 },
-  { id: "w52", fr: "On dirait que le problème c'est...", en: "It looks like the problem is...", tip: '"it luks lyk ze PROB-lem"', cat: "TRB", mastery: 0, wrong: 0 },
-  { id: "w53", fr: "Essayez ça et dites-moi ce qui se passe", en: "Try this and tell me what happens", tip: '"try this and tel mee"', cat: "TRB", mastery: 0, wrong: 0 },
-  { id: "w54", fr: "Ça scintille encore ?", en: "Is it still flickering?", tip: '"iz it stil FLIK-er-ing"', cat: "TRB", mastery: 0, wrong: 0 },
+  { id: "w51", fr: "Pouvez-vous vérifier le... ?", en: "Can you check the...?", tip: '"kan yoo chek ze"', cat: "TRV", mastery: 0, wrong: 0 },
+  { id: "w52", fr: "On dirait que le problème c'est...", en: "It looks like the problem is...", tip: '"it luks lyk ze PROB-lem"', cat: "TRV", mastery: 0, wrong: 0 },
+  { id: "w53", fr: "Essayez ça et dites-moi ce qui se passe", en: "Try this and tell me what happens", tip: '"try this and tel mee"', cat: "TRV", mastery: 0, wrong: 0 },
+  { id: "w54", fr: "Ça scintille encore ?", en: "Is it still flickering?", tip: '"iz it stil FLIK-er-ing"', cat: "TRV", mastery: 0, wrong: 0 },
 
   ...EXTRA_WORDS,
 ]
 
 export const CAT_LABELS: Record<WordCategory, string> = {
-  OPT: "Optique & luminaires",
-  DALI: "DALI & électricité",
-  LUX: "Luxe & management",
-  TRV: "Voyage & survie",
-  NUM: "Chiffres & unités",
-  DIP: "Diplomatie",
-  TRB: "Dépannage",
-  EXT: "Vocabulaire boutique & matériaux",
+  OPT: "Optique & faisceaux",
+  LUM: "Éclairage & effets",
+  DALI: "DALI & électricité de base",
+  PROG: "Programmation, scènes & capteurs",
+  CAB: "Câblage & structure technique",
+  SHOP: "Vitrines, boutique & cosmétique",
+  COL: "Couleur & qualité lumineuse",
+  MAT: "Matériaux, finitions & sécurité chantier",
+  PRO: "Métiers, interlocuteurs & diplomatie",
+  TRV: "Voyage, survie & dépannage",
 }
 
 // Pool de situations de chantier/boutique — contexte fourni à l'IA pour le mode

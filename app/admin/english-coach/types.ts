@@ -1,4 +1,4 @@
-export type WordCategory = "OPT" | "DALI" | "LUX" | "TRV" | "NUM" | "DIP" | "TRB" | "EXT"
+export type WordCategory = "OPT" | "LUM" | "DALI" | "PROG" | "CAB" | "SHOP" | "COL" | "MAT" | "PRO" | "TRV"
 
 export interface Word {
   id: string

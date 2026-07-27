@@ -24,13 +24,16 @@ interface SessionResult {
 }
 
 const CAT_CONTEXT: Record<string, string> = {
-  OPT: "Optics & Fixtures, luxury retail lighting commissioning in Dubai",
-  DALI: "DALI protocol & electrical wiring, luxury retail lighting commissioning in Dubai",
-  LUX: "Luxury retail management & showroom presentation in Dubai",
-  TRV: "Travel and airport survival English for a business trip to Dubai",
-  NUM: "Technical numbers and units for lighting commissioning in Dubai",
-  DIP: "Diplomatic workplace English on a retail construction site in Dubai",
-  TRB: "Troubleshooting technical issues on site, luxury retail lighting in Dubai",
+  OPT: "Optics & beam shaping fixtures, luxury retail lighting commissioning in Dubai",
+  LUM: "Fixture types and lighting styles, luxury retail lighting commissioning in Dubai",
+  DALI: "DALI protocol & basic electrical wiring, luxury retail lighting commissioning in Dubai",
+  PROG: "DALI scenes, dimming programming and sensors, luxury retail lighting commissioning in Dubai",
+  CAB: "Cabling and technical structural work, luxury retail lighting commissioning in Dubai",
+  SHOP: "Luxury retail showroom presentation, shop windows and cosmetics/perfumery in Dubai",
+  COL: "Color quality and lighting perception in Dubai",
+  MAT: "Materials, finishes and site safety/commissioning process for luxury retail fit-out in Dubai",
+  PRO: "Diplomatic workplace English with tradespeople and stakeholders on a retail construction site in Dubai",
+  TRV: "Travel, survival and troubleshooting English for a business trip to Dubai",
 }
 
 const SERIES_SIZES = [10, 20, 30, 50] as const

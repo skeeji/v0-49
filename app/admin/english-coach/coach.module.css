@@ -517,6 +517,67 @@
   padding: 0;
 }
 
+/* MUSIQUE */
+.themeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.themeItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  flex-wrap: wrap;
+}
+.themeItemActive {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.15) inset;
+}
+.themeItemHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 180px;
+}
+.themeItemTitle {
+  font-weight: 700;
+  font-size: 14px;
+}
+.playerBar {
+  position: sticky;
+  bottom: 12px;
+  margin-top: 16px;
+  background: var(--panel);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+.playerBarTitle {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.playerBarRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.wordIndicator {
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 13px;
+  color: var(--cyan);
+}
+
 .loading {
   text-align: center;
   padding: 60px 0;
