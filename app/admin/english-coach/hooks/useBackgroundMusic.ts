@@ -28,9 +28,9 @@ function loadTone(): Promise<any> {
   return tonePromise
 }
 
-// Volume de la boucle de fond, nettement en retrait de la voix TTS (0 dB) pour
-// ne jamais gêner la compréhension des mots — ~8% de l'amplitude perçue.
-const BACKGROUND_VOLUME_DB = -22
+// Volume de la boucle de fond, en retrait de la voix TTS (0 dB) pour ne pas
+// gêner la compréhension des mots, mais nettement plus audible qu'avant.
+const BACKGROUND_VOLUME_DB = -10
 const LOOP_BPM = 84
 
 // Piste de fond 100% synthétisée dans le navigateur (aucun fichier audio
