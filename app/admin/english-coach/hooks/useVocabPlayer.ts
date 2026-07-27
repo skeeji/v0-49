@@ -33,6 +33,19 @@ const GAP_AFTER_EN_MS = 800
 // thème — assez pour être rapide, pas assez pour spammer Azure d'un coup.
 const PRELOAD_CONCURRENCY = 6
 
+// Si une requête /api/tts individuelle ne répond pas dans ce délai, on
+// l'abandonne (AbortController) plutôt que de laisser le worker de
+// préchargement bloqué indéfiniment dessus.
+const FETCH_TIMEOUT_MS = 15000
+
+// Si un clip est lancé (audio.play() résolu) mais ne déclenche jamais l'event
+// `ended` dans ce délai (clip corrompu, décodage qui ne se termine jamais...),
+// on considère qu'il est cassé et on passe au mot suivant plutôt que de
+// bloquer toute la session indéfiniment.
+const CLIP_PLAYBACK_TIMEOUT_MS = 10000
+
+const LOG_PREFIX = "[vocab-player]"
+
 // Cache mémoire de session (survit tant que l'onglet reste ouvert, partagé
 // entre tous les thèmes) : si un mot/voix a déjà été synthétisé, on réutilise
 // l'URL plutôt que de rappeler /api/tts — évite un appel réseau inutile et
@@ -44,7 +57,7 @@ function cacheKey(voice: string, text: string): string {
   return `${voice}::${text}`
 }
 
-async function fetchClip(voice: string, text: string): Promise<string> {
+async function fetchClip(voice: string, text: string, logLabel: string): Promise<string> {
   const key = cacheKey(voice, text)
   const cached = clipCache.get(key)
   if (cached) return cached
@@ -52,16 +65,39 @@ async function fetchClip(voice: string, text: string): Promise<string> {
   if (existing) return existing
 
   const promise = (async () => {
-    const res = await fetch("/api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, voice }),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status} pour "${text}"`)
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    clipCache.set(key, url)
-    return url
+    const startedAt = performance.now()
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice }),
+        signal: controller.signal,
+      })
+      const elapsed = Math.round(performance.now() - startedAt)
+      if (!res.ok) {
+        console.error(`${LOG_PREFIX} ${logLabel} — échec HTTP ${res.status} après ${elapsed}ms`)
+        throw new Error(`HTTP ${res.status} pour "${text}"`)
+      }
+      const blob = await res.blob()
+      if (!blob.size) {
+        console.error(`${LOG_PREFIX} ${logLabel} — blob vide reçu (0 octet) après ${elapsed}ms`)
+        throw new Error(`Blob vide pour "${text}"`)
+      }
+      const url = URL.createObjectURL(blob)
+      clipCache.set(key, url)
+      console.log(`${LOG_PREFIX} ${logLabel} — OK, ${blob.size} octets en ${elapsed}ms`)
+      return url
+    } catch (e: any) {
+      if (e?.name === "AbortError") {
+        console.error(`${LOG_PREFIX} ${logLabel} — timeout après ${FETCH_TIMEOUT_MS}ms, requête annulée`)
+        throw new Error(`Timeout pour "${text}"`)
+      }
+      throw e
+    } finally {
+      clearTimeout(timeoutId)
+    }
   })()
   inflight.set(key, promise)
   try {
@@ -73,14 +109,16 @@ async function fetchClip(voice: string, text: string): Promise<string> {
 
 // Précharge la totalité des clips (FR + EN pour chaque mot) AVANT que
 // play() ne démarre la lecture — jamais pendant. Tourne en arrière-plan
-// (workers concurrents sur fetch, tous asynchrones) donc ne bloque jamais le
-// thread principal ni l'UI pendant le chargement.
+// (workers concurrents sur fetch, tous asynchrones, limités à
+// PRELOAD_CONCURRENCY à la fois) donc ne bloque jamais le thread principal ni
+// l'UI pendant le chargement, et évite de spammer Azure de dizaines
+// d'appels simultanés.
 async function preloadAll(words: VocabWord[], onProgress: (done: number, total: number) => void): Promise<void> {
-  const queue: Array<{ voice: string; text: string }> = []
-  for (const w of words) {
-    queue.push({ voice: FR_VOICE, text: w.fr })
-    queue.push({ voice: EN_VOICE, text: w.en })
-  }
+  const queue: Array<{ voice: string; text: string; label: string }> = []
+  words.forEach((w, i) => {
+    queue.push({ voice: FR_VOICE, text: w.fr, label: `mot ${i + 1}/${words.length} FR "${w.fr}"` })
+    queue.push({ voice: EN_VOICE, text: w.en, label: `mot ${i + 1}/${words.length} EN "${w.en}"` })
+  })
   const total = queue.length
   let done = 0
   onProgress(done, total)
@@ -90,8 +128,8 @@ async function preloadAll(words: VocabWord[], onProgress: (done: number, total: 
   async function worker() {
     while (cursor < queue.length) {
       const idx = cursor++
-      const { voice, text } = queue[idx]
-      await fetchClip(voice, text)
+      const { voice, text, label } = queue[idx]
+      await fetchClip(voice, text, label)
       done++
       onProgress(done, total)
     }
@@ -103,6 +141,12 @@ async function preloadAll(words: VocabWord[], onProgress: (done: number, total: 
 interface PendingGap {
   ms: number
   run: () => void
+}
+
+interface CurrentClip {
+  index: number
+  sub: "fr" | "en"
+  label: string
 }
 
 const IDLE_STATE: VocabPlayerState = {
@@ -122,7 +166,10 @@ const IDLE_STATE: VocabPlayerState = {
 // qu'une fois le clip précédent terminé (`ended` reçu), donc aucun
 // chevauchement possible. pause()/resume() agissent sur ce même élément
 // (audio.pause()/play()) pour reprendre exactement où c'était, sans jamais
-// redémarrer le mot en cours.
+// redémarrer le mot en cours. Un watchdog (CLIP_PLAYBACK_TIMEOUT_MS) et un
+// handler `onerror` protègent contre un clip cassé qui ne déclencherait
+// jamais `ended` : plutôt que de bloquer la session, on logue et on saute au
+// mot suivant.
 export function useVocabPlayer() {
   const [state, setState] = useState<VocabPlayerState>(IDLE_STATE)
 
@@ -134,6 +181,8 @@ export function useVocabPlayer() {
   const modeRef = useRef<"clip" | "gap" | "none">("none")
   const pendingGapRef = useRef<PendingGap | null>(null)
   const gapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clipWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const currentClipRef = useRef<CurrentClip | null>(null)
   // Incrémenté à chaque play()/stop() : toute callback async (timer, préchargement,
   // `ended`) issue d'une session précédente se voit ignorée si le token a changé
   // entretemps — protège contre un double-clic rapide sur "Écouter" ou un
@@ -162,6 +211,13 @@ export function useVocabPlayer() {
     }
   }, [])
 
+  const clearClipWatchdog = useCallback(() => {
+    if (clipWatchdogRef.current) {
+      clearTimeout(clipWatchdogRef.current)
+      clipWatchdogRef.current = null
+    }
+  }, [])
+
   // Coupe net tout ce qui pourrait être en cours (clip qui joue, silence en
   // attente) sans toucher au state React — utilisé avant de démarrer une
   // nouvelle session et au démontage du composant.
@@ -169,12 +225,15 @@ export function useVocabPlayer() {
     const audio = audioRef.current
     if (audio) {
       audio.onended = null
+      audio.onerror = null
       audio.pause()
     }
     clearGapTimer()
+    clearClipWatchdog()
     pendingGapRef.current = null
+    currentClipRef.current = null
     modeRef.current = "none"
-  }, [clearGapTimer])
+  }, [clearGapTimer, clearClipWatchdog])
 
   const scheduleGap = useCallback(
     (token: number, ms: number, run: () => void) => {
@@ -203,6 +262,39 @@ export function useVocabPlayer() {
     [scheduleGap],
   )
 
+  // Filet de sécurité appelé quand un clip en cours de lecture ne se termine
+  // jamais correctement (timeout du watchdog ou event `onerror`) : on logue
+  // la raison précisément (mot, langue, texte) et on saute directement au FR
+  // du mot suivant, sans attendre l'EN du mot cassé.
+  const advanceAfterFailure = useCallback(
+    (token: number, reason: string) => {
+      if (token !== tokenRef.current) return
+      const current = currentClipRef.current
+      console.error(`${LOG_PREFIX} ${current?.label ?? "clip inconnu"} — ${reason}, passage au mot suivant`)
+      clearClipWatchdog()
+      const audio = audioRef.current
+      if (audio) {
+        audio.onended = null
+        audio.onerror = null
+        audio.pause()
+      }
+      modeRef.current = "none"
+      const nextIndex = (current?.index ?? -1) + 1
+      playWordClipRef.current(token, nextIndex, "fr")
+    },
+    [clearClipWatchdog],
+  )
+
+  const startClipWatchdog = useCallback(
+    (token: number) => {
+      clearClipWatchdog()
+      clipWatchdogRef.current = setTimeout(() => {
+        advanceAfterFailure(token, `aucun événement "ended" reçu après ${CLIP_PLAYBACK_TIMEOUT_MS}ms`)
+      }, CLIP_PLAYBACK_TIMEOUT_MS)
+    },
+    [advanceAfterFailure, clearClipWatchdog],
+  )
+
   const playWordClip = useCallback(
     (token: number, index: number, sub: "fr" | "en") => {
       if (token !== tokenRef.current) return
@@ -210,6 +302,7 @@ export function useVocabPlayer() {
 
       if (index >= words.length) {
         modeRef.current = "none"
+        currentClipRef.current = null
         updateState({ status: "finished" })
         return
       }
@@ -217,31 +310,45 @@ export function useVocabPlayer() {
       const word = words[index]
       const voice = sub === "fr" ? FR_VOICE : EN_VOICE
       const text = sub === "fr" ? word.fr : word.en
+      const label = `mot ${index + 1}/${words.length} ${sub.toUpperCase()} "${text}"`
       const url = clipCache.get(cacheKey(voice, text))
       if (!url) {
         // Ne devrait pas arriver (preloadAll() a tourné avant play()) — filet
         // de sécurité si un clip a échoué silencieusement au préchargement.
+        console.error(`${LOG_PREFIX} ${label} — clip manquant dans le cache (échec du préchargement)`)
         modeRef.current = "none"
         updateState({ status: "error", error: `Clip audio manquant pour "${text}".` })
         return
       }
 
       modeRef.current = "clip"
+      currentClipRef.current = { index, sub, label }
       const audio = getAudio()
       audio.onended = null
+      audio.onerror = null
       audio.src = url
       audio.currentTime = 0
       audio.onended = () => {
         if (token !== tokenRef.current) return
+        clearClipWatchdog()
         handleClipEnded(token, index, sub)
       }
+      audio.onerror = () => {
+        advanceAfterFailure(token, `erreur de lecture audio (code ${audio.error?.code ?? "inconnu"})`)
+      }
       updateState({ status: "playing", index })
-      audio.play().catch(() => {
-        if (token !== tokenRef.current) return
-        updateState({ status: "error", error: "Lecture audio bloquée par le navigateur — clique à nouveau sur Écouter." })
-      })
+      audio
+        .play()
+        .then(() => {
+          if (token !== tokenRef.current) return
+          startClipWatchdog(token)
+        })
+        .catch(() => {
+          if (token !== tokenRef.current) return
+          updateState({ status: "error", error: "Lecture audio bloquée par le navigateur — clique à nouveau sur Écouter." })
+        })
     },
-    [getAudio, handleClipEnded, updateState],
+    [getAudio, handleClipEnded, updateState, clearClipWatchdog, advanceAfterFailure, startClipWatchdog],
   )
 
   useEffect(() => {
@@ -276,6 +383,8 @@ export function useVocabPlayer() {
         error: null,
       })
 
+      console.log(`${LOG_PREFIX} Préchargement du thème "${themeId}" — ${words.length} mots (${words.length * 2} clips)`)
+
       try {
         await preloadAll(words, (done, total) => {
           if (tokenRef.current !== myToken) return
@@ -283,11 +392,13 @@ export function useVocabPlayer() {
         })
       } catch (e) {
         if (tokenRef.current !== myToken) return
+        console.error(`${LOG_PREFIX} Échec du préchargement du thème "${themeId}":`, e)
         updateState({ status: "error", error: "Échec du préchargement audio — vérifie ta connexion et réessaie." })
         return
       }
       if (tokenRef.current !== myToken) return // une session plus récente a pris le relais entretemps
 
+      console.log(`${LOG_PREFIX} Préchargement terminé pour "${themeId}", démarrage de la lecture`)
       playWordClip(myToken, 0, "fr")
     },
     [getAudio, hardStop, playWordClip, updateState],
@@ -297,17 +408,24 @@ export function useVocabPlayer() {
     if (statusRef.current !== "playing") return
     if (modeRef.current === "clip") {
       audioRef.current?.pause()
+      clearClipWatchdog()
     } else if (modeRef.current === "gap") {
       clearGapTimer() // pendingGapRef reste renseigné : resume() reprogramme le même silence
     }
     updateState({ status: "paused" })
-  }, [clearGapTimer, updateState])
+  }, [clearGapTimer, clearClipWatchdog, updateState])
 
   const resume = useCallback(() => {
     if (statusRef.current !== "paused") return
     const token = tokenRef.current
     if (modeRef.current === "clip") {
-      audioRef.current?.play().catch(() => {})
+      audioRef.current
+        ?.play()
+        .then(() => {
+          if (token !== tokenRef.current) return
+          startClipWatchdog(token)
+        })
+        .catch(() => {})
     } else if (modeRef.current === "gap" && pendingGapRef.current) {
       const { ms, run } = pendingGapRef.current
       gapTimerRef.current = setTimeout(() => {
@@ -318,7 +436,7 @@ export function useVocabPlayer() {
       }, ms)
     }
     updateState({ status: "playing" })
-  }, [updateState])
+  }, [updateState, startClipWatchdog])
 
   const stop = useCallback(() => {
     tokenRef.current++
