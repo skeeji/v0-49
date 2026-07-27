@@ -1,9 +1,10 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import styles from "../coach.module.css"
 import { CAT_LABELS } from "../data"
 import { useVocabPlayer } from "../hooks/useVocabPlayer"
+import { useBackgroundMusic } from "../hooks/useBackgroundMusic"
 import type { Word, WordCategory } from "../types"
 
 interface MusicSessionProps {
@@ -18,6 +19,11 @@ interface ThemeGroup {
 
 export function MusicSession({ words }: MusicSessionProps) {
   const { state, play, pause, resume } = useVocabPlayer()
+  // Piste de fond Tone.js : totalement séparée du séquenceur de mots ci-dessus
+  // (son propre Tone.Transport, aucun événement partagé) — seule MusicSession
+  // les synchronise de l'extérieur, au niveau session (démarrage/pause/fin),
+  // jamais au niveau mot à mot.
+  const bgMusic = useBackgroundMusic()
 
   const themes: ThemeGroup[] = useMemo(() => {
     return (Object.keys(CAT_LABELS) as WordCategory[]).map((code) => ({
@@ -35,14 +41,38 @@ export function MusicSession({ words }: MusicSessionProps) {
       theme.code,
       theme.words.map((w) => ({ id: w.id, fr: w.fr, en: w.en })),
     )
+    if (bgMusic.enabled) bgMusic.start()
   }
+
+  const handlePause = () => {
+    pause()
+    bgMusic.pause()
+  }
+
+  const handleResume = () => {
+    resume()
+    if (bgMusic.enabled) bgMusic.resume()
+  }
+
+  // Coupe la boucle de fond quand la session se termine ou échoue — la piste
+  // de fond ne pilote jamais cette transition, elle ne fait que suivre l'état
+  // global une fois qu'il a changé.
+  useEffect(() => {
+    if (state.status === "finished" || state.status === "error" || state.status === "idle") {
+      bgMusic.stop()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status])
 
   return (
     <div>
-      <div className={styles.rowLeft} style={{ marginBottom: 16 }}>
+      <div className={styles.rowLeft} style={{ marginBottom: 16, justifyContent: "space-between" }}>
         <div className={styles.muted} style={{ fontSize: 13 }}>
           Écoute chaque thème mot par mot : français, puis anglais, en boucle jusqu'à la fin de la liste.
         </div>
+        <button className={styles.action} onClick={bgMusic.toggleEnabled}>
+          {bgMusic.enabled ? "🎵 Musique de fond : activée" : "🔇 Musique de fond : coupée"}
+        </button>
       </div>
 
       <div className={styles.themeList}>
@@ -86,7 +116,7 @@ export function MusicSession({ words }: MusicSessionProps) {
 
           {(state.status === "playing" || state.status === "paused") && (
             <div className={styles.playerBarRow}>
-              <button className={`${styles.action} ${styles.primary}`} onClick={state.status === "playing" ? pause : resume}>
+              <button className={`${styles.action} ${styles.primary}`} onClick={state.status === "playing" ? handlePause : handleResume}>
                 {state.status === "playing" ? "⏸ Pause" : "▶ Reprendre"}
               </button>
               <div className={styles.wordIndicator}>
