@@ -1,32 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-
-// Bundle UMD officiel de Tone.js, chargé à la demande via une balise <script>
-// plutôt qu'un import npm — évite de toucher au package.json racine du site
-// (hors du périmètre de cette page), même pattern que le SDK Azure Speech
-// (voir useSpeech.ts).
-const TONE_CDN_URL = "https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"
-
-let tonePromise: Promise<any> | null = null
-function loadTone(): Promise<any> {
-  if (typeof window === "undefined") return Promise.reject(new Error("no window"))
-  const w = window as any
-  if (w.Tone) return Promise.resolve(w.Tone)
-  if (tonePromise) return tonePromise
-  tonePromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script")
-    script.src = TONE_CDN_URL
-    script.async = true
-    script.onload = () => {
-      if (w.Tone) resolve(w.Tone)
-      else reject(new Error("Tone introuvable après chargement du script"))
-    }
-    script.onerror = () => reject(new Error("échec du chargement du script Tone.js"))
-    document.head.appendChild(script)
-  })
-  return tonePromise
-}
+import { loadTone } from "./toneLoader"
 
 // Volume de la boucle de fond, en retrait de la voix TTS (0 dB) pour ne pas
 // gêner la compréhension des mots, mais nettement plus audible qu'avant.
