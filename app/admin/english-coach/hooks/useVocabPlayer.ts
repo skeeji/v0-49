@@ -46,6 +46,31 @@ const CLIP_PLAYBACK_TIMEOUT_MS = 10000
 
 const LOG_PREFIX = "[vocab-player]"
 
+// Signale au système (écran de verrouillage, centre de contrôle) que cette
+// page joue un contenu audio "légitime" en cours — c'est ce qui permet aux
+// navigateurs mobiles de ne pas geler le JS (nos setTimeout de silence
+// 500/800ms) ni suspendre l'AudioContext quand l'écran se verrouille ou que
+// l'app passe en arrière-plan, exactement comme le fait un lecteur de
+// musique/podcast. Sans ça, la page est traitée comme un onglet inactif
+// classique et la lecture s'arrête net au verrouillage.
+function updateMediaSessionMetadata(themeId: string, word: VocabWord, sub: "fr" | "en") {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: sub === "fr" ? `${word.fr} → ${word.en}` : `${word.en} (${word.fr})`,
+      artist: "English Coach",
+      album: themeId,
+    })
+  } catch (e) {
+    // no-op — MediaMetadata indisponible sur ce navigateur
+  }
+}
+
+function setMediaSessionPlaybackState(playbackState: "playing" | "paused" | "none") {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+  navigator.mediaSession.playbackState = playbackState
+}
+
 // Cache mémoire de session (survit tant que l'onglet reste ouvert, partagé
 // entre tous les thèmes) : si un mot/voix a déjà été synthétisé, on réutilise
 // l'URL plutôt que de rappeler /api/tts — évite un appel réseau inutile et
@@ -175,6 +200,7 @@ export function useVocabPlayer() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const wordsRef = useRef<VocabWord[]>([])
+  const themeIdRef = useRef<string>("")
   const statusRef = useRef<VocabPlayerStatus>("idle")
   // "clip" = un audio FR/EN est en train (ou en pause) de jouer ; "gap" = on
   // attend le silence 500/800ms entre deux clips ; "none" = rien en cours.
@@ -323,6 +349,7 @@ export function useVocabPlayer() {
 
       modeRef.current = "clip"
       currentClipRef.current = { index, sub, label }
+      updateMediaSessionMetadata(themeIdRef.current, word, sub)
       const audio = getAudio()
       audio.onended = null
       audio.onerror = null
@@ -337,6 +364,7 @@ export function useVocabPlayer() {
         advanceAfterFailure(token, `erreur de lecture audio (code ${audio.error?.code ?? "inconnu"})`)
       }
       updateState({ status: "playing", index })
+      setMediaSessionPlaybackState("playing")
       audio
         .play()
         .then(() => {
@@ -373,6 +401,7 @@ export function useVocabPlayer() {
 
       hardStop()
       wordsRef.current = words
+      themeIdRef.current = themeId
       updateState({
         status: "preloading",
         activeThemeId: themeId,
@@ -413,6 +442,7 @@ export function useVocabPlayer() {
       clearGapTimer() // pendingGapRef reste renseigné : resume() reprogramme le même silence
     }
     updateState({ status: "paused" })
+    setMediaSessionPlaybackState("paused")
   }, [clearGapTimer, clearClipWatchdog, updateState])
 
   const resume = useCallback(() => {
@@ -436,6 +466,7 @@ export function useVocabPlayer() {
       }, ms)
     }
     updateState({ status: "playing" })
+    setMediaSessionPlaybackState("playing")
   }, [updateState, startClipWatchdog])
 
   const stop = useCallback(() => {
@@ -443,7 +474,28 @@ export function useVocabPlayer() {
     hardStop()
     setState(IDLE_STATE)
     statusRef.current = "idle"
+    setMediaSessionPlaybackState("none")
   }, [hardStop])
+
+  // Relie les contrôles système (écran de verrouillage, casque, centre de
+  // contrôle) à ce lecteur — c'est ce qui, avec updateMediaSessionMetadata(),
+  // fait reconnaître la page comme une vraie session de lecture audio par le
+  // navigateur/OS plutôt qu'un onglet inactif ordinaire.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+    navigator.mediaSession.setActionHandler("play", () => resume())
+    navigator.mediaSession.setActionHandler("pause", () => pause())
+    navigator.mediaSession.setActionHandler("stop", () => stop())
+    return () => {
+      try {
+        navigator.mediaSession.setActionHandler("play", null)
+        navigator.mediaSession.setActionHandler("pause", null)
+        navigator.mediaSession.setActionHandler("stop", null)
+      } catch (e) {
+        // no-op
+      }
+    }
+  }, [pause, resume, stop])
 
   useEffect(() => {
     return () => {
