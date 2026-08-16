@@ -34,6 +34,11 @@ export function MusicSession({ words }: MusicSessionProps) {
   }, [words])
 
   const activeTheme = themes.find((t) => t.code === state.activeThemeId) || null
+  // Mot actuellement entendu (fr ou en) — support visuel synchronisé à l'audio :
+  // orthographe correcte + phonétique façon dictionnaire (le champ `tip`,
+  // partagé avec le Dictionnaire et les flashcards), pour voir le mot en même
+  // temps qu'on l'entend.
+  const currentWord = activeTheme && activeTheme.words[state.index] ? activeTheme.words[state.index] : null
 
   const handlePlay = (theme: ThemeGroup) => {
     if (!theme.words.length) return
@@ -112,6 +117,16 @@ export function MusicSession({ words }: MusicSessionProps) {
                 Préparation des clips audio… {state.preloadDone} / {state.preloadTotal}
               </div>
             </>
+          )}
+
+          {(state.status === "playing" || state.status === "paused") && currentWord && (
+            <div className={styles.musicWordStage}>
+              <div className={`${styles.musicWordFr} ${state.sub === "fr" ? styles.musicWordActive : ""}`}>{currentWord.fr}</div>
+              <div className={`${styles.musicWordEn} ${styles.display} ${state.sub === "en" ? styles.musicWordActive : ""}`}>
+                {currentWord.en}
+              </div>
+              <div className={`${styles.musicWordPhon} ${styles.mono}`}>{currentWord.tip}</div>
+            </div>
           )}
 
           {(state.status === "playing" || state.status === "paused") && (

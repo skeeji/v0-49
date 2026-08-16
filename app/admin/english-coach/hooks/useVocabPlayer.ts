@@ -16,6 +16,10 @@ export interface VocabPlayerState {
   activeThemeId: string | null
   index: number
   total: number
+  // "fr" ou "en" selon le clip actuellement entendu pour le mot en cours —
+  // sert uniquement à l'affichage (mettre en évidence la bonne langue dans le
+  // visuel synchronisé de MusicSession), jamais utilisé pour piloter l'audio.
+  sub: "fr" | "en" | null
   preloadDone: number
   preloadTotal: number
   error: string | null
@@ -236,6 +240,7 @@ const IDLE_STATE: VocabPlayerState = {
   activeThemeId: null,
   index: 0,
   total: 0,
+  sub: null,
   preloadDone: 0,
   preloadTotal: 0,
   error: null,
@@ -255,6 +260,7 @@ export function useVocabPlayer() {
   const endTimeRef = useRef(0)
   const pausedAtPosRef = useRef(0)
   const lastUiIndexRef = useRef(-1)
+  const lastUiSubRef = useRef<"fr" | "en" | null>(null)
   const uiIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Incrémenté à chaque play()/stop() : toute callback async (préchargement,
   // tick UI) issue d'une session précédente se voit ignorée si le token a
@@ -299,10 +305,11 @@ export function useVocabPlayer() {
         if (ev.time <= now) current = ev
         else break
       }
-      if (current && current.index !== lastUiIndexRef.current) {
+      if (current && (current.index !== lastUiIndexRef.current || current.sub !== lastUiSubRef.current)) {
         lastUiIndexRef.current = current.index
+        lastUiSubRef.current = current.sub
         pausedAtPosRef.current = current.pos
-        updateState({ index: current.index })
+        updateState({ index: current.index, sub: current.sub })
         updateMediaSessionMetadata(themeIdRef.current, wordsRef.current[current.index], current.sub)
       }
     },
@@ -367,12 +374,14 @@ export function useVocabPlayer() {
       themeIdRef.current = themeId
       clipListRef.current = buildClipList(words)
       lastUiIndexRef.current = -1
+      lastUiSubRef.current = null
       pausedAtPosRef.current = 0
       updateState({
         status: "preloading",
         activeThemeId: themeId,
         index: 0,
         total: words.length,
+        sub: null,
         preloadDone: 0,
         preloadTotal: words.length * 2,
         error: null,
@@ -416,7 +425,9 @@ export function useVocabPlayer() {
       eventsRef.current = events
       playersRef.current = players
       endTimeRef.current = endTime
-      updateState({ status: "playing", index: 0 })
+      lastUiIndexRef.current = 0
+      lastUiSubRef.current = "fr"
+      updateState({ status: "playing", index: 0, sub: "fr" })
       updateMediaSessionMetadata(themeId, words[0], "fr")
       setMediaSessionPlaybackState("playing")
       startUiInterval(myToken)
@@ -443,7 +454,9 @@ export function useVocabPlayer() {
     eventsRef.current = events
     playersRef.current = players
     endTimeRef.current = endTime
-    updateState({ status: "playing" })
+    const resumedSub = clipListRef.current[pausedAtPosRef.current]?.sub ?? lastUiSubRef.current
+    lastUiSubRef.current = resumedSub
+    updateState({ status: "playing", sub: resumedSub })
     setMediaSessionPlaybackState("playing")
     startUiInterval(token)
   }, [updateState, startUiInterval])

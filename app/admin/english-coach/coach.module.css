@@ -578,6 +578,37 @@
   color: var(--cyan);
 }
 
+/* Support visuel synchronisé à l'audio pendant la lecture (mot fr/en +
+   phonétique façon dictionnaire) — le mot actuellement entendu (fr ou en) est
+   mis en évidence via .musicWordActive. */
+.musicWordStage {
+  text-align: center;
+  padding: 4px 4px 14px;
+  border-bottom: 1px dashed var(--line);
+  margin-bottom: 12px;
+}
+.musicWordFr {
+  font-size: 15px;
+  color: var(--muted);
+  transition: color 0.15s, transform 0.15s;
+}
+.musicWordEn {
+  font-size: 26px;
+  font-weight: 700;
+  margin-top: 4px;
+  color: var(--text);
+  transition: color 0.15s, transform 0.15s;
+}
+.musicWordPhon {
+  font-size: 13px;
+  color: var(--cyan);
+  margin-top: 6px;
+}
+.musicWordActive {
+  color: var(--amber);
+  transform: scale(1.04);
+}
+
 .loading {
   text-align: center;
   padding: 60px 0;

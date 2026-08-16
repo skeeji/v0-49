@@ -10,6 +10,7 @@ import { PhoneCallSession } from "./components/PhoneCallSession"
 import { Dictionary } from "./components/Dictionary"
 import { ProgressDashboard } from "./components/ProgressDashboard"
 import { MusicSession } from "./components/MusicSession"
+import { useWakeLock } from "./hooks/useWakeLock"
 import type { ProgressRow, Word } from "./types"
 
 const TARGET_DATE = new Date("2026-08-20T00:00:00")
@@ -26,6 +27,11 @@ function CoachApp() {
   const [tab, setTab] = useState<Tab>("flash")
   const [sessions, setSessions] = useState(0)
   const [loadingProgress, setLoadingProgress] = useState(true)
+
+  // Garde l'écran allumé sur les sessions "mains libres" (cartes, jeu de rôle,
+  // appel, musique) — pas sur le dictionnaire ni la progression, consultés
+  // ponctuellement plutôt que suivis en continu.
+  useWakeLock(tab === "flash" || tab === "role" || tab === "phone" || tab === "music")
 
   useEffect(() => {
     let cancelled = false
