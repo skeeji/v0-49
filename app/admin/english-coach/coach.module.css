@@ -673,10 +673,10 @@
   border-bottom: 1px dotted var(--cyan);
 }
 .hoverWordBubble {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  /* position: fixed en coordonnées écran, calculée en JS (voir HoverWord.tsx)
+     et recalée pour ne jamais déborder du viewport, y compris pour un mot
+     proche d'un bord (fréquent dans les bulles de dialogue roleplay/appel). */
+  position: fixed;
   background: var(--panel2);
   border: 1px solid var(--cyan);
   color: var(--text);

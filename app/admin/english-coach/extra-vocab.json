@@ -2230,5 +2230,239 @@
     "cat": "SHOP",
     "mastery": 0,
     "wrong": 0
+  },
+  {
+    "id": "w394",
+    "fr": "Échelle",
+    "en": "Ladder",
+    "tip": "\"LAD-er\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w395",
+    "fr": "Escabeau",
+    "en": "Step ladder",
+    "tip": "\"step LAD-er\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w396",
+    "fr": "Nacelle élévatrice",
+    "en": "Scissor lift",
+    "tip": "\"SIZ-er lift\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w397",
+    "fr": "Luxmètre",
+    "en": "Light meter / Lux meter",
+    "tip": "\"lyt MEE-ter\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w398",
+    "fr": "Multimètre",
+    "en": "Multimeter",
+    "tip": "\"mul-tee-MEE-ter\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w399",
+    "fr": "Testeur de tension",
+    "en": "Voltage tester",
+    "tip": "\"VOHL-tij TES-ter\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w400",
+    "fr": "Tournevis",
+    "en": "Screwdriver",
+    "tip": "\"SKROO-dry-ver\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w401",
+    "fr": "Tournevis cruciforme",
+    "en": "Phillips screwdriver",
+    "tip": "\"FIL-ips SKROO-dry-ver\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w402",
+    "fr": "Perceuse-visseuse sans fil",
+    "en": "Cordless drill",
+    "tip": "\"KORD-lis dril\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w403",
+    "fr": "Pince",
+    "en": "Pliers",
+    "tip": "\"PLY-erz\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w404",
+    "fr": "Pince à dénuder",
+    "en": "Wire strippers",
+    "tip": "\"wyr STRIP-erz\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w405",
+    "fr": "Clé à molette",
+    "en": "Adjustable wrench",
+    "tip": "\"uh-JUS-tuh-bul rench\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w406",
+    "fr": "Cutter",
+    "en": "Utility knife",
+    "tip": "\"yoo-TIL-i-tee nyf\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w407",
+    "fr": "Mètre ruban",
+    "en": "Tape measure",
+    "tip": "\"tayp MEZH-er\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w408",
+    "fr": "Niveau à bulle",
+    "en": "Spirit level",
+    "tip": "\"SPIR-it LEV-el\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w409",
+    "fr": "Casque de chantier",
+    "en": "Hard hat",
+    "tip": "\"hard hat\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w410",
+    "fr": "Lunettes de protection",
+    "en": "Safety glasses",
+    "tip": "\"SAYF-tee GLASS-iz\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w411",
+    "fr": "Gants de travail",
+    "en": "Work gloves",
+    "tip": "\"werk gluvz\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w412",
+    "fr": "Gilet haute visibilité",
+    "en": "Hi-vis vest",
+    "tip": "\"hy-vis vest\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w413",
+    "fr": "Harnais de sécurité",
+    "en": "Safety harness",
+    "tip": "\"SAYF-tee HAR-nis\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w414",
+    "fr": "Caisse à outils",
+    "en": "Toolbox",
+    "tip": "\"TOOL-boks\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w415",
+    "fr": "Ceinture porte-outils",
+    "en": "Tool belt",
+    "tip": "\"tool belt\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w416",
+    "fr": "Rallonge électrique",
+    "en": "Extension cable",
+    "tip": "\"ek-STEN-shun KAY-bul\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w417",
+    "fr": "Lampe torche",
+    "en": "Torch / Flashlight",
+    "tip": "\"torch\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w418",
+    "fr": "Collier de serrage",
+    "en": "Cable tie",
+    "tip": "\"KAY-bul ty\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
+  },
+  {
+    "id": "w419",
+    "fr": "Adaptateur / bloc multiprise",
+    "en": "Adapter / Power strip",
+    "tip": "\"uh-DAP-ter\"",
+    "cat": "TOOL",
+    "mastery": 0,
+    "wrong": 0
   }
 ]

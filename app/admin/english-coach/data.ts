@@ -85,44 +85,61 @@ export const CAT_LABELS: Record<WordCategory, string> = {
   MAT: "Matériaux, finitions & sécurité chantier",
   PRO: "Métiers, interlocuteurs & diplomatie",
   TRV: "Voyage, survie & dépannage",
+  TOOL: "Outillage & équipement de chantier",
 }
 
 // Pool de situations de chantier/boutique — contexte fourni à l'IA pour le mode
 // roleplay, PAS des scripts. À chaque session, 1 à 3 sujets sont piochés au hasard
 // dans ce pool pour ancrer une conversation professionnelle réaliste (chantier
 // Dubai Mall / boutique de luxe / Emaar) sans jamais suivre un déroulé figé.
+// Répartition volontaire : environ 20% des sujets touchent au DALI/électricité
+// pure (adressage, driver, circuits...), le reste porte sur des sujets généraux
+// de réglage lumière — downlights, ambiances, mise en valeur produit — et sur la
+// logistique/relationnel de chantier, pour ne pas noyer le vocabulaire DALI au
+// milieu de conversations qui devraient rester avant tout des échanges d'éclairagiste.
 export const ROLEPLAY_TOPICS: string[] = [
+  // --- Downlights, faisceaux & réglages lumière générale ---
   "checking the shop window lighting before opening",
   "aligning the light lines along the display shelving",
-  "masking exposed cables behind the boxing-in",
   "adjusting a hot spot on a mannequin's face",
-  "fixing a flickering LED strip under a shelf",
+  "softening a downlight beam that is too harsh on a product",
+  "narrowing a downlight's beam angle to highlight one shelf only",
+  "raising or lowering the brightness of a downlight over a counter",
   "correcting the color temperature on the cosmetics counter",
+  "choosing between warm and cool light for a leather goods display",
   "dealing with a stray reflection on the showcase glass",
   "positioning a spotlight on a perfume display",
-  "resolving a DALI address conflict on site",
+  "verifying the color rendering on the jewellery vitrine",
+  "adjusting the beam angle on the VIP fitting lounge lighting",
+  "balancing accent lighting between two adjacent product displays",
+  "resolving a customer glare complaint near the fitting rooms",
+  "adjusting the wall grazer alignment on the marble backdrop",
+  "walking the creative director through the accent lighting",
+  "coordinating with the shopfitter on niche backlighting",
+
+  // --- Ambiance & intention lumineuse liée à la mise en valeur produit ---
+  "fine-tuning the ambience lighting for a customer lounge area",
+  "setting the mood lighting for an evening VIP event in store",
+  "adjusting the light levels for a seasonal window display change",
+  "presenting the lighting scenes to the brand manager",
+  "coordinating the cleaning mode scene with the store manager",
+  "highlighting a new arrival on a central display table",
+
+  // --- Logistique, chantier & relationnel (non technique) ---
   "reviewing the snag list before client walkthrough",
   "explaining a delay in the delivery of spare parts",
-  "briefing the electrician on the wiring diagram",
-  "checking the dimming curve on the entrance signage",
-  "handling a driver overheating issue on a track spotlight",
-  "coordinating with the shopfitter on niche backlighting",
-  "verifying the color rendering on the jewellery vitrine",
   "discussing the site handover schedule with the site supervisor",
-  "adjusting the beam angle on the VIP fitting lounge lighting",
-  "troubleshooting a short circuit found during commissioning",
-  "presenting the lighting scenes to the brand manager",
-  "checking grounding and polarity before energizing a circuit",
-  "resolving a customer glare complaint near the fitting rooms",
-  "coordinating the cleaning mode schedule with the store manager",
-  "reviewing the bill of materials with the systems integrator",
-  "fixing a buzzing noise coming from a dimmable driver",
-  "adjusting the wall grazer alignment on the marble backdrop",
   "explaining a delay caused by a structural opening not ready",
-  "calibrating the DALI scenes for the demo mode",
-  "checking battery backup for the emergency lighting",
-  "walking the creative director through the accent lighting",
   "transferring spare parts and tools to the incoming shift",
+  "masking exposed cables behind the boxing-in",
+
+  // --- DALI / électricité pure (~20% du pool, volontairement minoritaire) ---
+  "resolving a DALI address conflict on site",
+  "fixing a flickering LED strip under a shelf",
+  "handling a driver overheating issue on a track spotlight",
+  "troubleshooting a short circuit found during commissioning",
+  "checking grounding and polarity before energizing a circuit",
+  "calibrating the DALI scenes for the demo mode",
 ]
 
 export const SCENARIOS: Record<string, Scenario> = {
@@ -141,7 +158,7 @@ export const SCENARIOS: Record<string, Scenario> = {
   electrician: {
     title: "Électricien sur échelle",
     icon: "🪜",
-    context: "Electrician on a ladder, DALI lighting commissioning, luxury retail store in Dubai",
+    context: "Electrician on a ladder, adjusting downlights and lighting scenes (beam angle, color temperature, ambience, DALI settings only when relevant) in a luxury retail store in Dubai",
     who: "Electrician",
     // Accent anglais indien (main-d'œuvre technique très présente sur les chantiers à Dubaï).
     voice: "en-IN-PrabhatNeural",

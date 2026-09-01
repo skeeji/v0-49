@@ -2,19 +2,42 @@
 
 import { useEffect, useRef, useState } from "react"
 import styles from "../coach.module.css"
-import { SCENARIOS } from "../data"
+import { SCENARIOS, ROLEPLAY_TOPICS } from "../data"
 import { useSpeechRecognition, speak, cancelSpeech } from "../hooks/useSpeech"
 import { HoverWord } from "./HoverWord"
-import type { PhoneCallCoachResponse, Scenario } from "../types"
+import type { PhoneCallCoachResponse, Scenario, ScenarioPart } from "../types"
 
-const CALLABLE_SCENARIOS = ["customs", "electrician", "manager"]
+// "full_day" enchaîne douane → électricien → manager en un seul appel continu,
+// comme le "Parcours complet (Jour J-2)" du roleplay (voir SCENARIOS.full_day).
+const CALLABLE_SCENARIOS = ["customs", "electrician", "manager", "full_day"]
 
-interface LogEntry {
-  isUser: boolean
-  line: string
-  fr?: string
-  correction_fr?: string | null
+// Même tirage que le roleplay (voir RoleplaySession.pickTopics) : sans lui,
+// l'appel n'avait que le `context` figé du scénario comme boussole — ce qui
+// pour l'électricien ("DALI lighting commissioning") ramenait la conversation
+// vers le DALI bien plus souvent que voulu (~20% cible, voir data.ts).
+function pickTopics(): string[] {
+  const shuffled = [...ROLEPLAY_TOPICS].sort(() => Math.random() - 0.5)
+  const count = 1 + Math.floor(Math.random() * 3)
+  return shuffled.slice(0, count)
 }
+
+// Comme pickTurnsTarget() dans RoleplaySession : une "partie" (ex: l'électricien
+// au sein du parcours complet) dure entre 5 et 8 tours avant de passer à la suivante.
+function pickTurnsTarget(): number {
+  return 5 + Math.floor(Math.random() * 4)
+}
+
+function pickRandom<T>(list: T[]): T {
+  return list[Math.floor(Math.random() * list.length)]
+}
+
+function getParts(scenario: Scenario, key: string): ScenarioPart[] {
+  return scenario.parts && scenario.parts.length ? scenario.parts : [{ scenarioKey: key }]
+}
+
+type LogEntry =
+  | { type: "bubble"; isUser: boolean; line: string; fr?: string; correction_fr?: string | null; who?: string }
+  | { type: "transition"; text: string }
 
 export function PhoneCallSession() {
   const [scenarioKey, setScenarioKey] = useState<string | null>(null)
@@ -35,6 +58,15 @@ export function PhoneCallSession() {
   // premier tour et ignorait la réponse de l'utilisateur.
   const activeScenarioRef = useRef<Scenario | null>(null)
   const dialogueRef = useRef<HTMLDivElement>(null)
+  const sessionTopics = useRef<string[]>([])
+  // Refs (pas de state) pour les mêmes raisons que activeScenarioRef ci-dessus :
+  // ces valeurs doivent être lues à jour dans des closures async profondes
+  // (askNext -> speak -> listenForAnswer -> handleAnswer) qui peuvent s'exécuter
+  // avant qu'un re-render n'ait eu lieu.
+  const partsRef = useRef<ScenarioPart[]>([])
+  const partIndexRef = useRef(0)
+  const turnInPartRef = useRef(0)
+  const turnsTargetRef = useRef<number>(pickTurnsTarget())
 
   const { listening, micReady, error: micError, supported: micSupported, startListening, stopListening, prewarm } =
     useSpeechRecognition()
@@ -78,7 +110,7 @@ export function PhoneCallSession() {
   const askNext = (question: string, questionFr?: string, perfMark?: number) => {
     console.log(`[phone-call] askNext("${question}") — callActive=${callActiveRef.current}`)
     lastQuestion.current = question
-    setLog((l) => [...l, { isUser: false, line: question, fr: questionFr }])
+    setLog((l) => [...l, { type: "bubble", isUser: false, line: question, fr: questionFr, who: activeScenarioRef.current?.who }])
     setSpeaking(true)
     // Réchauffe la reconnaissance vocale dès le début de la question posée à
     // voix haute : le temps que speak() joue l'audio (plusieurs secondes)
@@ -117,7 +149,14 @@ export function PhoneCallSession() {
       return
     }
     const sc = SCENARIOS[key]
-    activeScenarioRef.current = sc
+    const scenarioParts = getParts(sc, key)
+    const firstScenario = SCENARIOS[scenarioParts[0].scenarioKey]
+    partsRef.current = scenarioParts
+    partIndexRef.current = 0
+    turnInPartRef.current = 0
+    turnsTargetRef.current = pickTurnsTarget()
+    activeScenarioRef.current = firstScenario
+    sessionTopics.current = pickTopics()
     setScenarioKey(key)
     setCallActive(true)
     callActiveRef.current = true
@@ -125,7 +164,36 @@ export function PhoneCallSession() {
     setRevealed(new Set())
     setFallbackText("")
     setError(null)
-    const opening = sc.openingLines[Math.floor(Math.random() * sc.openingLines.length)]
+    const opening = pickRandom(firstScenario.openingLines)
+    askedQuestions.current = [opening.en]
+    askNext(opening.en, opening.fr)
+  }
+
+  // Fait passer l'appel à la partie suivante du parcours (ex: électricien après
+  // la douane) : nouveau scénario actif, nouveaux sujets, bannière de transition
+  // dans le journal, puis une nouvelle réplique d'ouverture — jamais la suite de
+  // la conversation précédente, pour marquer clairement le changement de contexte.
+  const advanceToNextPart = () => {
+    const nextPartIndex = partIndexRef.current + 1
+    turnInPartRef.current = 0
+    if (nextPartIndex >= partsRef.current.length) {
+      partIndexRef.current = nextPartIndex
+      callActiveRef.current = false
+      setCallActive(false)
+      setSpeaking(false)
+      stopListening()
+      return
+    }
+    const nextPart = partsRef.current[nextPartIndex]
+    const nextScenario = SCENARIOS[nextPart.scenarioKey]
+    partIndexRef.current = nextPartIndex
+    turnsTargetRef.current = pickTurnsTarget()
+    sessionTopics.current = pickTopics()
+    activeScenarioRef.current = nextScenario
+    if (nextPart.transition) {
+      setLog((l) => [...l, { type: "transition", text: nextPart.transition! }])
+    }
+    const opening = pickRandom(nextScenario.openingLines)
     askedQuestions.current = [opening.en]
     askNext(opening.en, opening.fr)
   }
@@ -137,7 +205,7 @@ export function PhoneCallSession() {
       console.log("[phone-call] handleAnswer ignoré (pas de scénario actif ou appel raccroché)")
       return
     }
-    setLog((l) => [...l, { isUser: true, line: transcript }])
+    setLog((l) => [...l, { type: "bubble", isUser: true, line: transcript }])
     setLoading(true)
     setError(null)
 
@@ -145,6 +213,10 @@ export function PhoneCallSession() {
     // de la voix du correspondant (voir speak() dans useSpeech.ts pour la suite).
     const t0 = performance.now()
     try {
+      const topicsContext = sessionTopics.current.length
+        ? ` Sujets à garder en fil rouge pour cette session (contexte pour toi, ne les lis jamais mot pour mot au joueur) : ${sessionTopics.current.join(" · ")}.`
+        : ""
+
       console.log("[phone-call] POST /api/coach mode=phone_call —", {
         targetPhrase: lastQuestion.current,
         userAnswer: transcript,
@@ -156,7 +228,7 @@ export function PhoneCallSession() {
           mode: "phone_call",
           targetPhrase: lastQuestion.current,
           userAnswer: transcript,
-          context: activeScenario.context,
+          context: activeScenario.context + topicsContext,
           history: askedQuestions.current,
         }),
       })
@@ -173,20 +245,40 @@ export function PhoneCallSession() {
       if (data.correction_fr) {
         setLog((l) => {
           const copy = [...l]
-          copy[copy.length - 1] = { ...copy[copy.length - 1], correction_fr: data.correction_fr }
+          const lastEntry = copy[copy.length - 1]
+          if (lastEntry?.type === "bubble") copy[copy.length - 1] = { ...lastEntry, correction_fr: data.correction_fr }
           return copy
         })
       }
 
       setLoading(false)
-      if (data.next_question_en) {
+
+      // Parcours mono-scénario (douane / électricien / manager seuls) : appel
+      // continu sans limite de tours, comportement inchangé.
+      const isMultiPart = partsRef.current.length > 1
+      if (!isMultiPart) {
+        if (data.next_question_en) {
+          askedQuestions.current = [data.next_question_en, ...askedQuestions.current].slice(0, 10)
+          askNext(data.next_question_en, data.next_question_fr, t0)
+        } else {
+          // Ne devrait plus arriver (le serveur garantit next_question_en non-vide),
+          // mais on ne laisse jamais l'appel se bloquer silencieusement.
+          console.error("[phone-call] ❌ next_question_en vide malgré la garantie serveur")
+          setError("Le coach n'a pas pu relancer la conversation, réessaie ou raccroche.")
+        }
+        return
+      }
+
+      // Parcours complet (full_day) : on compte les tours de la partie en
+      // cours et on bascule sur la suivante (ou on termine l'appel) une fois
+      // le quota de tours atteint — même logique que RoleplaySession.submit().
+      const nextTurn = turnInPartRef.current + 1
+      if (nextTurn < turnsTargetRef.current && data.next_question_en) {
         askedQuestions.current = [data.next_question_en, ...askedQuestions.current].slice(0, 10)
         askNext(data.next_question_en, data.next_question_fr, t0)
+        turnInPartRef.current = nextTurn
       } else {
-        // Ne devrait plus arriver (le serveur garantit next_question_en non-vide),
-        // mais on ne laisse jamais l'appel se bloquer silencieusement.
-        console.error("[phone-call] ❌ next_question_en vide malgré la garantie serveur")
-        setError("Le coach n'a pas pu relancer la conversation, réessaie ou raccroche.")
+        advanceToNextPart()
       }
     } catch (e) {
       console.error("[phone-call] ❌ Erreur handleAnswer —", e)
@@ -287,11 +379,18 @@ export function PhoneCallSession() {
 
       <div className={styles.phoneDialogueLog} ref={dialogueRef}>
         {log.map((entry, i) => {
+          if (entry.type === "transition") {
+            return (
+              <div key={i} className={`${styles.muted} ${styles.mono}`} style={{ textAlign: "center", fontSize: 12 }}>
+                — {entry.text} —
+              </div>
+            )
+          }
           const isHiddenCorrespondentLine = !entry.isUser && !revealed.has(i)
           return (
             <div key={i}>
               <div className={`${styles.bubble} ${entry.isUser ? styles.bubbleMe : styles.bubbleThem}`}>
-                <div className={styles.bubbleWho}>{entry.isUser ? "Toi" : "🔊 Correspondant"}</div>
+                <div className={styles.bubbleWho}>{entry.isUser ? "Toi" : `🔊 ${entry.who || "Correspondant"}`}</div>
                 {isHiddenCorrespondentLine ? (
                   <>
                     <div className={styles.phoneHiddenLine}>Écoute la voix — texte masqué pour forcer l'écoute active.</div>
