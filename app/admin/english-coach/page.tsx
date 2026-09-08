@@ -7,6 +7,7 @@ import { DEFAULT_WORDS } from "./data"
 import { FlashcardSession } from "./components/FlashcardSession"
 import { RoleplaySession } from "./components/RoleplaySession"
 import { PhoneCallSession } from "./components/PhoneCallSession"
+import { SurvivalPhrasesSession } from "./components/SurvivalPhrasesSession"
 import { Dictionary } from "./components/Dictionary"
 import { ProgressDashboard } from "./components/ProgressDashboard"
 import { MusicSession } from "./components/MusicSession"
@@ -15,7 +16,7 @@ import type { ProgressRow, Word } from "./types"
 
 const TARGET_DATE = new Date("2026-08-20T00:00:00")
 
-type Tab = "flash" | "role" | "phone" | "dico" | "music" | "progress"
+type Tab = "flash" | "role" | "phone" | "survival" | "dico" | "music" | "progress"
 
 function daysLeft(): number {
   const diff = TARGET_DATE.getTime() - Date.now()
@@ -31,7 +32,7 @@ function CoachApp() {
   // Garde l'écran allumé sur les sessions "mains libres" (cartes, jeu de rôle,
   // appel, musique) — pas sur le dictionnaire ni la progression, consultés
   // ponctuellement plutôt que suivis en continu.
-  useWakeLock(tab === "flash" || tab === "role" || tab === "phone" || tab === "music")
+  useWakeLock(tab === "flash" || tab === "role" || tab === "phone" || tab === "survival" || tab === "music")
 
   useEffect(() => {
     let cancelled = false
@@ -111,6 +112,7 @@ function CoachApp() {
     { key: "flash", label: "Flashcards" },
     { key: "role", label: "Jeu de rôle" },
     { key: "phone", label: "Appel" },
+    { key: "survival", label: "Phrases utiles" },
     { key: "dico", label: "Dictionnaire" },
     { key: "music", label: "Musique" },
     { key: "progress", label: "Progression" },
@@ -158,6 +160,7 @@ function CoachApp() {
               )}
               {tab === "role" && <RoleplaySession />}
               {tab === "phone" && <PhoneCallSession />}
+              {tab === "survival" && <SurvivalPhrasesSession />}
               {tab === "dico" && <Dictionary words={words} onAddWord={handleAddWord} />}
               {tab === "music" && <MusicSession words={words} />}
               {tab === "progress" && (

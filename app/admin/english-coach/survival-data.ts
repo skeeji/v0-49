@@ -1,0 +1,235 @@
+// Phrasebook de survie — phrases courtes du quotidien à Dubaï, indépendant du
+// vocabulaire technique de data.ts. Principalement orienté électricien/chantier
+// et manager (les interlocuteurs les plus fréquents), complété par les
+// situations du quotidien (douane, restaurant, hôtel, taxi, achats, urgence,
+// social, survie générale) pour couvrir l'essentiel des échanges du séjour.
+// Type volontairement séparé de WordCategory/Word (types.ts) pour ne rien
+// changer au fonctionnement des Flashcards existantes.
+
+export type SurvivalCategory = "ELEC" | "MGR" | "CUS" | "REST" | "HOTEL" | "TAXI" | "SHOP" | "EMER" | "SOC" | "GEN"
+
+export interface SurvivalPhrase {
+  id: string
+  fr: string
+  en: string
+  tip: string
+  cat: SurvivalCategory
+}
+
+export const SURVIVAL_CAT_LABELS: Record<SurvivalCategory, string> = {
+  ELEC: "Électricien / chantier",
+  MGR: "Manager / hiérarchie",
+  CUS: "Douane / immigration",
+  REST: "Restaurant",
+  HOTEL: "Hôtel",
+  TAXI: "Taxi / transport",
+  SHOP: "Achats / shopping",
+  EMER: "Urgence / santé",
+  SOC: "Social / politesse",
+  GEN: "Survie générale",
+}
+
+// Contexte fourni à l'IA (mode "flashcard" de /api/coach) pour juger chaque
+// réponse avec la bonne situation en tête.
+export const SURVIVAL_CAT_CONTEXT: Record<SurvivalCategory, string> = {
+  ELEC: "Talking to an electrician colleague on a lighting commissioning site in Dubai — short, practical, on-site phrases",
+  MGR: "Talking to a manager or supervisor in a professional retail/construction context in Dubai",
+  CUS: "Airport customs and immigration control in Dubai",
+  REST: "Ordering food and dealing with staff at a restaurant in Dubai",
+  HOTEL: "Checking in/out and dealing with hotel staff in Dubai",
+  TAXI: "Taking a taxi or getting around in Dubai",
+  SHOP: "Shopping in a store or mall in Dubai",
+  EMER: "Emergency, health or safety situations in Dubai",
+  SOC: "Everyday polite social interactions with colleagues or locals in Dubai",
+  GEN: "General everyday survival English while traveling and working in Dubai",
+}
+
+export const SURVIVAL_PHRASES: SurvivalPhrase[] = [
+  // --- Électricien / chantier (interlocuteur principal) ---
+  { id: "sp-elec-1", fr: "Peux-tu couper le courant sur ce circuit ?", en: "Can you cut the power on this circuit?", tip: '"kan yoo kut ze POW-er"', cat: "ELEC" },
+  { id: "sp-elec-2", fr: "Ne rallume pas encore, s'il te plaît", en: "Don't turn it back on yet, please", tip: '"dohnt turn it bak on yet"', cat: "ELEC" },
+  { id: "sp-elec-3", fr: "Il y a un problème avec le câblage", en: "There's a problem with the wiring", tip: '"thairz a PROB-lem with ze WY-ring"', cat: "ELEC" },
+  { id: "sp-elec-4", fr: "Est-ce que c'est bien relié à la terre ?", en: "Is this properly grounded?", tip: '"iz this PROP-er-lee GROWN-did"', cat: "ELEC" },
+  { id: "sp-elec-5", fr: "Peux-tu revérifier cette connexion ?", en: "Can you recheck this connection?", tip: '"kan yoo REE-chek this kuh-NEK-shun"', cat: "ELEC" },
+  { id: "sp-elec-6", fr: "Combien de temps ça va prendre ?", en: "How long will this take?", tip: '"haow long wil this tayk"', cat: "ELEC" },
+  { id: "sp-elec-7", fr: "Le fusible a sauté", en: "The fuse has blown", tip: '"ze fyooz haz blohn"', cat: "ELEC" },
+  { id: "sp-elec-8", fr: "Il faut isoler ce câble", en: "This cable needs to be isolated", tip: '"this KAY-bul needz too bee EYE-suh-lay-tid"', cat: "ELEC" },
+  { id: "sp-elec-9", fr: "Attention, c'est sous tension", en: "Careful, it's live", tip: '"KAIR-ful its lyv"', cat: "ELEC" },
+  { id: "sp-elec-10", fr: "Peux-tu tester le voltage ici ?", en: "Can you test the voltage here?", tip: '"kan yoo test ze VOHL-tij heer"', cat: "ELEC" },
+  { id: "sp-elec-11", fr: "Ce n'est pas branché correctement", en: "This isn't connected properly", tip: '"this IZ-unt kuh-NEK-tid PROP-er-lee"', cat: "ELEC" },
+  { id: "sp-elec-12", fr: "On doit remplacer cette pièce", en: "We need to replace this part", tip: '"wee need too ri-PLAYS this part"', cat: "ELEC" },
+  { id: "sp-elec-13", fr: "Peux-tu tenir l'échelle une seconde ?", en: "Can you hold the ladder for a second?", tip: '"kan yoo hohld ze LAD-er"', cat: "ELEC" },
+  { id: "sp-elec-14", fr: "C'est prêt à être testé", en: "It's ready to be tested", tip: '"its RED-ee too bee TES-tid"', cat: "ELEC" },
+  { id: "sp-elec-15", fr: "Il manque une vis ici", en: "There's a screw missing here", tip: '"thairz a skroo MIS-ing heer"', cat: "ELEC" },
+  { id: "sp-elec-16", fr: "On coupe le courant général ?", en: "Shall we cut the main power?", tip: '"shal wee kut ze mayn POW-er"', cat: "ELEC" },
+  { id: "sp-elec-17", fr: "Je vais vérifier le tableau électrique", en: "I'll check the electrical panel", tip: '"eyel chek ze i-LEK-tri-kul PAN-el"', cat: "ELEC" },
+  { id: "sp-elec-18", fr: "Ça sent le brûlé, tu sens ça ?", en: "It smells burnt, can you smell that?", tip: '"it smelz burnt"', cat: "ELEC" },
+  { id: "sp-elec-19", fr: "Mets tes gants avant de toucher ça", en: "Put your gloves on before touching that", tip: '"put yor glovz on bi-FOR TUCH-ing that"', cat: "ELEC" },
+  { id: "sp-elec-20", fr: "On verrouille le disjoncteur avant de travailler dessus", en: "Let's lock out the breaker before working on it", tip: '"lets lok owt ze BRAY-ker"', cat: "ELEC" },
+  { id: "sp-elec-21", fr: "Fais attention au câble qui traîne par terre", en: "Watch out for the cable on the floor", tip: '"woch owt for ze KAY-bul on ze flor"', cat: "ELEC" },
+  { id: "sp-elec-22", fr: "Tu peux me passer le tournevis ?", en: "Can you pass me the screwdriver?", tip: '"kan yoo pass mee ze SKROO-dry-ver"', cat: "ELEC" },
+  { id: "sp-elec-23", fr: "Il nous faut encore 5 mètres de câble", en: "We need another 5 meters of cable", tip: '"wee need a-NUH-ther fyv MEE-terz uv KAY-bul"', cat: "ELEC" },
+  { id: "sp-elec-24", fr: "Est-ce que tu as fini ?", en: "Have you finished?", tip: '"hav yoo FIN-isht"', cat: "ELEC" },
+  { id: "sp-elec-25", fr: "Ça fonctionne maintenant, c'est bon", en: "It's working now, we're good", tip: '"its WUR-king naow weer gud"', cat: "ELEC" },
+  { id: "sp-elec-26", fr: "Le disjoncteur saute à chaque fois", en: "The breaker trips every time", tip: '"ze BRAY-ker trips EV-ree tym"', cat: "ELEC" },
+  { id: "sp-elec-27", fr: "Ce fil n'est pas de la bonne couleur", en: "This wire is the wrong color", tip: '"this wyer iz ze rong KUL-er"', cat: "ELEC" },
+  { id: "sp-elec-28", fr: "On a un court-circuit quelque part", en: "There's a short circuit somewhere", tip: '"thairz a short SER-kit SUM-wair"', cat: "ELEC" },
+  { id: "sp-elec-29", fr: "Peux-tu revenir demain matin à 8h ?", en: "Can you come back tomorrow at 8am?", tip: '"kan yoo kum bak tuh-MOR-oh at ayt ay-em"', cat: "ELEC" },
+  { id: "sp-elec-30", fr: "Il faut qu'on termine avant que le client arrive", en: "We need to finish before the client arrives", tip: '"wee need too FIN-ish bi-FOR ze KLY-ent uh-RYVZ"', cat: "ELEC" },
+  { id: "sp-elec-31", fr: "Celui-là, à côté du mannequin", en: "That one, next to the mannequin", tip: '"that wun nekst too ze MAN-i-kin"', cat: "ELEC" },
+  { id: "sp-elec-32", fr: "On a assez de spots pour finir ?", en: "Do we have enough downlights to finish?", tip: '"doo wee hav i-NUF DAOWN-lyts too FIN-ish"', cat: "ELEC" },
+  { id: "sp-elec-33", fr: "Coupe d'abord, puis débranche", en: "Turn it off first, then unplug it", tip: '"turn it of ferst then un-PLUG it"', cat: "ELEC" },
+  { id: "sp-elec-34", fr: "C'est testé et ça marche", en: "It's tested and it works", tip: '"its TES-tid and it works"', cat: "ELEC" },
+  { id: "sp-elec-35", fr: "Il manque un driver, on doit en commander un", en: "We're missing a driver, we need to order one", tip: '"weer MIS-ing a DRY-ver"', cat: "ELEC" },
+  { id: "sp-elec-36", fr: "Je vais orienter le projecteur", en: "I'm going to aim the spotlight", tip: '"eyem GOH-ing too aym ze SPOT-lyt"', cat: "ELEC" },
+  { id: "sp-elec-37", fr: "Je vais faire varier l'intensité du projecteur", en: "I'm going to dim the spotlight", tip: '"eyem GOH-ing too dim ze SPOT-lyt"', cat: "ELEC" },
+  { id: "sp-elec-38", fr: "Je vais mesurer le nombre de lux sur le présentoir", en: "I'm going to measure the lux level on the display", tip: '"eyem GOH-ing too MEZH-er ze luks LEV-ul"', cat: "ELEC" },
+  { id: "sp-elec-39", fr: "Je vais resserrer l'angle du faisceau", en: "I'll narrow the beam angle", tip: '"eyel NA-roh ze beem ANG-gul"', cat: "ELEC" },
+  { id: "sp-elec-40", fr: "Je vais élargir le faisceau", en: "I'll widen the beam", tip: '"eyel WY-dun ze beem"', cat: "ELEC" },
+  { id: "sp-elec-41", fr: "Je dois régler la température de couleur", en: "I need to adjust the color temperature", tip: '"eye need too uh-JUST ze KUL-er TEM-pruh-cher"', cat: "ELEC" },
+  { id: "sp-elec-42", fr: "Je vais tester cette scène lumineuse", en: "I'm going to test this lighting scene", tip: '"eyem GOH-ing too test this LY-ting seen"', cat: "ELEC" },
+  { id: "sp-elec-43", fr: "Est-ce que ça t'éblouit depuis là ?", en: "Does this glare from there?", tip: '"duz this glair from thair"', cat: "ELEC" },
+  { id: "sp-elec-44", fr: "Je vais vérifier le niveau d'éclairement", en: "I'm going to check the light level", tip: '"eyem GOH-ing too chek ze lyt LEV-ul"', cat: "ELEC" },
+  { id: "sp-elec-45", fr: "Le produit doit être mieux mis en valeur", en: "The product needs to be better highlighted", tip: '"ze PROD-ukt needz too bee BET-er HY-lyt-id"', cat: "ELEC" },
+  { id: "sp-elec-46", fr: "Je vais baisser l'intensité de 20 %", en: "I'll lower the intensity by 20 percent", tip: '"eyel LOH-er zi in-TEN-si-tee by twen-tee per-SENT"', cat: "ELEC" },
+  { id: "sp-elec-47", fr: "Je vais aligner les projecteurs", en: "I'm going to align the spotlights", tip: '"eyem GOH-ing too uh-LYN ze SPOT-lyts"', cat: "ELEC" },
+  { id: "sp-elec-48", fr: "Attends, je regarde le rendu depuis là-bas", en: "Wait, let me check how it looks from over there", tip: '"wayt let mee chek haow it luks"', cat: "ELEC" },
+  { id: "sp-elec-49", fr: "Ça te paraît trop chaud ou trop froid ?", en: "Does this look too warm or too cold to you?", tip: '"duz this luk too warm or too kohld too yoo"', cat: "ELEC" },
+  { id: "sp-elec-50", fr: "Je vais enregistrer cette scène", en: "I'm going to save this scene", tip: '"eyem GOH-ing too sayv this seen"', cat: "ELEC" },
+  { id: "sp-elec-51", fr: "On va comparer les deux réglages", en: "Let's compare the two settings", tip: '"lets kum-PAIR ze too SET-ingz"', cat: "ELEC" },
+  { id: "sp-elec-52", fr: "Je remonte le projecteur d'un cran", en: "I'll raise the spotlight one notch", tip: '"eyel rayz ze SPOT-lyt wun noch"', cat: "ELEC" },
+  { id: "sp-elec-53", fr: "Peux-tu descendre un peu le faisceau ?", en: "Can you lower the beam a little?", tip: '"kan yoo LOH-er ze beem a LIT-ul"', cat: "ELEC" },
+
+  // --- Manager / hiérarchie (interlocuteur principal) ---
+  { id: "sp-mgr-1", fr: "Je m'en occupe tout de suite", en: "I'll take care of it right away", tip: '"eyel tayk kair uv it ryt uh-WAY"', cat: "MGR" },
+  { id: "sp-mgr-2", fr: "Ce sera prêt avant l'ouverture", en: "It will be ready before opening", tip: '"it wil bee RED-ee bi-FOR OH-pen-ing"', cat: "MGR" },
+  { id: "sp-mgr-3", fr: "Je peux vous donner une mise à jour dans 10 minutes", en: "I can give you an update in 10 minutes", tip: '"eye kan giv yoo an UP-dayt"', cat: "MGR" },
+  { id: "sp-mgr-4", fr: "Il y a un petit retard, mais on va rattraper", en: "There's a small delay, but we'll catch up", tip: '"thairz a smawl di-LAY"', cat: "MGR" },
+  { id: "sp-mgr-5", fr: "Pouvez-vous valider ceci ?", en: "Can you approve this?", tip: '"kan yoo uh-PROOV this"', cat: "MGR" },
+  { id: "sp-mgr-6", fr: "Je comprends, on va trouver une solution", en: "I understand, we'll find a solution", tip: '"eye un-der-STAND"', cat: "MGR" },
+  { id: "sp-mgr-7", fr: "Ce n'est pas encore terminé, mais on avance bien", en: "It's not finished yet, but we're making good progress", tip: '"its not FIN-isht yet"', cat: "MGR" },
+  { id: "sp-mgr-8", fr: "Pouvez-vous me laisser encore une heure ?", en: "Can you give me one more hour?", tip: '"kan yoo giv mee wun mor OWR"', cat: "MGR" },
+  { id: "sp-mgr-9", fr: "Je vous tiens au courant dès que possible", en: "I'll keep you posted as soon as possible", tip: '"eyel keep yoo POHS-tid"', cat: "MGR" },
+  { id: "sp-mgr-10", fr: "Désolé pour la gêne occasionnée", en: "Sorry for the inconvenience", tip: '"SOR-ee for ze in-kun-VEE-nyens"', cat: "MGR" },
+  { id: "sp-mgr-11", fr: "On peut faire un point rapide ?", en: "Can we have a quick catch-up?", tip: '"kan wee hav a kwik kach-up"', cat: "MGR" },
+  { id: "sp-mgr-12", fr: "Ça a pris plus de temps que prévu", en: "It took longer than expected", tip: '"it tuk LONG-ger than ek-SPEK-tid"', cat: "MGR" },
+  { id: "sp-mgr-13", fr: "Je m'assure que tout soit parfait pour l'ouverture", en: "I'm making sure everything is perfect for the opening", tip: '"eyem MAY-king shoor"', cat: "MGR" },
+  { id: "sp-mgr-14", fr: "Pouvez-vous me confirmer ça par écrit ?", en: "Can you confirm that in writing?", tip: '"kan yoo kun-FERM that in RY-ting"', cat: "MGR" },
+  { id: "sp-mgr-15", fr: "On est dans les temps", en: "We are on schedule", tip: '"wee ar on SKED-yool"', cat: "MGR" },
+  { id: "sp-mgr-16", fr: "Je vais devoir revenir demain matin", en: "I'll have to come back tomorrow morning", tip: '"eyel hav too kum bak tuh-MOR-oh"', cat: "MGR" },
+  { id: "sp-mgr-17", fr: "Merci de votre patience", en: "Thank you for your patience", tip: '"thank yoo for yor PAY-shens"', cat: "MGR" },
+  { id: "sp-mgr-18", fr: "Est-ce qu'on peut reporter à cet après-midi ?", en: "Can we postpone this to this afternoon?", tip: '"kan wee pohst-POHN this"', cat: "MGR" },
+  { id: "sp-mgr-19", fr: "Qu'est-ce que vous avez besoin exactement ?", en: "What exactly do you need?", tip: '"wot eg-ZAKT-lee doo yoo need"', cat: "MGR" },
+  { id: "sp-mgr-20", fr: "Pour quand avez-vous besoin de ça ?", en: "By when do you need this?", tip: '"by wen doo yoo need this"', cat: "MGR" },
+  { id: "sp-mgr-21", fr: "J'ai trouvé un problème avec...", en: "I found a problem with...", tip: '"eye fownd a PROB-lem with"', cat: "MGR" },
+  { id: "sp-mgr-22", fr: "Ce n'était pas prévu dans le plan initial", en: "This wasn't part of the original plan", tip: '"this WUZ-unt part uv zi uh-RIJ-i-nul plan"', cat: "MGR" },
+  { id: "sp-mgr-23", fr: "Je comprends que c'est urgent, mais il me faut un peu plus de temps", en: "I understand it's urgent, but I need a bit more time", tip: '"eye un-der-STAND its UR-jent"', cat: "MGR" },
+  { id: "sp-mgr-24", fr: "Ce délai n'est pas réaliste", en: "That timeline isn't realistic", tip: '"that TYM-lyn IZ-unt REE-uh-LIS-tik"', cat: "MGR" },
+  { id: "sp-mgr-25", fr: "J'ai besoin d'une personne de plus pour m'aider", en: "I need one more person to help", tip: '"eye need wun mor PER-sun too help"', cat: "MGR" },
+  { id: "sp-mgr-26", fr: "Juste pour confirmer, vous voulez que je... ?", en: "Just to confirm, you want me to...?", tip: '"just too kun-FERM yoo wont mee too"', cat: "MGR" },
+  { id: "sp-mgr-27", fr: "Je dois vérifier avec mon responsable", en: "I need to check with my supervisor", tip: '"eye need too chek with my SOO-per-vy-zer"', cat: "MGR" },
+  { id: "sp-mgr-28", fr: "J'ai déjà commencé là-dessus", en: "I've already started on this", tip: '"eyev awl-RED-ee START-id on this"', cat: "MGR" },
+  { id: "sp-mgr-29", fr: "J'ai remarqué un problème potentiel, je voulais vous prévenir", en: "I noticed a potential issue, I wanted to flag it", tip: '"eye NOH-tist a puh-TEN-shul ISH-oo"', cat: "MGR" },
+  { id: "sp-mgr-30", fr: "Tout est sous contrôle", en: "Everything is under control", tip: '"EV-ree-thing iz UN-der kun-TROHL"', cat: "MGR" },
+  { id: "sp-mgr-31", fr: "Pouvez-vous m'envoyer ça par email ?", en: "Can you send me that by email?", tip: '"kan yoo send mee that by EE-mayl"', cat: "MGR" },
+  { id: "sp-mgr-32", fr: "On a besoin de plus de matériel", en: "We need more materials", tip: '"wee need mor muh-TEER-ee-ulz"', cat: "MGR" },
+  { id: "sp-mgr-33", fr: "C'est réglé maintenant", en: "It's sorted now", tip: '"its SOR-tid naow"', cat: "MGR" },
+  { id: "sp-mgr-34", fr: "Je vous appelle dès que c'est fini", en: "I'll call you as soon as it's done", tip: '"eyel kawl yoo az soon az its dun"', cat: "MGR" },
+  { id: "sp-mgr-35", fr: "Rassurez-vous, on a l'habitude de ce genre de situation", en: "Don't worry, we've handled this kind of situation before", tip: '"dohnt WUR-ee weev HAN-duld this kynd uv sit-yoo-AY-shun"', cat: "MGR" },
+
+  // --- Douane / immigration ---
+  { id: "sp-cus-1", fr: "Je viens pour un déplacement professionnel", en: "I'm here on a business trip", tip: '"eyem heer on a BIZ-nes trip"', cat: "CUS" },
+  { id: "sp-cus-2", fr: "Voici mon passeport et mon visa", en: "Here is my passport and visa", tip: '"heer iz my PASS-port and VEE-za"', cat: "CUS" },
+  { id: "sp-cus-3", fr: "Je reste une semaine", en: "I'm staying for a week", tip: '"eyem STAY-ing for a week"', cat: "CUS" },
+  { id: "sp-cus-4", fr: "Je n'ai rien à déclarer", en: "I have nothing to declare", tip: '"eye hav NUH-thing too di-KLAIR"', cat: "CUS" },
+  { id: "sp-cus-5", fr: "Voici la lettre d'invitation de mon employeur", en: "Here's the invitation letter from my employer", tip: '"heerz zi in-vi-TAY-shun LET-er"', cat: "CUS" },
+  { id: "sp-cus-6", fr: "C'est pour un contrat de travail temporaire", en: "It's for a temporary work contract", tip: '"its for a TEM-por-ary work KON-trakt"', cat: "CUS" },
+  { id: "sp-cus-7", fr: "Je repars dans 3 semaines", en: "I'm leaving in 3 weeks", tip: '"eyem LEE-ving in three weeks"', cat: "CUS" },
+  { id: "sp-cus-8", fr: "Voici l'adresse de mon hôtel", en: "Here's my hotel address", tip: '"heerz my hoh-TEL uh-DRESS"', cat: "CUS" },
+  { id: "sp-cus-9", fr: "Je n'ai que des affaires personnelles", en: "I only have personal belongings", tip: '"eye OHN-lee hav PER-suh-nul bi-LONG-ingz"', cat: "CUS" },
+  { id: "sp-cus-10", fr: "Merci, bonne journée", en: "Thank you, have a good day", tip: '"thank yoo hav a gud day"', cat: "CUS" },
+
+  // --- Restaurant ---
+  { id: "sp-rest-1", fr: "Une table pour un, s'il vous plaît", en: "A table for one, please", tip: '"a TAY-bul for wun pleez"', cat: "REST" },
+  { id: "sp-rest-2", fr: "Je voudrais commander", en: "I'd like to order", tip: '"eyed lyk too OR-der"', cat: "REST" },
+  { id: "sp-rest-3", fr: "L'addition, s'il vous plaît", en: "The bill, please", tip: '"ze bil pleez"', cat: "REST" },
+  { id: "sp-rest-4", fr: "Est-ce que c'est épicé ?", en: "Is this spicy?", tip: '"iz this SPY-see"', cat: "REST" },
+  { id: "sp-rest-5", fr: "Je suis allergique aux fruits de mer", en: "I'm allergic to seafood", tip: '"eyem uh-LER-jik too SEE-food"', cat: "REST" },
+  { id: "sp-rest-6", fr: "Un verre d'eau, s'il vous plaît", en: "A glass of water, please", tip: '"a glass uv WAW-ter pleez"', cat: "REST" },
+  { id: "sp-rest-7", fr: "Sans porc, s'il vous plaît", en: "No pork, please", tip: '"noh pork pleez"', cat: "REST" },
+  { id: "sp-rest-8", fr: "C'est pour emporter", en: "It's to take away", tip: '"its too tayk uh-WAY"', cat: "REST" },
+  { id: "sp-rest-9", fr: "Pouvez-vous recommander un plat ?", en: "Can you recommend a dish?", tip: '"kan yoo rek-uh-MEND a dish"', cat: "REST" },
+  { id: "sp-rest-10", fr: "C'était délicieux, merci", en: "That was delicious, thank you", tip: '"that woz di-LISH-us"', cat: "REST" },
+
+  // --- Hôtel ---
+  { id: "sp-hotel-1", fr: "J'ai une réservation au nom de...", en: "I have a reservation under the name...", tip: '"eye hav a rez-er-VAY-shun"', cat: "HOTEL" },
+  { id: "sp-hotel-2", fr: "Est-ce que le petit-déjeuner est inclus ?", en: "Is breakfast included?", tip: '"iz BREK-fust in-KLOO-did"', cat: "HOTEL" },
+  { id: "sp-hotel-3", fr: "Pouvez-vous appeler un taxi ?", en: "Can you call a taxi?", tip: '"kan yoo kawl a TAK-see"', cat: "HOTEL" },
+  { id: "sp-hotel-4", fr: "Le wifi ne fonctionne pas", en: "The wifi isn't working", tip: '"ze WY-fy IZ-unt WUR-king"', cat: "HOTEL" },
+  { id: "sp-hotel-5", fr: "À quelle heure est le check-out ?", en: "What time is check-out?", tip: '"wot tym iz chek-owt"', cat: "HOTEL" },
+  { id: "sp-hotel-6", fr: "Puis-je avoir une autre clé ?", en: "Can I have another key?", tip: '"kan eye hav a-NUH-ther kee"', cat: "HOTEL" },
+  { id: "sp-hotel-7", fr: "La climatisation ne marche pas", en: "The air conditioning isn't working", tip: '"zi air kun-DISH-un-ing IZ-unt WUR-king"', cat: "HOTEL" },
+  { id: "sp-hotel-8", fr: "Pouvez-vous garder mes bagages ?", en: "Can you keep my luggage?", tip: '"kan yoo keep my LUG-ij"', cat: "HOTEL" },
+  { id: "sp-hotel-9", fr: "Je voudrais un réveil à 6h", en: "I'd like a wake-up call at 6am", tip: '"eyed lyk a WAYK-up kawl"', cat: "HOTEL" },
+  { id: "sp-hotel-10", fr: "Merci pour votre aide", en: "Thanks for your help", tip: '"thanks for yor help"', cat: "HOTEL" },
+
+  // --- Taxi / transport ---
+  { id: "sp-taxi-1", fr: "Pouvez-vous m'emmener à... ?", en: "Can you take me to...?", tip: '"kan yoo tayk mee too"', cat: "TAXI" },
+  { id: "sp-taxi-2", fr: "Combien ça coûte ?", en: "How much does it cost?", tip: '"haow much duz it kost"', cat: "TAXI" },
+  { id: "sp-taxi-3", fr: "Vous pouvez utiliser le compteur ?", en: "Can you use the meter?", tip: '"kan yoo yooz ze MEE-ter"', cat: "TAXI" },
+  { id: "sp-taxi-4", fr: "C'est encore loin ?", en: "Is it much further?", tip: '"iz it much FER-ther"', cat: "TAXI" },
+  { id: "sp-taxi-5", fr: "Pouvez-vous m'attendre ici ?", en: "Can you wait for me here?", tip: '"kan yoo wayt for mee heer"', cat: "TAXI" },
+  { id: "sp-taxi-6", fr: "Je suis un peu pressé", en: "I'm in a bit of a hurry", tip: '"eyem in a bit uv a HUR-ee"', cat: "TAXI" },
+  { id: "sp-taxi-7", fr: "Arrêtez-vous ici, s'il vous plaît", en: "Please stop here", tip: '"pleez stop heer"', cat: "TAXI" },
+  { id: "sp-taxi-8", fr: "Avez-vous la monnaie ?", en: "Do you have change?", tip: '"doo yoo hav chaynj"', cat: "TAXI" },
+  { id: "sp-taxi-9", fr: "C'est à quelle distance ?", en: "How far is it?", tip: '"haow far iz it"', cat: "TAXI" },
+  { id: "sp-taxi-10", fr: "Merci, gardez la monnaie", en: "Thanks, keep the change", tip: '"thanks keep ze chaynj"', cat: "TAXI" },
+
+  // --- Achats / shopping ---
+  { id: "sp-shop-1", fr: "Combien ça coûte ?", en: "How much is this?", tip: '"haow much iz this"', cat: "SHOP" },
+  { id: "sp-shop-2", fr: "Vous acceptez la carte bancaire ?", en: "Do you accept card?", tip: '"doo yoo uk-SEPT kard"', cat: "SHOP" },
+  { id: "sp-shop-3", fr: "Puis-je l'essayer ?", en: "Can I try it on?", tip: '"kan eye try it on"', cat: "SHOP" },
+  { id: "sp-shop-4", fr: "Vous avez une taille plus grande ?", en: "Do you have a bigger size?", tip: '"doo yoo hav a BIG-er syz"', cat: "SHOP" },
+  { id: "sp-shop-5", fr: "C'est trop cher", en: "It's too expensive", tip: '"its too ek-SPEN-siv"', cat: "SHOP" },
+  { id: "sp-shop-6", fr: "Vous pouvez faire un meilleur prix ?", en: "Can you do a better price?", tip: '"kan yoo doo a BET-er prys"', cat: "SHOP" },
+  { id: "sp-shop-7", fr: "Je regarde juste, merci", en: "I'm just looking, thanks", tip: '"eyem just LUK-ing thanks"', cat: "SHOP" },
+  { id: "sp-shop-8", fr: "Avez-vous un reçu ?", en: "Do you have a receipt?", tip: '"doo yoo hav a ri-SEET"', cat: "SHOP" },
+  { id: "sp-shop-9", fr: "Où sont les cabines d'essayage ?", en: "Where are the fitting rooms?", tip: '"wair ar ze FIT-ing roomz"', cat: "SHOP" },
+  { id: "sp-shop-10", fr: "Je le prends", en: "I'll take it", tip: '"eyel tayk it"', cat: "SHOP" },
+
+  // --- Urgence / santé ---
+  { id: "sp-emer-1", fr: "J'ai besoin d'un médecin", en: "I need a doctor", tip: '"eye need a DOK-ter"', cat: "EMER" },
+  { id: "sp-emer-2", fr: "Appelez une ambulance", en: "Call an ambulance", tip: '"kawl an AM-byoo-lans"', cat: "EMER" },
+  { id: "sp-emer-3", fr: "Je me suis blessé", en: "I've hurt myself", tip: '"eyev hurt my-SELF"', cat: "EMER" },
+  { id: "sp-emer-4", fr: "Où est la pharmacie la plus proche ?", en: "Where is the nearest pharmacy?", tip: '"wair iz ze NEER-est FAR-muh-see"', cat: "EMER" },
+  { id: "sp-emer-5", fr: "J'ai perdu mon passeport", en: "I've lost my passport", tip: '"eyev lost my PASS-port"', cat: "EMER" },
+  { id: "sp-emer-6", fr: "Pouvez-vous m'aider ?", en: "Can you help me?", tip: '"kan yoo help mee"', cat: "EMER" },
+  { id: "sp-emer-7", fr: "Appelez la police", en: "Call the police", tip: '"kawl ze puh-LEES"', cat: "EMER" },
+  { id: "sp-emer-8", fr: "Je ne me sens pas bien", en: "I don't feel well", tip: '"eye dohnt feel wel"', cat: "EMER" },
+  { id: "sp-emer-9", fr: "C'est une urgence", en: "It's an emergency", tip: '"its an i-MER-jen-see"', cat: "EMER" },
+  { id: "sp-emer-10", fr: "Où est l'hôpital le plus proche ?", en: "Where is the nearest hospital?", tip: '"wair iz ze NEER-est HOS-pi-tul"', cat: "EMER" },
+
+  // --- Social / politesse ---
+  { id: "sp-soc-1", fr: "Ravi de vous rencontrer", en: "Nice to meet you", tip: '"nys too meet yoo"', cat: "SOC" },
+  { id: "sp-soc-2", fr: "Comment se passe votre journée ?", en: "How's your day going?", tip: '"haowz yor day GOH-ing"', cat: "SOC" },
+  { id: "sp-soc-3", fr: "Merci pour votre aide", en: "Thanks for your help", tip: '"thanks for yor help"', cat: "SOC" },
+  { id: "sp-soc-4", fr: "Désolé pour le retard", en: "Sorry for being late", tip: '"SOR-ee for BEE-ing layt"', cat: "SOC" },
+  { id: "sp-soc-5", fr: "Bonne chance pour l'ouverture", en: "Good luck with the opening", tip: '"gud luk with zi OH-pen-ing"', cat: "SOC" },
+  { id: "sp-soc-6", fr: "À bientôt", en: "See you soon", tip: '"see yoo soon"', cat: "SOC" },
+  { id: "sp-soc-7", fr: "Comment ça se dit en anglais ?", en: "How do you say that in English?", tip: '"haow doo yoo say that in ING-lish"', cat: "SOC" },
+  { id: "sp-soc-8", fr: "Je vous en prie", en: "You're welcome", tip: '"yor WEL-kum"', cat: "SOC" },
+  { id: "sp-soc-9", fr: "Passez une bonne soirée", en: "Have a good evening", tip: '"hav a gud EEV-ning"', cat: "SOC" },
+  { id: "sp-soc-10", fr: "On se voit demain", en: "See you tomorrow", tip: '"see yoo tuh-MOR-oh"', cat: "SOC" },
+
+  // --- Survie générale ---
+  { id: "sp-gen-1", fr: "Je ne parle pas très bien anglais", en: "I don't speak English very well", tip: '"eye dohnt speek ING-lish VER-ee wel"', cat: "GEN" },
+  { id: "sp-gen-2", fr: "Pouvez-vous répéter, s'il vous plaît ?", en: "Can you repeat that, please?", tip: '"kan yoo ri-PEET that pleez"', cat: "GEN" },
+  { id: "sp-gen-3", fr: "Pouvez-vous parler plus lentement ?", en: "Can you speak more slowly?", tip: '"kan yoo speek mor SLOH-lee"', cat: "GEN" },
+  { id: "sp-gen-4", fr: "Je ne comprends pas", en: "I don't understand", tip: '"eye dohnt un-der-STAND"', cat: "GEN" },
+  { id: "sp-gen-5", fr: "Où sont les toilettes ?", en: "Where is the restroom?", tip: '"wair iz ze REST-room"', cat: "GEN" },
+  { id: "sp-gen-6", fr: "Avez-vous du wifi ?", en: "Do you have wifi?", tip: '"doo yoo hav WY-fy"', cat: "GEN" },
+  { id: "sp-gen-7", fr: "Quelle heure est-il ?", en: "What time is it?", tip: '"wot tym iz it"', cat: "GEN" },
+  { id: "sp-gen-8", fr: "Pouvez-vous me montrer sur la carte ?", en: "Can you show me on the map?", tip: '"kan yoo shoh mee on ze map"', cat: "GEN" },
+  { id: "sp-gen-9", fr: "C'est par où ?", en: "Which way is it?", tip: '"wich way iz it"', cat: "GEN" },
+  { id: "sp-gen-10", fr: "Je suis perdu", en: "I'm lost", tip: '"eyem lost"', cat: "GEN" },
+]
