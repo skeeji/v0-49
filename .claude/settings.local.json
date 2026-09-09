@@ -6,7 +6,29 @@
       "Bash(npx tsc:*)",
       "Bash(npm run *)",
       "Bash(echo \"EXIT_CODE=$?\")",
-      "Bash(sed -E 's/.*client\\\\.db\\\\\\(\\([^\\)]*\\)\\\\\\).*/\\\\1/')"
+      "Bash(sed -E 's/.*client\\\\.db\\\\\\(\\([^\\)]*\\)\\\\\\).*/\\\\1/')",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(npx next *)",
+      "Bash(node apply-tips.js \"C:\\\\Users\\\\quent\\\\Desktop\\\\CLAUDE\\\\VO\\\\app\\\\admin\\\\english-coach\\\\extra-vocab.json\")",
+      "Skill(claude-api)",
+      "Bash(node -e ' *)",
+      "WebFetch(domain:support.google.com)",
+      "WebFetch(domain:issues.chromium.org)",
+      "Bash(node *)",
+      "Bash(git fetch *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npx eslint *)",
+      "Bash(jobs -l)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000 --max-time 2)",
+      "Bash(curl *)",
+      "Bash(git check-ignore *)",
+      "Bash(npx kill-port *)",
+      "Bash(echo \"tsc exit: $?\")",
+      "Bash(xargs -I{} sh -c 'echo ===={}====; head -5 \"{}\"')",
+      "Bash(git -C \"C:\\\\Users\\\\quent\\\\Desktop\\\\CLAUDE\\\\VO\" log --oneline -- app/admin/english-coach/hooks/useVocabPlayer.ts)"
     ]
   }
 }

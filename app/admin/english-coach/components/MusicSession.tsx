@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react"
 import styles from "../coach.module.css"
 import { CAT_LABELS } from "../data"
+import { SURVIVAL_PHRASES } from "../survival-data"
 import { useVocabPlayer } from "../hooks/useVocabPlayer"
 import { useBackgroundMusic } from "../hooks/useBackgroundMusic"
 import type { Word, WordCategory } from "../types"
@@ -11,11 +12,29 @@ interface MusicSessionProps {
   words: Word[]
 }
 
-interface ThemeGroup {
-  code: WordCategory
-  label: string
-  words: Word[]
+// Forme minimale utilisée par cette piste (id/fr/en/tip) — suffisante pour
+// piloter le lecteur et l'affichage, satisfaite aussi bien par Word
+// (data.ts) que par SurvivalPhrase (survival-data.ts).
+interface MusicItem {
+  id: string
+  fr: string
+  en: string
+  tip: string
 }
+
+interface ThemeGroup {
+  code: string
+  label: string
+  unit: string
+  words: MusicItem[]
+}
+
+// Piste dédiée "chantier & manager" : reprend les phrases ELEC + MGR du
+// phrasebook de survie (survival-data.ts, déjà réservées aux deux
+// interlocuteurs les plus fréquents sur site) pour les écouter en boucle
+// comme les autres thèmes, plutôt que de les retaper — largement au-dessus
+// du minimum de 30 phrases utile visé ici.
+const SITE_MANAGER_PHRASES: MusicItem[] = SURVIVAL_PHRASES.filter((p) => p.cat === "ELEC" || p.cat === "MGR")
 
 export function MusicSession({ words }: MusicSessionProps) {
   const { state, play, pause, resume } = useVocabPlayer()
@@ -26,11 +45,19 @@ export function MusicSession({ words }: MusicSessionProps) {
   const bgMusic = useBackgroundMusic()
 
   const themes: ThemeGroup[] = useMemo(() => {
-    return (Object.keys(CAT_LABELS) as WordCategory[]).map((code) => ({
+    const vocabThemes: ThemeGroup[] = (Object.keys(CAT_LABELS) as WordCategory[]).map((code) => ({
       code,
       label: CAT_LABELS[code],
+      unit: "mots",
       words: words.filter((w) => w.cat === code),
     }))
+    const siteManagerTheme: ThemeGroup = {
+      code: "SITE_MGR",
+      label: "Chantier & manager (phrases utiles)",
+      unit: "phrases",
+      words: SITE_MANAGER_PHRASES,
+    }
+    return [siteManagerTheme, ...vocabThemes]
   }, [words])
 
   const activeTheme = themes.find((t) => t.code === state.activeThemeId) || null
@@ -87,7 +114,7 @@ export function MusicSession({ words }: MusicSessionProps) {
             <div key={theme.code} className={`${styles.themeItem} ${isActive ? styles.themeItemActive : ""}`}>
               <div className={styles.themeItemHeader}>
                 <div className={`${styles.themeItemTitle} ${styles.display}`}>{theme.label}</div>
-                <div className={styles.badge}>{theme.words.length} mots</div>
+                <div className={styles.badge}>{theme.words.length} {theme.unit}</div>
               </div>
               <button
                 className={`${styles.action} ${styles.primary}`}
