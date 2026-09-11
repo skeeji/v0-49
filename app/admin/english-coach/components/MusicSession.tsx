@@ -4,8 +4,10 @@ import { useEffect, useMemo } from "react"
 import styles from "../coach.module.css"
 import { CAT_LABELS } from "../data"
 import { SURVIVAL_PHRASES } from "../survival-data"
+import { PRECISE_SITE_PHRASES } from "../precise-phrases-data"
 import { useVocabPlayer } from "../hooks/useVocabPlayer"
 import { useBackgroundMusic } from "../hooks/useBackgroundMusic"
+import { useFavorites } from "../hooks/useFavorites"
 import type { Word, WordCategory } from "../types"
 
 interface MusicSessionProps {
@@ -36,6 +38,11 @@ interface ThemeGroup {
 // du minimum de 30 phrases utile visé ici.
 const SITE_MANAGER_PHRASES: MusicItem[] = SURVIVAL_PHRASES.filter((p) => p.cat === "ELEC" || p.cat === "MGR")
 
+// Piste "phrases techniques précises" : réglages/lux/ambiances du chantier DIOR
+// (Doha/Abu Dhabi), formulées mot pour mot plutôt qu'en vocabulaire générique —
+// complémentaire de la piste Chantier & manager ci-dessus (voir precise-phrases-data.ts).
+const PRECISE_SITE_MUSIC_PHRASES: MusicItem[] = PRECISE_SITE_PHRASES
+
 export function MusicSession({ words }: MusicSessionProps) {
   const { state, play, pause, resume } = useVocabPlayer()
   // Piste de fond Tone.js : totalement séparée du séquenceur de mots ci-dessus
@@ -43,6 +50,9 @@ export function MusicSession({ words }: MusicSessionProps) {
   // les synchronise de l'extérieur, au niveau session (démarrage/pause/fin),
   // jamais au niveau mot à mot.
   const bgMusic = useBackgroundMusic()
+  // Coeur -> Fiche mémo : favoris purement côté appareil (voir useFavorites),
+  // indépendants de la progression/mastery des Flashcards.
+  const { isFavorite, toggleFavorite } = useFavorites()
 
   const themes: ThemeGroup[] = useMemo(() => {
     const vocabThemes: ThemeGroup[] = (Object.keys(CAT_LABELS) as WordCategory[]).map((code) => ({
@@ -57,7 +67,13 @@ export function MusicSession({ words }: MusicSessionProps) {
       unit: "phrases",
       words: SITE_MANAGER_PHRASES,
     }
-    return [siteManagerTheme, ...vocabThemes]
+    const preciseSiteTheme: ThemeGroup = {
+      code: "SITE_PRECISE",
+      label: "Réglages précis chantier DIOR (lux, ambiances)",
+      unit: "phrases",
+      words: PRECISE_SITE_MUSIC_PHRASES,
+    }
+    return [siteManagerTheme, preciseSiteTheme, ...vocabThemes]
   }, [words])
 
   const activeTheme = themes.find((t) => t.code === state.activeThemeId) || null
@@ -148,6 +164,15 @@ export function MusicSession({ words }: MusicSessionProps) {
 
           {(state.status === "playing" || state.status === "paused") && currentWord && (
             <div className={styles.musicWordStage}>
+              <button
+                type="button"
+                className={`${styles.heartBtn} ${isFavorite(currentWord.id) ? styles.heartBtnActive : ""}`}
+                onClick={() => toggleFavorite(currentWord)}
+                title={isFavorite(currentWord.id) ? "Retirer de la Fiche mémo" : "Ajouter à la Fiche mémo"}
+                aria-label={isFavorite(currentWord.id) ? "Retirer de la Fiche mémo" : "Ajouter à la Fiche mémo"}
+              >
+                {isFavorite(currentWord.id) ? "❤️" : "🤍"}
+              </button>
               <div className={`${styles.musicWordFr} ${state.sub === "fr" ? styles.musicWordActive : ""}`}>{currentWord.fr}</div>
               <div className={`${styles.musicWordEn} ${styles.display} ${state.sub === "en" ? styles.musicWordActive : ""}`}>
                 {currentWord.en}

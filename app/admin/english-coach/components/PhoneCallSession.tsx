@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react"
 import styles from "../coach.module.css"
 import { SCENARIOS, ROLEPLAY_TOPICS } from "../data"
 import { useSpeechRecognition, speak, cancelSpeech } from "../hooks/useSpeech"
+import { useCallHistory, type CallHistoryLine } from "../hooks/useCallHistory"
 import { HoverWord } from "./HoverWord"
 import type { PhoneCallCoachResponse, Scenario, ScenarioPart } from "../types"
 
 // "full_day" enchaîne douane → électricien → manager en un seul appel continu,
 // comme le "Parcours complet (Jour J-2)" du roleplay (voir SCENARIOS.full_day).
-const CALLABLE_SCENARIOS = ["customs", "electrician", "manager", "full_day"]
+const CALLABLE_SCENARIOS = ["customs", "electrician", "manager", "manager_checkin", "full_day"]
 
 // Même tirage que le roleplay (voir RoleplaySession.pickTopics) : sans lui,
 // l'appel n'avait que le `context` figé du scénario comme boussole — ce qui
@@ -36,7 +37,7 @@ function getParts(scenario: Scenario, key: string): ScenarioPart[] {
 }
 
 type LogEntry =
-  | { type: "bubble"; isUser: boolean; line: string; fr?: string; correction_fr?: string | null; who?: string }
+  | { type: "bubble"; isUser: boolean; line: string; fr?: string; correction_fr?: string | null; who?: string; voice?: string }
   | { type: "transition"; text: string }
 
 export function PhoneCallSession() {
@@ -48,6 +49,9 @@ export function PhoneCallSession() {
   const [error, setError] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Set<number>>(new Set())
   const [fallbackText, setFallbackText] = useState("")
+  const [showHistory, setShowHistory] = useState(false)
+  const [openHistoryId, setOpenHistoryId] = useState<string | null>(null)
+  const { history, saveCall, removeCall } = useCallHistory()
   const askedQuestions = useRef<string[]>([])
   const lastQuestion = useRef<string>("")
   const callActiveRef = useRef(false)
@@ -67,6 +71,10 @@ export function PhoneCallSession() {
   const partIndexRef = useRef(0)
   const turnInPartRef = useRef(0)
   const turnsTargetRef = useRef<number>(pickTurnsTarget())
+  // Miroir de `log` lisible de façon synchrone dans hangUp()/advanceToNextPart()
+  // (même raison que les autres refs ci-dessus : ces fonctions peuvent capturer
+  // une closure plus ancienne que le dernier setLog()).
+  const logRef = useRef<LogEntry[]>([])
 
   const { listening, micReady, error: micError, supported: micSupported, startListening, stopListening, prewarm } =
     useSpeechRecognition()
@@ -79,6 +87,22 @@ export function PhoneCallSession() {
   useEffect(() => {
     dialogueRef.current?.scrollTo({ top: dialogueRef.current.scrollHeight, behavior: "smooth" })
   }, [log])
+
+  useEffect(() => {
+    logRef.current = log
+  }, [log])
+
+  // Sauvegarde l'appel en cours dans l'historique (voir useCallHistory) — appelé
+  // à la fois sur raccroché manuel (hangUp) et en fin naturelle d'un parcours
+  // multi-parties (advanceToNextPart). Ignore les bulles de transition, non
+  // pertinentes à rejouer.
+  const saveCurrentCallToHistory = () => {
+    if (!scenarioKey) return
+    const lines: CallHistoryLine[] = logRef.current
+      .filter((e): e is Extract<LogEntry, { type: "bubble" }> => e.type === "bubble")
+      .map((e) => ({ isUser: e.isUser, line: e.line, fr: e.fr, who: e.who, voice: e.voice }))
+    saveCall(SCENARIOS[scenarioKey].title, lines)
+  }
 
   // Libère le micro si l'utilisateur quitte l'écran d'appel en cours de
   // pré-chauffage ou d'écoute (ex : navigation ailleurs sans raccrocher).
@@ -110,7 +134,10 @@ export function PhoneCallSession() {
   const askNext = (question: string, questionFr?: string, perfMark?: number) => {
     console.log(`[phone-call] askNext("${question}") — callActive=${callActiveRef.current}`)
     lastQuestion.current = question
-    setLog((l) => [...l, { type: "bubble", isUser: false, line: question, fr: questionFr, who: activeScenarioRef.current?.who }])
+    setLog((l) => [
+      ...l,
+      { type: "bubble", isUser: false, line: question, fr: questionFr, who: activeScenarioRef.current?.who, voice: activeScenarioRef.current?.voice },
+    ])
     setSpeaking(true)
     // Réchauffe la reconnaissance vocale dès le début de la question posée à
     // voix haute : le temps que speak() joue l'audio (plusieurs secondes)
@@ -182,6 +209,7 @@ export function PhoneCallSession() {
       setCallActive(false)
       setSpeaking(false)
       stopListening()
+      saveCurrentCallToHistory()
       return
     }
     const nextPart = partsRef.current[nextPartIndex]
@@ -315,6 +343,7 @@ export function PhoneCallSession() {
     setSpeaking(false)
     stopListening()
     cancelSpeech()
+    saveCurrentCallToHistory()
   }
 
   const backToPicker = () => {
@@ -343,6 +372,78 @@ export function PhoneCallSession() {
           })}
         </div>
         {error && <div className={styles.errorText}>{error}</div>}
+
+        <div className={styles.row} style={{ marginTop: 18 }}>
+          <button className={styles.action} onClick={() => setShowHistory((v) => !v)}>
+            {showHistory ? "▲ Masquer l'historique" : `📜 Historique des appels (${history.length})`}
+          </button>
+        </div>
+
+        {showHistory && (
+          <div className={styles.recapList} style={{ marginTop: 10 }}>
+            {history.length === 0 && (
+              <div className={styles.muted} style={{ fontSize: 13 }}>
+                Aucun appel terminé pour l'instant.
+              </div>
+            )}
+            {history.map((call) => {
+              const isOpen = openHistoryId === call.id
+              return (
+                <div key={call.id} className={styles.recapItem}>
+                  <div
+                    className={styles.recapItemRow}
+                    style={{ cursor: "pointer", justifyContent: "space-between" }}
+                    onClick={() => setOpenHistoryId(isOpen ? null : call.id)}
+                  >
+                    <div>
+                      <div className={styles.recapItemWord}>{call.scenarioTitle}</div>
+                      <span className={styles.muted}>
+                        {new Date(call.timestamp).toLocaleString("fr-FR")} — {call.lines.length} répliques
+                      </span>
+                    </div>
+                    <span className={styles.muted}>{isOpen ? "▲" : "▼"}</span>
+                  </div>
+
+                  {isOpen && (
+                    <>
+                      <div className={styles.phoneDialogueLog} style={{ maxHeight: 260, marginTop: 8 }}>
+                        {call.lines.map((l, i) => (
+                          <div key={i} className={`${styles.bubble} ${l.isUser ? styles.bubbleMe : styles.bubbleThem}`}>
+                            <div className={styles.bubbleWho}>{l.isUser ? "Toi" : l.who || "Correspondant"}</div>
+                            {l.isUser ? l.line : <HoverWord fr={l.fr || ""}>{l.line}</HoverWord>}
+                            {!l.isUser && l.voice && (
+                              <button
+                                className={`${styles.resetLink} ${styles.phoneRevealBtn}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  speak(l.line, l.voice!)
+                                }}
+                              >
+                                🔊 Réécouter
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className={styles.row} style={{ marginTop: 8 }}>
+                        <button
+                          className={styles.action}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeCall(call.id)
+                            if (isOpen) setOpenHistoryId(null)
+                          }}
+                        >
+                          🗑️ Supprimer cet appel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     )
   }

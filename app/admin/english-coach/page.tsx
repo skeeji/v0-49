@@ -8,15 +8,17 @@ import { FlashcardSession } from "./components/FlashcardSession"
 import { RoleplaySession } from "./components/RoleplaySession"
 import { PhoneCallSession } from "./components/PhoneCallSession"
 import { SurvivalPhrasesSession } from "./components/SurvivalPhrasesSession"
+import { NumbersSession } from "./components/NumbersSession"
 import { Dictionary } from "./components/Dictionary"
 import { ProgressDashboard } from "./components/ProgressDashboard"
 import { MusicSession } from "./components/MusicSession"
+import { MemoSheetSession } from "./components/MemoSheetSession"
 import { useWakeLock } from "./hooks/useWakeLock"
 import type { ProgressRow, Word } from "./types"
 
 const TARGET_DATE = new Date("2026-08-20T00:00:00")
 
-type Tab = "flash" | "role" | "phone" | "survival" | "dico" | "music" | "progress"
+type Tab = "flash" | "numbers" | "role" | "phone" | "survival" | "dico" | "music" | "memo" | "progress"
 
 function daysLeft(): number {
   const diff = TARGET_DATE.getTime() - Date.now()
@@ -32,7 +34,9 @@ function CoachApp() {
   // Garde l'écran allumé sur les sessions "mains libres" (cartes, jeu de rôle,
   // appel, musique) — pas sur le dictionnaire ni la progression, consultés
   // ponctuellement plutôt que suivis en continu.
-  useWakeLock(tab === "flash" || tab === "role" || tab === "phone" || tab === "survival" || tab === "music")
+  useWakeLock(
+    tab === "flash" || tab === "numbers" || tab === "role" || tab === "phone" || tab === "survival" || tab === "music",
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -110,11 +114,13 @@ function CoachApp() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "flash", label: "Flashcards" },
+    { key: "numbers", label: "Chiffres" },
     { key: "role", label: "Jeu de rôle" },
     { key: "phone", label: "Appel" },
     { key: "survival", label: "Phrases utiles" },
     { key: "dico", label: "Dictionnaire" },
     { key: "music", label: "Musique" },
+    { key: "memo", label: "Fiche mémo" },
     { key: "progress", label: "Progression" },
   ]
 
@@ -158,11 +164,13 @@ function CoachApp() {
                   onSessionTick={() => setSessions((s) => s + 1)}
                 />
               )}
+              {tab === "numbers" && <NumbersSession />}
               {tab === "role" && <RoleplaySession />}
               {tab === "phone" && <PhoneCallSession />}
               {tab === "survival" && <SurvivalPhrasesSession />}
               {tab === "dico" && <Dictionary words={words} onAddWord={handleAddWord} />}
               {tab === "music" && <MusicSession words={words} />}
+              {tab === "memo" && <MemoSheetSession />}
               {tab === "progress" && (
                 <ProgressDashboard words={words} sessions={sessions} daysLeft={daysLeft()} onReset={handleReset} />
               )}

@@ -181,6 +181,20 @@ export const SCENARIOS: Record<string, Scenario> = {
       { en: "There's a reflection on the showcase glass, it's distracting. Can we solve that today?", fr: "Il y a un reflet sur le verre de la vitrine, c'est gênant. On peut régler ça aujourd'hui ?" },
     ],
   },
+  manager_checkin: {
+    title: "Manager (échange perso/pro)",
+    icon: "☕",
+    context: "Friendly, relaxed brand manager checking in with the lighting technician in Dubai — mostly about the lighting ambience, ongoing adjustments, fine-tuning, arriving on site (where are you, meeting time tomorrow), and a mix of personal and professional small talk (offering coffee, asking about the flight, how the day went) rather than an urgent complaint",
+    who: "Brand Manager",
+    // Même personnage que le manager stressé (cohérence de voix), mais un appel
+    // au ton posé et amical plutôt qu'une urgence.
+    voice: "en-GB-RyanNeural",
+    openingLines: [
+      { en: "Hey, how did your flight go? Are you settled in?", fr: "Salut, comment s'est passé ton vol ? Tu es bien installé ?" },
+      { en: "Where are you right now? Should we meet on site tomorrow morning?", fr: "Où es-tu en ce moment ? On se retrouve sur le chantier demain matin ?" },
+      { en: "Would you like a coffee when you get here? How's the lighting ambience looking so far?", fr: "Tu veux un café quand tu arrives ? L'ambiance lumineuse, ça donne quoi pour l'instant ?" },
+    ],
+  },
   full_day: {
     title: "Parcours complet (Jour J-2)",
     icon: "🗓️",

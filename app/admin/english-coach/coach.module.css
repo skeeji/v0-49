@@ -609,6 +609,86 @@
   transform: scale(1.04);
 }
 
+/* Bouton coeur (favoris -> Fiche mémo), affiché au-dessus du mot en cours de
+   lecture dans Musique. */
+.heartBtn {
+  display: block;
+  margin: 0 auto 6px;
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.heartBtn:hover {
+  opacity: 0.75;
+}
+.heartBtnActive {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* Fiche mémo (Musique -> coeur) : liste compacte des phrases favorites,
+   imprimable indépendamment du reste de la page (voir .printArea). */
+.memoList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.memoItem {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.memoItemText {
+  flex: 1;
+}
+.memoItemFr {
+  font-size: 13px;
+  color: var(--muted);
+}
+.memoItemEn {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 2px;
+}
+.memoItemTip {
+  font-size: 12px;
+  color: var(--cyan);
+  margin-top: 2px;
+}
+.memoItemActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+@media print {
+  :global(body) * {
+    visibility: hidden;
+  }
+  .printArea,
+  .printArea * {
+    visibility: visible;
+  }
+  .printArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .memoItemActions {
+    display: none;
+  }
+}
+
 .loading {
   text-align: center;
   padding: 60px 0;
