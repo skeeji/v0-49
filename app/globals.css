@@ -156,3 +156,26 @@
     padding-bottom: 0;
   }
 }
+
+/* Impression d'une zone isolée (ex. fiche mémo du coach anglais) : tout le
+   reste de la page est masqué, seul .print-area reste visible et remonté
+   en haut de la feuille. .print-hide masque des éléments d'action internes
+   à cette zone (ex. boutons) qui n'ont pas de sens à l'impression. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .print-hide {
+    display: none;
+  }
+}

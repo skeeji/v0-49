@@ -38,7 +38,7 @@ export function MemoSheetSession() {
         </button>
       </div>
 
-      <div className={`${styles.memoList} ${styles.printArea}`}>
+      <div className={`${styles.memoList} print-area`}>
         {favorites.map((item) => (
           <div key={item.id} className={styles.memoItem}>
             <div className={styles.memoItemText}>
@@ -46,7 +46,7 @@ export function MemoSheetSession() {
               <div className={styles.memoItemEn}>{item.en}</div>
               <div className={styles.memoItemTip}>{item.tip}</div>
             </div>
-            <div className={styles.memoItemActions}>
+            <div className={`${styles.memoItemActions} print-hide`}>
               <button className={styles.action} onClick={() => speak(item.en, READ_VOICE)} title="Écouter">
                 🔊
               </button>

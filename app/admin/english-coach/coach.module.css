@@ -631,7 +631,8 @@
 }
 
 /* Fiche mémo (Musique -> coeur) : liste compacte des phrases favorites,
-   imprimable indépendamment du reste de la page (voir .printArea). */
+   imprimable indépendamment du reste de la page (voir la classe globale
+   "print-area" posée en JSX et les règles @media print dans globals.css). */
 .memoList {
   display: flex;
   flex-direction: column;
@@ -670,25 +671,11 @@
   flex-shrink: 0;
 }
 
-@media print {
-  :global(body) * {
-    visibility: hidden;
-  }
-  .printArea,
-  .printArea * {
-    visibility: visible;
-  }
-  .printArea {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-  }
-  .memoItemActions {
-    display: none;
-  }
-}
-
+/* Le reset "cacher tout sauf .print-area" ne peut pas vivre ici : en CSS
+   Modules (mode "pure"), un sélecteur composé uniquement d'éléments globaux
+   (ex. body *) est refusé même entouré de :global(). Les classes globales
+   stables (print-area, print-hide) sont posées directement en JSX ; les
+   règles @media print correspondantes sont dans app/globals.css. */
 .loading {
   text-align: center;
   padding: 60px 0;
