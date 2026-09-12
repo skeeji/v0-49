@@ -5,6 +5,9 @@ import styles from "../coach.module.css"
 import { CAT_LABELS } from "../data"
 import { SURVIVAL_PHRASES } from "../survival-data"
 import { PRECISE_SITE_PHRASES } from "../precise-phrases-data"
+import { NUMBER_PHRASES } from "../numbers-data"
+import { LINKING_WORD_PHRASES } from "../linking-words-data"
+import { PREPOSITION_PHRASES } from "../prepositions-data"
 import { useVocabPlayer } from "../hooks/useVocabPlayer"
 import { useBackgroundMusic } from "../hooks/useBackgroundMusic"
 import { useFavorites } from "../hooks/useFavorites"
@@ -43,6 +46,14 @@ const SITE_MANAGER_PHRASES: MusicItem[] = SURVIVAL_PHRASES.filter((p) => p.cat =
 // complémentaire de la piste Chantier & manager ci-dessus (voir precise-phrases-data.ts).
 const PRECISE_SITE_MUSIC_PHRASES: MusicItem[] = PRECISE_SITE_PHRASES
 
+// Pistes "Chiffres", "Linking words" et "Prépositions" : reprennent tel quel
+// le phrasebook dédié de chaque mode Entraînement (numbers-data.ts,
+// linking-words-data.ts, prepositions-data.ts) pour les réécouter en boucle,
+// comme les autres thèmes ci-dessus.
+const NUMBERS_MUSIC_PHRASES: MusicItem[] = NUMBER_PHRASES
+const LINKING_WORDS_MUSIC_PHRASES: MusicItem[] = LINKING_WORD_PHRASES
+const PREPOSITIONS_MUSIC_PHRASES: MusicItem[] = PREPOSITION_PHRASES
+
 export function MusicSession({ words }: MusicSessionProps) {
   const { state, play, pause, resume } = useVocabPlayer()
   // Piste de fond Tone.js : totalement séparée du séquenceur de mots ci-dessus
@@ -73,7 +84,25 @@ export function MusicSession({ words }: MusicSessionProps) {
       unit: "phrases",
       words: PRECISE_SITE_MUSIC_PHRASES,
     }
-    return [siteManagerTheme, preciseSiteTheme, ...vocabThemes]
+    const numbersTheme: ThemeGroup = {
+      code: "NUMBERS",
+      label: "Chiffres (lux, %, dimensions, heures...)",
+      unit: "phrases",
+      words: NUMBERS_MUSIC_PHRASES,
+    }
+    const linkingWordsTheme: ThemeGroup = {
+      code: "LINKING_WORDS",
+      label: "Linking words (connecteurs logiques)",
+      unit: "phrases",
+      words: LINKING_WORDS_MUSIC_PHRASES,
+    }
+    const prepositionsTheme: ThemeGroup = {
+      code: "PREPOSITIONS",
+      label: "Prépositions de lieu",
+      unit: "phrases",
+      words: PREPOSITIONS_MUSIC_PHRASES,
+    }
+    return [siteManagerTheme, preciseSiteTheme, numbersTheme, linkingWordsTheme, prepositionsTheme, ...vocabThemes]
   }, [words])
 
   const activeTheme = themes.find((t) => t.code === state.activeThemeId) || null

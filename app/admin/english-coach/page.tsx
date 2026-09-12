@@ -9,6 +9,8 @@ import { RoleplaySession } from "./components/RoleplaySession"
 import { PhoneCallSession } from "./components/PhoneCallSession"
 import { SurvivalPhrasesSession } from "./components/SurvivalPhrasesSession"
 import { NumbersSession } from "./components/NumbersSession"
+import { LinkingWordsSession } from "./components/LinkingWordsSession"
+import { PrepositionsSession } from "./components/PrepositionsSession"
 import { Dictionary } from "./components/Dictionary"
 import { ProgressDashboard } from "./components/ProgressDashboard"
 import { MusicSession } from "./components/MusicSession"
@@ -18,7 +20,7 @@ import type { ProgressRow, Word } from "./types"
 
 const TARGET_DATE = new Date("2026-08-20T00:00:00")
 
-type Tab = "flash" | "numbers" | "role" | "phone" | "survival" | "dico" | "music" | "memo" | "progress"
+type Tab = "flash" | "numbers" | "linking" | "prepositions" | "role" | "phone" | "survival" | "dico" | "music" | "memo" | "progress"
 
 function daysLeft(): number {
   const diff = TARGET_DATE.getTime() - Date.now()
@@ -35,7 +37,14 @@ function CoachApp() {
   // appel, musique) — pas sur le dictionnaire ni la progression, consultés
   // ponctuellement plutôt que suivis en continu.
   useWakeLock(
-    tab === "flash" || tab === "numbers" || tab === "role" || tab === "phone" || tab === "survival" || tab === "music",
+    tab === "flash" ||
+      tab === "numbers" ||
+      tab === "linking" ||
+      tab === "prepositions" ||
+      tab === "role" ||
+      tab === "phone" ||
+      tab === "survival" ||
+      tab === "music",
   )
 
   useEffect(() => {
@@ -115,6 +124,8 @@ function CoachApp() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "flash", label: "Flashcards" },
     { key: "numbers", label: "Chiffres" },
+    { key: "linking", label: "Linking words" },
+    { key: "prepositions", label: "Prépositions" },
     { key: "role", label: "Jeu de rôle" },
     { key: "phone", label: "Appel" },
     { key: "survival", label: "Phrases utiles" },
@@ -165,6 +176,8 @@ function CoachApp() {
                 />
               )}
               {tab === "numbers" && <NumbersSession />}
+              {tab === "linking" && <LinkingWordsSession />}
+              {tab === "prepositions" && <PrepositionsSession />}
               {tab === "role" && <RoleplaySession />}
               {tab === "phone" && <PhoneCallSession />}
               {tab === "survival" && <SurvivalPhrasesSession />}
